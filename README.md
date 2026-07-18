@@ -2,6 +2,8 @@
 
 **A local-first CBCT viewer with native AI-agent control.**
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21431452.svg)](https://doi.org/10.5281/zenodo.21431452)
+
 ![An AI agent driving CBCTScope over MCP on the built-in synthetic phantom: bone windowing, slice navigation, multi-slice grid, curved panoramic, airway segmentation, virtual cephalogram](docs/media/cbctscope-demo.gif)
 
 *Above: an agent driving the viewer through its MCP verbs in demo mode: window presets, slice navigation, grid, curved panoramic, region-grown airway, virtual cephalogram. Every frame was captured by the agent's own `snapshot` verb. The airway seed is placed by the human, not the agent: navigation belongs to the agent, the clinical act stays yours. The volume is the built-in synthetic phantom, so no patient data can appear, by construction.*

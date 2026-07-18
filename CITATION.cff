@@ -9,6 +9,7 @@ authors:
     website: "https://rezamotaghi.com"
 repository-code: "https://github.com/rezamotaghi/cbctscope"
 version: 1.0.0
+doi: 10.5281/zenodo.21431452
 license: AGPL-3.0-or-later
 keywords:
   - CBCT
