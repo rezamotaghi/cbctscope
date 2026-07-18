@@ -2,6 +2,10 @@
 
 **A local-first CBCT viewer with native AI-agent control.**
 
+![An AI agent driving CBCTScope over MCP on the built-in synthetic phantom: bone windowing, slice navigation, multi-slice grid, curved panoramic, virtual cephalogram](docs/media/cbctscope-demo.gif)
+
+*Above: an agent driving the viewer through its MCP verbs in demo mode. Every frame was captured by the agent's own `snapshot` verb; the volume is the built-in synthetic phantom, so no patient data can appear, by construction.*
+
 Open any local CBCT export and read it in eight purpose-built modes: MPR, multi-slice grid, curved panoramic, TMJ, freehand reslice, virtual cephalogram, region growing with airway analysis, and two-volume stitching. Your scan never leaves your computer. An AI agent can drive the whole viewer through a built-in [MCP](https://modelcontextprotocol.io) server: it opens scans, switches reading modes, sets the window, moves through slices, and takes snapshots. The agent moves the camera. The human reads.
 
 > **Research use only. Not a medical device.** CBCTScope visualizes and navigates volumes. It never produces findings, measurements-as-conclusions, or diagnoses, in the UI or over MCP. Do not use it for clinical decision-making.
