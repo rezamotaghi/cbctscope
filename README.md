@@ -80,7 +80,7 @@ Built on [Cornerstone3D](https://www.cornerstonejs.org/) and Next.js. All render
 
 ## Author
 
-Built by [Reza Motaghi](https://rezamotaghi.com/research), oral and maxillofacial radiologist. If you use CBCTScope in research, please cite it (see [CITATION.cff](CITATION.cff)).
+Built by [Dr. Reza Motaghi](https://rezamotaghi.com/research), oral and maxillofacial radiologist. If you use CBCTScope in research, please cite it (see [CITATION.cff](CITATION.cff)).
 
 ## License
 
