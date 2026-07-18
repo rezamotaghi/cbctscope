@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "CBCTScope: a local-first CBCT viewer with native AI-agent control"
+type: software
+authors:
+  - family-names: Motaghi
+    given-names: Reza
+    orcid: "https://orcid.org/0009-0005-3194-1879"
+    website: "https://rezamotaghi.com"
+repository-code: "https://github.com/rezamotaghi/cbctscope"
+license: AGPL-3.0-or-later
+keywords:
+  - CBCT
+  - cone-beam computed tomography
+  - DICOM
+  - medical imaging viewer
+  - dental radiology
+  - maxillofacial radiology
+  - Model Context Protocol
+  - MCP
+  - AI agents
+# A Zenodo DOI is minted at first public release; add the doi: field here then.

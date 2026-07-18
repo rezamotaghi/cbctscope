@@ -1,0 +1,14 @@
+# gitleaks config — extends the default rules with allowlists for known false positives.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Build output and non-secret constants"
+paths = [
+  '''\.next/''',
+  '''node_modules/''',
+]
+regexes = [
+  # localStorage key names for saved 3D presets — constants, not credentials
+  '''cbctscope-3d-(presets|default)-v1''',
+]

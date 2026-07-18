@@ -1,0 +1,25 @@
+# dependencies
+/node_modules
+
+# next.js build output
+/.next/
+/out/
+
+# generated
+next-env.d.ts
+*.tsbuildinfo
+
+# env / secrets
+.env*
+
+# belt-and-suspenders: never commit imaging, even accidentally dropped test exports
+*.dcm
+*.dicom
+DICOMDIR
+*.jpg
+*.jpeg
+
+# app-data must never enter the repo, even if CBCTSCOPE_DATA points inside it
+.cbctscope/
+source.json
+evidence/
