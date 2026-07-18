@@ -4,6 +4,7 @@
   "private": true,
   "description": "Local-first CBCT viewer with native AI-agent control (MCP). Research use only.",
   "license": "AGPL-3.0-or-later",
+  "author": "Dr. Reza Motaghi (https://rezamotaghi.com)",
   "scripts": {
     "dev": "next dev -H 127.0.0.1 --port 3810",
     "demo": "CBCTSCOPE_DEMO=1 next dev -H 127.0.0.1 --port 3810",

@@ -16,9 +16,8 @@ keywords:
   - cone-beam computed tomography
   - DICOM
   - medical imaging viewer
-  - dental radiology
-  - maxillofacial radiology
+  - oral and maxillofacial radiology
   - Model Context Protocol
   - MCP
   - AI agents
-# A Zenodo DOI is minted at first public release; add the doi: field here then.
+  - agent-native imaging

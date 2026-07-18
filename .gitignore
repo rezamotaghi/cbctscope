@@ -23,3 +23,9 @@ DICOMDIR
 .cbctscope/
 source.json
 evidence/
+
+# OS cruft
+.DS_Store
+
+# agent-harness local config
+.claude/
