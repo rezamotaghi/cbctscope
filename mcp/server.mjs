@@ -42,7 +42,7 @@ const text = (value) => ({
   content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) }],
 });
 
-const server = new McpServer({ name: 'cbctscope', version: '0.1.0' });
+const server = new McpServer({ name: 'cbctscope', version: '1.0.0' });
 
 server.registerTool(
   'open_scan',
