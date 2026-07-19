@@ -146,6 +146,8 @@ export default function CbctApp() {
   const [savedPresets, setSavedPresets] = useState<Saved3dPreset[]>([]);
   const [defaultPreset, setDefaultPreset] = useState<string | null>(null);
   const [presetName, setPresetName] = useState('');
+  /** a newer viewer tab took over the agent connection (single-viewer contract) */
+  const [agentEvicted, setAgentEvicted] = useState(false);
 
   // saved 3D presets: load once; if one is marked default, start with it applied
   useEffect(() => {
@@ -408,6 +410,7 @@ export default function CbctApp() {
       );
       return null;
     },
+    onEvicted: () => setAgentEvicted(true),
   });
 
   const btn = (active: boolean): React.CSSProperties => ({
@@ -421,6 +424,38 @@ export default function CbctApp() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      {agentEvicted && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: '8px 12px',
+            background: 'var(--warn)',
+            color: '#000',
+            fontSize: 13,
+          }}
+        >
+          <span>
+            Another viewer tab was opened and now holds the agent connection. This tab still
+            works by hand, but agent commands go to the newer tab.
+          </span>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              padding: '4px 10px',
+              borderRadius: 6,
+              border: '1px solid #000',
+              background: 'transparent',
+              color: '#000',
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            Reload to reclaim
+          </button>
+        </div>
+      )}
       <header
         style={{
           display: 'flex',

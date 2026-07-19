@@ -25,15 +25,29 @@ type Subscriber = (cmd: AgentCommand) => void;
 // Anchored on globalThis: Next.js may bundle each route with its own module instance, and
 // the SSE route and the command route must share one bus.
 interface BusState {
-  subscribers: Set<Subscriber>;
+  /** subscriber → its eviction hook (single-viewer contract: at most one entry) */
+  subscribers: Map<Subscriber, () => void>;
   pending: Map<string, Pending>;
 }
 const g = globalThis as typeof globalThis & { __cbctAgentBus?: BusState };
-const bus: BusState = (g.__cbctAgentBus ??= { subscribers: new Set(), pending: new Map() });
+const bus: BusState = (g.__cbctAgentBus ??= { subscribers: new Map(), pending: new Map() });
 const { subscribers, pending } = bus;
 
-export function subscribe(fn: Subscriber): () => void {
-  subscribers.add(fn);
+/**
+ * Single-viewer contract: the newest subscription IS the viewer. Subscribing evicts every
+ * earlier subscriber (its onEvict runs, so the stale tab is told and its stream closed).
+ * Without this, two open tabs would each execute every command and race their answers.
+ */
+export function subscribe(fn: Subscriber, onEvict: () => void = () => {}): () => void {
+  for (const [oldFn, evict] of [...subscribers]) {
+    subscribers.delete(oldFn);
+    try {
+      evict();
+    } catch {
+      /* stale stream already gone */
+    }
+  }
+  subscribers.set(fn, onEvict);
   return () => subscribers.delete(fn);
 }
 
@@ -57,7 +71,7 @@ export function dispatchCommand(
       resolve({ ok: false, error: `viewer did not answer within ${timeoutMs / 1000}s` });
     }, timeoutMs);
     pending.set(id, { resolve, timer });
-    for (const fn of subscribers) fn(cmd);
+    for (const fn of subscribers.keys()) fn(cmd);
   });
 }
 

@@ -58,6 +58,12 @@ volumetric) and the HU-based window presets (`Bone`, `Teeth`, `Soft`; a radiogra
 gray values are display-normalized 0-4095, not HU). `set_window_level` with
 `center`/`width`/`invert`, `snapshot`, and `reset_view` work unchanged.
 
+## One viewer at a time
+
+The command bus follows a single-viewer contract: the newest open viewer tab holds the
+agent connection. Opening a second tab evicts the first, which shows a banner and keeps
+working by hand; agent commands always go to exactly one tab, never race between two.
+
 ## A note on trust
 
 The agent can only do what a hand on the mouse could do: open, look, move, capture. Treat agent-written summaries of what it "saw" with the same skepticism you would apply to any unverified observer; the authoritative read is yours, on your screen.

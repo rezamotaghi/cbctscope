@@ -1,5 +1,7 @@
 // GET /api/agent/events — SSE stream of agent commands to the viewer UI. The browser
 // subscribes once on app start; each event is one JSON-encoded AgentCommand.
+// Single-viewer contract: a newer subscription evicts this one (the bus calls the evict
+// hook below), so the newest open tab is always the one the agent drives.
 import { NextRequest } from 'next/server';
 import { subscribe } from '@/lib/server/agentBus';
 
@@ -20,7 +22,19 @@ export async function GET(req: NextRequest) {
         }
       };
       send(': connected\n\n');
-      unsubscribe = subscribe((cmd) => send(`data: ${JSON.stringify(cmd)}\n\n`));
+      unsubscribe = subscribe(
+        (cmd) => send(`data: ${JSON.stringify(cmd)}\n\n`),
+        // evicted by a newer viewer tab: tell this tab, then close its stream
+        () => {
+          send('event: evicted\ndata: {}\n\n');
+          if (heartbeat) clearInterval(heartbeat);
+          try {
+            controller.close();
+          } catch {
+            /* already closed */
+          }
+        },
+      );
       heartbeat = setInterval(() => send(': ping\n\n'), 25_000);
       req.signal.addEventListener('abort', () => {
         unsubscribe?.();

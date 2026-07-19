@@ -11,6 +11,8 @@ export interface AgentHandlers {
   setViewMode: (mode: string) => string | null;
   setWindow: (patch: { center?: number; width?: number; preset?: string; invert?: boolean }) => string | null;
   resetView: (full: boolean) => string | null;
+  /** a newer viewer tab took over the agent connection (single-viewer contract) */
+  onEvicted?: () => void;
 }
 
 interface AgentCommand {
@@ -106,7 +108,17 @@ export function useAgentBridge(handlers: AgentHandlers) {
   ref.current = handlers;
 
   useEffect(() => {
+    // dead = this effect instance was cleaned up (unmount, or StrictMode's throwaway first
+    // mount). A late 'evicted' for a dead subscription must not flag the banner: the
+    // eviction came from this same tab's own replacement subscription, not a rival tab.
+    let dead = false;
     const es = new EventSource('/api/agent/events');
+    // a newer tab subscribed: this tab is no longer the viewer — stop listening for good
+    // (no auto-reconnect, which would evict the newer tab right back)
+    es.addEventListener('evicted', () => {
+      es.close();
+      if (!dead) ref.current.onEvicted?.();
+    });
     es.onmessage = async (msg) => {
       let cmd: AgentCommand;
       try {
@@ -181,6 +193,9 @@ export function useAgentBridge(handlers: AgentHandlers) {
         /* server gone — nothing to report to */
       }
     };
-    return () => es.close();
+    return () => {
+      dead = true;
+      es.close();
+    };
   }, []);
 }
