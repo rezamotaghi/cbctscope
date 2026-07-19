@@ -93,6 +93,8 @@ Start the viewer, open it in a browser, then register the MCP server with your a
 
 The agent gets eight verbs, all navigation or visualization: `open_scan`, `list_volumes`, `select_volume`, `set_view_mode`, `set_window_level`, `navigate_slice`, `snapshot`, `reset_view`. There is no code execution and no tool that returns an interpretation. Details and the full contract: [docs/mcp.md](docs/mcp.md).
 
+CBCTScope is one of a pair of agent-native instruments built on the same principle (bounded verbs for the agent, commit rights for the human); the other is [Quoin](https://github.com/rezamotaghi/quoin), a text editor for macOS where any agent may edit the buffer and only the human holds the save button. Both at [rezamotaghi.com](https://rezamotaghi.com).
+
 ## Development
 
 ```sh
@@ -113,3 +115,7 @@ Built by [Dr. Reza Motaghi](https://rezamotaghi.com/research), oral and maxillof
 
 [AGPL-3.0-or-later](LICENSE). Free to use, study, and modify. If you build a product or
 service on this code, its source must be open under the same terms.
+
+For uses the AGPL does not fit (closed-source products, commercial integration), a
+separate commercial license is available: reach me through the contact page at
+[rezamotaghi.com/contact](https://rezamotaghi.com/contact).
