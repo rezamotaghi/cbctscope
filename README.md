@@ -4,9 +4,23 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21431452.svg)](https://doi.org/10.5281/zenodo.21431452)
 
-![An AI agent driving CBCTScope over MCP on the built-in synthetic phantom: bone windowing, slice navigation, multi-slice grid, curved panoramic, airway segmentation, virtual cephalogram](docs/media/cbctscope-demo.gif)
+![An AI agent driving CBCTScope over MCP on the built-in synthetic phantom: window presets, slice navigation, multi-slice grid, curved panoramic with cross-sections](docs/media/cbctscope-demo.gif)
 
-*Above: an agent driving the viewer through its MCP verbs in demo mode: window presets, slice navigation, grid, curved panoramic, region-grown airway, virtual cephalogram. Every frame was captured by the agent's own `snapshot` verb. The airway seed is placed by the human, not the agent: navigation belongs to the agent, the clinical act stays yours. The volume is the built-in synthetic phantom, so no patient data can appear, by construction.*
+*Above: an agent driving the viewer in demo mode. Window preset, slice
+navigation, the multi-slice grid, and the mode switches are MCP verbs sent by
+the agent; the arch proposal and pano enhancement are the viewer's own
+one-click tools. Each frame is a capture of the full viewer window as the
+commands land. The volume is the built-in synthetic phantom, so no patient
+data can appear, by construction.*
+
+### The interface at a glance
+
+| MPR + 3D | Multi-slice grid | Curved panoramic |
+|---|---|---|
+| [![MPR: axial, sagittal, coronal and 3D render with crosshairs, HU windowing, slab and MIP controls](docs/media/thumb-mpr.png)](docs/media/thumb-mpr.png) | [![Grid: parallel axial slices with a sagittal scout, spacing and thickness controls](docs/media/thumb-grid.png)](docs/media/thumb-grid.png) | [![Pano: arch spline on the axial, curved panoramic, perpendicular cross-sections](docs/media/thumb-pano.png)](docs/media/thumb-pano.png) |
+
+Click any thumbnail for full resolution; the per-mode reading guides are in
+[docs/reading-modes](docs/reading-modes/).
 
 Open any local CBCT export and read it in eight purpose-built modes: MPR, multi-slice grid, curved panoramic, TMJ, freehand reslice, virtual cephalogram, region growing with airway analysis, and two-volume stitching. Your scan never leaves your computer. An AI agent can drive the whole viewer through a built-in [MCP](https://modelcontextprotocol.io) server: it opens scans, switches reading modes, sets the window, moves through slices, and takes snapshots. The agent moves the camera. The human reads.
 
