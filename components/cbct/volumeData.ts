@@ -5,7 +5,8 @@
 
 export interface CbctMeta {
   anon: string;
-  kind: 'mf' | 'slices';
+  /** 'mf' | 'slices' = CBCT volume · 'xray' = single 2D radiograph (dims [cols, rows, 1]) */
+  kind: 'mf' | 'slices' | 'xray';
   dims: [number, number, number]; // cols(x), rows(y), slices(z)
   spacing: [number, number, number];
   origin: [number, number, number];

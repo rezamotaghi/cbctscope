@@ -4,20 +4,23 @@
 // sees only display labels + technical geometry), and serving is contained to exactly the
 // scanned tree.
 //
-// Three export shapes are recognized, all normalized to the SAME browser contract
-// (Int16 HU voxels, x-fastest / y / z-ascending + geometry JSON), so the whole viewer works on
+// Four export shapes are recognized, all normalized to the SAME browser contract
+// (Int16 voxels, x-fastest / y / z-ascending + geometry JSON), so the whole viewer works on
 // an opened volume with zero client changes:
 //   - single multiframe file      one Enhanced-CT .dcm holding the whole volume
 //   - slice-per-file series       a folder of classic-CT axials (grouped by SeriesInstanceUID)
 //   - DICOMDIR trees              scanned by walking the files themselves (an export's index can
 //                                 be an extensionless file and its images extensionless too, so
 //                                 detection is by the DICM magic bytes, never by extension)
+//   - 2D radiographs (kind 'xray')  single-frame PX/DX/CR/IO files served as one-slice
+//                                 volumes on a normalized 0..4095 gray scale (see radiograph.ts)
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import dicomParser from 'dicom-parser';
 import { DEMO_MODE, SOURCE_STORE } from './config';
+import { normalizeRadiographFrame } from './radiograph';
 import {
   TAG,
   ippZ,
@@ -53,14 +56,20 @@ const XTAG = {
   sliceThickness: 'x00180050',
   sharedFG: 'x52009229',
   pixelMeasures: 'x00289110',
+  photometric: 'x00280004',
+  imagerPixelSpacing: 'x00181164',
 } as const;
 
 const UNCOMPRESSED_TS = new Set(['1.2.840.10008.1.2', '1.2.840.10008.1.2.1']);
 
+/** Single-frame 2D radiograph modalities the scanner accepts (panoramic, digital and
+ * computed radiography, intraoral). Same uncompressed-16-bit constraint as volumes. */
+const RADIOGRAPH_MODALITIES = new Set(['PX', 'DX', 'CR', 'IO']);
+
 export interface LocalCbctVolume {
   id: string; // local_<12 hex> — stable per (root, first file) so annotation sidecars survive reopen
-  kind: 'mf' | 'slices';
-  /** file paths RELATIVE to root ('mf' → exactly one) */
+  kind: 'mf' | 'slices' | 'xray';
+  /** file paths RELATIVE to root ('mf'/'xray' → exactly one) */
   files: string[];
   dims: [number, number, number];
   spacing: [number, number, number];
@@ -68,6 +77,8 @@ export interface LocalCbctVolume {
   label: string;
   year: string;
   signed: boolean;
+  /** 'xray' only: PhotometricInterpretation was MONOCHROME1 (flipped to MONOCHROME2 at assembly) */
+  mono1?: boolean;
 }
 
 export interface LocalCbctSource {
@@ -253,7 +264,8 @@ function scanTree(root: string, only?: string): ScanOut {
       const frames = Number(ds.string(TAG.frames) ?? 1) || 1;
       if (rows < 64 || cols < 64 || bits !== 16) continue; // thumbnails / 8-bit secondaries
       if (!UNCOMPRESSED_TS.has(ts)) {
-        if (frames >= MIN_MF_FRAMES || (ds.string(XTAG.modality) ?? 'CT') === 'CT') skippedCompressed++;
+        const m = ds.string(XTAG.modality) ?? 'CT';
+        if (frames >= MIN_MF_FRAMES || m === 'CT' || RADIOGRAPH_MODALITIES.has(m)) skippedCompressed++;
         continue; // the assembler reads raw pixels — compressed syntaxes are out of scope
       }
       const rel = path.relative(root, full);
@@ -279,8 +291,33 @@ function scanTree(root: string, only?: string): ScanOut {
         continue;
       }
 
-      // single-frame: CBCT axials are CT; everything else (PX/DX/IO scouts…) is not a volume
+      // single-frame: CBCT axials are CT and group into series below; PX/DX/CR/IO are
+      // openable 2D radiographs on the same contract (a one-slice volume); the rest is noise
       const modality = ds.string(XTAG.modality) ?? 'CT';
+      if (RADIOGRAPH_MODALITIES.has(modality)) {
+        // detector spacing: ImagerPixelSpacing is the honest tag for projection radiographs
+        // (PixelSpacing implies calibrated geometry); fall back to a nominal 0.1 mm so the
+        // image still opens when the export carries neither.
+        const spRaw =
+          Number((ds.string(XTAG.imagerPixelSpacing) ?? '').split('\\')[0]) ||
+          xySpacingOf(ds) ||
+          0.1;
+        const bytes = rows * cols * 2;
+        if (bytes > MAX_VOLUME_BYTES) continue;
+        volumes.push({
+          id: volumeId(root, rel),
+          kind: 'xray',
+          files: [rel],
+          dims: [cols, rows, 1],
+          spacing: [spRaw, spRaw, 1],
+          fov: [round1((cols * spRaw) / 10), round1((rows * spRaw) / 10)],
+          label: labelOf(root, rel),
+          year,
+          signed,
+          mono1: (ds.string(XTAG.photometric) ?? '').trim().toUpperCase() === 'MONOCHROME1',
+        });
+        continue;
+      }
       if (modality !== 'CT') continue;
       const key = ds.string(XTAG.seriesUid) ?? path.dirname(rel);
       const list = series.get(key) ?? [];
@@ -360,8 +397,10 @@ export function setLocalSource(
       if (!isDicomFile(p)) return { ok: false, error: 'not a DICOM file (or a compressed/foreign format)' };
       const ds = parseHead(p);
       const frames = Number(ds?.string(TAG.frames) ?? 1) || 1;
-      // a picked multiframe = open just that volume; a picked slice = open its whole series
-      if (frames >= MIN_MF_FRAMES) only = path.relative(root, p);
+      // a picked multiframe or radiograph = open just that file; a picked slice = open its
+      // whole series
+      const m = ds?.string(XTAG.modality) ?? 'CT';
+      if (frames >= MIN_MF_FRAMES || RADIOGRAPH_MODALITIES.has(m)) only = path.relative(root, p);
     }
   } else {
     return { ok: false, error: 'not a folder or file' };
@@ -381,7 +420,7 @@ export function setLocalSource(
         scan.skippedCompressed > 0
           ? `found ${scan.skippedCompressed} compressed DICOM file(s) — only uncompressed exports are supported`
           : scan.dicomFiles > 0
-            ? 'DICOM files found, but no CBCT volume (multiframe or ≥30-slice CT series) among them'
+            ? 'DICOM files found, but no CBCT volume (multiframe or ≥30-slice CT series) and no 2D radiograph (PX/DX/CR/IO) among them'
             : 'no DICOM files found there',
     };
   }
@@ -530,6 +569,24 @@ function assembleLocalSlices(src: LocalCbctSource, v: LocalCbctVolume): Assemble
   };
 }
 
+function assembleLocalRadiograph(src: LocalCbctSource, v: LocalCbctVolume): AssembledVolume {
+  const buf = fs.readFileSync(path.join(src.root, v.files[0]));
+  const ds = dicomParser.parseDicom(buf);
+  const rows = ds.uint16(TAG.rows) ?? v.dims[1];
+  const cols = ds.uint16(TAG.cols) ?? v.dims[0];
+  const slope = Number(ds.string(TAG.slope) ?? 1) || 1;
+  const intercept = Number(ds.string(TAG.intercept) ?? 0);
+  const signed = (ds.uint16(XTAG.pixelRep) ?? 0) === 1;
+  const pixelEl = ds.elements[TAG.pixelData];
+  if (!pixelEl) throw new Error('no pixel data');
+  const px = pxToInt16(buf, pixelEl.dataOffset, rows * cols * 2, signed);
+  const out = normalizeRadiographFrame(px, { slope, intercept, monochrome1: !!v.mono1 });
+  return {
+    meta: metaOf(v, [cols, rows, 1], [0, 0, 0], robustVoi(out), out.byteLength),
+    data: Buffer.from(out.buffer, 0, out.byteLength),
+  };
+}
+
 // raw opened volumes can be several hundred MB — keep exactly one resident
 const lru = new Map<string, AssembledVolume>();
 const LRU_MAX = 1;
@@ -540,7 +597,12 @@ export function getAssembledLocalVolume(id: string): AssembledVolume {
   const src = getLocalSource();
   const v = src?.volumes.find((x) => x.id === id);
   if (!src || !v) throw new Error('unknown local volume');
-  const vol = v.kind === 'mf' ? assembleLocalMultiframe(src, v) : assembleLocalSlices(src, v);
+  const vol =
+    v.kind === 'mf'
+      ? assembleLocalMultiframe(src, v)
+      : v.kind === 'xray'
+        ? assembleLocalRadiograph(src, v)
+        : assembleLocalSlices(src, v);
   lru.set(id, vol);
   while (lru.size > LRU_MAX) lru.delete(lru.keys().next().value as string);
   return vol;

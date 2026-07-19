@@ -12,7 +12,8 @@ export const VOLUME_ID_RE = /^(local|fused|demo)_[0-9a-f]{12}$/;
 export interface CbctListEntry {
   /** stable volume id (see VOLUME_ID_RE) */
   anon: string;
-  kind: 'mf' | 'slices';
+  /** 'mf' | 'slices' = CBCT volume · 'xray' = single-frame 2D radiograph (dims [cols, rows, 1]) */
+  kind: 'mf' | 'slices' | 'xray';
   dims: [number, number, number]; // cols, rows, slices
   spacing: [number, number, number];
   fov: [number, number]; // axial cm, z cm

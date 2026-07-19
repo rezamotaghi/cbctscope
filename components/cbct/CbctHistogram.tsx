@@ -20,12 +20,14 @@ interface Props {
   onChange?: (lower: number, upper: number) => void;
   threshold?: number;
   onThreshold?: (hu: number) => void;
+  /** value-scale label in the captions; 'HU' for volumes (default), 'gray' for radiographs */
+  unit?: string;
 }
 
 const W = 208;
 const H = 64;
 
-export default function CbctHistogram({ data, lower, upper, onChange, threshold, onThreshold }: Props) {
+export default function CbctHistogram({ data, lower, upper, onChange, threshold, onThreshold, unit = 'HU' }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [drag, setDrag] = useState<'lower' | 'upper' | 'threshold' | null>(null);
   const thresholdMode = threshold !== undefined;
@@ -140,12 +142,12 @@ export default function CbctHistogram({ data, lower, upper, onChange, threshold,
         {thresholdMode ? (
           <>
             <span>transparent ◂</span>
-            <span>opacity threshold {threshold} HU ▸ rendered</span>
+            <span>opacity threshold {threshold} {unit} ▸ rendered</span>
           </>
         ) : (
           <>
-            <span>◂ black {lower} HU</span>
-            <span>white {upper} HU ▸</span>
+            <span>◂ black {lower} {unit}</span>
+            <span>white {upper} {unit} ▸</span>
           </>
         )}
       </div>

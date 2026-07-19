@@ -41,7 +41,7 @@ Set `CBCTSCOPE_URL` if the viewer runs on a non-default port (default `http://lo
 
 | Verb | Arguments | Effect |
 |---|---|---|
-| `open_scan` | `path` | Point the viewer at a local export (folder, DICOMDIR, multiframe file, or one slice of a series). Returns the volume catalog. |
+| `open_scan` | `path` | Point the viewer at a local export (folder, DICOMDIR, multiframe file, one slice of a series, or a single 2D radiograph file). Returns the volume catalog. |
 | `list_volumes` | none | Volume ids plus geometry: dimensions, voxel spacing, field of view. |
 | `select_volume` | `id` | Display that volume. |
 | `set_view_mode` | `mode` | One of `mpr`, `grid`, `pano`, `tmj`, `reslice`, `ceph`, `region`, `stitch`. |
@@ -51,6 +51,12 @@ Set `CBCTSCOPE_URL` if the viewer runs on a non-default port (default `http://lo
 | `reset_view` | optional `full` | Cameras back to orthogonal; `full` also resets window, inversion, and gamma. |
 
 Mutating verbs return the resulting viewer state (current volume, view mode, window), so the agent always knows where it stands without a follow-up call.
+
+When the selected image is a 2D radiograph (catalog `kind: "xray"`), the volumetric
+verbs answer with a clear error instead of acting: `set_view_mode` (all modes are
+volumetric) and the HU-based window presets (`Bone`, `Teeth`, `Soft`; a radiograph's
+gray values are display-normalized 0-4095, not HU). `set_window_level` with
+`center`/`width`/`invert`, `snapshot`, and `reset_view` work unchanged.
 
 ## A note on trust
 

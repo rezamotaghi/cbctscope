@@ -115,7 +115,8 @@ export interface HistogramData {
 }
 
 // Subsampled HU histogram for the adjust-levels panel (stride keeps it a few ms per volume).
-function computeHistogram(scalar: Int16Array): HistogramData {
+// Exported for CbctRadiograph, which feeds the same panel from its 2D frame.
+export function computeHistogram(scalar: Int16Array): HistogramData {
   const N_BINS = 128;
   const stride = Math.max(1, Math.floor(scalar.length / 2_000_000));
   let min = 32767;

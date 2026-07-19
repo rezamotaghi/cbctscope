@@ -14,6 +14,7 @@ import CbctViewport, {
 import { RENDER_STYLES, DEFAULT_RENDER3D, type Render3dSettings, type PseudoKey } from './render3d';
 import CbctPano from './CbctPano';
 import CbctGrid from './CbctGrid';
+import CbctRadiograph from './CbctRadiograph';
 import CbctHistogram from './CbctHistogram';
 import CbctTmj from './CbctTmj';
 import CbctReslice from './CbctReslice';
@@ -24,7 +25,8 @@ import { useAgentBridge } from './useAgentBridge';
 
 interface ListEntry {
   anon: string;
-  kind: 'mf' | 'slices';
+  /** 'mf' | 'slices' = CBCT volume · 'xray' = single 2D radiograph */
+  kind: 'mf' | 'slices' | 'xray';
   dims: [number, number, number];
   spacing: [number, number, number];
   fov: [number, number];
@@ -126,8 +128,9 @@ function loadSavedPresets(): Saved3dPreset[] {
 }
 
 function volLabel(v: ListEntry): string {
-  const [c, , n] = v.dims;
-  return [`${v.fov[0]}×${v.fov[1]}cm`, `${c}²×${n}`, v.region || null, v.year || null]
+  const [c, r, n] = v.dims;
+  const geom = v.kind === 'xray' ? `${c}×${r}px` : `${c}²×${n}`;
+  return [`${v.fov[0]}×${v.fov[1]}cm`, geom, v.region || null, v.year || null]
     .filter(Boolean)
     .join(' · ');
 }
@@ -178,6 +181,8 @@ export default function CbctApp() {
   }, [srcMenu]);
 
   const current = useMemo(() => volumes.find((v) => v.anon === anon) ?? null, [volumes, anon]);
+  /** the open image is a single 2D radiograph — the volumetric modes don't apply */
+  const isXray = current?.kind === 'xray';
 
   const ctPresetNames = useMemo(
     () => CONSTANTS.VIEWPORT_PRESETS.filter((p) => p.name.startsWith('CT-')).map((p) => p.name),
@@ -375,12 +380,16 @@ export default function CbctApp() {
       if (!VIEW_MODES.some(([m]) => m === mode)) {
         return `unknown view mode: ${mode} (valid: ${VIEW_MODES.map(([m]) => m).join(', ')})`;
       }
+      if (isXray) return 'the open image is a 2D radiograph: view modes apply to CBCT volumes';
       setViewMode(mode as ViewMode);
       return null;
     },
     setWindow: ({ center, width, preset, invert }) => {
       if (preset !== undefined) {
         if (!(preset in WL_PRESETS)) return `unknown preset: ${preset} (valid: ${Object.keys(WL_PRESETS).join(', ')})`;
+        if (isXray && preset !== 'Auto') {
+          return `preset ${preset} is HU-based: a radiograph has no HU scale (use Auto, or center/width on the 0-4095 gray scale)`;
+        }
         setControls((c) => ({ ...c, voi: WL_PRESETS[preset] ?? null }));
       } else if (center !== undefined || width !== undefined) {
         const cNum = Number(center ?? voiShown.center);
@@ -436,13 +445,29 @@ export default function CbctApp() {
         >
           Research use only. Not for diagnosis.
         </span>
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          {VIEW_MODES.map(([m, label, tip]) => (
-            <button key={m} style={btn(viewMode === m)} title={tip} onClick={() => setViewMode(m)}>
-              {label}
-            </button>
-          ))}
-        </div>
+        {isXray ? (
+          <span
+            title="A single 2D radiograph is open — the volumetric reading modes apply to CBCT volumes"
+            style={{
+              fontSize: 12,
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              padding: '4px 10px',
+              background: 'var(--accent-dim)',
+            }}
+          >
+            2D radiograph
+          </span>
+        ) : (
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {VIEW_MODES.map(([m, label, tip]) => (
+              <button key={m} style={btn(viewMode === m)} title={tip} onClick={() => setViewMode(m)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         <button style={btn(false)} onClick={() => step(-1)} title="Previous volume (P)">
           ‹
         </button>
@@ -542,14 +567,16 @@ export default function CbctApp() {
         {current && (
           <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>
             {isFusedVol(current.anon) && current.label ? `🧬 ${current.label} · ` : isLocalVol(current.anon) && current.label ? `📂 ${current.label} · ` : ''}
-            {volLabel(current)} · {current.kind === 'mf' ? 'multiframe' : 'slices'} ·{' '}
-            {(current.spacing[0] * 1000).toFixed(0)} µm voxels
+            {volLabel(current)} ·{' '}
+            {current.kind === 'mf' ? 'multiframe' : current.kind === 'xray' ? 'radiograph' : 'slices'} ·{' '}
+            {(current.spacing[0] * 1000).toFixed(0)} µm {current.kind === 'xray' ? 'pixels' : 'voxels'}
           </span>
         )}
         <span style={{ flex: 1 }} />
         <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>
-          wheel: slice · left: {controls.toolMode} · right-drag: rotate section · ⇧right-drag: zoom ·
-          middle-drag: pan · N/P · R · C · O · V · Del
+          {isXray
+            ? 'wheel: zoom · left-drag: pan · double-click / R: fit · N/P'
+            : `wheel: slice · left: ${controls.toolMode} · right-drag: rotate section · ⇧right-drag: zoom · middle-drag: pan · N/P · R · C · O · V · Del`}
         </span>
       </header>
 
@@ -558,7 +585,19 @@ export default function CbctApp() {
           {error ? (
             <div style={{ color: 'var(--warn)', padding: 24 }}>{error}</div>
           ) : anon ? (
-            viewMode === 'mpr' ? (
+            isXray ? (
+              <CbctRadiograph
+                anon={anon}
+                voi={controls.voi}
+                invert={controls.invert}
+                gamma={controls.gamma}
+                resetNonce={controls.resetNonce}
+                fullResetNonce={controls.fullResetNonce}
+                onMeta={setMeta}
+                onHistogram={setHistogram}
+                onError={setError}
+              />
+            ) : viewMode === 'mpr' ? (
               <CbctViewport
                 anon={anon}
                 controls={controls}
@@ -613,7 +652,7 @@ export default function CbctApp() {
                 anon={anon}
                 voi={controls.voi}
                 invert={controls.invert}
-                volumes={volumes}
+                volumes={volumes.filter((v) => v.kind !== 'xray')}
                 onFused={onFused}
                 onMeta={setMeta}
                 onError={setError}
@@ -644,7 +683,7 @@ export default function CbctApp() {
             overflowY: 'auto',
           }}
         >
-          {viewMode === 'mpr' && (
+          {viewMode === 'mpr' && !isXray && (
           <section>
             <div style={{ color: 'var(--text-dim)', marginBottom: 6 }}>Tool (1–9, 0)</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -684,9 +723,13 @@ export default function CbctApp() {
           )}
 
           <section>
-            <div style={{ color: 'var(--text-dim)', marginBottom: 6 }}>Window (HU)</div>
+            <div style={{ color: 'var(--text-dim)', marginBottom: 6 }}>
+              Window {isXray ? '(gray, 0-4095)' : '(HU)'}
+            </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-              {Object.keys(WL_PRESETS).map((name) => {
+              {Object.keys(WL_PRESETS)
+                .filter((name) => !isXray || WL_PRESETS[name] === null) // HU presets are meaningless on a radiograph
+                .map((name) => {
                 const p = WL_PRESETS[name];
                 const active = p
                   ? controls.voi?.center === p.center && controls.voi?.width === p.width
@@ -702,6 +745,7 @@ export default function CbctApp() {
               <div style={{ marginBottom: 8 }}>
                 <CbctHistogram
                   data={histogram}
+                  unit={isXray ? 'gray' : 'HU'}
                   lower={Math.round(voiShown.center - voiShown.width / 2)}
                   upper={Math.round(voiShown.center + voiShown.width / 2)}
                   onChange={(lower, upper) =>
@@ -717,8 +761,8 @@ export default function CbctApp() {
               center {voiShown.center}
               <input
                 type="range"
-                min={-1000}
-                max={3000}
+                min={isXray ? 0 : -1000}
+                max={isXray ? 4095 : 3000}
                 step={10}
                 value={voiShown.center}
                 onChange={(e) =>
@@ -735,7 +779,7 @@ export default function CbctApp() {
               <input
                 type="range"
                 min={50}
-                max={4500}
+                max={isXray ? 4096 : 4500}
                 step={10}
                 value={voiShown.width}
                 onChange={(e) =>
@@ -771,7 +815,7 @@ export default function CbctApp() {
             </label>
           </section>
 
-          {viewMode === 'mpr' && (
+          {viewMode === 'mpr' && !isXray && (
           <section>
             <div style={{ color: 'var(--text-dim)', marginBottom: 6 }}>Slab / MIP</div>
             {(['axial', 'sagittal', 'coronal'] as MprPane[]).map((p) => (
@@ -804,7 +848,7 @@ export default function CbctApp() {
           </section>
           )}
 
-          {viewMode === 'mpr' && (
+          {viewMode === 'mpr' && !isXray && (
           <section>
             <div style={{ color: 'var(--text-dim)', marginBottom: 6 }}>3D render</div>
             <select
@@ -1039,7 +1083,7 @@ export default function CbctApp() {
           </section>
           )}
 
-          {viewMode === 'mpr' && (
+          {viewMode === 'mpr' && !isXray && (
           <section>
             <div style={{ color: 'var(--text-dim)', marginBottom: 6 }}>
               Crop 3D <span style={{ fontSize: 10 }}>(render only — slices unaffected)</span>
@@ -1097,7 +1141,7 @@ export default function CbctApp() {
           </section>
           )}
 
-          {viewMode === 'mpr' && (
+          {viewMode === 'mpr' && !isXray && (
           <section>
             <div style={{ color: 'var(--text-dim)', marginBottom: 6 }}>My 3D presets</div>
             {savedPresets.map((p) => (
@@ -1155,7 +1199,7 @@ export default function CbctApp() {
           </section>
           )}
 
-          {viewMode === 'mpr' && (
+          {viewMode === 'mpr' && !isXray && (
           <section>
             <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, marginBottom: 8 }}>
               <input
@@ -1198,9 +1242,37 @@ export default function CbctApp() {
           </section>
           )}
 
+          {isXray && (
+            <section>
+              <button
+                style={{ ...btn(false), width: '100%', marginBottom: 6 }}
+                onClick={() => setControls((c) => ({ ...c, resetNonce: c.resetNonce + 1 }))}
+                title="Fit the radiograph to the pane — window untouched (R)"
+              >
+                Fit to pane (R)
+              </button>
+              <button
+                style={{ ...btn(false), width: '100%' }}
+                onClick={() =>
+                  setControls((c) => ({
+                    ...c,
+                    voi: null,
+                    invert: false,
+                    gamma: 1,
+                    fullResetNonce: c.fullResetNonce + 1,
+                  }))
+                }
+                title="Fit AND window/gamma back to the image's defaults"
+              >
+                Reset all (window too)
+              </button>
+            </section>
+          )}
+
           <div style={{ fontSize: 11, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-            Measurements are true anatomical mm (isotropic voxels) — unlike pano mm, no projection
-            magnification. Crosshairs: drag the lines to re-slice; wheel scrolls the hovered pane.
+            {isXray
+              ? 'Radiograph: wheel zooms about the cursor · left-drag pans · double-click or R refits. Gray values are display-normalized (0-4095): window them via the histogram or sliders; they are not HU.'
+              : 'Measurements are true anatomical mm (isotropic voxels) — unlike pano mm, no projection magnification. Crosshairs: drag the lines to re-slice; wheel scrolls the hovered pane.'}
           </div>
         </aside>
       </div>

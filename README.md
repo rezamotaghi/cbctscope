@@ -65,6 +65,17 @@ To read a real scan, click **open** in the header and pick a CBCT export: a fold
 
 Per-mode reading guides live in [docs/reading-modes/](docs/reading-modes/).
 
+### 2D radiographs
+
+The viewer also opens single 2D radiographs (DICOM modality PX, DX, CR, or IO:
+panoramic, digital and computed radiography, intraoral), uncompressed 16-bit files, the
+same constraint as volumes. A radiograph gets a dedicated single-image view: window,
+gamma, invert, cursor-centered zoom, pan, fit. Gray values are display-normalized to a
+12-bit scale at load (radiographs carry no HU calibration), and MONOCHROME1 files are
+flipped so bright is always radiopaque. The volumetric reading modes apply to volumes
+only. This exists so multi-reader studies can read both image classes in one instrument
+under identical display settings.
+
 ## AI-agent control (MCP)
 
 Start the viewer, open it in a browser, then register the MCP server with your agent host:
