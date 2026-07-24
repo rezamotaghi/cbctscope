@@ -537,10 +537,14 @@ export default function CbctViewport({
   // Live right-drag oblique rotation: which pane is rotating + degrees swept (readout chip).
   const [rotDrag, setRotDrag] = useState<{ id: string; deg: number } | null>(null);
   const [ready, setReady] = useState(false);
-  // Cutaway (⇧right-drag on the 3D pane): accumulated cuts + live-drag readout.
+  // Cutaway (right-drag on the 3D pane): ONE live cut + live-drag readout.
   const cutsRef = useRef<Cut[]>([]);
   const [cutCount, setCutCount] = useState(0);
   const [cutDrag, setCutDrag] = useState<number | null>(null); // live depth in mm
+  // The 3D pane's HOME orientation, captured once at first volume attach. Cornerstone's
+  // resetCamera re-fits zoom/pan but KEEPS the current view direction, so every 3D reset
+  // must restore these vectors first or an orbited/tilted volume stays tilted.
+  const home3dOrientRef = useRef<{ vpn: number[]; vup: number[] } | null>(null);
   // Plane indicators inside the 3D render (created lazily once the renderer exists).
   const indicatorsRef = useRef<PlaneIndicators | null>(null);
   const cropRef = useRef<Crop3d>(controls.crop3d);
@@ -1115,7 +1119,8 @@ export default function CbctViewport({
       for (const t of [TrackballRotateTool, ZoomTool, PanTool]) t3d.addTool(t.toolName);
       t3d.addViewport(VP.v3d, engineId);
       t3d.setToolActive(TrackballRotateTool.toolName, { bindings: [{ mouseButton: MouseBindings.Primary }] });
-      t3d.setToolActive(ZoomTool.toolName, { bindings: [{ mouseButton: MouseBindings.Secondary }] });
+      // no ZoomTool binding on the 3D pane: right-drag is the progressive-slice cut and zoom
+      // is the right+left chord (both custom handlers). ZoomTool stays added but unbound.
       t3d.setToolActive(PanTool.toolName, { bindings: [{ mouseButton: MouseBindings.Auxiliary }] });
 
       for (const id of MPR_IDS) {
@@ -1475,20 +1480,96 @@ export default function CbctViewport({
       });
     }
 
-    // ---- cutaway: ⇧right-drag on the 3D pane shaves anatomy off the
-    // render. Each drag adds ONE cut plane facing the current viewing direction; dragging
-    // pushes it deeper (up = deeper, down = back out). Cuts accumulate across drags from
-    // different angles; the ✂ chip clears them all.
+    // ---- progressive slicing: right-drag on the 3D pane shaves anatomy off the render (plain
+    // right-drag — the right button is free now that zoom is the chord). ONE live cut, fully
+    // interactive: the first drag opens a plane facing the current viewing direction, every
+    // later right-drag RESUMES that same plane from its current depth — up = deeper, down =
+    // back out; backing out past ~0 removes it (so does the ✂ chip), and only then does a
+    // new drag open a fresh plane facing wherever the camera is now.
+    // ---- right+left chord drag = zoom, same gesture as the MPR panes (up = in). Parallel
+    // projection zooms by parallelScale; perspective dollies the camera toward the orbit
+    // center (exponential — it can never fly through the focal point).
     const MM_PER_PX = 0.6;
+    // ZOOM_PER_PX is shared with the MPR chord handler above (same effect scope)
     const el3d = elRefs.current[VP.v3d];
     let cutting = false;
     let cutLastY = 0;
     let cutDepth = 0;
+    let cutStartDepth = 0; // depth when this gesture began — restored on a chord handoff
     let cutVpn: number[] = [0, 0, 1];
     let cutCenter: number[] = [0, 0, 0];
     let cutHalf = 0;
+    let zoom3d = false;
+    let z3dLastY = 0;
+    const applyZoom3d = (dy: number) => {
+      if (!dy) return;
+      try {
+        const vp = engineRef.current?.getViewport(VP.v3d);
+        if (!vp) return;
+        const cam = vp.getCamera();
+        const f = Math.exp(dy * ZOOM_PER_PX);
+        const parallel = (
+          vp as unknown as { getRenderer: () => { getActiveCamera: () => { getParallelProjection: () => boolean } } }
+        )
+          .getRenderer()
+          .getActiveCamera()
+          .getParallelProjection();
+        if (parallel) {
+          if (cam.parallelScale) vp.setCamera({ parallelScale: cam.parallelScale / f });
+        } else if (cam.position && cam.focalPoint) {
+          const p = cam.position as number[];
+          const fp = cam.focalPoint as number[];
+          vp.setCamera({
+            position: [
+              fp[0] + (p[0] - fp[0]) / f,
+              fp[1] + (p[1] - fp[1]) / f,
+              fp[2] + (p[2] - fp[2]) / f,
+            ] as Types.Point3,
+          });
+        }
+        vp.render();
+      } catch {
+        /* pane mid-init */
+      }
+    };
+    const startZoom3d = (e: PointerEvent, endLatch: boolean) => {
+      if (endLatch) {
+        // left came first (trackball orbit latched) — end it with a synthetic pointerup,
+        // exactly like the MPR chord ends a latched crosshair drag
+        try {
+          el3d?.dispatchEvent(
+            new PointerEvent('pointerup', {
+              bubbles: true,
+              cancelable: true,
+              clientX: e.clientX,
+              clientY: e.clientY,
+              pointerId: e.pointerId,
+              pointerType: 'mouse',
+              button: 0,
+              buttons: 2,
+            }),
+          );
+        } catch {
+          /* best effort */
+        }
+      }
+      zoom3d = true;
+      z3dLastY = e.clientY;
+      try {
+        el3d?.setPointerCapture(e.pointerId);
+      } catch {
+        /* synthetic pointer */
+      }
+    };
     const cutDown = (e: PointerEvent) => {
-      if (e.button !== 2 || !e.shiftKey) return;
+      if (e.button !== 2) return;
+      if (e.buttons & 1) {
+        // left already held (orbit in progress) → this press opens the zoom chord
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        startZoom3d(e, true);
+        return;
+      }
       const engine = engineRef.current;
       if (!engine || !metaRef.current) return;
       const info = boundsInfo(engine, VP.v3d);
@@ -1501,27 +1582,39 @@ export default function CbctViewport({
       } catch {
         return;
       }
-      cutVpn = vpn;
       cutCenter = info.center;
       cutHalf = info.halfDiag;
-      cutDepth = 0;
+      const existing = cutsRef.current[0];
+      if (existing) {
+        // resume THE cut: same plane, picked up at its current depth — this drag deepens
+        // or backs it out, regardless of how the volume was orbited in between
+        cutVpn = [-existing.normal[0], -existing.normal[1], -existing.normal[2]];
+        const d =
+          (existing.origin[0] - cutCenter[0]) * cutVpn[0] +
+          (existing.origin[1] - cutCenter[1]) * cutVpn[1] +
+          (existing.origin[2] - cutCenter[2]) * cutVpn[2];
+        cutDepth = Math.max(0, Math.min(2 * cutHalf, cutHalf - d));
+      } else {
+        // no cut yet → open one at the camera-side surface; normal points AWAY from the
+        // camera so the far half-space is what survives
+        cutVpn = vpn;
+        cutDepth = 0;
+        cutsRef.current = [
+          {
+            origin: [
+              cutCenter[0] + cutVpn[0] * cutHalf,
+              cutCenter[1] + cutVpn[1] * cutHalf,
+              cutCenter[2] + cutVpn[2] * cutHalf,
+            ],
+            normal: [-cutVpn[0], -cutVpn[1], -cutVpn[2]],
+          },
+        ];
+        setCutCount(1);
+      }
+      cutStartDepth = cutDepth;
       cutLastY = e.clientY;
       cutting = true;
-      // the cut starts at the camera-side surface; normal points AWAY from the camera so the
-      // far half-space is what survives
-      cutsRef.current = [
-        ...cutsRef.current,
-        {
-          origin: [
-            cutCenter[0] + cutVpn[0] * cutHalf,
-            cutCenter[1] + cutVpn[1] * cutHalf,
-            cutCenter[2] + cutVpn[2] * cutHalf,
-          ],
-          normal: [-cutVpn[0], -cutVpn[1], -cutVpn[2]],
-        },
-      ];
-      setCutCount(cutsRef.current.length);
-      setCutDrag(0);
+      setCutDrag(cutDepth);
       e.preventDefault();
       e.stopImmediatePropagation(); // keep Cornerstone's zoom off this gesture
       try {
@@ -1531,7 +1624,44 @@ export default function CbctViewport({
       }
     };
     const cutMove = (e: PointerEvent) => {
-      if (!cutting) return;
+      if (zoom3d) {
+        if (e.buttons !== 3) {
+          zoom3d = false; // one chord button lifted — gesture over, no surprise mode switch
+          return;
+        }
+        e.stopImmediatePropagation(); // starve the eraser's later-registered move listener
+        applyZoom3d(z3dLastY - e.clientY); // up = in
+        z3dLastY = e.clientY;
+        return;
+      }
+      if (!cutting) {
+        if (e.buttons === 3) {
+          // left came first, right joined as a buttons-update move (no pointerdown for the
+          // second button) → chord zoom
+          e.stopImmediatePropagation();
+          startZoom3d(e, true);
+        }
+        return;
+      }
+      if (e.buttons & 1) {
+        // left joined the right-drag cut → hand the gesture from slicing to zoom, and undo
+        // this gesture's slicing: a real mouse slips 1–2px before the left lands (already
+        // past the 0.5mm keep-threshold), so without the rollback every right-first chord
+        // zoom would nudge the cut. Fresh-this-gesture → discarded entirely; resumed →
+        // re-seated at its pre-gesture depth.
+        cutDepth = cutStartDepth;
+        if (cutDepth >= 0.5) {
+          const d = cutHalf - cutDepth;
+          cutsRef.current[0] = {
+            origin: [cutCenter[0] + cutVpn[0] * d, cutCenter[1] + cutVpn[1] * d, cutCenter[2] + cutVpn[2] * d],
+            normal: [-cutVpn[0], -cutVpn[1], -cutVpn[2]],
+          };
+          reclipRef.current();
+        }
+        cutEnd(); // < 0.5mm → its discard branch drops the plane
+        startZoom3d(e, false); // right press was claimed, no Cornerstone latch to end
+        return;
+      }
       cutDepth = Math.max(0, Math.min(2 * cutHalf, cutDepth + (cutLastY - e.clientY) * MM_PER_PX));
       cutLastY = e.clientY;
       const d = cutHalf - cutDepth;
@@ -1544,13 +1674,15 @@ export default function CbctViewport({
       reclipRef.current();
     };
     const cutEnd = () => {
+      zoom3d = false;
       if (!cutting) return;
       cutting = false;
       setCutDrag(null);
-      // a drag that never bit into the volume leaves no cut behind
+      // backed out (or never bit in) → the cut is gone; the next right-drag opens a fresh
+      // camera-facing plane
       if (cutDepth < 0.5) {
-        cutsRef.current = cutsRef.current.slice(0, -1);
-        setCutCount(cutsRef.current.length);
+        cutsRef.current = [];
+        setCutCount(0);
         reclipRef.current();
       }
     };
@@ -1749,6 +1881,17 @@ export default function CbctViewport({
           // force: the pre-volume effect may have flipped the projection already, and the
           // fit computed then (or by the cornerstone resetCamera loop above) is wrong for it
           applyProjection(engineRef.current, VP.v3d, controls.render3d.perspective, { force: true });
+          // first attach = the home orientation every 3D reset restores (don't overwrite it
+          // with a later tilted snapshot)
+          if (!home3dOrientRef.current) {
+            const cam = engineRef.current.getViewport(VP.v3d).getCamera();
+            if (cam.viewPlaneNormal && cam.viewUp) {
+              home3dOrientRef.current = {
+                vpn: [...(cam.viewPlaneNormal as number[])],
+                vup: [...(cam.viewUp as number[])],
+              };
+            }
+          }
         } catch (e) {
           console.warn('3d render failed', e);
         }
@@ -2016,6 +2159,7 @@ export default function CbctViewport({
   useEffect(() => {
     if (!ready || !engineRef.current || controls.resetNonce === 0) return;
     resetPaneCameras(engineRef.current);
+    restoreHome3dOrient(); // resetPaneCameras re-fits but can't square up the 3D pane's orbit
     // under perspective the cornerstone reset mis-fits the 3D camera — re-fit for the model
     try {
       applyProjection(engineRef.current, VP.v3d, controls.render3d.perspective, { force: true });
@@ -2032,6 +2176,7 @@ export default function CbctViewport({
   useEffect(() => {
     if (!ready || !engineRef.current || controls.fullResetNonce === 0) return;
     resetPaneCameras(engineRef.current);
+    restoreHome3dOrient(); // resetPaneCameras re-fits but can't square up the 3D pane's orbit
     try {
       applyProjection(engineRef.current, VP.v3d, controls.render3d.perspective, { force: true });
     } catch {
@@ -2267,11 +2412,28 @@ export default function CbctViewport({
   });
   useEffect(() => stopOrbitRepeat, []);
 
+  // Put the 3D camera back on its home orientation (captured at volume attach) — the re-fit
+  // that follows keeps whatever direction the camera points, so this must run first or a
+  // tilted volume stays tilted through every reset.
+  const restoreHome3dOrient = () => {
+    const h = home3dOrientRef.current;
+    if (!h || !engineRef.current) return;
+    try {
+      engineRef.current.getViewport(VP.v3d).setCamera({
+        viewPlaneNormal: [...h.vpn] as Types.Point3,
+        viewUp: [...h.vup] as Types.Point3,
+      });
+    } catch {
+      /* pane mid-init */
+    }
+  };
+
   // Re-home only the 3D pane's camera (Reset views resets window/slices/everything).
   // Projection-aware: a plain resetCamera under perspective leaves the volume a dot.
   const home3d = () => {
     if (!engineRef.current) return;
     try {
+      restoreHome3dOrient(); // square up the orbit first; the re-fit below keeps the direction
       applyProjection(engineRef.current, VP.v3d, controls.render3d.perspective, { force: true });
     } catch {
       /* not ready */
@@ -2617,7 +2779,7 @@ export default function CbctViewport({
                   ↺
                 </button>
                 <span style={{ fontSize: 10, color: 'var(--text-dim)', textShadow: '0 1px 2px #000' }}>
-                  {eraseMode ? 'drag = erase' : 'drag = rotate · ⇧right-drag = slice in'}
+                  {eraseMode ? 'drag = erase' : 'drag = rotate · right-drag = slice in · right+left = zoom'}
                 </span>
               </div>
             )}

@@ -1169,7 +1169,7 @@ export default function CbctApp() {
                   clearCutsNonce: c.clearCutsNonce + 1,
                 }))
               }
-              title="full volume back in the render: crop box reset + every ⇧right-drag cut removed"
+              title="full volume back in the render: crop box reset + the right-drag cut removed"
             >
               Un-crop + clear cuts
             </button>
