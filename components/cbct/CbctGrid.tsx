@@ -9,7 +9,7 @@
 // this path, sibling of CbctPano.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadVolumeData, type CbctMeta } from './volumeData';
-import { renderOblique, rotV, extentAlong, canvasPoint, type Basis } from './oblique';
+import { renderOblique, rotV, extentAlong, canvasPoint, handOf, type Basis } from './oblique';
 import type { VolumeEntry } from './volumeData';
 
 type Plane = 'axial' | 'sagittal' | 'coronal';
@@ -48,7 +48,23 @@ const SCOUT_BASIS: Record<Plane, Basis> = {
 const SCOUT_NAME: Record<Plane, string> = { axial: 'SAGITTAL', sagittal: 'AXIAL', coronal: 'AXIAL' };
 
 const LINE_COLOR = 'rgba(255, 210, 80, 0.95)';
-const DEG_PER_PX = 0.35; // same feel as the MPR right-drag
+const DEG_PER_PX = 0.35; // hub fallback only — same feel as the MPR right-drag
+const HUB_PX = 24; // same dead-zone as the MPR rotate
+
+// The MPR rotate mapping: the cursor SWEEPS its angle around the pivot (grab the image and
+// turn it like a wheel), so a downward drag reads CW right of the pivot and CCW left of it.
+// A plain (dx−dy) mapping can't do that — it feels inverted on one side. Screen y grows
+// downward, so atan2 increases clockwise — +deg = clockwise, matching the handOf sign
+// convention. Inside the hub the angle is unstable → linear distance fallback.
+const sweepDeg = (px: number, py: number, x0: number, y0: number, x1: number, y1: number): number => {
+  if (Math.hypot(x0 - px, y0 - py) < HUB_PX || Math.hypot(x1 - px, y1 - py) < HUB_PX) {
+    return (x1 - x0 - (y1 - y0)) * DEG_PER_PX;
+  }
+  let deg = ((Math.atan2(y1 - py, x1 - px) - Math.atan2(y0 - py, x0 - px)) * 180) / Math.PI;
+  if (deg > 180) deg -= 360;
+  else if (deg < -180) deg += 360;
+  return deg;
+};
 
 export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: Props) {
   const [entry, setEntry] = useState<VolumeEntry | null>(null);
@@ -191,10 +207,12 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
   // scout: left-drag/click = grab the section window · right-drag = rotate the scout image
   // (the whole cutting frame turns with it; lines stay put on screen)
   const dragRef = useRef<{
-    kind: 'scout-move' | 'scout-rotate';
+    kind: 'scout-move' | 'scout-rotate' | 'tile-rotate';
     lastX: number;
     lastY: number;
     totalDeg: number;
+    px: number; // sweep pivot (client coords) — the grabbed pane's raster center
+    py: number;
   } | null>(null);
 
   const scoutOffsetAt = (e: { clientX: number; clientY: number }): number | null => {
@@ -221,11 +239,14 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
     } catch {
       /* synthetic pointer */
     }
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const px = r.left + r.width / 2; // object-fit:contain centers the raster → element center = raster center
+    const py = r.top + r.height / 2;
     if (e.button === 2) {
-      dragRef.current = { kind: 'scout-rotate', lastX: e.clientX, lastY: e.clientY, totalDeg: 0 };
+      dragRef.current = { kind: 'scout-rotate', lastX: e.clientX, lastY: e.clientY, totalDeg: 0, px, py };
       setChip('rotating 0°');
     } else if (e.button === 0) {
-      dragRef.current = { kind: 'scout-move', lastX: e.clientX, lastY: e.clientY, totalDeg: 0 };
+      dragRef.current = { kind: 'scout-move', lastX: e.clientX, lastY: e.clientY, totalDeg: 0, px, py };
       const o = scoutOffsetAt(e);
       if (o != null) setCenterOff(clampOff(o));
     }
@@ -234,33 +255,39 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
   const onDragMove = (e: React.PointerEvent) => {
     const d = dragRef.current;
     if (!d || !entry) return;
-    const dx = e.clientX - d.lastX;
-    const dy = e.clientY - d.lastY;
+    const prevX = d.lastX;
+    const prevY = d.lastY;
     d.lastX = e.clientX;
     d.lastY = e.clientY;
     if (d.kind === 'scout-move') {
       const o = scoutOffsetAt(e);
       if (o != null) setCenterOff(clampOff(o));
-    } else {
-      const deg = (dx - dy) * DEG_PER_PX;
+    } else if (d.kind === 'scout-rotate') {
+      const deg = sweepDeg(d.px, d.py, prevX, prevY, e.clientX, e.clientY);
       if (!deg) return;
       d.totalDeg += deg;
       // rotate the scout image AND the cutting frame together about the scout normal —
       // on screen the anatomy turns, the section lines stay where they are, and the grid
       // slices re-cut through the rotated anatomy (oblique stack)
       const axis = scout.n;
-      // MPR convention: +drag turns the anatomy CLOCKWISE — i.e. rotate about the scout's
-      // OUT-OF-SCREEN direction. Which way n faces depends on the basis handedness
-      // n·(u×v) (screen into = u×v with u→right, v→down): the axial scout's n points into
-      // the screen, the sagittal scout's out — a fixed world-axis sign can't serve both.
-      const { u: su, v: sv } = scout;
-      const hand =
-        axis[0] * (su[1] * sv[2] - su[2] * sv[1]) +
-        axis[1] * (su[2] * sv[0] - su[0] * sv[2]) +
-        axis[2] * (su[0] * sv[1] - su[1] * sv[0]);
-      const a = hand > 0 ? -deg : deg;
+      // MPR convention: +drag turns the anatomy CLOCKWISE — rotate about the scout's
+      // OUT-OF-SCREEN direction, which handOf reads off the basis (the axial scout's n
+      // points into the screen, the sagittal scout's out — no fixed sign serves both).
+      const a = handOf(scout) > 0 ? -deg : deg;
       setScoutBasis((b) => ({ u: rotV(b.u, axis, a), v: rotV(b.v, axis, a), n: b.n }));
       setBasis((b) => ({ u: rotV(b.u, axis, a), v: rotV(b.v, axis, a), n: rotV(b.n, axis, a) }));
+      setChip(`rotating ${d.totalDeg >= 0 ? '+' : ''}${d.totalDeg.toFixed(0)}°`);
+    } else {
+      const deg = sweepDeg(d.px, d.py, prevX, prevY, e.clientX, e.clientY);
+      if (!deg) return;
+      d.totalDeg += deg;
+      // MPR "rotate the section you're on", tile edition: spin the stack in-plane about
+      // its own view normal — every tile turns together (same clockwise convention), the
+      // cutting planes don't move in space, so the scout image and its lines stay put.
+      setBasis((b) => {
+        const a = handOf(b) > 0 ? -deg : deg;
+        return { u: rotV(b.u, b.n, a), v: rotV(b.v, b.n, a), n: b.n };
+      });
       setChip(`rotating ${d.totalDeg >= 0 ? '+' : ''}${d.totalDeg.toFixed(0)}°`);
     }
   };
@@ -268,6 +295,34 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
   const onDragEnd = () => {
     dragRef.current = null;
     setChip(null);
+  };
+
+  // tiles: right-drag anywhere on the stack = in-plane spin (left button stays free)
+  const onTilesDown = (e: React.PointerEvent) => {
+    if (!entry || e.button !== 2) return;
+    e.preventDefault();
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* synthetic pointer */
+    }
+    // sweep around the grabbed tile's center (each tile shows the rotation axis at its
+    // raster center); a down on the grid gap falls back to the whole-stack center
+    const hit = canvasRefs.current.find((c) => {
+      if (!c) return false;
+      const r = c.getBoundingClientRect();
+      return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    });
+    const r = (hit ?? (e.currentTarget as HTMLElement)).getBoundingClientRect();
+    dragRef.current = {
+      kind: 'tile-rotate',
+      lastX: e.clientX,
+      lastY: e.clientY,
+      totalDeg: 0,
+      px: r.left + r.width / 2,
+      py: r.top + r.height / 2,
+    };
+    setChip('rotating 0°');
   };
 
   // wheel steps the whole window one spacing unit
@@ -407,8 +462,13 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
             gridTemplateColumns: `repeat(${cols}, 1fr)`,
             gridTemplateRows: `repeat(${rows}, 1fr)`,
             gap: 4,
+            touchAction: 'none',
           }}
           onContextMenu={(e) => e.preventDefault()}
+          onPointerDown={onTilesDown}
+          onPointerMove={onDragMove}
+          onPointerUp={onDragEnd}
+          onPointerCancel={onDragEnd}
         >
           {offsets.map((off, k) => (
             <div key={k} style={{ position: 'relative', minHeight: 0, minWidth: 0, background: 'var(--viewport-bg)', borderRadius: 4 }}>
@@ -490,9 +550,10 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
         )}
       </div>
       <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-        scout: left-drag = move the window · right-drag = rotate (grid re-cuts obliquely) · wheel = step ·{' '}
-        {count} parallel {plane} slices · every {(stepVox * voxMm).toFixed(1)} mm · slab{' '}
-        {(slabVox * voxMm).toFixed(1)} mm {mip ? 'MIP' : 'average'}
+        scout: left-drag = move the window · right-drag = rotate (grid re-cuts obliquely) · tiles:
+        right-drag = rotate the sections in-plane · wheel = step · {count} parallel {plane} slices ·
+        every {(stepVox * voxMm).toFixed(1)} mm · slab {(slabVox * voxMm).toFixed(1)} mm{' '}
+        {mip ? 'MIP' : 'average'}
       </div>
     </div>
   );

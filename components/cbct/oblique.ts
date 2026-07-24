@@ -36,6 +36,22 @@ export function extentAlong(dir: V3, dims: [number, number, number]): number {
 }
 
 /**
+ * Screen handedness of a display basis: n·(u×v). With u→screen-right and v→screen-down
+ * (the renderOblique convention), u×v points INTO the screen — so +1 means n faces into
+ * the screen, −1 out of it. Rotation gestures must rotate about the OUT-OF-SCREEN
+ * direction for +deg to read clockwise (the MPR right-drag convention): apply
+ * `hand > 0 ? -deg : deg` about n. Invariant under any rigid rotation of the basis.
+ */
+export function handOf(b: Basis): number {
+  const { u, v, n } = b;
+  return (
+    n[0] * (u[1] * v[2] - u[2] * v[1]) +
+    n[1] * (u[2] * v[0] - u[0] * v[2]) +
+    n[2] * (u[0] * v[1] - u[1] * v[0])
+  );
+}
+
+/**
  * Resample one oblique plane (with slab avg/MIP) into a windowed ImageData.
  * Plane: p(c,r) = C + u·(c-w/2) + v·(r-h/2) + n·(off + a), a over the slab. Nearest-neighbor
  * sampling — voxels are isotropic and fine-pitch, and it keeps a full grid redraw interactive.
