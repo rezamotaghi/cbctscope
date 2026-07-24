@@ -354,6 +354,21 @@ export default function CbctApp() {
     setControls((c) => ({ ...c, voi: WL_PRESETS[name] ?? null }));
   };
   const voiShown = controls.voi ?? meta?.defaultVoi ?? { center: 0, width: 1 };
+  // Window sliders span this image's ACTUAL value range (full spectrum — the Auto/default
+  // window always lies inside, so any hand-set window can be walked back; a fixed cap could
+  // put the original width out of reach). Width runs on a log scale: narrow diagnostic
+  // windows get fine steps, the far end still reaches the full span. Bounds also swallow the
+  // current value so the thumb never clips while histogram data is still loading. Fallbacks
+  // are mode-aware: HU for a volume, 0–4095 gray for a 2D radiograph.
+  const huMin = histogram?.minHu ?? (isXray ? 0 : -1000);
+  const huMax = histogram?.maxHu ?? (isXray ? 4095 : 3000);
+  const centerMin = Math.min(huMin, voiShown.center);
+  const centerMax = Math.max(huMax, voiShown.center);
+  const WIDTH_MIN = 10;
+  const widthMax = Math.max(huMax - huMin, meta?.defaultVoi.width ?? 0, voiShown.width, 100);
+  const widthToT = (w: number) =>
+    Math.round((1000 * Math.log(Math.max(WIDTH_MIN, w) / WIDTH_MIN)) / Math.log(widthMax / WIDTH_MIN));
+  const tToWidth = (t: number) => Math.round(WIDTH_MIN * Math.pow(widthMax / WIDTH_MIN, t / 1000));
 
   // ---- agent bridge: MCP-driven navigation/visualization (never findings) ----
   useAgentBridge({
@@ -796,9 +811,9 @@ export default function CbctApp() {
               center {voiShown.center}
               <input
                 type="range"
-                min={isXray ? 0 : -1000}
-                max={isXray ? 4095 : 3000}
-                step={10}
+                min={centerMin}
+                max={centerMax}
+                step={5}
                 value={voiShown.center}
                 onChange={(e) =>
                   setControls((c) => ({
@@ -806,6 +821,14 @@ export default function CbctApp() {
                     voi: { center: Number(e.target.value), width: voiShown.width },
                   }))
                 }
+                onDoubleClick={() =>
+                  meta &&
+                  setControls((c) => ({
+                    ...c,
+                    voi: { center: meta.defaultVoi.center, width: voiShown.width },
+                  }))
+                }
+                title="full value range of this image — double-click = back to the Auto center"
                 style={{ width: '100%' }}
               />
             </label>
@@ -813,16 +836,24 @@ export default function CbctApp() {
               width {voiShown.width}
               <input
                 type="range"
-                min={50}
-                max={isXray ? 4096 : 4500}
-                step={10}
-                value={voiShown.width}
+                min={0}
+                max={1000}
+                step={1}
+                value={widthToT(voiShown.width)}
                 onChange={(e) =>
                   setControls((c) => ({
                     ...c,
-                    voi: { center: voiShown.center, width: Number(e.target.value) },
+                    voi: { center: voiShown.center, width: tToWidth(Number(e.target.value)) },
                   }))
                 }
+                onDoubleClick={() =>
+                  meta &&
+                  setControls((c) => ({
+                    ...c,
+                    voi: { center: voiShown.center, width: meta.defaultVoi.width },
+                  }))
+                }
+                title="log scale up to the image's full span — double-click = back to the Auto width"
                 style={{ width: '100%' }}
               />
             </label>
