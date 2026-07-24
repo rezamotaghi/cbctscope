@@ -11,6 +11,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { loadVolumeData, type CbctMeta } from './volumeData';
 import { renderOblique, rotV, extentAlong, canvasPoint, handOf, type Basis } from './oblique';
 import { composeGridSnapshot, type SnapPane } from './evidence';
+import DragDivider from './DragDivider';
 import type { VolumeEntry } from './volumeData';
 
 type Plane = 'axial' | 'sagittal' | 'coronal';
@@ -49,6 +50,9 @@ const SCOUT_BASIS: Record<Plane, Basis> = {
 const SCOUT_NAME: Record<Plane, string> = { axial: 'SAGITTAL', sagittal: 'AXIAL', coronal: 'AXIAL' };
 
 const LINE_COLOR = 'rgba(255, 210, 80, 0.95)';
+const SCOUT_PCT_KEY = 'cbct-grid-scout-pct'; // persisted scout|stack split (draggable pane line)
+const SCOUT_PCT_DEFAULT = 26;
+const clampScoutPct = (v: number) => Math.min(60, Math.max(12, v));
 const DEG_PER_PX = 0.35; // hub fallback only — same feel as the MPR right-drag
 const HUB_PX = 24; // same dead-zone as the MPR rotate
 
@@ -82,6 +86,26 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
   const [scoutBasis, setScoutBasis] = useState<Basis>(SCOUT_BASIS.axial);
   const [centerOff, setCenterOff] = useState(0); // window center, voxels along n from volume center
   const [chip, setChip] = useState<string | null>(null); // live drag readout
+  // Draggable scout|stack pane line: default renders first (hydration-safe), the persisted
+  // width loads in an effect; persisted on release.
+  const [scoutPct, setScoutPct] = useState(SCOUT_PCT_DEFAULT);
+  const scoutPctRef = useRef(scoutPct);
+  scoutPctRef.current = scoutPct;
+  useEffect(() => {
+    try {
+      const v = Number(localStorage.getItem(SCOUT_PCT_KEY));
+      if (v) setScoutPct(clampScoutPct(v));
+    } catch {
+      /* nothing persisted */
+    }
+  }, []);
+  const persistScoutPct = () => {
+    try {
+      localStorage.setItem(SCOUT_PCT_KEY, String(scoutPctRef.current));
+    } catch {
+      /* best-effort */
+    }
+  };
   const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
   const refCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -459,7 +483,7 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
       <div ref={wrapRef} style={{ flex: 1, minHeight: 0, display: 'flex', gap: 6, position: 'relative' }}>
         <div
           style={{
-            flex: '0 0 26%',
+            flex: `0 0 ${scoutPct}%`,
             minWidth: 150,
             position: 'relative',
             background: 'var(--viewport-bg)',
@@ -491,6 +515,26 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
             {SCOUT_NAME[plane]} · left-drag = move window · right-drag = rotate
           </span>
         </div>
+        {/* draggable scout|stack pane line (always visible; double-click = default width) */}
+        <DragDivider
+          cursor="col-resize"
+          title="drag: resize the scout · double-click: default width"
+          style={{ flex: 'none', alignSelf: 'stretch', width: 8, borderRadius: 4 }}
+          onMove={(x) => {
+            const w = wrapRef.current;
+            if (!w) return;
+            const r = w.getBoundingClientRect();
+            const next = clampScoutPct(((x - r.left) / r.width) * 100);
+            scoutPctRef.current = next; // write-through: persist on release must not lag a batched render
+            setScoutPct(next);
+          }}
+          onEnd={persistScoutPct}
+          onReset={() => {
+            scoutPctRef.current = SCOUT_PCT_DEFAULT;
+            setScoutPct(SCOUT_PCT_DEFAULT);
+            persistScoutPct();
+          }}
+        />
         <div
           style={{
             flex: 1,

@@ -53,6 +53,7 @@ import { apply3dRender, applyProjection, type Render3dSettings } from './render3
 import { applyClipping, boundsInfo, PlaneIndicators, VTK_KIT, type Crop3d, type Cut } from './scene3d';
 import { Eraser3d, type ZRange } from './eraser3d';
 import { computeRoi3dStats, Roi3dOutlines, type Roi3d } from './evidence3d';
+import DragDivider from './DragDivider';
 import {
   composeSnapshot,
   fetchEvidence,
@@ -170,6 +171,9 @@ function sliceIndexFor(id: string, sliderValue: number, n: number): number {
   return SLIDER_FLIP[id] ? n - 1 - sliderValue : sliderValue;
 }
 const MPR_IDS = MPR_PANES.map((p) => VP[p]);
+
+/** Persisted 2×2 quadrant split (draggable pane lines). */
+const MPR_SPLIT_KEY = 'cbct-mpr-split';
 
 // resetCamera() alone re-fits zoom/pan but KEEPS the current view-plane orientation — after an
 // oblique/volume rotation the pane would stay rotated. Orientation must be re-set explicitly.
@@ -532,6 +536,27 @@ export default function CbctViewport({
   const [maximized, setMaximized] = useState<string | null>(null);
   const maximizedRef = useRef<string | null>(null);
   maximizedRef.current = maximized;
+  // Draggable pane lines: the 2×2 quadrant split as column/row fractions. Defaults render
+  // first (hydration-safe), the persisted split loads in an effect; persisted on release.
+  const [split, setSplit] = useState({ c: 0.5, r: 0.5 });
+  const splitRef = useRef(split);
+  splitRef.current = split;
+  const clampSplit = (v: number) => Math.min(0.8, Math.max(0.2, v));
+  useEffect(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem(MPR_SPLIT_KEY) ?? '') as { c?: number; r?: number };
+      setSplit({ c: clampSplit(Number(s.c) || 0.5), r: clampSplit(Number(s.r) || 0.5) });
+    } catch {
+      /* nothing persisted */
+    }
+  }, []);
+  const persistSplit = () => {
+    try {
+      localStorage.setItem(MPR_SPLIT_KEY, JSON.stringify(splitRef.current));
+    } catch {
+      /* best-effort */
+    }
+  };
   // Which pane's slice slider is being dragged — shows the slice readout chip next to the thumb.
   const [dragSlice, setDragSlice] = useState<string | null>(null);
   // Live right-drag oblique rotation: which pane is rotating + degrees swept (readout chip).
@@ -2497,14 +2522,109 @@ export default function CbctViewport({
       style={{
         position: 'relative',
         display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gridTemplateRows: '1fr 1fr',
+        gridTemplateColumns: `${split.c}fr ${1 - split.c}fr`,
+        gridTemplateRows: `${split.r}fr ${1 - split.r}fr`,
         gap: 6,
         width: '100%',
         height: '100%',
         minHeight: 0,
       }}
     >
+      {/* draggable pane lines — the strips live in the 6px gaps (always visible), the knob
+          at the crossing drags both axes; double-click = even split. Pane canvases follow
+          live: the ResizeObserver watches each pane element, not just the container. */}
+      {maximized === null && (
+        <>
+          <DragDivider
+            cursor="col-resize"
+            title="drag: resize panes · double-click: even split"
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              width: 10,
+              left: `calc((100% - 6px) * ${split.c} + 3px - 5px)`,
+              zIndex: 1,
+              borderRadius: 4,
+            }}
+            onMove={(x) => {
+              const g = gridRef.current;
+              if (!g) return;
+              const r = g.getBoundingClientRect();
+              const next = { ...splitRef.current, c: clampSplit((x - r.left - 3) / (r.width - 6)) };
+              splitRef.current = next; // write-through: persist on release must not lag a batched render
+              setSplit(next);
+            }}
+            onEnd={persistSplit}
+            onReset={() => {
+              const next = { ...splitRef.current, c: 0.5 };
+              splitRef.current = next;
+              setSplit(next);
+              persistSplit();
+            }}
+          />
+          <DragDivider
+            cursor="row-resize"
+            title="drag: resize panes · double-click: even split"
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              height: 10,
+              top: `calc((100% - 6px) * ${split.r} + 3px - 5px)`,
+              zIndex: 1,
+              borderRadius: 4,
+            }}
+            onMove={(_x, y) => {
+              const g = gridRef.current;
+              if (!g) return;
+              const r = g.getBoundingClientRect();
+              const next = { ...splitRef.current, r: clampSplit((y - r.top - 3) / (r.height - 6)) };
+              splitRef.current = next;
+              setSplit(next);
+            }}
+            onEnd={persistSplit}
+            onReset={() => {
+              const next = { ...splitRef.current, r: 0.5 };
+              splitRef.current = next;
+              setSplit(next);
+              persistSplit();
+            }}
+          />
+          <DragDivider
+            cursor="move"
+            title="drag: resize all four panes · double-click: even split"
+            style={{
+              position: 'absolute',
+              width: 16,
+              height: 16,
+              left: `calc((100% - 6px) * ${split.c} + 3px - 8px)`,
+              top: `calc((100% - 6px) * ${split.r} + 3px - 8px)`,
+              zIndex: 2,
+              borderRadius: 5,
+              border: '1px solid var(--border)',
+            }}
+            onMove={(x, y) => {
+              const g = gridRef.current;
+              if (!g) return;
+              const r = g.getBoundingClientRect();
+              const next = {
+                c: clampSplit((x - r.left - 3) / (r.width - 6)),
+                r: clampSplit((y - r.top - 3) / (r.height - 6)),
+              };
+              splitRef.current = next;
+              setSplit(next);
+            }}
+            onEnd={persistSplit}
+            onReset={() => {
+              const next = { c: 0.5, r: 0.5 };
+              splitRef.current = next;
+              setSplit(next);
+              persistSplit();
+            }}
+          />
+        </>
+      )}
       {cells.map((c) => {
         const isMax = maximized === c.id;
         const hidden = maximized !== null && !isMax;
