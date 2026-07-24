@@ -191,3 +191,74 @@ export async function composeSnapshot(panes: SnapPane[], footer: string): Promis
     return null;
   }
 }
+
+/**
+ * Grid-mode snapshot: the scout (scaled to the stack's full height) beside the rows×cols
+ * tile block — mirrors the on-screen layout instead of the 2-column default above. Same
+ * label + footer conventions as composeSnapshot.
+ */
+export async function composeGridSnapshot(
+  scout: SnapPane | null,
+  tiles: SnapPane[],
+  cols: number,
+  footer: string,
+): Promise<string | null> {
+  if (!tiles.length) return null;
+  const gap = 4;
+  const rows = Math.ceil(tiles.length / cols);
+  const tw = Math.max(...tiles.map((p) => p.canvas.width));
+  const th = Math.max(...tiles.map((p) => p.canvas.height));
+  if (!tw || !th) return null;
+  const gridW = cols * tw + (cols - 1) * gap;
+  const gridH = rows * th + (rows - 1) * gap;
+  const sw = scout && scout.canvas.height ? Math.round((scout.canvas.width * gridH) / scout.canvas.height) : 0;
+  const out = document.createElement('canvas');
+  out.width = (sw ? sw + gap : 0) + gridW;
+  out.height = gridH;
+  const ctx = out.getContext('2d');
+  if (!ctx) return null;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, out.width, out.height);
+  const fs = Math.max(14, Math.round(tw / 45));
+  const label = (text: string, x: number, y: number) => {
+    ctx.font = `600 ${fs}px system-ui, sans-serif`;
+    ctx.textBaseline = 'top';
+    ctx.shadowColor = '#000';
+    ctx.shadowBlur = 4;
+    ctx.fillStyle = '#dfe5f0';
+    ctx.fillText(text, x + 8, y + 6);
+    ctx.shadowBlur = 0;
+  };
+  if (scout && sw) {
+    ctx.drawImage(scout.canvas, 0, 0, sw, gridH);
+    if (scout.svg) {
+      const img = await svgToImage(scout.svg);
+      if (img) ctx.drawImage(img, 0, 0, sw, gridH);
+    }
+    label(scout.label, 0, 0);
+  }
+  const x0 = sw ? sw + gap : 0;
+  for (let i = 0; i < tiles.length; i++) {
+    const p = tiles[i];
+    const x = x0 + (i % cols) * (tw + gap);
+    const y = Math.floor(i / cols) * (th + gap);
+    ctx.drawImage(p.canvas, x, y);
+    if (p.svg) {
+      const img = await svgToImage(p.svg);
+      if (img) ctx.drawImage(img, x, y, p.canvas.width, p.canvas.height);
+    }
+    label(p.label, x, y);
+  }
+  ctx.font = `${fs}px system-ui, sans-serif`;
+  ctx.textBaseline = 'bottom';
+  ctx.shadowColor = '#000';
+  ctx.shadowBlur = 4;
+  ctx.fillStyle = '#aeb6c6';
+  ctx.fillText(footer, out.width - ctx.measureText(footer).width - 10, out.height - 8);
+  ctx.shadowBlur = 0;
+  try {
+    return out.toDataURL('image/png');
+  } catch {
+    return null;
+  }
+}

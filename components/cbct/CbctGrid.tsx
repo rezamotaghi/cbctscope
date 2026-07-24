@@ -10,6 +10,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadVolumeData, type CbctMeta } from './volumeData';
 import { renderOblique, rotV, extentAlong, canvasPoint, handOf, type Basis } from './oblique';
+import { composeGridSnapshot, type SnapPane } from './evidence';
 import type { VolumeEntry } from './volumeData';
 
 type Plane = 'axial' | 'sagittal' | 'coronal';
@@ -132,6 +133,32 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
     () => Array.from({ length: count }, (_, k) => centerOff + (k - (count - 1) / 2) * stepVox),
     [count, centerOff, stepVox],
   );
+
+  // snapshot: scout + the whole tile block, laid out as on screen, → one PNG download
+  // (labels, case·timestamp footer, evidence overlays included; the double-rAF makes sure
+  // the latest redraw has painted)
+  const takeSnapshot = async () => {
+    if (!entry) return;
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const scoutCv = refCanvasRef.current;
+    const scoutPane: SnapPane | null = scoutCv
+      ? { canvas: scoutCv, svg: null, label: `${SCOUT_NAME[plane]} scout` }
+      : null;
+    const tiles: SnapPane[] = [];
+    offsets.forEach((off, k) => {
+      const cv = canvasRefs.current[k];
+      if (!cv) return;
+      const svg = (cv.parentElement?.querySelector('svg') as SVGSVGElement | null) ?? null;
+      tiles.push({ canvas: cv, svg, label: `${k + 1} · ${(off * voxMm).toFixed(1)} mm` });
+    });
+    const url = await composeGridSnapshot(scoutPane, tiles, cols, `${anon} · ${new Date().toLocaleString()}`);
+    if (!url) return;
+    const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${anon}-grid-${ts}.png`;
+    a.click();
+  };
 
   // ---- draw tiles
   useEffect(() => {
@@ -399,8 +426,19 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
           <input type="checkbox" checked={mip} onChange={(e) => setMip(e.target.checked)} />
           MIP
         </label>
-        <button style={btn(false)} onClick={() => resetOrientation(plane)} title="back to the straight orthogonal stack">
-          reset orientation
+        <button
+          style={{ ...btn(false), fontSize: 14, lineHeight: 1 }}
+          onClick={() => resetOrientation(plane)}
+          title="reset view — back to the straight orthogonal stack, window recentered"
+        >
+          ↺
+        </button>
+        <button
+          style={btn(false)}
+          onClick={takeSnapshot}
+          title="snapshot: save the grid layout (scout + all sections, marks included) as a PNG image"
+        >
+          📷 snapshot
         </button>
         {entry && (
           <label style={{ fontSize: 11, color: 'var(--text-dim)', flex: 1, minWidth: 150 }}>
@@ -528,7 +566,7 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
               whiteSpace: 'nowrap',
             }}
           >
-            {chip} · reset orientation = straight stack
+            {chip} · ↺ = straight stack
           </span>
         )}
         {progress !== null && (
