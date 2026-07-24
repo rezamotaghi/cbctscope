@@ -76,6 +76,15 @@ flipped so bright is always radiopaque. The volumetric reading modes apply to vo
 only. This exists so multi-reader studies can read both image classes in one instrument
 under identical display settings.
 
+### Exporting
+
+The volume header has an **export** menu with three client-side formats: a PNG slice
+stack (a zip of one PNG per slice at the displayed window, plus a geometry `meta.json`),
+a NIfTI volume (`.nii.gz`, HU values, for Slicer, ITK-SNAP, nibabel, MONAI), and an STL
+surface mesh (marching cubes at a chosen HU threshold, honoring the 3D crop box, for
+printing or CAD). Everything is computed in the browser and saved to this machine's
+Downloads: nothing is uploaded, the same local-first constraint as reading.
+
 ## AI-agent control (MCP)
 
 Start the viewer, open it in a browser, then register the MCP server with your agent host:
