@@ -1215,21 +1215,86 @@ export default function CbctViewport({
       }
     };
 
-    // ---- right-drag = rotate the section (clinical-workstation convention): plain drag distance maps
-    // linearly to degrees — drag right/up = one way, left/down = the other. No modes.
-    const DEG_PER_PX = 0.35;
+    // ---- right-drag = rotate the section (clinical-workstation convention): the image point
+    // under the cursor follows the hand around the pivot (steering wheel) — the angle swept by
+    // the cursor about the pivot IS the rotation. Position-aware, so "drag up on the left side
+    // rotates that side up" holds in every pane and every quadrant; a plain distance→degrees
+    // mapping only feels right in the quadrant you happen to grab. Inside a small hub around
+    // the pivot the angle is unstable, so fall back to linear there.
+    // ---- right+left chord drag = zoom (drag up = in, down = out). Pointer-events detail:
+    // a second button joining an existing drag fires as a pointermove with e.buttons updated,
+    // never a pointerdown — so the chord is detected in onMove, whichever button came first.
+    // Zoom scales the pane's orthographic camera (parallelScale = how many world-mm fit
+    // vertically; smaller = closer). The left button stays Cornerstone's (crosshairs move in
+    // crosshairs mode, the active tool otherwise); the chord only borrows it for the zoom.
+    const DEG_PER_PX = 0.35; // hub fallback only
+    const HUB_PX = 24;
+    const ZOOM_PER_PX = 0.005;
     const rotCleanups: Array<() => void> = [];
     for (const id of MPR_IDS) {
       const el = elRefs.current[id];
       if (!el) continue;
-      let dragging = false;
+      let mode: 'rotate' | 'zoom' | null = null;
       let lastX = 0;
       let lastY = 0;
       let total = 0;
       let axis: number[] = [0, 0, 1];
       let pivotWorld: number[] = [0, 0, 0];
+      let pivotClient: [number, number] | null = null;
+      const applyZoom = (dy: number) => {
+        if (!dy) return;
+        try {
+          const vp = engineRef.current?.getViewport(id) as Types.IVolumeViewport | undefined;
+          if (!vp) return;
+          const cam = vp.getCamera();
+          if (!cam.parallelScale) return;
+          vp.setCamera({ parallelScale: cam.parallelScale / Math.exp(dy * ZOOM_PER_PX) });
+          vp.render();
+        } catch {
+          /* pane mid-init */
+        }
+      };
+      const startZoom = (e: PointerEvent) => {
+        // if Cornerstone latched a left-drag (crosshairs) before the right button joined,
+        // end it with a synthetic pointerup so the crosshair doesn't drift under the zoom
+        if (mode === null) {
+          try {
+            el.dispatchEvent(
+              new PointerEvent('pointerup', {
+                bubbles: true,
+                cancelable: true,
+                clientX: e.clientX,
+                clientY: e.clientY,
+                pointerId: e.pointerId,
+                pointerType: 'mouse',
+                button: 0,
+                buttons: 2,
+              }),
+            );
+          } catch {
+            /* best effort */
+          }
+        }
+        mode = 'zoom';
+        lastX = e.clientX;
+        lastY = e.clientY;
+        setRotDrag(null);
+        try {
+          el.setPointerCapture(e.pointerId);
+        } catch {
+          /* synthetic pointer */
+        }
+      };
       const onDown = (e: PointerEvent) => {
-        if (e.button !== 2 || e.shiftKey) return; // ⇧+right stays zoom
+        if (e.button !== 2 || e.shiftKey) return; // ⇧+right stays Cornerstone zoom
+        if (e.buttons & 1) {
+          // left already held → this press opens the chord (browser fired a real
+          // pointerdown here because the left press predates any capture)
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          startZoom(e);
+          return;
+        }
         const engine = engineRef.current;
         if (!engine) return;
         let vp: Types.IVolumeViewport;
@@ -1248,10 +1313,26 @@ export default function CbctViewport({
         const center =
           ch?.toolCenter && ch.toolCenter.some((v) => v !== 0) ? ch.toolCenter : (cam.focalPoint as number[]);
         pivotWorld = [...center];
+        // pivot in client px, so onMove can sweep the cursor's angle around it
+        pivotClient = null;
+        try {
+          const canvas = el.querySelector('canvas');
+          const c = vp.worldToCanvas(pivotWorld as Types.Point3);
+          if (canvas && c) {
+            const cr = canvas.getBoundingClientRect();
+            pivotClient = [cr.left + c[0], cr.top + c[1]];
+          }
+        } catch {
+          /* fall back to the pane center below */
+        }
+        if (!pivotClient) {
+          const r = el.getBoundingClientRect();
+          pivotClient = [r.left + r.width / 2, r.top + r.height / 2];
+        }
         lastX = e.clientX;
         lastY = e.clientY;
         total = 0;
-        dragging = true;
+        mode = 'rotate';
         e.preventDefault();
         e.stopImmediatePropagation(); // keep Cornerstone's own handlers off the right button
         try {
@@ -1262,11 +1343,47 @@ export default function CbctViewport({
         setRotDrag({ id, deg: 0 });
       };
       const onMove = (e: PointerEvent) => {
-        if (!dragging) {
+        if (mode === null) {
+          if (e.buttons === 3) {
+            // left came first (Cornerstone crosshair drag), right just joined → chord zoom
+            e.stopImmediatePropagation();
+            startZoom(e);
+            return;
+          }
           sampleHu(id, e);
           return;
         }
-        const deg = ((e.clientX - lastX) - (e.clientY - lastY)) * DEG_PER_PX;
+        if (mode === 'rotate' && e.buttons & 1) {
+          // left joined the right-drag → hand the gesture from rotate to zoom
+          startZoom(e);
+          return;
+        }
+        if (mode === 'zoom') {
+          if (e.buttons !== 3) {
+            mode = null; // one button lifted — gesture over, no surprise mode switch
+            return;
+          }
+          e.stopImmediatePropagation(); // starve any latched Cornerstone drag
+          applyZoom(lastY - e.clientY); // up = in
+          lastX = e.clientX;
+          lastY = e.clientY;
+          return;
+        }
+        const [px, py] = pivotClient ?? [0, 0];
+        const r1 = Math.hypot(lastX - px, lastY - py);
+        const r2 = Math.hypot(e.clientX - px, e.clientY - py);
+        let deg: number;
+        if (r1 < HUB_PX || r2 < HUB_PX) {
+          // too close to the pivot for a stable angle — plain distance mapping
+          deg = ((e.clientX - lastX) - (e.clientY - lastY)) * DEG_PER_PX;
+        } else {
+          // screen y grows downward, so atan2 increases clockwise — +deg = clockwise,
+          // matching applySectionRotation's sign convention
+          deg =
+            ((Math.atan2(e.clientY - py, e.clientX - px) - Math.atan2(lastY - py, lastX - px)) * 180) / Math.PI;
+          if (deg > 180) deg -= 360;
+          else if (deg < -180) deg += 360;
+        }
         lastX = e.clientX;
         lastY = e.clientY;
         if (!deg) return;
@@ -1275,8 +1392,8 @@ export default function CbctViewport({
         setRotDrag({ id, deg: total });
       };
       const endRot = () => {
-        if (!dragging) return;
-        dragging = false;
+        if (mode === null) return;
+        mode = null;
         setRotDrag(null);
       };
       const onLeave = () => {
@@ -2484,7 +2601,7 @@ export default function CbctViewport({
                 ))}
                 <button
                   onClick={home3d}
-                  title="re-home the 3D view (rotation/zoom only — window and slices untouched)"
+                  title="reset view — re-home the 3D camera (window and slices untouched)"
                   style={{
                     width: 26,
                     height: 24,
@@ -2497,7 +2614,7 @@ export default function CbctViewport({
                     padding: 0,
                   }}
                 >
-                  ⌂
+                  ↺
                 </button>
                 <span style={{ fontSize: 10, color: 'var(--text-dim)', textShadow: '0 1px 2px #000' }}>
                   {eraseMode ? 'drag = erase' : 'drag = rotate · ⇧right-drag = slice in'}
