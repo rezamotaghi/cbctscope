@@ -637,7 +637,7 @@ export default function CbctApp() {
         <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>
           {isXray
             ? 'wheel: zoom · left-drag: pan · double-click / R: fit · N/P'
-            : `wheel: slice · left: ${controls.toolMode} · right-drag: rotate section · right+left drag: zoom · middle-drag: pan · N/P · R · C · O · V · Del`}
+            : `wheel: slice · left: ${controls.toolMode === 'crosshairs' ? 'click spots crosshairs · drag pans' : controls.toolMode} · right-drag: rotate section · right+left drag: zoom · middle-drag: pan · N/P · R · C · O · V · Del`}
         </span>
       </header>
 

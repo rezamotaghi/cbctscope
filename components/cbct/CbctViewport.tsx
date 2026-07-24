@@ -474,14 +474,13 @@ function reinitCrosshairs(toolMode: CbctToolMode) {
     }
     mpr.setToolDisabled(CrosshairsTool.toolName);
     mpr.setToolActive(CrosshairsTool.toolName, { bindings: [{ mouseButton: MouseBindings.Primary }] });
-    if (toolMode !== 'crosshairs') {
-      // ENABLED, not passive: a passive crosshairs still grabs any drag near its full-pane
-      // reference lines and steals the stroke from the annotation tool (the arrow-tool bug).
-      // Enabled = lines render, mouse never intercepted.
-      mpr.setToolEnabled(CrosshairsTool.toolName);
-      const t = TOOL_OF[toolMode];
-      if (t) mpr.setToolActive(t, { bindings: [{ mouseButton: MouseBindings.Primary }] });
-    }
+    // ALWAYS settle at Enabled: crosshairs never owns the mouse (the click-to-spot design).
+    // A left TAP spots the center via jumpPanesToWorld and a left DRAG pans, so in crosshairs
+    // mode Pan is the active Primary tool. Enabled, not passive: a passive crosshairs still
+    // grabs any drag near its full-pane reference lines and steals the annotation stroke.
+    mpr.setToolEnabled(CrosshairsTool.toolName);
+    const t = toolMode === 'crosshairs' ? PanTool.toolName : TOOL_OF[toolMode];
+    if (t) mpr.setToolActive(t, { bindings: [{ mouseButton: MouseBindings.Primary }] });
   } catch (e) {
     console.warn('crosshairs reinit failed', e);
   }
@@ -1003,6 +1002,9 @@ export default function CbctViewport({
     }
     renderAnnotationsNowRef.current();
   };
+  // stable handle for the once-attached pointer listeners (a left tap spots the crosshair here)
+  const jumpPanesRef = useRef(jumpPanesToWorld);
+  jumpPanesRef.current = jumpPanesToWorld;
 
   // Del/Backspace: remove the object-browser selection, else whatever Cornerstone has
   // selected (shift-click on an annotation). Returns true if something was deleted.
@@ -1255,16 +1257,22 @@ export default function CbctViewport({
     // a second button joining an existing drag fires as a pointermove with e.buttons updated,
     // never a pointerdown — so the chord is detected in onMove, whichever button came first.
     // Zoom scales the pane's orthographic camera (parallelScale = how many world-mm fit
-    // vertically; smaller = closer). The left button stays Cornerstone's (crosshairs move in
-    // crosshairs mode, the active tool otherwise); the chord only borrows it for the zoom.
+    // vertically; smaller = closer).
+    // ---- left button in crosshairs mode: a left TAP (≤ TAP_PX movement) spots the crosshair
+    // center on the clicked point (jumpPanes — the object-browser path), a left DRAG pans
+    // (Cornerstone's Pan tool owns Primary in crosshairs mode; we only watch, never intercept).
+    // The tap fires on pointerup so the two gestures coexist with no delay or mode switch.
     const DEG_PER_PX = 0.35; // hub fallback only
     const HUB_PX = 24;
     const ZOOM_PER_PX = 0.005;
+    const TAP_PX = 5;
     const rotCleanups: Array<() => void> = [];
     for (const id of MPR_IDS) {
       const el = elRefs.current[id];
       if (!el) continue;
       let mode: 'rotate' | 'zoom' | null = null;
+      // left-tap candidate; null once it moves past TAP_PX, chords, or leaves the pane
+      let tap: { pid: number; x: number; y: number } | null = null;
       let lastX = 0;
       let lastY = 0;
       let total = 0;
@@ -1316,6 +1324,12 @@ export default function CbctViewport({
         }
       };
       const onDown = (e: PointerEvent) => {
+        // every fresh press restarts tap tracking — a left-only press in crosshairs mode is a
+        // candidate (⇧+click stays annotation-select), anything else clears it
+        tap =
+          e.button === 0 && e.buttons === 1 && !e.shiftKey && toolModeRef.current === 'crosshairs'
+            ? { pid: e.pointerId, x: e.clientX, y: e.clientY }
+            : null;
         if (e.button !== 2 || e.shiftKey) return; // ⇧+right stays Cornerstone zoom
         if (e.buttons & 1) {
           // left already held → this press opens the chord (browser fired a real
@@ -1373,9 +1387,11 @@ export default function CbctViewport({
         setRotDrag({ id, deg: 0 });
       };
       const onMove = (e: PointerEvent) => {
+        // a tap dies the moment it drags past the threshold or another button joins
+        if (tap && (e.buttons !== 1 || Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > TAP_PX)) tap = null;
         if (mode === null) {
           if (e.buttons === 3) {
-            // left came first (Cornerstone crosshair drag), right just joined → chord zoom
+            // left came first (Pan owns the crosshair-mode drag), right just joined → chord zoom
             e.stopImmediatePropagation();
             startZoom(e);
             return;
@@ -1421,12 +1437,28 @@ export default function CbctViewport({
         applyRotationRef.current(axis, pivotWorld, deg);
         setRotDrag({ id, deg: total });
       };
-      const endRot = () => {
+      const endRot = (e: PointerEvent) => {
+        // left tap released without dragging → spot the crosshair center there
+        if (tap && e.type === 'pointerup' && e.button === 0 && e.pointerId === tap.pid) {
+          try {
+            const vp = engineRef.current?.getViewport(id) as Types.IVolumeViewport | undefined;
+            const canvas = el.querySelector('canvas');
+            if (vp && canvas) {
+              const cr = canvas.getBoundingClientRect();
+              const world = vp.canvasToWorld([e.clientX - cr.left, e.clientY - cr.top] as Types.Point2);
+              jumpPanesRef.current(world as unknown as number[]);
+            }
+          } catch {
+            /* pane mid-init */
+          }
+        }
+        tap = null;
         if (mode === null) return;
         mode = null;
         setRotDrag(null);
       };
       const onLeave = () => {
+        tap = null; // released outside the pane ⇒ never a tap
         const s = huRefs.current[id];
         if (s) s.textContent = '';
       };
@@ -2029,20 +2061,20 @@ export default function CbctViewport({
     }
     // `!== false` keeps a dev-mode hot-reload with pre-planeLines state from wedging the
     // lines off with no way back
+    // Pan may hold a left-button binding from a previous mode — setToolActive only ever
+    // MERGES bindings, it cannot shrink them (⚠ Cornerstone gotcha, the sticky-pan bug).
+    // setToolPassive strips the Primary binding; Auxiliary remains, so Pan stays on
+    // middle-drag. Without this the old Primary grant lingers and left-click pans while
+    // another tool is also active on the same button.
+    mpr.setToolPassive(PanTool.toolName);
+    // `!== false` keeps a dev-mode hot-reload with pre-planeLines state from wedging the
+    // lines off with no way back
     const chVisible = controls.showOverlay && controls.planeLines !== false;
-    if (chVisible) {
-      if (controls.toolMode === 'crosshairs') {
-        mpr.setToolActive(CrosshairsTool.toolName, { bindings: [{ mouseButton: MouseBindings.Primary }] });
-      } else {
-        mpr.setToolEnabled(CrosshairsTool.toolName); // lines visible, mouse never intercepted
-      }
-    } // lines hidden ⇒ the planeLines effect below keeps crosshairs disabled
-    const primary =
-      controls.toolMode === 'crosshairs'
-        ? chVisible
-          ? null // crosshairs already active above
-          : PanTool.toolName // lines hidden ⇒ crosshairs stays disabled; left-click degrades to pan
-        : TOOL_OF[controls.toolMode];
+    // crosshairs never owns the mouse (click-to-spot design): lines render Enabled, a left
+    // TAP spots the center (custom handler → jumpPanesToWorld) and a left DRAG pans — so in
+    // crosshairs mode Pan is the active Primary tool.
+    if (chVisible) mpr.setToolEnabled(CrosshairsTool.toolName); // lines hidden ⇒ planeLines effect keeps it disabled
+    const primary = controls.toolMode === 'crosshairs' ? PanTool.toolName : TOOL_OF[controls.toolMode];
     // roi3d: leave every Cornerstone tool passive — the custom box-drag handlers own the left button
     if (primary) mpr.setToolActive(primary, { bindings: [{ mouseButton: MouseBindings.Primary }] });
   }, [controls.toolMode, controls.showOverlay, controls.planeLines, ready]);
@@ -2391,6 +2423,20 @@ export default function CbctViewport({
     }
   };
 
+  // Re-fit ONE MPR pane's zoom/pan (after a zoom-in or pan). resetCamera keeps the current
+  // view direction, so an oblique section stays oblique — orientation and window are
+  // untouched; the global R is still the square-up-everything reset.
+  const resetPaneView = (id: string) => {
+    const vp = engineRef.current?.getViewport(id);
+    if (!vp) return;
+    try {
+      vp.resetCamera();
+      vp.render();
+    } catch {
+      /* not ready */
+    }
+  };
+
   // explicit rotate controls for the 3D pane (orbit around the focal point)
   const orbit3d = (yawDeg: number, pitchDeg: number) => {
     const vp = engineRef.current?.getViewport(VP.v3d);
@@ -2702,6 +2748,30 @@ export default function CbctViewport({
                 }}
               >
                 ⇋
+              </button>
+            )}
+            {c.id !== VP.v3d && (
+              <button
+                onClick={() => resetPaneView(c.id)}
+                onDoubleClick={(e) => e.stopPropagation()}
+                title="reset view — re-fit this pane's zoom & pan (orientation and window untouched; R squares up all panes)"
+                style={{
+                  position: 'absolute',
+                  top: 2,
+                  right: 54,
+                  width: 26,
+                  height: 22,
+                  borderRadius: 5,
+                  border: '1px solid var(--border)',
+                  background: 'rgba(27,31,39,0.85)',
+                  color: 'var(--text)',
+                  fontSize: 13,
+                  lineHeight: '18px',
+                  padding: 0,
+                  zIndex: 1,
+                }}
+              >
+                ↺
               </button>
             )}
             {c.id !== VP.v3d &&
