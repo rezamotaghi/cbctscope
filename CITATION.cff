@@ -8,7 +8,7 @@ authors:
     orcid: "https://orcid.org/0009-0005-3194-1879"
     website: "https://rezamotaghi.com"
 repository-code: "https://github.com/rezamotaghi/cbctscope"
-version: 1.2.0
+version: 1.2.1
 doi: 10.5281/zenodo.21431452
 license: AGPL-3.0-or-later
 keywords:
