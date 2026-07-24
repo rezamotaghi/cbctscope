@@ -16,6 +16,7 @@ import CbctPano from './CbctPano';
 import CbctGrid from './CbctGrid';
 import CbctRadiograph from './CbctRadiograph';
 import CbctHistogram from './CbctHistogram';
+import ExportMenu from './ExportMenu';
 import CbctTmj from './CbctTmj';
 import CbctReslice from './CbctReslice';
 import CbctCeph from './CbctCeph';
@@ -567,6 +568,16 @@ export default function CbctApp() {
         <button style={btn(false)} onClick={() => step(1)} title="Next volume (N)">
           ›
         </button>
+        {!isXray && anon && (
+          <ExportMenu
+            anon={anon}
+            voi={voiShown}
+            invert={controls.invert}
+            gamma={controls.gamma}
+            stlThreshold={r3d.threshold}
+            crop3d={controls.crop3d}
+          />
+        )}
         {/* 📂 open a local CBCT export — DICOMDIR tree, slice-series folder, or multiframe file */}
         <div ref={srcMenuRef} style={{ position: 'relative' }}>
           <button
