@@ -249,8 +249,18 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
       // on screen the anatomy turns, the section lines stay where they are, and the grid
       // slices re-cut through the rotated anatomy (oblique stack)
       const axis = scout.n;
-      setScoutBasis((b) => ({ u: rotV(b.u, axis, deg), v: rotV(b.v, axis, deg), n: b.n }));
-      setBasis((b) => ({ u: rotV(b.u, axis, deg), v: rotV(b.v, axis, deg), n: rotV(b.n, axis, deg) }));
+      // MPR convention: +drag turns the anatomy CLOCKWISE — i.e. rotate about the scout's
+      // OUT-OF-SCREEN direction. Which way n faces depends on the basis handedness
+      // n·(u×v) (screen into = u×v with u→right, v→down): the axial scout's n points into
+      // the screen, the sagittal scout's out — a fixed world-axis sign can't serve both.
+      const { u: su, v: sv } = scout;
+      const hand =
+        axis[0] * (su[1] * sv[2] - su[2] * sv[1]) +
+        axis[1] * (su[2] * sv[0] - su[0] * sv[2]) +
+        axis[2] * (su[0] * sv[1] - su[1] * sv[0]);
+      const a = hand > 0 ? -deg : deg;
+      setScoutBasis((b) => ({ u: rotV(b.u, axis, a), v: rotV(b.v, axis, a), n: b.n }));
+      setBasis((b) => ({ u: rotV(b.u, axis, a), v: rotV(b.v, axis, a), n: rotV(b.n, axis, a) }));
       setChip(`rotating ${d.totalDeg >= 0 ? '+' : ''}${d.totalDeg.toFixed(0)}°`);
     }
   };

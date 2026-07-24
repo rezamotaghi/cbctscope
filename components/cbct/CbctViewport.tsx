@@ -1988,7 +1988,32 @@ export default function CbctViewport({
     const grid = gridRef.current;
     if (!grid) return;
     let raf = 0;
-    const doResize = () => {
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    // ⚠ ContextPoolRenderingEngine SILENTLY SKIPS the canvas-backing resize while a render
+    // animation frame is pending — and an agent-driven mode/pane change (or a divider drag)
+    // triggers renders constantly, so a single resize call is a lottery. When the backing
+    // stays stale, every overlay projection (reference lines, evidence ROIs) is computed
+    // against the wrong transform and misplaces. Verify every pane's backing against
+    // element×dpr and retry until it converges.
+    const backingStale = (): boolean => {
+      try {
+        const dpr = window.devicePixelRatio || 1;
+        for (const id of [VP.axial, VP.sagittal, VP.coronal, VP.v3d]) {
+          const el = elRefs.current[id];
+          const c = el?.querySelector('canvas');
+          if (!el || !c || el.clientWidth === 0) continue;
+          if (
+            Math.abs(c.width - Math.round(el.clientWidth * dpr)) > 2 ||
+            Math.abs(c.height - Math.round(el.clientHeight * dpr)) > 2
+          )
+            return true;
+        }
+      } catch {
+        /* mid-teardown */
+      }
+      return false;
+    };
+    const doResize = (attempt = 0) => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         try {
@@ -1996,13 +2021,23 @@ export default function CbctViewport({
         } catch {
           /* mid-teardown */
         }
+        if (retry) clearTimeout(retry);
+        if (backingStale() && attempt < 12) retry = setTimeout(() => doResize(attempt + 1), 120);
       });
     };
-    const ro = new ResizeObserver(doResize);
+    const ro = new ResizeObserver(() => doResize());
     ro.observe(grid);
+    // the pane elements too: maximizing a pane (or a divider drag) changes the internal
+    // split without moving the container, so observing only the grid would leave the
+    // canvases stale-sized
+    for (const id of [VP.axial, VP.sagittal, VP.coronal, VP.v3d]) {
+      const el = elRefs.current[id];
+      if (el) ro.observe(el);
+    }
     doResize();
     return () => {
       cancelAnimationFrame(raf);
+      if (retry) clearTimeout(retry);
       ro.disconnect();
     };
   }, [maximized]);
