@@ -148,7 +148,7 @@ export async function exportSliceStack(
     planeCounts[plane] = count;
   }
   const meta = {
-    schema: 'omfr-cbct-slice-export-v1',
+    schema: 'cbctscope-slice-export-v1',
     anon: entry.meta.anon,
     dims: entry.meta.dims,
     spacing_mm: entry.meta.spacing,
@@ -199,7 +199,7 @@ export function encodeNiftiParts(entry: VolumeEntry): BlobPart[] {
   dv.setUint8(123, 2); // xyzt_units: NIFTI_UNITS_MM
   dv.setFloat32(124, voi.center + voi.width / 2, true); // cal_max
   dv.setFloat32(128, voi.center - voi.width / 2, true); // cal_min
-  const desc = 'OMFR workbench CBCT export (de-identified HU volume)';
+  const desc = 'CBCTScope CBCT export (de-identified HU volume)';
   for (let i = 0; i < Math.min(79, desc.length); i++) dv.setUint8(148 + i, desc.charCodeAt(i));
   dv.setInt16(252, 0, true); // qform_code: none
   dv.setInt16(254, 1, true); // sform_code: scanner-anatomical
@@ -303,7 +303,7 @@ export function exportStl(entry: VolumeEntry, opts: StlOptions): { blob: Blob; t
   for (let i = 0; i < polys.length; i += polys[i] + 1) if (polys[i] === 3) tris++;
   const buf = new ArrayBuffer(84 + 50 * tris);
   const dv = new DataView(buf);
-  const header = `OMFR workbench CBCT surface @ ${opts.thresholdHU} HU, mm units`; // ASCII only — STL header is raw bytes
+  const header = `CBCTScope CBCT surface @ ${opts.thresholdHU} HU, mm units`; // ASCII only — STL header is raw bytes
   for (let i = 0; i < Math.min(79, header.length); i++) dv.setUint8(i, header.charCodeAt(i));
   dv.setUint32(80, tris, true);
   let o = 84;

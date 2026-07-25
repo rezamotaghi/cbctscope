@@ -1,7 +1,7 @@
 'use client';
-// CBCT volume viewer core — sibling of DicomViewport (2D untouched). One RenderingEngine,
-// 2×2: AXIAL/SAGITTAL/CORONAL MPR + 3D render. Voxels arrive as ONE normalized Int16 HU
-// buffer from /api/cbct (browser never parses DICOM here).
+// CBCT volume viewer core. One RenderingEngine, 2×2: AXIAL/SAGITTAL/CORONAL MPR + 3D
+// render. Voxels arrive as ONE normalized Int16 HU buffer from /api/cbct (the browser
+// never parses DICOM here). 2D radiographs have their own view: CbctRadiograph.
 //
 // The engine OUTLIVES volume switches — a volume pair
 // toggle swaps the volume in place, PRESERVING camera/slice/window (same acquisition ⇒ same

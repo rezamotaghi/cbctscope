@@ -19,3 +19,16 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+
+  # Secret scan over the FULL history, not just the diff: the repo's privacy stance is a
+  # claim about everything ever committed. Config (rules + allowlists) is .gitleaks.toml.
+  # fetch-depth: 0 is required — a shallow clone would silently scan almost nothing.
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
