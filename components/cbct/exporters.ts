@@ -26,6 +26,13 @@ export interface ExportWindow {
 
 export type SlicePlane = 'axial' | 'sagittal' | 'coronal';
 
+// Product identity stamped INTO the exported files (NIfTI descrip field, STL 80-byte header,
+// slice-stack meta.json). These two lines are the only thing in this file that legitimately
+// differs from the sibling repo; keep everything else byte-identical so a port stays a
+// clean copy and the scrub is a one-line check.
+const PRODUCT = 'CBCTScope';
+const EXPORT_SCHEMA = 'cbctscope-slice-export-v1';
+
 export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -148,7 +155,7 @@ export async function exportSliceStack(
     planeCounts[plane] = count;
   }
   const meta = {
-    schema: 'cbctscope-slice-export-v1',
+    schema: EXPORT_SCHEMA,
     anon: entry.meta.anon,
     dims: entry.meta.dims,
     spacing_mm: entry.meta.spacing,
@@ -199,7 +206,7 @@ export function encodeNiftiParts(entry: VolumeEntry): BlobPart[] {
   dv.setUint8(123, 2); // xyzt_units: NIFTI_UNITS_MM
   dv.setFloat32(124, voi.center + voi.width / 2, true); // cal_max
   dv.setFloat32(128, voi.center - voi.width / 2, true); // cal_min
-  const desc = 'CBCTScope CBCT export (de-identified HU volume)';
+  const desc = `${PRODUCT} CBCT export (de-identified HU volume)`;
   for (let i = 0; i < Math.min(79, desc.length); i++) dv.setUint8(148 + i, desc.charCodeAt(i));
   dv.setInt16(252, 0, true); // qform_code: none
   dv.setInt16(254, 1, true); // sform_code: scanner-anatomical
@@ -303,7 +310,7 @@ export function exportStl(entry: VolumeEntry, opts: StlOptions): { blob: Blob; t
   for (let i = 0; i < polys.length; i += polys[i] + 1) if (polys[i] === 3) tris++;
   const buf = new ArrayBuffer(84 + 50 * tris);
   const dv = new DataView(buf);
-  const header = `CBCTScope CBCT surface @ ${opts.thresholdHU} HU, mm units`; // ASCII only — STL header is raw bytes
+  const header = `${PRODUCT} CBCT surface @ ${opts.thresholdHU} HU, mm units`; // ASCII only — STL header is raw bytes
   for (let i = 0; i < Math.min(79, header.length); i++) dv.setUint8(i, header.charCodeAt(i));
   dv.setUint32(80, tris, true);
   let o = 84;

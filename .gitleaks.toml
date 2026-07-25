@@ -1,14 +1,31 @@
 # gitleaks config — extends the default rules with allowlists for known false positives.
+# Run by CI (.github/workflows/ci.yml, over the full history) and by the local pre-commit hook.
+#
+# Kept structurally identical to its sibling config upstream so the two diff at a glance.
+# Exactly one entry differs: the saved-preset localStorage keys are namespaced per app and
+# must stay that way (renaming a key orphans the presets already saved in a browser).
 [extend]
 useDefault = true
 
-[allowlist]
-description = "Build output and non-secret constants"
+[[allowlists]]
+description = "Build output and dependencies — not our source"
 paths = [
   '''\.next/''',
   '''node_modules/''',
 ]
+
+[[allowlists]]
+description = "localStorage key names for saved 3D presets — constants, not credentials"
 regexes = [
-  # localStorage key names for saved 3D presets — constants, not credentials
   '''cbctscope-3d-(presets|default)-v1''',
+]
+
+# Clinical prose trips the entropy heuristic (long anatomical compounds score like random
+# tokens). Scoped to generic-api-key ONLY, so the dedicated rules — AWS keys, GitHub tokens,
+# private key blocks — still scan every .md file, including the reading-mode guides.
+[[allowlists]]
+description = "Entropy heuristic vs. clinical prose in markdown"
+targetRules = ["generic-api-key"]
+paths = [
+  '''\.md$''',
 ]
