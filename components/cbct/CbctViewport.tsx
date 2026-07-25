@@ -55,6 +55,20 @@ import { Eraser3d, type ZRange } from './eraser3d';
 import { computeRoi3dStats, Roi3dOutlines, type Roi3d } from './evidence3d';
 import DragDivider from './DragDivider';
 import {
+  VP,
+  MPR_PANES,
+  MPR_IDS,
+  SLIDER_TIP,
+  sliceValue,
+  sliceIndexFor,
+  cross,
+  markersFromCamera,
+  normalizeV,
+  rotateVec,
+  type MprPane,
+  type Markers,
+} from './geometry';
+import {
   composeSnapshot,
   fetchEvidence,
   putEvidence,
@@ -82,7 +96,7 @@ export type CbctToolMode =
   | 'ellipse'
   | 'freehand'
   | 'roi3d';
-export type MprPane = 'axial' | 'sagittal' | 'coronal';
+export type { MprPane } from './geometry';
 
 export interface CbctControls {
   toolMode: CbctToolMode;
@@ -146,31 +160,8 @@ interface Props {
   onControlsPatch?: (patch: Partial<CbctControls>) => void;
 }
 
-const VP: Record<MprPane | 'v3d', string> = {
-  axial: 'cbct-axial',
-  sagittal: 'cbct-sagittal',
-  coronal: 'cbct-coronal',
-  v3d: 'cbct-3d',
-};
-const MPR_PANES: MprPane[] = ['axial', 'sagittal', 'coronal'];
-
-// Slice-slider anatomy (verified against the crosshair reference lines, 2026-07-09):
-// Cornerstone's index order runs superior→inferior on AXIAL, so that slider is FLIPPED to keep
-// drag-up = toward the skull (radiology convention). Sagittal/coronal keep index order
-// (up = patient L / up = anterior); the tooltip states each pane's direction.
-const SLIDER_FLIP: Record<string, boolean> = { [VP.axial]: true };
-const SLIDER_TIP: Record<string, string> = {
-  [VP.axial]: 'slice position · up = superior (S)',
-  [VP.sagittal]: 'slice position · up = patient left (L)',
-  [VP.coronal]: 'slice position · up = anterior (A)',
-};
-function sliceValue(id: string, info: { idx: number; n: number }): number {
-  return SLIDER_FLIP[id] ? info.n - 1 - info.idx : info.idx;
-}
-function sliceIndexFor(id: string, sliderValue: number, n: number): number {
-  return SLIDER_FLIP[id] ? n - 1 - sliderValue : sliderValue;
-}
-const MPR_IDS = MPR_PANES.map((p) => VP[p]);
+// Panes, viewport ids, slider anatomy, orientation markers and vector math all live in
+// ./geometry — pure, no React or Cornerstone, and unit tested (tests/geometry.test.ts).
 
 /** Persisted 2×2 quadrant split (draggable pane lines). */
 const MPR_SPLIT_KEY = 'cbct-mpr-split';
@@ -254,31 +245,6 @@ function buildLocalVolumeOptions(anon: string, meta: CbctMeta, scalar: Int16Arra
   };
 }
 
-// ---- patient-orientation markers (LPS: +x=L, +y=P, +z=S), from the LIVE camera so they
-// stay honest under crosshair/oblique rotation. right = viewUp × viewPlaneNormal.
-function axisLabel(v: [number, number, number]): string {
-  const ax = Math.abs(v[0]), ay = Math.abs(v[1]), az = Math.abs(v[2]);
-  if (ax >= ay && ax >= az) return v[0] >= 0 ? 'L' : 'R';
-  if (ay >= ax && ay >= az) return v[1] >= 0 ? 'P' : 'A';
-  return v[2] >= 0 ? 'S' : 'I';
-}
-function cross(a: number[], b: number[]): [number, number, number] {
-  return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-}
-interface Markers { right: string; left: string; top: string; bottom: string }
-function markersFromCamera(cam: Types.ICamera): Markers | null {
-  if (!cam.viewUp || !cam.viewPlaneNormal) return null;
-  const r = cross(cam.viewUp as number[], cam.viewPlaneNormal as number[]);
-  const t = cam.viewUp as number[];
-  const neg = (v: number[]) => [-v[0], -v[1], -v[2]] as [number, number, number];
-  return {
-    right: axisLabel(r as [number, number, number]),
-    left: axisLabel(neg(r)),
-    top: axisLabel(t as [number, number, number]),
-    bottom: axisLabel(neg(t)),
-  };
-}
-
 interface VtkVolumeProperty {
   getRGBTransferFunction: (i: number) => {
     removeAllPoints: () => void;
@@ -327,26 +293,6 @@ function applyMprGamma(
       /* pane mid-init */
     }
   }
-}
-
-function normalizeV(v: number[]): number[] {
-  const m = Math.hypot(v[0], v[1], v[2]) || 1;
-  return [v[0] / m, v[1] / m, v[2] / m];
-}
-
-/** Rodrigues rotation of v around unit axis by deg. */
-function rotateVec(v: number[], axis: number[], deg: number): number[] {
-  const th = (deg * Math.PI) / 180;
-  const [x, y, z] = v;
-  const [ux, uy, uz] = axis;
-  const c = Math.cos(th);
-  const sn = Math.sin(th);
-  const d = (1 - c) * (ux * x + uy * y + uz * z);
-  return [
-    x * c + (uy * z - uz * y) * sn + ux * d,
-    y * c + (uz * x - ux * z) * sn + uy * d,
-    z * c + (ux * y - uy * x) * sn + uz * d,
-  ];
 }
 
 interface MeasureRow { uid: string; label: string; world: number[] | null; visible: boolean }
