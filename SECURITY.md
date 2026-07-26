@@ -13,8 +13,8 @@ Please include the version, your platform, and the smallest reproduction you hav
 attach patient imaging: the built-in synthetic phantom (`npm run demo`) reproduces almost
 everything, and if it genuinely cannot, describe the geometry rather than sending a scan.
 
-This is research software maintained by one person. Expect an acknowledgement within a week,
-and a fix on the next release for anything confirmed. Only the latest release is supported.
+This is research software maintained by one person. Reports are read, but no acknowledgement
+or fix timeline is promised, and support is limited to the latest release.
 
 ## Not a medical device
 
