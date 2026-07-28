@@ -17,10 +17,12 @@ rotation), a live HU readout under the cursor (a 3 by 3 by 3 neighborhood mean),
 slider on the right edge, and a flip button that mirrors the viewing direction.
 
 Mouse, on the slice panes: the wheel scrolls the hovered pane; the left button runs the
-active tool; right-drag rotates the section about the crosshair center, with all three
-planes rotating rigidly so they stay mutually orthogonal (a live degree chip shows the
-sweep); shift right-drag zooms; middle-drag pans. On the 3D pane: left-drag rotates,
-right-drag zooms, middle-drag pans, and shift right-drag cuts into the render (see below).
+active tool (in Crosshairs mode a click spots the crosshairs to that point and a drag
+pans); right-drag rotates the section about the crosshair center, with all three planes
+rotating rigidly so they stay mutually orthogonal (a live degree chip shows the sweep);
+shift right-drag or a right+left chord drag zooms; middle-drag pans. On the 3D pane:
+left-drag rotates, middle-drag pans, right-drag cuts progressively into the render (see
+below), and the same right+left chord drag zooms.
 
 Tool palette ("Tool (1-9, 0)"): Crosshairs, Pan, Length, Angle, Arrow, Text, Rect ROI,
 Ellipse ROI, Freehand, 3D ROI, on hotkeys 1 through 9 and 0. Arrow and Text prompt for a
@@ -50,9 +52,11 @@ toggle (off = orthographic; toggling re-homes the 3D camera). Plane indicators d
 three section planes and a bounding box inside the render.
 
 Crop 3D: per-axis keep ranges (R to L, A to P, I to S) that crop the render only; the
-slices are unaffected. "Un-crop + clear cuts" restores the full volume. Cutaway: shift
-right-drag on the 3D pane adds a cut plane facing the camera; dragging up pushes it
-deeper. Cuts accumulate across drags from different angles; the scissors chip clears them.
+slices are unaffected. "Un-crop + clear cuts" restores the full volume. Cutaway:
+right-drag on the 3D pane opens a cut plane facing the camera; dragging up pushes it
+deeper, down backs it out. Later right-drags resume the same cut from its current depth;
+backing out past zero removes it (so does the scissors chip), and only then does a new
+drag open a fresh plane facing wherever the camera is now.
 
 Render eraser: the "eraser" button on the 3D pane turns left-drag into a brush (radius
 1 to 12 mm) that erases what you touch on the render. It edits a 3D-only copy of the

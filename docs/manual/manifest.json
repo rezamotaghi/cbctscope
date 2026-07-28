@@ -1,0 +1,27 @@
+{
+  "title": "CBCTScope User Manual",
+  "note": "Chapter order for the future help-menu and PDF builds. Paths are repo-relative. The reading-mode guides double as chapters 8.1-8.8; they are not duplicated into docs/manual/. tests/manual.test.ts checks that every listed file exists and that no manual chapter is missing from this list.",
+  "chapters": [
+    { "file": "docs/manual/00-front.md", "title": "Front matter" },
+    { "file": "docs/manual/01-overview.md", "title": "1 · Overview" },
+    { "file": "docs/manual/02-installation.md", "title": "2 · Installation and startup" },
+    { "file": "docs/manual/03-interface.md", "title": "3 · The interface" },
+    { "file": "docs/manual/04-opening-scans.md", "title": "4 · Opening images" },
+    { "file": "docs/manual/05-display.md", "title": "5 · Display and windowing" },
+    { "file": "docs/manual/06-measure-annotate.md", "title": "6 · Measuring and annotating" },
+    { "file": "docs/manual/07-exporting.md", "title": "7 · Exporting" },
+    { "file": "docs/manual/08-reading-modes.md", "title": "8 · Reading modes" },
+    { "file": "docs/reading-modes/mpr.md", "title": "8.1 · MPR" },
+    { "file": "docs/reading-modes/grid.md", "title": "8.2 · Grid" },
+    { "file": "docs/reading-modes/pano.md", "title": "8.3 · Pano" },
+    { "file": "docs/reading-modes/tmj.md", "title": "8.4 · TMJ" },
+    { "file": "docs/reading-modes/reslice.md", "title": "8.5 · Reslice" },
+    { "file": "docs/reading-modes/ceph.md", "title": "8.6 · Ceph" },
+    { "file": "docs/reading-modes/region.md", "title": "8.7 · Region" },
+    { "file": "docs/reading-modes/stitch.md", "title": "8.8 · Stitch" },
+    { "file": "docs/manual/09-agent.md", "title": "9 · AI-agent control" },
+    { "file": "docs/manual/10-data-privacy.md", "title": "10 · Data storage and privacy" },
+    { "file": "docs/manual/11-troubleshooting.md", "title": "11 · Troubleshooting" },
+    { "file": "docs/manual/12-shortcuts.md", "title": "12 · Keyboard and mouse reference" }
+  ]
+}

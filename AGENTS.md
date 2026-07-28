@@ -20,7 +20,22 @@ CBCTScope: a local-first CBCT viewer (Next.js + Cornerstone3D) with native AI-ag
 - `components/cbct/` the viewer: `CbctApp` (shell/state), `CbctViewport` (MPR + 3D), one component per reading mode, and pure math modules (`curvedReformat`, `stitch`, `regionGrow`, `oblique`, `render3d`, ...).
 - `lib/server/` volume sources: `localSource` (user-opened exports, read in place), `fused` (session stitches, memory only), `phantom` (synthetic demo), `dicom` (shared contract), `agentBus` (command bus), `config` (app-data paths).
 - `mcp/server.mjs` the stdio MCP server; a thin proxy onto `/api/agent/command`.
-- `tests/` vitest on the pure math; `docs/` MCP contract + per-mode reading guides.
+- `tests/` vitest on the pure math + the manual drift test; `docs/` MCP contract, per-mode reading guides, and the user manual (`docs/manual/`, see below).
+
+## The user manual
+
+`docs/manual/` is the product manual: chaptered markdown ordered by `manifest.json`, with
+the reading-mode guides doubling as chapters 8.1-8.8 (referenced, never duplicated). It
+will later ship as an in-app help menu and a standalone PDF built from these same files,
+so it is a user-facing deliverable, not internal docs.
+
+**Definition of done for any user-visible change** (a control, gesture, hotkey, mode, MCP
+verb, export format, or error message): update the affected manual chapter, and the
+reading-mode guide if the change is per-mode, in the same commit. `tests/manual.test.ts`
+drift-checks the enumerable surface (view modes, tool palette, window presets, MCP verbs,
+the manifest, the front-page version) against the source, so the gates fail when those go
+stale; prose accuracy is on the author of the change. A `package.json` version bump
+includes the version line in `docs/manual/00-front.md`.
 
 ## Gates
 

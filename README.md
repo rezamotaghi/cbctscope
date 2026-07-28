@@ -34,7 +34,8 @@ snapshots. The agent moves the camera. The human reads.
 
 Click any thumbnail for full resolution. Each reading mode has its own guide,
 written the way a reader actually moves through a volume:
-[docs/reading-modes](docs/reading-modes/).
+[docs/reading-modes](docs/reading-modes/). The full user manual, from
+installation to the keyboard reference, lives in [docs/manual](docs/manual/).
 
 ## Run it
 
