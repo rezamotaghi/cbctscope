@@ -9,46 +9,108 @@
 *Above: an agent driving the viewer in demo mode. Window preset, slice
 navigation, the multi-slice grid, and the mode switches are MCP verbs sent by
 the agent; the arch proposal and pano enhancement are the viewer's own
-one-click tools. Each frame is a capture of the full viewer window as the
-commands land. The volume is the built-in synthetic phantom, so no patient
+one-click tools. The volume is the built-in synthetic phantom, so no patient
 data can appear, by construction.*
 
-### The interface at a glance
+CBCTScope opens the CBCT exports already on your computer and reads them in
+eight purpose-built modes: MPR, multi-slice grid, curved panoramic, TMJ,
+freehand reslice, virtual cephalogram, region growing with airway analysis, and
+two-volume stitching. Your scan never leaves your computer: no account, no
+cloud, no upload, ever. An AI agent can drive the whole viewer through a
+built-in [MCP](https://modelcontextprotocol.io) server: it opens scans,
+switches reading modes, sets the window, moves through slices, and takes
+snapshots. The agent moves the camera. The human reads.
+
+> **Research use only. Not a medical device.** CBCTScope visualizes and
+> navigates volumes. It never produces findings, measurements-as-conclusions,
+> or diagnoses, in the UI or over MCP. Do not use it for clinical
+> decision-making.
+
+## The interface at a glance
 
 | MPR + 3D | Multi-slice grid | Curved panoramic |
 |---|---|---|
 | [![MPR: axial, sagittal, coronal and 3D render with crosshairs, HU windowing, slab and MIP controls](docs/media/thumb-mpr.png)](docs/media/thumb-mpr.png) | [![Grid: parallel axial slices with a sagittal scout, spacing and thickness controls](docs/media/thumb-grid.png)](docs/media/thumb-grid.png) | [![Pano: arch spline on the axial, curved panoramic, perpendicular cross-sections](docs/media/thumb-pano.png)](docs/media/thumb-pano.png) |
 
-Click any thumbnail for full resolution; the per-mode reading guides are in
+Click any thumbnail for full resolution. Each reading mode has its own guide,
+written the way a reader actually moves through a volume:
 [docs/reading-modes](docs/reading-modes/).
 
-Open any local CBCT export and read it in eight purpose-built modes: MPR, multi-slice grid, curved panoramic, TMJ, freehand reslice, virtual cephalogram, region growing with airway analysis, and two-volume stitching. Your scan never leaves your computer. An AI agent can drive the whole viewer through a built-in [MCP](https://modelcontextprotocol.io) server: it opens scans, switches reading modes, sets the window, moves through slices, and takes snapshots. The agent moves the camera. The human reads.
+## Run it
 
-> **Research use only. Not a medical device.** CBCTScope visualizes and navigates volumes. It never produces findings, measurements-as-conclusions, or diagnoses, in the UI or over MCP. Do not use it for clinical decision-making.
+About five minutes, no technical background needed. CBCTScope is not an
+installed app with an icon: it is a small local program you start once per
+reading session, and your browser is the screen. Everything is undone by
+deleting the folder.
 
-## Why this exists
+1. **Install Node.js 22 or later** from [nodejs.org](https://nodejs.org):
+   download the LTS installer, run it, accept the defaults. Node.js is the free
+   runtime that runs the viewer, the way a browser runs a web page.
+2. **Get CBCTScope.** Click the green **Code** button at the top of this page,
+   choose **Download ZIP**, and unzip it somewhere you can find again (Desktop
+   is fine). If you use git, `git clone` works as usual.
+3. **Open a terminal in that folder.**
+   On macOS: open Terminal (press Cmd-space, type "Terminal", press return),
+   type `cd ` with a trailing space, drag the unzipped `cbctscope` folder onto
+   the Terminal window, press return.
+   On Windows: open the unzipped folder in Explorer, click the address bar,
+   type `cmd`, press enter.
+4. **Install and start.** Two commands, return after each. The first downloads
+   the viewer's components; it runs once and takes a few minutes.
 
-To our knowledge, CBCTScope is the first CBCT viewer with native AI-agent control. Neighboring projects exist and deserve credit: [dicom-mcp](https://github.com/ChristianHinge/dicom-mcp) and the [Flux Inc. DICOM MCP server](https://github.com/fluxinc/dicom-mcp-server) query PACS metadata over MCP, [dicom-viewer-mcp-app](https://github.com/ThalesMMS/dicom-viewer-mcp-app) prototypes MCP-driven DICOM slice rendering, and [mcp-slicer](https://github.com/zhaoyouj/mcp-slicer) drives 3D Slicer through raw Python execution. None of them is a purpose-built CBCT reading environment, and none constrains the agent to a small set of clinical navigation verbs. CBCTScope does both: a dental and maxillofacial reading workflow, plus an agent surface that is deliberately navigation-only.
+   ```sh
+   npm install
+   npm run demo
+   ```
 
-## Privacy stance
+   On Windows the second command is `npm run dev` instead (`npm run demo` sets
+   its flag in Unix syntax and the Windows shell rejects it). The viewer is
+   identical; the difference is explained below.
+5. **Open http://localhost:3810 in your browser.** A built-in **synthetic
+   phantom** loads immediately: jaws, dental arches, teeth with enamel and
+   pulp, a metal crown, airway, sinuses, and TMJ condyles, all procedurally
+   generated. The full viewer works with zero patient data.
 
-- Scans are read **in place** from the folder you pick. Nothing is copied or uploaded anywhere.
-- There is no hosted instance and there never will be one. The server binds to 127.0.0.1 and rejects any request whose Host or Origin is not loopback, so neither another device on your network nor a hostile web page in another tab (DNS rebinding, cross-site POSTs) can reach it.
-- No absolute file paths reach the browser or the agent transcript. The UI shows a display label derived from the last folder and file names of what you opened (so name your export folders accordingly) plus technical geometry only.
-- The only writes are an app-data folder (`~/.cbctscope`) holding your annotation sidecars (labels, world-mm coordinates, HU statistics) and a pointer to the last source you opened, so the viewer can restore it. Never pixels. Demo mode writes neither.
+To stop the viewer, press Ctrl-C in the terminal or close its window. Next
+session, only step 3 and the start command are needed.
 
-## Quickstart
+**Demo mode vs. normal mode.** `npm run demo` never remembers a previously
+opened scan, so a recording or screenshot session can never accidentally
+surface a real case: it is a privacy guarantee, not a reduced feature set.
+`npm run dev` is the same viewer but restores your last opened scan when it
+starts. On first launch both show the phantom.
 
-Requires Node.js 22+.
+### If something goes wrong
+
+- **`npm: command not found`** (or `'npm' is not recognized`): Node.js is not
+  installed yet, or the terminal was opened before the install finished.
+  Install it, then open a new terminal window and retry.
+- **The start command warns that port 3810 is in use**: the viewer is already
+  running in another terminal window. One is enough: just open
+  http://localhost:3810, or stop the older one with Ctrl-C first.
+- **"found N compressed DICOM file(s)"** when opening a scan: the viewer reads
+  uncompressed DICOM only. Re-export from your scanner software with
+  compression off.
+
+## Opening your own scan
+
+Click **open** in the viewer header and pick a CBCT export: a folder of DICOM
+slices, a DICOMDIR tree, a single multiframe DICOM file, or one slice of a
+series (the whole series opens). Any export your scanner software produces as
+**uncompressed DICOM** works.
+
+The scan is read **in place** from the folder you picked. Nothing is copied,
+converted, or uploaded, and the full folder path never reaches the browser:
+the header shows a short label built from the folder and file names, so name
+your export folders the way you want to see them.
+
+The native file dialog is macOS-only for now. On Windows or Linux, point the
+running viewer at an export folder with one command in a second terminal
+(forward slashes work in Windows paths):
 
 ```sh
-npm install
-npm run demo     # starts the viewer at http://localhost:3810
+curl -X POST http://localhost:3810/api/cbct/source -H "Content-Type: application/json" -d "{\"path\":\"C:/scans/patient-export\"}"
 ```
-
-Open http://localhost:3810. A built-in **synthetic phantom** loads immediately, so the full viewer works with zero patient data. Demo mode is also a privacy guarantee: it never restores or remembers a previously opened scan, so a recording or screenshot session can never accidentally surface a real case. The phantom: jaws, dental arches, teeth with enamel and pulp, a metal crown, airway, sinuses, and TMJ condyles, all procedurally generated.
-
-To read a real scan, click **open** in the header and pick a CBCT export: a folder, a DICOMDIR tree, a multiframe DICOM file, or one slice of a series (the whole series opens). Uncompressed exports are supported; the native file chooser is macOS-only, other platforms can `POST /api/cbct/source` with a path.
 
 ## Reading modes
 
@@ -85,7 +147,33 @@ surface mesh (marching cubes at a chosen HU threshold, honoring the 3D crop box,
 printing or CAD). Everything is computed in the browser and saved to this machine's
 Downloads: nothing is uploaded, the same local-first constraint as reading.
 
+## Privacy
+
+The safe behavior is the only behavior the software has:
+
+- Scans are read **in place** from the folder you pick. Nothing is copied or
+  uploaded anywhere; there is no account, no telemetry, no hosted instance,
+  and there never will be one.
+- Everything, including the AI-agent connection, stays on this machine. In
+  technical terms: the server binds to 127.0.0.1 and rejects any request whose
+  Host or Origin is not loopback, so neither another device on your network
+  nor a hostile web page in another tab (DNS rebinding, cross-site POSTs) can
+  reach it.
+- No absolute file paths reach the browser or the agent transcript. The UI
+  shows a display label derived from the last folder and file names of what
+  you opened, plus technical geometry only.
+- The only writes are an app-data folder (`~/.cbctscope`) holding your
+  annotation sidecars (labels, world-mm coordinates, HU statistics) and a
+  pointer to the last source you opened, so the viewer can restore it. Never
+  pixels. Demo mode writes neither.
+
 ## AI-agent control (MCP)
+
+If you use an AI assistant that speaks MCP (Claude Code, Claude Desktop, and
+others), it can drive the viewer for you: open a scan, switch reading modes,
+set the window, step through slices, take snapshots to look at. It cannot do
+more than that, by design: no tool returns a finding or an interpretation, and
+no tool executes code, so the agent can never become the reader.
 
 Start the viewer, open it in a browser, then register the MCP server with your agent host:
 
@@ -100,9 +188,13 @@ Start the viewer, open it in a browser, then register the MCP server with your a
 }
 ```
 
-The agent gets eight verbs, all navigation or visualization: `open_scan`, `list_volumes`, `select_volume`, `set_view_mode`, `set_window_level`, `navigate_slice`, `snapshot`, `reset_view`. There is no code execution and no tool that returns an interpretation. Details and the full contract: [docs/mcp.md](docs/mcp.md).
+The agent gets eight verbs, all navigation or visualization: `open_scan`, `list_volumes`, `select_volume`, `set_view_mode`, `set_window_level`, `navigate_slice`, `snapshot`, `reset_view`. Details and the full contract: [docs/mcp.md](docs/mcp.md).
 
 CBCTScope is one of a pair of agent-native instruments built on the same principle (bounded verbs for the agent, commit rights for the human); the other is [Quoin](https://github.com/rezamotaghi/quoin), a text editor for macOS where any agent may edit the buffer and only the human holds the save button. Both at [rezamotaghi.com](https://rezamotaghi.com).
+
+## Why this exists
+
+To our knowledge, CBCTScope is the first CBCT viewer with native AI-agent control. Neighboring projects exist and deserve credit: [dicom-mcp](https://github.com/ChristianHinge/dicom-mcp) and the [Flux Inc. DICOM MCP server](https://github.com/fluxinc/dicom-mcp-server) query PACS metadata over MCP, [dicom-viewer-mcp-app](https://github.com/ThalesMMS/dicom-viewer-mcp-app) prototypes MCP-driven DICOM slice rendering, and [mcp-slicer](https://github.com/zhaoyouj/mcp-slicer) drives 3D Slicer through raw Python execution. None of them is a purpose-built CBCT reading environment, and none constrains the agent to a small set of clinical navigation verbs. CBCTScope does both: a dental and maxillofacial reading workflow, plus an agent surface that is deliberately navigation-only.
 
 ## Development
 
