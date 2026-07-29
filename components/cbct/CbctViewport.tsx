@@ -17,6 +17,7 @@ import {
   setVolumesForViewports,
   cache as csCache,
   eventTarget,
+  registerImageLoader,
   utilities as csUtils,
   type Types,
 } from '@cornerstonejs/core';
@@ -202,7 +203,28 @@ const REFLINE_RGB: Record<string, [number, number, number]> = {
   [VP.coronal]: [0.27, 0.78, 0.35],
 };
 
+// Cornerstone 5: setDefaultVolumeVOI force-reloads the volume's middle slice through the
+// image-loader registry with ignoreCache (v4 served that load from the cache first), so a
+// createLocalVolume-backed volume whose id carries a scheme-like prefix crashes setVolumes
+// with "No image loader found for scheme 'cbctlocal'". createLocalVolume already cached
+// every `${volumeId}_slice_${i}` as a local image at creation — serve those back through
+// the loader interface (v4 semantics, scoped to our scheme).
+let localSliceLoaderRegistered = false;
+function ensureLocalSliceLoader(): void {
+  if (localSliceLoaderRegistered) return;
+  localSliceLoaderRegistered = true;
+  registerImageLoader('cbctlocal', ((imageId: string) => ({
+    promise: (() => {
+      const image = csCache.getImage(imageId);
+      return image
+        ? Promise.resolve(image)
+        : Promise.reject(new Error(`cbctlocal: no cached slice image for ${imageId}`));
+    })(),
+  })) as Parameters<typeof registerImageLoader>[1]);
+}
+
 function ensureLocalVolume(anon: string, entry: VolumeEntry): string {
+  ensureLocalSliceLoader();
   const volumeId = `cbctlocal:${anon}`;
   if (csCache.getVolume(volumeId)) return volumeId;
   const { meta, scalar } = entry;
