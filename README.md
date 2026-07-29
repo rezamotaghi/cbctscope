@@ -4,7 +4,7 @@
 board-certified oral and maxillofacial radiologist. The first with native
 AI-agent control.**
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21431452.svg)](https://doi.org/10.5281/zenodo.21431452)
+[![DOI: 10.5281/zenodo.21431452](docs/media/doi-badge.svg)](https://doi.org/10.5281/zenodo.21431452)
 
 ![An AI agent driving CBCTScope over MCP on the built-in synthetic phantom: window presets, slice navigation, multi-slice grid, curved panoramic with cross-sections](docs/media/cbctscope-demo.gif)
 
