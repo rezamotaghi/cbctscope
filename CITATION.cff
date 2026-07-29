@@ -1,12 +1,27 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
-title: "CBCTScope: a local-first CBCT viewer with native AI-agent control"
+title: "CBCTScope: a local-first CBCT and 2D radiograph viewer with native AI-agent control"
 type: software
 authors:
   - family-names: Motaghi
     given-names: Reza
     orcid: "https://orcid.org/0009-0005-3194-1879"
     website: "https://rezamotaghi.com"
+abstract: >-
+  CBCTScope is a free, open-source, local-first viewer for cone-beam CT volumes
+  and 2D radiographs (panoramic, intraoral, CR, DX), built by a board-certified
+  oral and maxillofacial radiologist. It reads uncompressed DICOM exports in
+  place, with eight purpose-built reading modes: orthogonal MPR with 3D
+  rendering, multi-slice grid, curved panoramic reconstruction with nerve
+  tracing, TMJ with axis-corrected sections, freehand reslice, virtual
+  cephalogram, region growing with airway analysis, and two-volume stitching.
+  Scans never leave the user's computer: the server binds to loopback, nothing
+  is uploaded, and no hosted instance exists. To our knowledge it is also the
+  first CBCT viewer with native AI-agent control: a built-in Model Context
+  Protocol (MCP) server exposes eight navigation-only verbs (open, mode,
+  window, slice, snapshot, reset), so an agent can operate the viewer while
+  producing no findings; interpretation remains with the human reader.
+  Research use only; not a medical device.
 repository-code: "https://github.com/rezamotaghi/cbctscope"
 version: 1.2.1
 doi: 10.5281/zenodo.21431452
@@ -15,7 +30,11 @@ keywords:
   - CBCT
   - cone-beam computed tomography
   - DICOM
+  - DICOM viewer
   - medical imaging viewer
+  - dental imaging
+  - panoramic radiography
+  - airway analysis
   - oral and maxillofacial radiology
   - Model Context Protocol
   - MCP
