@@ -182,6 +182,9 @@ export interface PanoOpts {
   /** per-curve-sample extra normal offset (adaptive layer) — indexed like curve samples */
   focusOffsets?: Float32Array | null;
   range?: ZRange;
+  /** the section fan's in-plane tilt (deg): the pano re-cuts with the same leaning
+   *  vertical, so verticals match the tilted sections (rigid-frame behavior). */
+  tiltDeg?: number;
 }
 
 /** Curved pano: one column per curve sample, slab across the arch normal. */
@@ -201,6 +204,68 @@ export function renderPano(
   if (offsets.length === 0) offsets.push(0);
   const shift = opts?.shiftMm ?? 0;
   const focus = opts?.focusOffsets ?? null;
+
+  const tilt = opts?.tiltDeg ?? 0;
+  if (Math.abs(tilt) > 0.01) {
+    // Tilted frame: each image row leans buccal/lingual with height about the kept-window
+    // center — every row shares one z slice and one lateral lean, so this stays a per-row
+    // rebuild of the same slab sampling (cost ≈ the upright sweep). Row 0 = superior.
+    const spz = entry.meta.spacing[2];
+    const slices = entry.meta.dims[2];
+    const zLo = Math.max(0, Math.min(slices - 1, opts?.range?.zLo ?? 0));
+    const zHi = Math.max(zLo, Math.min(slices - 1, opts?.range?.zHi ?? slices - 1));
+    const h = zHi - zLo + 1;
+    const zCmm = ((zLo + zHi) / 2) * spz;
+    const th = (tilt * Math.PI) / 180;
+    const cosT = Math.cos(th);
+    const sinT = Math.sin(th);
+    const scalar = entry.scalar;
+    const sliceLen = cols * rows;
+    const W = curve.count;
+    const out = new Int16Array(W * h);
+    for (let j = 0; j < h; j++) {
+      const rowOff = j * W;
+      const b = (j - h / 2) * spz; // mm down the image from the window center
+      const zi = Math.round((zCmm - b * cosT) / spz);
+      if (zi < 0 || zi >= slices) {
+        out.fill(-1000, rowOff, rowOff + W);
+        continue;
+      }
+      const lean = b * sinT; // lateral offset along the normal at this height
+      const base = zi * sliceLen;
+      for (let i = 0; i < W; i++) {
+        const boff = shift + (focus ? focus[Math.min(i, focus.length - 1)] : 0) + lean;
+        const px = curve.pts[2 * i];
+        const py = curve.pts[2 * i + 1];
+        const nx = curve.normals[2 * i];
+        const ny = curve.normals[2 * i + 1];
+        let acc = mip ? -32768 : 0;
+        let hits = 0;
+        for (const o of offsets) {
+          const fx = (px + (boff + o) * nx) / sx;
+          const fy = (py + (boff + o) * ny) / sy;
+          const x0 = Math.floor(fx);
+          const y0 = Math.floor(fy);
+          if (x0 < 0 || y0 < 0 || x0 >= cols - 1 || y0 >= rows - 1) continue;
+          const dx = fx - x0;
+          const dy = fy - y0;
+          const b4 = base + y0 * cols + x0;
+          const v =
+            scalar[b4] * (1 - dx) * (1 - dy) +
+            scalar[b4 + 1] * dx * (1 - dy) +
+            scalar[b4 + cols] * (1 - dx) * dy +
+            scalar[b4 + cols + 1] * dx * dy;
+          if (mip) {
+            if (v > acc) acc = v;
+          } else acc += v;
+          hits++;
+        }
+        out[rowOff + i] = hits === 0 ? -1000 : mip ? acc : acc / hits;
+      }
+    }
+    return { data: out, width: W, height: h, pxW: curve.step, pxH: spz };
+  }
+
   const tapsPerCol: (Tap | null)[][] = [];
   for (let i = 0; i < curve.count; i++) {
     const base = shift + (focus ? focus[Math.min(i, focus.length - 1)] : 0);
@@ -223,6 +288,9 @@ export interface SectionOpts {
   /** same radius shift as the pano, so sections stay centered on the shifted layer */
   shiftMm?: number;
   range?: ZRange;
+  /** in-plane rotation (deg) about the view normal (the arch tangent) — the MPR/grid
+   *  "rotate the section you're on" gesture. 0 = the fast upright path. */
+  tiltDeg?: number;
 }
 
 /** Perpendicular cross-section at arc position sMm, widthMm across the arch normal. */
@@ -252,6 +320,69 @@ export function renderSection(
   const tOffs: number[] = [];
   for (let t = -thick / 2; t <= thick / 2 + 1e-6; t += tStep) tOffs.push(t);
   if (tOffs.length === 0) tOffs.push(0);
+
+  const tilt = opts?.tiltDeg ?? 0;
+  if (Math.abs(tilt) > 0.01) {
+    // Tilted section: the image plane spins about its view normal (the arch tangent), so a
+    // row is no longer one z slice — the per-z `sweep` model can't express it. Same slab
+    // (thickness taps along the tangent), same bilinear-in-xy sampling, nearest z; the
+    // in-plane pixel grid is rotated by tilt about the section center (mid kept-z-window).
+    const spz = entry.meta.spacing[2];
+    const slices = entry.meta.dims[2];
+    const zLo = Math.max(0, Math.min(slices - 1, opts?.range?.zLo ?? 0));
+    const zHi = Math.max(zLo, Math.min(slices - 1, opts?.range?.zHi ?? slices - 1));
+    const h = zHi - zLo + 1;
+    const zCmm = ((zLo + zHi) / 2) * spz;
+    const th = (tilt * Math.PI) / 180;
+    const cosT = Math.cos(th);
+    const sinT = Math.sin(th);
+    const scalar = entry.scalar;
+    const sliceLen = cols * rows;
+    const out = new Int16Array(w * h);
+    const acc = new Float32Array(w);
+    const hits = new Int32Array(w);
+    // per-column steps of the rotated in-plane coords: a (screen-right, mm, mirror folded
+    // in) rotates into a2 (along the arch normal) and b2 (down): Δa2 = sign·sx·cos,
+    // Δb2 = −sign·sx·sin — the row is walked incrementally, no per-pixel allocation
+    const dA2 = sign * sx * cosT;
+    const dB2 = -sign * sx * sinT;
+    for (let j = 0; j < h; j++) {
+      acc.fill(0);
+      hits.fill(0);
+      const b = (j - h / 2) * spz; // mm along screen-down at zero tilt
+      const a0 = sign * (0 - w / 2) * sx;
+      for (const t of tOffs) {
+        let a2 = a0 * cosT + b * sinT;
+        let b2 = -a0 * sinT + b * cosT;
+        for (let k = 0; k < w; k++) {
+          const zi = Math.round((zCmm - b2) / spz);
+          if (zi >= 0 && zi < slices) {
+            const fx = (px + (shift + a2) * nx + t * tx) / sx;
+            const fy = (py + (shift + a2) * ny + t * ty) / sy;
+            const x0 = Math.floor(fx);
+            const y0 = Math.floor(fy);
+            if (x0 >= 0 && y0 >= 0 && x0 < cols - 1 && y0 < rows - 1) {
+              const dx = fx - x0;
+              const dy = fy - y0;
+              const base = zi * sliceLen + y0 * cols + x0;
+              acc[k] +=
+                scalar[base] * (1 - dx) * (1 - dy) +
+                scalar[base + 1] * dx * (1 - dy) +
+                scalar[base + cols] * (1 - dx) * dy +
+                scalar[base + cols + 1] * dx * dy;
+              hits[k]++;
+            }
+          }
+          a2 += dA2;
+          b2 += dB2;
+        }
+      }
+      const rowOff = j * w;
+      for (let k = 0; k < w; k++) out[rowOff + k] = hits[k] ? acc[k] / hits[k] : -1000;
+    }
+    return { data: out, width: w, height: h, pxW: sx, pxH: spz };
+  }
+
   const tapsPerCol: (Tap | null)[][] = [];
   for (let k = 0; k < w; k++) {
     const o = shift + sign * (k - w / 2) * sx;
@@ -277,7 +408,7 @@ export function renderLineSection(
   dirX: number,
   dirY: number,
   widthMm: number,
-  opts?: { thicknessMm?: number; range?: ZRange; mip?: boolean },
+  opts?: { thicknessMm?: number; range?: ZRange; mip?: boolean; tiltDeg?: number },
 ): ReformatImage {
   const [cols, rows] = entry.meta.dims;
   const [sx, sy] = entry.meta.spacing;
@@ -290,6 +421,69 @@ export function renderLineSection(
   const tOffs: number[] = [];
   for (let t = -thick / 2; t <= thick / 2 + 1e-6; t += tStep) tOffs.push(t);
   if (tOffs.length === 0) tOffs.push(0);
+
+  const tilt = opts?.tiltDeg ?? 0;
+  if (Math.abs(tilt) > 0.01) {
+    // Tilted plane: renderSection's tilted branch, straight-geometry edition — the image
+    // spins about its view normal, so rows mix z and the column direction; bilinear-in-xy /
+    // nearest-z about the kept-window center, incremental walk, slab along the cut normal.
+    const spz = entry.meta.spacing[2];
+    const slices = entry.meta.dims[2];
+    const zLo = Math.max(0, Math.min(slices - 1, opts?.range?.zLo ?? 0));
+    const zHi = Math.max(zLo, Math.min(slices - 1, opts?.range?.zHi ?? slices - 1));
+    const h = zHi - zLo + 1;
+    const zCmm = ((zLo + zHi) / 2) * spz;
+    const th = (tilt * Math.PI) / 180;
+    const cosT = Math.cos(th);
+    const sinT = Math.sin(th);
+    const mip = opts?.mip ?? false;
+    const scalar = entry.scalar;
+    const sliceLen = cols * rows;
+    const out = new Int16Array(w * h);
+    const acc = new Float32Array(w);
+    const hits = new Int32Array(w);
+    const dA2 = sx * cosT;
+    const dB2 = -sx * sinT;
+    for (let j = 0; j < h; j++) {
+      acc.fill(mip ? -32768 : 0);
+      hits.fill(0);
+      const b = (j - h / 2) * spz;
+      const a0 = (0 - w / 2) * sx;
+      for (const t of tOffs) {
+        let a2 = a0 * cosT + b * sinT;
+        let b2 = -a0 * sinT + b * cosT;
+        for (let k = 0; k < w; k++) {
+          const zi = Math.round((zCmm - b2) / spz);
+          if (zi >= 0 && zi < slices) {
+            const fx = (cxMm + a2 * dirX + t * nx) / sx;
+            const fy = (cyMm + a2 * dirY + t * ny) / sy;
+            const x0 = Math.floor(fx);
+            const y0 = Math.floor(fy);
+            if (x0 >= 0 && y0 >= 0 && x0 < cols - 1 && y0 < rows - 1) {
+              const dx = fx - x0;
+              const dy = fy - y0;
+              const base = zi * sliceLen + y0 * cols + x0;
+              const v =
+                scalar[base] * (1 - dx) * (1 - dy) +
+                scalar[base + 1] * dx * (1 - dy) +
+                scalar[base + cols] * (1 - dx) * dy +
+                scalar[base + cols + 1] * dx * dy;
+              if (mip) {
+                if (v > acc[k]) acc[k] = v;
+              } else acc[k] += v;
+              hits[k]++;
+            }
+          }
+          a2 += dA2;
+          b2 += dB2;
+        }
+      }
+      const rowOff = j * w;
+      for (let k = 0; k < w; k++) out[rowOff + k] = hits[k] === 0 ? -1000 : mip ? acc[k] : acc[k] / hits[k];
+    }
+    return { data: out, width: w, height: h, pxW: sx, pxH: spz };
+  }
+
   const tapsPerCol: (Tap | null)[][] = [];
   for (let k = 0; k < w; k++) {
     const o = (k - w / 2) * sx;
@@ -344,7 +538,7 @@ export function drawImage(
   ctx.putImageData(toImageData(img, voi, invert), 0, 0);
 }
 
-/** Robust display window from a reformat's own pixels (pano enhance, contrast half). */
+/** Robust display window from a reformat's own pixels (pano auto-adjust, contrast half). */
 export function autoWindow(img: ReformatImage): { center: number; width: number } {
   const sample: number[] = [];
   for (let i = 0; i < img.data.length; i += 5) {
@@ -359,7 +553,7 @@ export function autoWindow(img: ReformatImage): { center: number; width: number 
   return { center: Math.round(lo + width / 2), width: Math.round(width) };
 }
 
-/** Unsharp mask on the HU data (pano enhance, sharpness half): v + amount·(v − mean3×3). */
+/** Unsharp mask on the HU data (pano auto-adjust, sharpness half): v + amount·(v − mean3×3). */
 export function sharpenImage(img: ReformatImage, amount: number): ReformatImage {
   const { width: w, height: h, data } = img;
   const out = new Int16Array(w * h);
@@ -382,12 +576,12 @@ export function sharpenImage(img: ReformatImage, amount: number): ReformatImage 
 }
 
 /**
- * Adaptive layer: per-curve-sample buccolingual offset that maximizes structure. For each
+ * Auto-focus layer: per-curve-sample buccolingual offset that maximizes structure. For each
  * arch sample we probe candidate offsets and score the vertical high-frequency energy of a
  * thin column there (teeth/bone edges score high, homogeneous soft tissue low), then smooth
  * the winning offsets along the arch so the focal layer bends but stays a layer.
  */
-export function adaptiveLayerOffsets(
+export function autoFocusOffsets(
   entry: VolumeEntry,
   curve: ArchCurve,
   searchMm = 3,
@@ -449,13 +643,13 @@ export function adaptiveLayerOffsets(
 }
 
 /**
- * Arch proposal: control points proposed from the anatomy of one axial slice. Rays fan out
+ * Auto-fit arch: propose control points from the anatomy of one axial slice. Rays fan out
  * from the bone centroid toward the anterior half-plane; each ray keeps the midpoint of the
  * first substantial high-density run it crosses (a tooth / the alveolar process). Median
  * smoothing across neighboring rays kills outliers (fillings, spine). A PROPOSAL — the
  * reader drags dots after.
  */
-export function proposeArch(entry: VolumeEntry, zIndex: number): ArchPoint[] | null {
+export function autoFitArch(entry: VolumeEntry, zIndex: number): ArchPoint[] | null {
   const [cols, rows, slices] = entry.meta.dims;
   const [sx, sy] = entry.meta.spacing;
   const z = Math.max(0, Math.min(slices - 1, zIndex));

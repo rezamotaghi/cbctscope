@@ -61,7 +61,8 @@ const HUB_PX = 24; // same dead-zone as the MPR rotate
 // A plain (dx−dy) mapping can't do that — it feels inverted on one side. Screen y grows
 // downward, so atan2 increases clockwise — +deg = clockwise, matching the handOf sign
 // convention. Inside the hub the angle is unstable → linear distance fallback.
-const sweepDeg = (px: number, py: number, x0: number, y0: number, x1: number, y1: number): number => {
+// Exported: the pano/reslice/TMJ section rotations reuse this exact mechanic (one source of truth).
+export const sweepDeg = (px: number, py: number, x0: number, y0: number, x1: number, y1: number): number => {
   if (Math.hypot(x0 - px, y0 - py) < HUB_PX || Math.hypot(x1 - px, y1 - py) < HUB_PX) {
     return (x1 - x0 - (y1 - y0)) * DEG_PER_PX;
   }
