@@ -118,11 +118,44 @@ interface Saved3dPreset {
   name: string;
   settings: Render3dSettings;
 }
+// Style keys and setting fields were renamed when the style set was reworked; presets
+// saved before that carry the old names. Migrate on load so no saved preset ever feeds a
+// dead style key into the render path.
+const LEGACY_STYLE_KEYS: Record<string, string> = {
+  'style:matte': 'style:shaded',
+  'style:gloss': 'style:shiny',
+  'style:shell': 'style:surface',
+  'style:skin': 'style:soft-tissue',
+  'style:radiograph': 'style:xray',
+  'style:glass': 'style:xray-shaded',
+  'style:film': 'style:bw-xray',
+};
+function migratePreset(s: Render3dSettings): Render3dSettings {
+  const legacy = s as Render3dSettings & {
+    edgeEmphasis?: number;
+    skinShell?: boolean;
+    skinShellThreshold?: number;
+    skinShellOpacity?: number;
+  };
+  return {
+    ...DEFAULT_RENDER3D,
+    ...s,
+    style: LEGACY_STYLE_KEYS[s.style] ?? s.style,
+    depthEnhance: s.depthEnhance ?? legacy.edgeEmphasis ?? DEFAULT_RENDER3D.depthEnhance,
+    stOverlay: s.stOverlay ?? legacy.skinShell ?? DEFAULT_RENDER3D.stOverlay,
+    stThreshold: s.stThreshold ?? legacy.skinShellThreshold ?? DEFAULT_RENDER3D.stThreshold,
+    stOpacity: s.stOpacity ?? legacy.skinShellOpacity ?? DEFAULT_RENDER3D.stOpacity,
+  };
+}
 function loadSavedPresets(): Saved3dPreset[] {
   try {
     const raw = localStorage.getItem(PRESETS_KEY);
     const arr = raw ? (JSON.parse(raw) as Saved3dPreset[]) : [];
-    return Array.isArray(arr) ? arr.filter((p) => p && typeof p.name === 'string' && p.settings) : [];
+    return Array.isArray(arr)
+      ? arr
+          .filter((p) => p && typeof p.name === 'string' && p.settings)
+          .map((p) => ({ ...p, settings: migratePreset(p.settings) }))
+      : [];
   } catch {
     return [];
   }
@@ -944,7 +977,7 @@ export default function CbctApp() {
                 {Object.entries(RENDER_STYLES)
                   .filter(([, d]) => d.group === 'classic')
                   .map(([value, d]) => (
-                    <option key={value} value={value} title={d.tip}>
+                    <option key={value} value={value}>
                       {d.label}
                     </option>
                   ))}
@@ -953,7 +986,7 @@ export default function CbctApp() {
                 {Object.entries(RENDER_STYLES)
                   .filter(([, d]) => d.group === 'cbct')
                   .map(([value, d]) => (
-                    <option key={value} value={value} title={d.tip}>
+                    <option key={value} value={value}>
                       {d.label}
                     </option>
                   ))}
@@ -978,7 +1011,7 @@ export default function CbctApp() {
                   </div>
                 )}
                 <label style={{ display: 'block', fontSize: 11, color: 'var(--text-dim)' }}>
-                  opacity threshold {r3d.threshold} HU (densities below stay transparent)
+                  cut-off threshold {r3d.threshold} HU (densities below stay transparent)
                   <input
                     type="range"
                     min={-1000}
@@ -1051,17 +1084,33 @@ export default function CbctApp() {
                   </select>
                 </label>
                 <label style={{ display: 'block', fontSize: 11, color: 'var(--text-dim)' }}>
-                  edge emphasis {r3d.edgeEmphasis} (flat interiors fade, surfaces pop)
+                  depth enhancement {r3d.depthEnhance} (flat interiors fade, surfaces pop)
                   <input
                     type="range"
                     min={0}
                     max={100}
                     step={1}
-                    value={r3d.edgeEmphasis}
-                    onChange={(e) => setR3d({ edgeEmphasis: Number(e.target.value) })}
-                    onDoubleClick={() => setR3d({ edgeEmphasis: 0 })}
+                    value={r3d.depthEnhance}
+                    onChange={(e) => setR3d({ depthEnhance: Number(e.target.value) })}
+                    onDoubleClick={() => setR3d({ depthEnhance: 0 })}
                     style={{ width: '100%' }}
                   />
+                </label>
+                <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, margin: '4px 0' }}>
+                  <input
+                    type="checkbox"
+                    checked={r3d.smooth3d}
+                    onChange={(e) => setR3d({ smooth3d: e.target.checked })}
+                  />
+                  smooth 3D surface (denoised copy — slice views stay untouched)
+                </label>
+                <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, margin: '4px 0' }}>
+                  <input
+                    type="checkbox"
+                    checked={r3d.cinematic}
+                    onChange={(e) => setR3d({ cinematic: e.target.checked })}
+                  />
+                  cinematic light (soft in-volume shadows — slower to orbit)
                 </label>
                 <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, margin: '4px 0' }}>
                   <input
@@ -1102,34 +1151,34 @@ export default function CbctApp() {
                 <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, margin: '4px 0' }}>
                   <input
                     type="checkbox"
-                    checked={r3d.skinShell}
-                    onChange={(e) => setR3d({ skinShell: e.target.checked })}
+                    checked={r3d.stOverlay}
+                    onChange={(e) => setR3d({ stOverlay: e.target.checked })}
                   />
-                  skin shell (flesh-toned surface below the opacity threshold)
+                  soft-tissue overlay (skin-toned shell under the cut-off)
                 </label>
-                {r3d.skinShell && (
+                {r3d.stOverlay && (
                   <>
                     <label style={{ display: 'block', fontSize: 11, color: 'var(--text-dim)' }}>
-                      shell threshold {r3d.skinShellThreshold} HU
+                      tissue threshold {r3d.stThreshold} HU
                       <input
                         type="range"
                         min={-800}
                         max={200}
                         step={10}
-                        value={r3d.skinShellThreshold}
-                        onChange={(e) => setR3d({ skinShellThreshold: Number(e.target.value) })}
+                        value={r3d.stThreshold}
+                        onChange={(e) => setR3d({ stThreshold: Number(e.target.value) })}
                         style={{ width: '100%' }}
                       />
                     </label>
                     <label style={{ display: 'block', fontSize: 11, color: 'var(--text-dim)' }}>
-                      shell opacity {r3d.skinShellOpacity}%
+                      tissue opacity {r3d.stOpacity}%
                       <input
                         type="range"
                         min={5}
                         max={80}
                         step={1}
-                        value={r3d.skinShellOpacity}
-                        onChange={(e) => setR3d({ skinShellOpacity: Number(e.target.value) })}
+                        value={r3d.stOpacity}
+                        onChange={(e) => setR3d({ stOpacity: Number(e.target.value) })}
                         style={{ width: '100%' }}
                       />
                     </label>

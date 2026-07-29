@@ -49,7 +49,8 @@ import {
   type CbctMeta,
   type VolumeEntry,
 } from './volumeData';
-import { apply3dRender, applyProjection, type Render3dSettings } from './render3d';
+import { apply3dRender, applyProjection, setInteractiveQuality, type Render3dSettings } from './render3d';
+import { getSmooth3d, getCachedSmooth3d } from './smooth3d';
 import { applyClipping, boundsInfo, PlaneIndicators, VTK_KIT, type Crop3d, type Cut } from './scene3d';
 import { Eraser3d, type ZRange } from './eraser3d';
 import { computeRoi3dStats, Roi3dOutlines, type Roi3d } from './evidence3d';
@@ -790,7 +791,12 @@ export default function CbctViewport({
   const ensureEraseVolume = async () => {
     if (eraserRef.current || !engineRef.current || !metaRef.current || !scalarRef.current) return;
     const meta = metaRef.current;
-    const copy = new Int16Array(scalarRef.current); // the ONLY buffer the eraser edits
+    // seed from the denoised substrate when that's what the pane is showing — otherwise
+    // entering erase mode would visibly re-noise the render (the eraser only ever edits
+    // its own copy either way; MPR/exports keep reading the original)
+    const seed =
+      r3dRef.current.smooth3d && getCachedSmooth3d(meta.anon) ? getCachedSmooth3d(meta.anon)! : scalarRef.current;
+    const copy = new Int16Array(seed); // the ONLY buffer the eraser edits
     const id = `cbctlocal:${anon}:erase`;
     try {
       if (!csCache.getVolume(id)) {
@@ -801,6 +807,7 @@ export default function CbctViewport({
       await setVolumesForViewports(engineRef.current, [{ volumeId: id }], [VP.v3d]);
       vp.setCamera(cam);
       eraseVolIdRef.current = id;
+      substrateRef.current = 'erase';
       // Cornerstone 4 volumes stream the GPU texture from PER-SLICE images (the vtkImageData
       // holds no CPU scalar array) — the voxelManager is the one write path guaranteed to hit
       // the buffers those frames upload from.
@@ -839,9 +846,13 @@ export default function CbctViewport({
         const cam = vp.getCamera();
         await setVolumesForViewports(engineRef.current, [{ volumeId: `cbctlocal:${anon}` }], [VP.v3d]);
         vp.setCamera(cam);
+        substrateRef.current = 'base';
         apply3dRender(engineRef.current, VP.v3d, r3dRef.current);
         reclipRef.current();
         vp.render();
+        void ensureSmoothSubstrateRef.current(); // hand the pane back to the denoised copy
+      } else {
+        substrateRef.current = 'base';
       }
     } catch (e) {
       console.warn('erase volume teardown failed', e);
@@ -863,6 +874,79 @@ export default function CbctViewport({
   };
   const reclipRef = useRef(reclip);
   reclipRef.current = reclip;
+
+  // ---- Denoised 3D substrate (smooth3d.ts): which voxel copy the 3D pane is showing.
+  // 'base' = the shared MPR volume · 'smooth' = the blurred 3D-only copy · 'erase' = the
+  // eraser's editable copy. MPR panes ALWAYS read the base volume — never any copy.
+  const substrateRef = useRef<'base' | 'smooth' | 'erase'>('base');
+
+  // Swap the 3D pane onto the denoised copy (camera preserved). Runs after every volume
+  // attach and on the settings toggle; the blur itself is worker-side and cached per volume.
+  const ensureSmoothSubstrate = async () => {
+    const meta = metaRef.current;
+    const scalar = scalarRef.current;
+    if (!engineRef.current || !meta || !scalar) return;
+    if (!r3dRef.current.smooth3d || eraseVolIdRef.current) return;
+    const anonNow = meta.anon;
+    let smooth: Int16Array;
+    try {
+      smooth = await getSmooth3d(anonNow, { meta, scalar });
+    } catch (e) {
+      console.warn('3d smoothing failed — keeping the original substrate', e);
+      return;
+    }
+    // re-guard: the volume, the toggle, or the eraser may have moved during the blur
+    if (!engineRef.current || metaRef.current?.anon !== anonNow) return;
+    if (!r3dRef.current.smooth3d || eraseVolIdRef.current) return;
+    if (substrateRef.current !== 'base') return;
+    const id = `cbctlocal:${anonNow}:smooth3d`;
+    try {
+      if (!csCache.getVolume(id)) {
+        volumeLoader.createLocalVolume(id, buildLocalVolumeOptions(`${anonNow}-smooth3d`, meta, smooth));
+      }
+      const vp = engineRef.current.getViewport(VP.v3d);
+      const cam = vp.getCamera();
+      await setVolumesForViewports(engineRef.current, [{ volumeId: id }], [VP.v3d]);
+      if (metaRef.current?.anon !== anonNow) return; // volume switched mid-swap
+      vp.setCamera(cam);
+      substrateRef.current = 'smooth';
+      // fresh actor ⇒ re-dress it (style + clipping), same geometry so indicators hold
+      apply3dRender(engineRef.current, VP.v3d, r3dRef.current);
+      reclipRef.current();
+      vp.render();
+    } catch (e) {
+      console.warn('smooth substrate attach failed — keeping the original', e);
+    }
+  };
+  const ensureSmoothSubstrateRef = useRef(ensureSmoothSubstrate);
+  ensureSmoothSubstrateRef.current = ensureSmoothSubstrate;
+
+  // Toggle off → put the 3D pane back on the shared base volume.
+  const revertSmoothSubstrate = async () => {
+    if (!engineRef.current || substrateRef.current !== 'smooth') return;
+    if (eraseVolIdRef.current) {
+      substrateRef.current = 'base'; // eraser owns the pane; it reattaches per the toggle later
+      return;
+    }
+    const meta = metaRef.current;
+    if (!meta) return;
+    const baseId = `cbctlocal:${meta.anon}`;
+    if (!csCache.getVolume(baseId)) return;
+    try {
+      const vp = engineRef.current.getViewport(VP.v3d);
+      const cam = vp.getCamera();
+      await setVolumesForViewports(engineRef.current, [{ volumeId: baseId }], [VP.v3d]);
+      vp.setCamera(cam);
+      substrateRef.current = 'base';
+      apply3dRender(engineRef.current, VP.v3d, r3dRef.current);
+      reclipRef.current();
+      vp.render();
+    } catch (e) {
+      console.warn('smooth substrate revert failed', e);
+    }
+  };
+  const revertSmoothSubstrateRef = useRef(revertSmoothSubstrate);
+  revertSmoothSubstrateRef.current = revertSmoothSubstrate;
 
   // The three quads track the MPR cameras — one call gathers all live pane states.
   const updateIndicators = () => {
@@ -1855,6 +1939,7 @@ export default function CbctViewport({
 
         const volumeId = ensureLocalVolume(anon, entry);
         await setVolumesForViewports(engineRef.current, [{ volumeId }], [...MPR_IDS, VP.v3d]);
+        substrateRef.current = 'base'; // fresh attach puts every pane on the shared volume
         if (stale) return;
 
         if (isPairSwap) {
@@ -1918,6 +2003,8 @@ export default function CbctViewport({
           /* indicators are cosmetic */
         }
         engineRef.current.renderViewports([...MPR_IDS, VP.v3d]);
+        // denoised 3D substrate: worker-side blur, swaps the 3D pane in when ready
+        void ensureSmoothSubstrateRef.current();
         try {
           // volume is attached now, so the tool snapshots real pane corners; respect the O toggle
           if (controls.showOverlay) {
@@ -2073,6 +2160,51 @@ export default function CbctViewport({
       console.warn('projection toggle failed', e);
     }
   }, [controls.render3d.perspective, ready]);
+
+  // Denoised-substrate toggle: swap the 3D pane's voxel copy in/out (slices never change).
+  useEffect(() => {
+    if (!ready) return;
+    if (controls.render3d.smooth3d) void ensureSmoothSubstrateRef.current();
+    else void revertSmoothSubstrateRef.current();
+  }, [controls.render3d.smooth3d, ready]);
+
+  // Interactive quality: coarsen the 3D ray-march while the camera moves, restore on idle.
+  // Cornerstone drives interaction itself, so vtk's built-in degrade never engages — this
+  // listener is the replacement (sample distance only; shader recompiles would jank).
+  useEffect(() => {
+    if (!ready) return;
+    const el = elRefs.current[VP.v3d];
+    if (!el) return;
+    let degraded = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const onCam = () => {
+      if (!engineRef.current) return;
+      if (!degraded) {
+        degraded = true;
+        try {
+          setInteractiveQuality(engineRef.current, VP.v3d, true);
+        } catch {
+          /* pane mid-swap */
+        }
+      }
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        degraded = false;
+        try {
+          if (!engineRef.current) return;
+          setInteractiveQuality(engineRef.current, VP.v3d, false);
+          engineRef.current.getViewport(VP.v3d).render();
+        } catch {
+          /* pane mid-swap */
+        }
+      }, 250);
+    };
+    el.addEventListener(Enums.Events.CAMERA_MODIFIED, onCam);
+    return () => {
+      if (timer) clearTimeout(timer);
+      el.removeEventListener(Enums.Events.CAMERA_MODIFIED, onCam);
+    };
+  }, [ready]);
 
   // Crop box (3D render only). cropRef is already current — just rebuild the plane set.
   const cropJson = JSON.stringify(controls.crop3d);

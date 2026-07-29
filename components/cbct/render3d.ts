@@ -17,33 +17,35 @@ export type PseudoKey = 'none' | 'hot' | 'cool' | 'rainbow';
 export interface Render3dSettings {
   /** 'style:*' / 'cbct:*' (parametric, sliders apply) or a Cornerstone CT-* preset name (as-is). */
   style: string;
-  threshold: number; // HU opacity threshold
+  threshold: number; // HU cut-off
   transparency: number; // 0..90 (%)
   brightness: number; // -100..100
   contrast: number; // -100..100
   pseudo: PseudoKey;
-  perspective: boolean; // false = orthographic (parallel) projection
+  perspective: boolean; // false = isometric (parallel) projection
   /** Light follows the camera (headlight, the default) or sits at a fixed direction. */
   lightFollow: boolean;
   lightAz: number; // degrees around the volume, 0 = from the front (anterior)
   lightEl: number; // degrees above (+) / below (−) the axial plane
-  /** Edge emphasis 0..100: gradient opacity — flat interiors fade, edges/surfaces pop. */
-  edgeEmphasis: number;
-  /** Skin shell: flesh-toned translucent band below the style's threshold. */
-  skinShell: boolean;
-  skinShellThreshold: number; // HU where the skin band starts
-  skinShellOpacity: number; // 5..80 (%) band opacity
+  /** Depth enhancement 0..100: gradient opacity — flat interiors fade, edges/surfaces pop. */
+  depthEnhance: number;
+  /** Soft-tissue overlay: skin-toned translucent band below the style's threshold. */
+  stOverlay: boolean;
+  stThreshold: number; // HU where the soft-tissue band starts
+  stOpacity: number; // 5..80 (%) band opacity
+  /** Cinematic light: volumetric scattering (light bounces inside the volume) — slower. */
+  cinematic: boolean;
+  /** Render the 3D pane from a lightly denoised copy of the volume (slices untouched). */
+  smooth3d: boolean;
 }
 
 export interface StyleDef {
   label: string;
-  /** short functional description, shown as the picker option's tooltip */
-  tip?: string;
   group: 'classic' | 'cbct';
   /** vtk BlendMode: 0 composite · 1 max-intensity · 3 average-intensity */
   blend: 0 | 1 | 3;
   defaultThreshold: number; // HU
-  /** film-negative output (inverted radiograph) */
+  /** film-negative output (B&W X-ray) */
   invert?: boolean;
   opacity: (t: number) => [number, number][];
   color: (t: number) => [number, number, number, number][];
@@ -65,10 +67,9 @@ const boneRamp = (t: number): [number, number, number, number][] => [
 ];
 
 export const RENDER_STYLES: Record<string, StyleDef> = {
-  // ---- parametric presets (authored relative to threshold so the slider slides the ramp)
-  'style:matte': {
-    label: 'Matte',
-    tip: 'bone render, diffuse lighting',
+  // ---- named styles (authored relative to threshold so the slider slides the ramp)
+  'style:shaded': {
+    label: 'Shaded',
     group: 'classic',
     blend: 0,
     defaultThreshold: 350,
@@ -76,32 +77,32 @@ export const RENDER_STYLES: Record<string, StyleDef> = {
     color: boneRamp,
     shade: { ambient: 0.25, diffuse: 0.9, specular: 0.25, specularPower: 12 },
   },
-  'style:gloss': {
-    label: 'Gloss',
-    tip: 'bone render with specular highlights',
+  'style:shiny': {
+    label: 'Shiny',
     group: 'classic',
     blend: 0,
     defaultThreshold: 350,
     opacity: (t) => [[-1000, 0], [t, 0], [t + 220, 0.22], [t + 800, 0.55], [t + 1400, 0.85], [HI_HU, 0.95]],
     color: boneRamp,
-    shade: { ambient: 0.2, diffuse: 0.85, specular: 0.7, specularPower: 40 },
+    // specular kept satin: 0.7/40 reads as plastic on the clean-surface pipeline
+    shade: { ambient: 0.2, diffuse: 0.85, specular: 0.45, specularPower: 24 },
   },
-  'style:shell': {
-    label: 'Shell',
-    tip: 'isosurface at the opacity threshold',
+  'style:surface': {
+    label: 'Surface',
     group: 'classic',
     blend: 0,
     defaultThreshold: 450,
     opacity: (t) => [[-1000, 0], [t - 1, 0], [t + 80, 0.98], [HI_HU, 0.98]],
+    // bone-toned ivory ramp rather than plain white
     color: (t) => [
-      [t, 0.78, 0.75, 0.7],
-      [HI_HU, 0.95, 0.94, 0.9],
+      [t, 0.66, 0.54, 0.4],
+      [t + 700, 0.87, 0.78, 0.62],
+      [HI_HU, 0.97, 0.93, 0.82],
     ],
     shade: { ambient: 0.3, diffuse: 0.9, specular: 0.4, specularPower: 20 },
   },
-  'style:skin': {
-    label: 'Skin',
-    tip: 'flesh-toned soft-tissue surface',
+  'style:soft-tissue': {
+    label: 'Soft tissue',
     group: 'classic',
     blend: 0,
     defaultThreshold: -450,
@@ -116,7 +117,6 @@ export const RENDER_STYLES: Record<string, StyleDef> = {
   },
   'style:mip': {
     label: 'MIP',
-    tip: 'maximum intensity projection',
     group: 'classic',
     blend: 1,
     defaultThreshold: 0,
@@ -125,9 +125,8 @@ export const RENDER_STYLES: Record<string, StyleDef> = {
     opacity: (t) => [[t, 0], [t + 1, 1], [HI_HU, 1]],
     color: gray,
   },
-  'style:radiograph': {
-    label: 'Radiograph',
-    tip: 'average-intensity projection, a DRR',
+  'style:xray': {
+    label: 'X-ray',
     group: 'classic',
     blend: 3,
     defaultThreshold: -300,
@@ -139,9 +138,8 @@ export const RENDER_STYLES: Record<string, StyleDef> = {
       [t + 1400, 1, 1, 1],
     ],
   },
-  'style:glass': {
-    label: 'Glass',
-    tip: 'translucent shaded volume',
+  'style:xray-shaded': {
+    label: 'X-ray shaded',
     group: 'classic',
     blend: 0,
     defaultThreshold: 100,
@@ -149,9 +147,8 @@ export const RENDER_STYLES: Record<string, StyleDef> = {
     color: gray,
     shade: { ambient: 0.3, diffuse: 0.85, specular: 0.3, specularPower: 15 },
   },
-  'style:film': {
-    label: 'Film',
-    tip: 'inverted radiograph, film look',
+  'style:bw-xray': {
+    label: 'B&W X-ray (film)',
     group: 'classic',
     blend: 3,
     defaultThreshold: -300,
@@ -202,8 +199,8 @@ export const RENDER_STYLES: Record<string, StyleDef> = {
 };
 
 export const DEFAULT_RENDER3D: Render3dSettings = {
-  style: 'cbct:bone-teeth',
-  threshold: RENDER_STYLES['cbct:bone-teeth'].defaultThreshold,
+  style: 'style:surface',
+  threshold: RENDER_STYLES['style:surface'].defaultThreshold,
   transparency: 0,
   brightness: 0,
   contrast: 0,
@@ -212,10 +209,12 @@ export const DEFAULT_RENDER3D: Render3dSettings = {
   lightFollow: true,
   lightAz: 40,
   lightEl: 30,
-  edgeEmphasis: 0,
-  skinShell: false,
-  skinShellThreshold: -450,
-  skinShellOpacity: 30,
+  depthEnhance: 0,
+  stOverlay: false,
+  stThreshold: -450,
+  stOpacity: 30,
+  cinematic: false,
+  smooth3d: true,
 };
 
 // Colormaps for pseudo-color, as f∈[0,1] over [threshold, HI_HU].
@@ -257,10 +256,23 @@ interface Vtk3dProperty {
   setGradientOpacityMinimumOpacity?: (i: number, v: number) => void;
   setGradientOpacityMaximumValue?: (i: number, v: number) => void;
   setGradientOpacityMaximumOpacity?: (i: number, v: number) => void;
+  // quality flags the vtk.js shader reads off the PROPERTY (verified in OpenGL/VolumeMapper)
+  setComputeNormalFromOpacity?: (v: boolean) => void;
+  setLocalAmbientOcclusion?: (v: boolean) => void;
+  setLAOKernelSize?: (v: number) => void;
+  setLAOKernelRadius?: (v: number) => void;
+  setVolumetricScatteringBlending?: (v: number) => void;
+  setGlobalIlluminationReach?: (v: number) => void;
+  setAnisotropy?: (v: number) => void;
 }
 interface Vtk3dActor {
   getProperty: () => Vtk3dProperty;
-  getMapper: () => { setBlendMode?: (m: number) => void };
+  getMapper: () => {
+    setBlendMode?: (m: number) => void;
+    getSampleDistance?: () => number;
+    setSampleDistance?: (d: number) => void;
+    getInputData?: () => { getSpacing: () => [number, number, number] };
+  };
   getBounds: () => number[];
 }
 
@@ -278,13 +290,22 @@ function bc(v: number, brightness: number, contrast: number): number {
 export function apply3dRender(engine: RenderingEngine, viewportId: string, s: Render3dSettings) {
   const vp = engine.getViewport(viewportId) as Types.IVolumeViewport;
   const def = RENDER_STYLES[s.style];
+  const actor = vp.getDefaultActor()?.actor as unknown as Vtk3dActor | undefined;
+  const prop = actor?.getProperty?.();
+
+  // Baseline the quality flags on every call — a style/preset switch must not inherit the
+  // previous style's occlusion/scattering state (the preset path would otherwise keep it).
+  if (prop) {
+    prop.setComputeNormalFromOpacity?.(false);
+    prop.setLocalAmbientOcclusion?.(false);
+    prop.setVolumetricScatteringBlending?.(0);
+  }
+
   if (!def) {
     vp.setProperties({ preset: s.style });
     vp.render();
     return;
   }
-  const actor = vp.getDefaultActor()?.actor as unknown as Vtk3dActor | undefined;
-  const prop = actor?.getProperty?.();
   if (!actor || !prop) return;
 
   const t = s.threshold;
@@ -292,22 +313,22 @@ export function apply3dRender(engine: RenderingEngine, viewportId: string, s: Re
   // average blend: only samples inside this HU band count toward the ray mean
   if (def.blend === 3) prop.setIpScalarRange?.(t, 4000);
 
-  // the skin shell only makes sense when the band sits BELOW the style's own start
-  const shellOn = s.skinShell && def.blend === 0 && s.skinShellThreshold < t - 60;
-  const shellO = clamp01(s.skinShellOpacity / 100);
+  // soft-tissue overlay only makes sense when the band sits BELOW the style's own start
+  const stOn = s.stOverlay && def.blend === 0 && s.stThreshold < t - 60;
+  const stO = clamp01(s.stOpacity / 100);
 
   const oScale = 1 - s.transparency / 100;
   const ofun = prop.getScalarOpacity(0);
   ofun.removeAllPoints();
-  if (shellOn) {
-    // flesh-toned translucent shell under the style's threshold, then hand over to the style
+  if (stOn) {
+    // skin-toned translucent shell under the style's threshold, then hand over to the style
     ofun.addPoint(-1000, 0);
-    ofun.addPoint(s.skinShellThreshold, 0);
-    ofun.addPoint(s.skinShellThreshold + 80, clamp01(shellO * oScale));
-    ofun.addPoint(t - 30, clamp01(shellO * oScale));
+    ofun.addPoint(s.stThreshold, 0);
+    ofun.addPoint(s.stThreshold + 80, clamp01(stO * oScale));
+    ofun.addPoint(t - 30, clamp01(stO * oScale));
     for (const [hu, o] of def.opacity(t)) {
       if (hu < t) continue; // the style's sub-threshold zeros would notch the band out
-      ofun.addPoint(hu, clamp01(Math.max(o, hu <= t + 1 ? shellO * 0.5 : 0) * oScale));
+      ofun.addPoint(hu, clamp01(Math.max(o, hu <= t + 1 ? stO * 0.5 : 0) * oScale));
     }
   } else {
     for (const [hu, o] of def.opacity(t)) ofun.addPoint(hu, clamp01(o * oScale));
@@ -315,9 +336,9 @@ export function apply3dRender(engine: RenderingEngine, viewportId: string, s: Re
 
   const ctf = prop.getRGBTransferFunction(0);
   ctf.removeAllPoints();
-  if (shellOn) {
-    // skin tones for the band (kept OUTSIDE brightness/contrast so the shell stays stable)
-    ctf.addRGBPoint(s.skinShellThreshold, 0.62, 0.4, 0.31);
+  if (stOn) {
+    // skin tones for the band (kept OUTSIDE brightness/contrast so the overlay stays stable)
+    ctf.addRGBPoint(s.stThreshold, 0.62, 0.4, 0.31);
     ctf.addRGBPoint(t - 31, 0.88, 0.66, 0.52);
   }
   if (s.pseudo !== 'none') {
@@ -334,7 +355,7 @@ export function apply3dRender(engine: RenderingEngine, viewportId: string, s: Re
     }
   } else {
     for (const [hu, r0, g0, b0] of def.color(t)) {
-      if (shellOn && hu < t - 30) continue; // the band owns the colors below the threshold
+      if (stOn && hu < t - 30) continue; // the band owns the colors below the threshold
       let r = bc(r0, s.brightness, s.contrast);
       let g = bc(g0, s.brightness, s.contrast);
       let b = bc(b0, s.brightness, s.contrast);
@@ -343,14 +364,14 @@ export function apply3dRender(engine: RenderingEngine, viewportId: string, s: Re
     }
   }
 
-  // edge emphasis = gradient opacity: opacity additionally scales with the local density
+  // depth enhancement = gradient opacity: opacity additionally scales with the local density
   // GRADIENT, so homogeneous interiors fade and edges/surfaces pop. Slider maps to how steep
   // a gradient is needed for full opacity.
-  if (s.edgeEmphasis > 0 && def.blend === 0) {
+  if (s.depthEnhance > 0 && def.blend === 0) {
     prop.setUseGradientOpacity?.(0, true);
     prop.setGradientOpacityMinimumValue?.(0, 1);
-    prop.setGradientOpacityMinimumOpacity?.(0, clamp01(1 - s.edgeEmphasis / 100));
-    prop.setGradientOpacityMaximumValue?.(0, 40 + (s.edgeEmphasis / 100) * 400);
+    prop.setGradientOpacityMinimumOpacity?.(0, clamp01(1 - s.depthEnhance / 100));
+    prop.setGradientOpacityMaximumValue?.(0, 40 + (s.depthEnhance / 100) * 400);
     prop.setGradientOpacityMaximumOpacity?.(0, 1);
   } else {
     prop.setUseGradientOpacity?.(0, false);
@@ -362,6 +383,21 @@ export function apply3dRender(engine: RenderingEngine, viewportId: string, s: Re
     prop.setDiffuse(def.shade.diffuse);
     prop.setSpecular(def.shade.specular);
     prop.setSpecularPower(def.shade.specularPower);
+    // Clean-surface pipeline for shaded styles: light off the OPACITY cloud instead of the
+    // raw (noisy) density gradient, and let enclosed spots — sockets, interproximal gaps —
+    // self-shadow (local ambient occlusion). LAO only acts when ambient > 0 (all styles do).
+    prop.setComputeNormalFromOpacity?.(true);
+    prop.setLocalAmbientOcclusion?.(true);
+    prop.setLAOKernelSize?.(12);
+    prop.setLAOKernelRadius?.(6);
+    if (s.cinematic) {
+      // volumetric scattering = light bounces inside the volume (soft studio look, slower);
+      // blending mixes surface vs volumetric lighting, reach = how far light penetrates,
+      // anisotropy = forward-scatter bias (0 isotropic .. 1 fully forward)
+      prop.setVolumetricScatteringBlending?.(0.6);
+      prop.setGlobalIlluminationReach?.(0.3);
+      prop.setAnisotropy?.(0.4);
+    }
   } else {
     prop.setShade(false);
   }
@@ -403,6 +439,28 @@ function applyLighting(vp: unknown, actor: Vtk3dActor, s: Render3dSettings) {
   }
 }
 
+/**
+ * Coarsen/restore the ray-march step while the camera is moving. Cornerstone drives its own
+ * interaction (vtk's isAnimating never turns on), so vtk's built-in auto-degrade is dead —
+ * this is the replacement. Only the sample distance changes (a plain shader uniform):
+ * toggling AO/scattering here would recompile the shader every drag start, which janks.
+ */
+export function setInteractiveQuality(
+  engine: RenderingEngine,
+  viewportId: string,
+  interactive: boolean,
+) {
+  const vp = engine.getViewport(viewportId) as Types.IVolumeViewport;
+  const actor = vp.getDefaultActor()?.actor as unknown as Vtk3dActor | undefined;
+  const mapper = actor?.getMapper?.();
+  const spacing = mapper?.getInputData?.()?.getSpacing?.();
+  if (!mapper?.setSampleDistance || !spacing) return;
+  // Cornerstone's base step = mean(spacing)/2 (createVolumeMapper). Recompute instead of
+  // caching so actor swaps (erase copy, smoothed substrate) can't leave a stale base.
+  const base = (spacing[0] + spacing[1] + spacing[2]) / 6;
+  mapper.setSampleDistance(base * (interactive ? 2.5 : 1));
+}
+
 interface VtkCamera {
   getParallelProjection: () => boolean;
   setParallelProjection: (v: boolean) => void;
@@ -410,7 +468,7 @@ interface VtkCamera {
 }
 
 /**
- * Orthographic (parallel) vs perspective projection for the 3D view. Switching the projection
+ * Isometric (parallel) vs perspective projection for the 3D view. Switching the projection
  * model changes what "zoom" means, so the camera is re-fit — orbit position resets to home.
  * NOTE: the re-fit must be the vtk renderer's own resetCamera — Cornerstone's re-fits by
  * parallel scale and leaves a perspective camera so far out the volume renders as a dot.
@@ -437,7 +495,7 @@ export function applyProjection(
     cam.setViewAngle(30);
     renderer.resetCamera(); // vtk-level fit: positions by bounds + view angle
   } else {
-    vp.resetCamera(); // Cornerstone's parallel-scale fit is the right one for orthographic
+    vp.resetCamera(); // Cornerstone's parallel-scale fit is the right one for isometric
   }
   vp.render();
 }
