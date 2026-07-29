@@ -1,6 +1,8 @@
 # CBCTScope
 
-**A local-first CBCT viewer with native AI-agent control.**
+**A complete, local-first CBCT and 2D radiograph viewer, built by a
+board-certified oral and maxillofacial radiologist. The first with native
+AI-agent control.**
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21431452.svg)](https://doi.org/10.5281/zenodo.21431452)
 
@@ -13,13 +15,18 @@ one-click tools. The volume is the built-in synthetic phantom, so no patient
 data can appear, by construction.*
 
 CBCTScope opens the CBCT exports already on your computer and reads them in
-eight purpose-built modes: MPR, multi-slice grid, curved panoramic, TMJ,
-freehand reslice, virtual cephalogram, region growing with airway analysis, and
-two-volume stitching. Your scan never leaves your computer: no account, no
-cloud, no upload, ever. An AI agent can drive the whole viewer through a
-built-in [MCP](https://modelcontextprotocol.io) server: it opens scans,
-switches reading modes, sets the window, moves through slices, and takes
-snapshots. The agent moves the camera. The human reads.
+eight purpose-built modes: MPR with 3D rendering, multi-slice grid, curved
+panoramic with nerve tracing, TMJ, freehand reslice, virtual cephalogram,
+region growing with airway analysis, and two-volume stitching. It reads 2D
+radiographs (panoramic, intraoral, CR and DX) in the same instrument, under
+the same display settings. It is free, open source, and local-first: no
+account, no cloud, no upload, ever. No agent is required; CBCTScope is a
+complete standalone viewer.
+
+It is also, to our knowledge, the first CBCT viewer an AI agent can drive
+natively: through a built-in [MCP](https://modelcontextprotocol.io) server, an
+agent opens scans, switches reading modes, sets the window, moves through
+slices, and takes snapshots. The agent moves the camera. The human reads.
 
 > **Research use only. Not a medical device.** CBCTScope visualizes and
 > navigates volumes. It never produces findings, measurements-as-conclusions,
@@ -211,7 +218,10 @@ Built on [Cornerstone3D](https://www.cornerstonejs.org/) and Next.js. All render
 
 ## Author
 
-Built by [Dr. Reza Motaghi](https://rezamotaghi.com/research), oral and maxillofacial radiologist. If you use CBCTScope in research, please cite it (see [CITATION.cff](CITATION.cff)).
+Built by [Dr. Reza Motaghi](https://rezamotaghi.com/research), board-certified
+oral and maxillofacial radiologist, 100,000+ studies reported. CBCTScope is
+the viewer I read with. If you use it in research, please cite it (see
+[CITATION.cff](CITATION.cff)).
 
 ## License
 
