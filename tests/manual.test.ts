@@ -22,7 +22,14 @@ function declBlock(src: string, marker: string): string {
   return src.slice(start, end);
 }
 
+const r3dSrc = read('components/cbct/render3d.ts');
+
 const modes = [...(appSrc.match(/type ViewMode = ([^;]+);/)?.[1] ?? '').matchAll(/'(\w+)'/g)].map((m) => m[1]);
+// 3D style labels of the parametric "classic" group, trailing parentheticals stripped —
+// these are the names the MPR guide's 3D section must keep current.
+const styleLabels = [...r3dSrc.matchAll(/label: '([^']+)'/g)]
+  .map((m) => m[1].replace(/\s*\([^)]*\)$/, ''))
+  .filter((l) => !l.startsWith('CBCT'));
 const presets = [...declBlock(appSrc, 'const WL_PRESETS').matchAll(/^ {2}(\w+):/gm)].map((m) => m[1]);
 const tools = [...declBlock(appSrc, 'const TOOL_LABEL').matchAll(/: '([^']+)'/g)].map((m) => m[1]);
 const verbs = [...mcpSrc.matchAll(/registerTool\(\s*'(\w+)'/g)].map((m) => m[1]);
@@ -53,6 +60,12 @@ describe('user manual tracks the app (docs/manual/)', () => {
       const chapter = read(file);
       for (const tool of tools) expect(chapter, `${file} must document tool "${tool}"`).toContain(tool);
     }
+  });
+
+  it('every 3D style label is documented in the MPR guide', () => {
+    const guide = read('docs/reading-modes/mpr.md');
+    expect(styleLabels.length).toBeGreaterThanOrEqual(8);
+    for (const label of styleLabels) expect(guide, `mpr.md must name 3D style "${label}"`).toContain(label);
   });
 
   it('every MCP verb is documented in the agent chapter', () => {
