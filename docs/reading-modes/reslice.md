@@ -11,10 +11,14 @@ arch and TMJ does for the condyles.
 
 ## The controls
 
-The axial scout (left) has a slice slider (wheel scrolls). Drag a freehand stroke to draw
-the path: two points make a straight line, three or more make a curved arc. A short click
-adds one control point at a time; drag a dot to move it; right-click a dot deletes it;
-"clear path" removes the whole path. The path and scout slice persist per volume.
+The axial scout (left) has a slice slider (wheel scrolls). The path has two phases, the
+same lifecycle as the pano arch. While placing, drag a freehand stroke or click control
+points: two points make a straight line, three or more make a curved arc; double-click
+finishes the path. Once finished, clicks are inert: drag a dot to refine, drag the line
+to move the whole path, right-click a dot to delete it. "clear path" removes the whole
+path and returns to placing; "Reset path" returns the path to its position as of the
+last finish. The scout also outlines the sampled band in green, showing exactly the
+anatomy the stack cuts through. The path and scout slice persist per volume.
 
 Output shape:
 
@@ -29,7 +33,14 @@ Stack controls: slices (3 to 16), distance (0.5 to 10 mm between slices), width 
 60 mm), thickness (0 to 10 mm averaged into each slice), and MIP (brightest voxel instead
 of the average, for straight-line stacks and parallel curved reformats).
 
-vertical range: dual sliders trimming the stack top and bottom.
+vertical crop: two handles on the right edge of the stack trim its top and bottom; the
+kept band scales into the pane, and double-click on a handle resets it.
+
+Stack rotation: right-drag on any output tile rotates the stack, the same sweep gesture
+as the MPR and grid rotations. The frame is rigid: the scout goes oblique to match and
+the drawn path projects onto it dashed while tilted. "reset position" returns the tilt
+upright and the vertical crop to full, leaving the path, stack parameters, and the
+scout|stack divider untouched (the divider drags to resize, double-click resets).
 
 save stack: saves the whole stack as one PNG, tiled, with a caption line carrying the
 volume id, stack geometry, and date.

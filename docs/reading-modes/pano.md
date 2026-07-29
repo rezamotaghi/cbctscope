@@ -12,11 +12,20 @@ the course of the mandibular canal traced in three dimensions.
 ## The controls
 
 The arch editor (left) shows an axial slice with its own slice slider (wheel scrolls).
-Draw the arch in one freehand stroke, or click three or more points along it; a short
-click adds a single control point. Drag a dot to move it; double-click or right-click a
-dot deletes it. "Auto arch" proposes the arch from the anatomy of the current slice, to be
-adjusted by dragging the dots. "Delete arch" removes the whole line, clearing the pano and
-cross-sections with it. The arch persists per volume across sessions.
+The arch has two phases. While PLACING, draw the arch in one freehand stroke or click
+control points along it; double-click finishes the arch (a stray double-click dot is
+popped, not kept). Once FINISHED, clicks on the slice are inert: drag a dot to refine it,
+drag the line itself to move the whole arch, double-click or right-click a dot to delete
+it. The status chip under the editor always names the phase. "Auto arch" proposes the
+arch from the anatomy of the current slice, to be adjusted by dragging the dots. "Delete
+arch" removes the whole line (clearing the pano and cross-sections) and returns to
+placing; "Reset arch" puts the arch back to its position as of the last finish, undoing
+dot and whole-arch drags. The arch persists per volume across sessions.
+
+The editor also draws the slab envelope: two green curves flanking the band of anatomy
+the pano actually samples, centered on the rendered layer (radius shift and the adaptive
+bend included) and closed at the arch ends. What sits between the curves is in the pano;
+what sits outside is not.
 
 The pano canvas: click or wheel moves the cross-section position along the arch; a ruler
 marks arc-length in mm. Its controls:
@@ -32,13 +41,24 @@ marks arc-length in mm. Its controls:
   again to return to the flat drawn layer.
 - pano enhance: a one-click contrast window computed from the pano's own pixels plus light
   sharpening; click again to undo.
-- vertical range: dual sliders that trim the reformat top and bottom, cutting skull base
-  or hyoid level out of the pano and sections.
+- vertical crop: two handles on the pano's right edge. Drag the top handle down or the
+  bottom handle up to cut skull base or hyoid level out of the pano and sections; the
+  kept band scales into the fixed pane, and double-click on a handle resets it. This is
+  a real cut of the sampled range, not a mask.
 
 Cross-sections: sections (1 to 9), section width (10 to 50 mm), spacing (1 to 10 mm),
 thickness (0 to 10 mm averaged along the arch), and mirror, which flips which side of the
 arch faces left in every section. Each section is numbered to match its line on the axial
 editor and on the pano, and labeled with its arc position in mm.
+
+Section rotation: right-drag on any cross-section rotates the section fan, the same sweep
+gesture as the MPR and grid rotations, with a live degree chip. The tilt drives the whole
+frame rigidly: the pano re-cuts with the same leaning vertical, the axial editor goes
+oblique to match, and the arch and canal traces stay visible on it as dashed true
+projections. "reset position" returns the reading position (sections to mid-arch, tilt
+upright, full vertical crop, radius shift zero) while leaving the arch, slab settings,
+and pane layout untouched. The pane dividers between editor, pano, and sections drag to
+resize and double-click to reset.
 
 Canal traces: "+ nerve" or "+ root canal" starts a trace. Click along the canal on the
 pano to add points; click on a cross-section to set the exact buccolingual position and

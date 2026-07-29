@@ -39,17 +39,23 @@ width sliders; a gamma slider (1 = linear, double-click resets); an invert check
 Slab / MIP: per-pane slab thickness (0.1 to 20 mm) and a MIP checkbox that takes the
 brightest voxel across the slab instead of the average.
 
-3D render: a style picker with two parametric groups, Styles (Matte, Gloss, Shell, Skin,
-MIP, Radiograph, Glass, Film) and CBCT tuned (bone + teeth, teeth high density,
-translucent bone with solid teeth), plus generic CT presets that apply as-is without the
-adjust sliders. For the parametric styles: opacity threshold (densities below stay
-transparent; also draggable on the render histogram; double-click returns to the style's
-default), transparency, contrast, brightness, pseudo-color (none, hot, cool, rainbow),
-edge emphasis (flat interiors fade, surfaces pop), a light-follows-camera toggle with
-fixed light azimuth and height sliders when off, and an optional skin shell (a flesh-toned
-translucent band with its own threshold and opacity). Perspective projection is a separate
-toggle (off = orthographic; toggling re-homes the 3D camera). Plane indicators draw the
-three section planes and a bounding box inside the render.
+3D render: a style picker with two parametric groups, Styles (Shaded, Shiny, Surface,
+Soft tissue, MIP, X-ray, X-ray shaded, B&W X-ray) and CBCT tuned (bone + teeth, teeth
+high density, translucent bone with solid teeth), plus generic CT presets that apply
+as-is without the adjust sliders. Surface, a bone-toned isosurface, is the default. The
+shaded styles light off the render's opacity cloud with local ambient occlusion, so
+sockets and interproximal gaps self-shadow. For the parametric styles: cut-off threshold
+(densities below stay transparent; also draggable on the render histogram; double-click
+returns to the style's default), transparency, contrast, brightness, pseudo-color (none,
+hot, cool, rainbow), depth enhancement (flat interiors fade, surfaces pop), smooth 3D
+surface (the 3D pane renders from a lightly denoised copy of the volume; slice views
+always keep the original voxels; on by default), cinematic light (in-volume light
+scattering for soft shadows, slower to orbit), a light-follows-camera toggle with fixed
+light azimuth and height sliders when off, and an optional soft-tissue overlay (a
+skin-toned translucent band with its own threshold and opacity). While the camera moves,
+the render temporarily coarsens its sampling and sharpens again on idle. Perspective
+projection is a separate toggle (off = orthographic; toggling re-homes the 3D camera).
+Plane indicators draw the three section planes and a bounding box inside the render.
 
 Crop 3D: per-axis keep ranges (R to L, A to P, I to S) that crop the render only; the
 slices are unaffected. "Un-crop + clear cuts" restores the full volume. Cutaway:
