@@ -35,7 +35,10 @@ reading-mode guide if the change is per-mode, in the same commit. `tests/manual.
 drift-checks the enumerable surface (view modes, tool palette, window presets, MCP verbs,
 the manifest, the front-page version) against the source, so the gates fail when those go
 stale; prose accuracy is on the author of the change. A `package.json` version bump
-includes the version line in `docs/manual/00-front.md`.
+includes the version line in `docs/manual/00-front.md` and, in `CITATION.cff`, both
+`version:` and `date-released:` (that file feeds the Zenodo deposit; its `doi:` stays
+the concept DOI until the release mints a version DOI, then gets pinned in a follow-up
+commit).
 
 ## Gates
 

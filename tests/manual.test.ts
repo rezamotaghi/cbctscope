@@ -4,6 +4,7 @@
 // following. Prose accuracy stays on the author of the change (see AGENTS.md, "The user
 // manual") — a test cannot read prose, but it can refuse to let the lists rot.
 import { describe, expect, it } from 'vitest';
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
@@ -89,6 +90,31 @@ describe('user manual tracks the app (docs/manual/)', () => {
     // CITATION.cff feeds the Zenodo deposit metadata on every GitHub release —
     // a stale version there ships a wrong citation.
     expect(read('CITATION.cff'), `CITATION.cff must state version ${version}`).toContain(`version: ${version}`);
+  });
+
+  it('the citation file carries a release date at least as new as the version bump', () => {
+    const cff = read('CITATION.cff');
+    const version = (JSON.parse(read('package.json')) as { version: string }).version;
+    const released = /^date-released:\s*(\d{4}-\d{2}-\d{2})\s*$/m.exec(cff)?.[1];
+    expect(released, 'CITATION.cff must carry a date-released of the form YYYY-MM-DD').toBeTruthy();
+
+    // date-released is the only pinned release field that is not the version string, so the
+    // other checks cannot see it go stale: a bump that forgets it ships the PREVIOUS release's
+    // date to Zenodo with green gates. Anchor it to the commit that introduced the current
+    // version, which is the day the release could first exist.
+    let bumped: string;
+    try {
+      bumped = execFileSync('git', ['log', '-1', '--format=%cs', '-S', `version: ${version}`, '--', 'CITATION.cff'], {
+        cwd: root,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+    } catch {
+      return; // no git history available (shallow export); the format check above still ran
+    }
+    if (!bumped) return; // version line not yet committed, e.g. mid-bump working tree
+    // ISO dates sort lexicographically, so a string compare is the date compare.
+    expect(released! >= bumped, `date-released ${released} predates the ${version} bump of ${bumped}`).toBe(true);
   });
 
   it('no chapter uses an em dash', () => {
