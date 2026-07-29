@@ -70,9 +70,12 @@ describe('user manual tracks the app (docs/manual/)', () => {
     }
   });
 
-  it('the front page states the current version', () => {
+  it('the front page and the citation file state the current version', () => {
     const version = (JSON.parse(read('package.json')) as { version: string }).version;
     expect(read('docs/manual/00-front.md'), `00-front.md must state version ${version}`).toContain(version);
+    // CITATION.cff feeds the Zenodo deposit metadata on every GitHub release —
+    // a stale version there ships a wrong citation.
+    expect(read('CITATION.cff'), `CITATION.cff must state version ${version}`).toContain(`version: ${version}`);
   });
 
   it('no chapter uses an em dash', () => {
