@@ -210,7 +210,7 @@ To our knowledge, CBCTScope is the first CBCT viewer with native AI-agent contro
 npm run dev          # dev server on :3810
 npm run typecheck    # tsc
 npm run lint         # eslint
-npm test             # vitest: arch-spline reformat, NCC registration, region growing, HU windowing, phantom
+npm test             # vitest: geometry, reformats, registration, region growing, HU windowing, phantom, manual + citation drift
 npm run build        # production build
 ```
 
