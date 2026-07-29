@@ -30,12 +30,17 @@ From left to right:
 
 Each reading mode fills the area below the header with its own panes and its
 own control rail; the per-mode guides (chapters 8.1 to 8.8) document them
-control by control. Two conventions hold everywhere:
+control by control, including each mode's own mouse gestures. Conventions
+that hold across modes:
 
-- **Double-click a pane** to maximize it; double-click again to restore the
-  layout.
 - **📷 snapshot buttons** save a PNG of what that mode currently shows,
   exactly as displayed, to your Downloads folder.
+- **Pane dividers** between a mode's panes drag to resize and double-click
+  back to the default split.
+- Double-click is otherwise a per-mode verb: in MPR it maximizes a pane and
+  restores the 2 by 2 layout on the second double-click; in Pano and Reslice
+  it finishes the arch or path being drawn; on a slider or crop handle it
+  resets that control.
 
 ## 3.3 Window controls
 
