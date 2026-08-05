@@ -659,21 +659,23 @@ export default function CbctApp() {
         <button style={btn(false)} onClick={() => step(1)} title="Next volume (N)">
           ›
         </button>
+        {/* the export menu is volume-only (slice stacks, STL); snapshot answers in every
+            mode including a 2D radiograph, which is the whole point of one door */}
         {!isXray && anon && (
-          <>
-            <ExportMenu
-              anon={anon}
-              voi={voiShown}
-              invert={controls.invert}
-              gamma={controls.gamma}
-              stlThreshold={r3d.threshold}
-              crop3d={controls.crop3d}
-            />
-            <SnapshotButton
-              onClick={() => snapRef.current?.()}
-              title="snapshot: save what the current room shows as a PNG image — each room composes its own"
-            />
-          </>
+          <ExportMenu
+            anon={anon}
+            voi={voiShown}
+            invert={controls.invert}
+            gamma={controls.gamma}
+            stlThreshold={r3d.threshold}
+            crop3d={controls.crop3d}
+          />
+        )}
+        {anon && (
+          <SnapshotButton
+            onClick={() => snapRef.current?.()}
+            title="snapshot: save what the current room shows as a PNG image — each room composes its own"
+          />
         )}
         {/* 📂 open a local CBCT export — DICOMDIR tree, slice-series folder, or multiframe file */}
         <div ref={srcMenuRef} style={{ position: 'relative' }}>
@@ -813,6 +815,7 @@ export default function CbctApp() {
             isXray ? (
               <CbctRadiograph
                 anon={anon}
+                snapRef={snapRef}
                 voi={controls.voi}
                 invert={controls.invert}
                 gamma={controls.gamma}

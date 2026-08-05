@@ -49,15 +49,31 @@ export default function ExportMenu({ anon, voi, invert, gamma, stlThreshold, cro
   const [useCrop, setUseCrop] = useState(true);
   const boxRef = useRef<HTMLDivElement | null>(null);
 
-  // click-outside closes — but never mid-export (the progress line must stay visible)
+  // click-outside closes — but never mid-export (the progress line must stay visible), and
+  // never while a field INSIDE the menu has focus: a stray click used to close the menu
+  // mid-typing and eat the slice interval or threshold. Escape is the deliberate close.
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
       if (busyRef.current) return;
+      const active = document.activeElement;
+      if (
+        active &&
+        boxRef.current?.contains(active) &&
+        (active.tagName === 'INPUT' || active.tagName === 'SELECT' || active.tagName === 'TEXTAREA')
+      )
+        return;
       if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !busyRef.current) setOpen(false);
+    };
     document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [open]);
 
   const toggleOpen = () => {
@@ -186,6 +202,10 @@ export default function ExportMenu({ anon, voi, invert, gamma, stlThreshold, cro
             boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
             padding: '4px 10px 10px',
             fontSize: 12,
+            // on a short window the panel used to run off the bottom with the export
+            // buttons unreachable; scroll inside it instead
+            maxHeight: 'calc(100vh - 140px)',
+            overflowY: 'auto',
           }}
         >
           <div style={head}>Slice images: window/invert/gamma as displayed</div>

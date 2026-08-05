@@ -13,6 +13,11 @@ Ceph the cephalogram with its caption, Reslice the whole stack, and the other
 modes their panes as laid out on screen. This is the "what I see right now"
 door, for figures, teaching files, and reports written elsewhere.
 
+A 2D radiograph answers the same button. Because it is a single image rather
+than a layout, its snapshot is the whole frame at full resolution with the
+displayed window, gamma, and invert baked in; on-screen zoom and pan are a
+reading aid and do not crop the saved PNG.
+
 ## 7.2 The export menu
 
 **⇩ export** in the header exports the current **volume** (it is hidden for 2D
@@ -31,6 +36,12 @@ Downloads:
   render shows. A quality selector trades resolution for time: draft (≤160³,
   about a second), standard (≤256³, a few seconds), fine (≤384³, about 15
   seconds), or full resolution (can take a minute or more).
+
+The menu closes on Escape or on a click outside it, but never while an export
+is running (the progress line has to stay visible) and never while you are
+typing in one of its own fields, so a stray click cannot eat a half-entered
+slice interval or threshold. On a short window the panel scrolls inside
+itself rather than running its buttons off the bottom of the screen.
 
 > **Note.** Exports inherit the privacy properties of the viewer: they are
 > written by your browser to your Downloads folder and nowhere else. What you

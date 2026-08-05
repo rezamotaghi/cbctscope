@@ -9,6 +9,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { loadVolumeData, type CbctMeta, type VolumeEntry } from './volumeData';
 import { computeHistogram, type HistogramData } from './CbctViewport';
+import { type SnapRef } from './SnapshotButton';
 
 interface Props {
   anon: string;
@@ -20,6 +21,7 @@ interface Props {
   onMeta?: (meta: CbctMeta) => void;
   onHistogram?: (h: HistogramData) => void;
   onError?: (msg: string) => void;
+  snapRef?: SnapRef;
 }
 
 const ZOOM_STEP = 1.15;
@@ -36,9 +38,13 @@ export default function CbctRadiograph({
   onMeta,
   onHistogram,
   onError,
+  snapRef,
 }: Props) {
   const [entry, setEntry] = useState<VolumeEntry | null>(null);
   const [progress, setProgress] = useState<number | null>(0);
+  // a failed PNG save is recoverable: say so inline, never through onError (which would
+  // replace the whole pane and throw away the windowed read in progress)
+  const [hint, setHint] = useState<string | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   // view = css transform: canvas at native pixels, scaled + translated inside the wrapper
@@ -173,6 +179,49 @@ export default function CbctRadiograph({
     dragRef.current = null;
   };
 
+  // The radiograph is one image, so its snapshot is the whole frame at native resolution
+  // with the displayed window/gamma/invert baked in — zoom and pan are a reading aid, not a
+  // crop, and downsampling a pano to whatever fits the pane would throw away the detail the
+  // save exists for.
+  const savePng = () => {
+    const canvas = canvasRef.current;
+    if (!canvas || !entry) return;
+    try {
+      const out = document.createElement('canvas');
+      out.width = canvas.width;
+      out.height = canvas.height + 20;
+      const ctx = out.getContext('2d');
+      if (!ctx) return;
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, out.width, out.height);
+      ctx.drawImage(canvas, 0, 0);
+      ctx.fillStyle = '#aeb6c6';
+      ctx.font = '12px system-ui, sans-serif';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(`${anon} · radiograph · ${new Date().toISOString().slice(0, 10)}`, 6, out.height - 4);
+      const a = document.createElement('a');
+      a.href = out.toDataURL('image/png');
+      a.download = `${anon}_radiograph.png`;
+      a.click();
+      setHint(null);
+    } catch (e) {
+      console.error('[cbct-radiograph] save failed', e);
+      setHint('PNG save failed — the view is untouched, try again');
+    }
+  };
+
+  // one snapshot door: the shell header owns the button; this room registers its composer
+  useEffect(() => {
+    if (!snapRef) return;
+    snapRef.current = savePng;
+  });
+  useEffect(() => {
+    if (!snapRef) return;
+    return () => {
+      snapRef.current = null;
+    };
+  }, [snapRef]);
+
   return (
     <div
       ref={wrapRef}
@@ -199,6 +248,23 @@ export default function CbctRadiograph({
       ) : (
         <div style={{ color: 'var(--text-dim)', padding: 24 }}>
           loading radiograph… {progress !== null ? `${Math.round(progress * 100)}%` : ''}
+        </div>
+      )}
+      {hint && (
+        <div
+          style={{
+            position: 'absolute',
+            left: 8,
+            bottom: 8,
+            padding: '4px 8px',
+            borderRadius: 5,
+            background: 'rgba(27,31,39,0.92)',
+            border: '1px solid var(--border)',
+            color: 'var(--text)',
+            fontSize: 11,
+          }}
+        >
+          ⚠ {hint}
         </div>
       )}
     </div>
