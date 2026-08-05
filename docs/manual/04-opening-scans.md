@@ -41,11 +41,14 @@ releases it untouched.
 built-in phantom. In normal mode the viewer remembers the last opened source
 and restores it on the next start; in demo mode it never does (section 2.4).
 
-## 4.4 Opening without the dialog (Windows, Linux)
+## 4.4 Opening without the dialog
 
-The native file dialog is currently macOS-only. On other platforms, start the
-viewer, then point it at an export with one command in a second terminal
-(forward slashes work in Windows paths):
+The file dialog is native on macOS and Windows. On Linux it uses the
+desktop's dialog helper: zenity, or kdialog if zenity is absent; most
+distributions ship one of the two. If neither is installed (the viewer says
+so when you click **open**), either install zenity from your distribution's
+package manager, or point the running viewer at an export with one command in
+a second terminal (forward slashes work in Windows paths):
 
 ```sh
 curl -X POST http://localhost:3810/api/cbct/source -H "Content-Type: application/json" -d "{\"path\":\"C:/scans/case-export\"}"

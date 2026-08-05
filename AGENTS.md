@@ -20,6 +20,7 @@ CBCTScope: a complete, local-first CBCT and 2D radiograph viewer (Next.js + Corn
 - `components/cbct/` the viewer: `CbctApp` (shell/state), `CbctViewport` (MPR + 3D), one component per reading mode, and pure math modules (`curvedReformat`, `stitch`, `regionGrow`, `oblique`, `render3d`, ...).
 - `lib/server/` volume sources: `localSource` (user-opened exports, read in place), `fused` (session stitches, memory only), `phantom` (synthetic demo), `dicom` (shared contract), `agentBus` (command bus), `config` (app-data paths).
 - `mcp/server.mjs` the stdio MCP server; a thin proxy onto `/api/agent/command`.
+- `scripts/demo.mjs` the cross-platform `npm run demo` launcher; `Start CBCTScope.command` / `Start CBCTScope.bat` at the root are the double-click starters (install on first run, normal mode, open the browser).
 - `tests/` vitest on the pure math + the manual drift test; `docs/` MCP contract, per-mode reading guides, and the user manual (`docs/manual/`, see below).
 
 ## The user manual

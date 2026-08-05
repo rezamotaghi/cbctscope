@@ -2,6 +2,10 @@
 
 ## Installation and startup
 
+- **macOS refuses to open `Start CBCTScope.command`** ("unidentified
+  developer" or "Apple could not verify"): right-click the file, choose
+  **Open**, confirm. macOS asks once for a downloaded file; afterwards a
+  plain double-click works.
 - **`npm: command not found`** (macOS) or **`'npm' is not recognized`**
   (Windows): Node.js is not installed yet, or the terminal was opened before
   the installation finished. Install Node.js (section 2.1), then open a new
@@ -23,6 +27,9 @@
 - **The export opens but a volume is missing from the picker**: only
   uncompressed volumes are listed; a mixed export can contain compressed
   series that are skipped, with a notice naming how many.
+- **"no dialog helper found" when clicking open (Linux)**: install zenity
+  from your distribution's package manager (for example
+  `sudo apt install zenity`), or use the one-line command in section 4.4.
 
 ## Display
 

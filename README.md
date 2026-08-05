@@ -51,51 +51,57 @@ installed app with an icon: it is a small local program you start once per
 reading session, and your browser is the screen. Everything is undone by
 deleting the folder.
 
+**System requirements**
+
+- **Node.js 22 or later**: the free runtime that runs the viewer, the way a
+  browser runs a web page.
+- **A current desktop browser** with WebGL2 (Chrome, Edge, Firefox, or
+  Safari). The 3D render and all reformats are computed on this machine, so a
+  recent computer with a working graphics driver is assumed; large volumes
+  read more comfortably with more memory.
+- **macOS, Windows, or Linux.**
+
 1. **Install Node.js 22 or later** from [nodejs.org](https://nodejs.org):
-   download the LTS installer, run it, accept the defaults. Node.js is the free
-   runtime that runs the viewer, the way a browser runs a web page.
+   download the LTS installer, run it, accept the defaults.
 2. **Get CBCTScope.** Click the green **Code** button at the top of this page,
    choose **Download ZIP**, and unzip it somewhere you can find again (Desktop
    is fine). If you use git, `git clone` works as usual.
-3. **Open a terminal in that folder.**
-   On macOS: open Terminal (press Cmd-space, type "Terminal", press return),
-   type `cd ` with a trailing space, drag the unzipped `cbctscope` folder onto
-   the Terminal window, press return.
-   On Windows: open the unzipped folder in Explorer, click the address bar,
-   type `cmd`, press enter.
-4. **Install and start.** Two commands, return after each. The first downloads
-   the viewer's components; it runs once and takes a few minutes.
+3. **Start it.** In the unzipped folder, double-click **Start
+   CBCTScope.command** on macOS or **Start CBCTScope.bat** on Windows. The
+   first macOS open needs a right-click and **Open** (the one-time warning
+   macOS shows for downloaded files). The first start downloads the viewer's
+   components, once, a few minutes; then your browser opens the viewer by
+   itself. A built-in **synthetic phantom** loads immediately: jaws, dental
+   arches, teeth with enamel and pulp, a metal crown, airway, sinuses, and TMJ
+   condyles, all procedurally generated. The full viewer works with zero
+   patient data.
 
-   ```sh
-   npm install
-   npm run demo
-   ```
+To stop the viewer, close the starter's window or press Ctrl-C in it. Next
+session, double-click again: startup is quick once installed.
 
-   On Windows the second command is `npm run dev` instead (`npm run demo` sets
-   its flag in Unix syntax and the Windows shell rejects it). The viewer is
-   identical; the difference is explained below.
-5. **Open http://localhost:3810 in your browser.** A built-in **synthetic
-   phantom** loads immediately: jaws, dental arches, teeth with enamel and
-   pulp, a metal crown, airway, sinuses, and TMJ condyles, all procedurally
-   generated. The full viewer works with zero patient data.
+**Prefer a terminal, or on Linux?** Open a terminal in the unzipped folder,
+run `npm install` once, then `npm run dev`, and open http://localhost:3810.
+The manual's [installation chapter](docs/manual/02-installation.md) spells
+this path out step by step.
 
-To stop the viewer, press Ctrl-C in the terminal or close its window. Next
-session, only step 3 and the start command are needed.
-
-**Demo mode vs. normal mode.** `npm run demo` never remembers a previously
-opened scan, so a recording or screenshot session can never accidentally
-surface a real case: it is a privacy guarantee, not a reduced feature set.
-`npm run dev` is the same viewer but restores your last opened scan when it
-starts. On first launch both show the phantom.
+**Demo mode vs. normal mode.** `npm run demo` (any OS) starts the same viewer
+but never remembers a previously opened scan, so a recording or screenshot
+session can never accidentally surface a real case: it is a privacy
+guarantee, not a reduced feature set. The double-click starters and
+`npm run dev` start normal mode, which restores your last opened scan. On
+first launch both modes show the phantom.
 
 ### If something goes wrong
 
+- **macOS refuses to open Start CBCTScope.command** ("unidentified
+  developer"): right-click the file, choose **Open**, confirm. macOS asks
+  once; afterwards a plain double-click works.
 - **`npm: command not found`** (or `'npm' is not recognized`): Node.js is not
   installed yet, or the terminal was opened before the install finished.
   Install it, then open a new terminal window and retry.
 - **The start command warns that port 3810 is in use**: the viewer is already
-  running in another terminal window. One is enough: just open
-  http://localhost:3810, or stop the older one with Ctrl-C first.
+  running in another window. One is enough: just open http://localhost:3810,
+  or stop the older one first.
 - **"found N compressed DICOM file(s)"** when opening a scan: the viewer reads
   uncompressed DICOM only. Re-export from your scanner software with
   compression off.
@@ -112,9 +118,11 @@ converted, or uploaded, and the full folder path never reaches the browser:
 the header shows a short label built from the folder and file names, so name
 your export folders the way you want to see them.
 
-The native file dialog is macOS-only for now. On Windows or Linux, point the
-running viewer at an export folder with one command in a second terminal
-(forward slashes work in Windows paths):
+The file dialog is native on macOS and Windows out of the box. On Linux it
+uses the desktop's standard dialog helper (zenity or kdialog; most
+distributions ship one). If neither is installed, point the running viewer at
+an export folder with one command in a second terminal (forward slashes work
+in Windows paths):
 
 ```sh
 curl -X POST http://localhost:3810/api/cbct/source -H "Content-Type: application/json" -d "{\"path\":\"C:/scans/patient-export\"}"
