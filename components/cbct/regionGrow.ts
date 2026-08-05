@@ -35,7 +35,7 @@ export interface GrowResult {
 export const HU_PRESETS: Record<string, { lo: number; hi: number; label: string }> = {
   air: { lo: -1024, hi: -400, label: 'air / airway' },
   soft: { lo: -200, hi: 300, label: 'soft tissue' },
-  bone: { lo: 400, hi: 3200, label: 'bone' },
+  bone: { lo: 400, hi: 3000, label: 'bone' }, // hi clamped to the HU sliders' max — 3200 put the thumb out of range
   root: { lo: 900, hi: 2600, label: 'tooth / root' },
 };
 

@@ -11,7 +11,9 @@ with the added ability to re-angle the entire stack through the anatomy.
 ## The controls
 
 Plane: axial, sagittal, or coronal picks the initial cutting direction. Switching planes
-resets the orientation to the straight orthogonal stack.
+straightens a rotated stack (announced briefly in the on-screen chip) but keeps your
+window position along the new axis; re-clicking the already-active plane does nothing,
+so a tuned oblique cannot be wiped by a stray click. The ↺ button straightens in place.
 
 Grid size: 2x2, 3x3, 4x4, or 4x6 tiles. Each tile is labeled with its offset in mm from
 the stack center and a tile number that matches the numbered section lines on the scout.

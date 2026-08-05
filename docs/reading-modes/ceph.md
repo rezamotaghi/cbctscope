@@ -25,13 +25,15 @@ sagittal tilt (-60 to 60 degrees). Double-click a slider to zero it. The current
 tilt are shown on the image. While dragging, the projection renders at a coarse stride
 and refines to full resolution when you let go.
 
-Contrast: "auto contrast" computes a window from the projection's own densities (the
-projected values are not slice HU, so the volume window is usually not the right one);
-contrast center and width sliders adjust it manually; gamma bends the curve between the
-cut points; "reset window" returns to the volume window and linear gamma. The shared
-invert checkbox produces the film-negative rendering.
+Contrast: the cephalogram is windowed by the sidebar's shared Window section, one set
+of center/width/gamma controls for the whole app, so the numbers you read there are the
+numbers this image uses. "auto contrast" computes a window from the projection's own
+densities (the projected values are not slice HU, so the volume window is usually not
+the right one) and writes it into that shared section; its check mark shows only while
+that window is still active. "reset window" returns to the automatic volume window.
+The shared invert checkbox produces the film-negative rendering.
 
-save PNG: saves the current cephalogram with a caption carrying the volume id, the
+snapshot (header button): saves the current cephalogram with a caption carrying the volume id, the
 projection name, and the date.
 
 ## A reading workflow
@@ -57,9 +59,9 @@ projection name, and the date.
 ## Over MCP
 
 `open_scan`, `list_volumes`, `select_volume`, `set_view_mode` (mode `ceph`),
-`set_window_level`, and `snapshot` apply. `set_window_level` adjusts the shared volume
-window that the projection starts from; the mode's own auto contrast and gamma are
-on-screen controls. `navigate_slice` is MPR-only. Example sequence: `set_view_mode` to
+`set_window_level`, and `snapshot` apply. `set_window_level` adjusts the shared window
+the cephalogram is rendered with; auto contrast is an on-screen control that writes
+into the same shared window. `navigate_slice` is MPR-only. Example sequence: `set_view_mode` to
 `ceph`, `set_window_level` with `invert: true` for a film-negative look, `snapshot`.
 
 ## Limits

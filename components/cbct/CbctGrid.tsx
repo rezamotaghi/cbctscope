@@ -12,6 +12,7 @@ import { loadVolumeData, type CbctMeta } from './volumeData';
 import { renderOblique, rotV, extentAlong, canvasPoint, handOf, type Basis } from './oblique';
 import { composeGridSnapshot, type SnapPane } from './evidence';
 import DragDivider from './DragDivider';
+import { type SnapRef } from './SnapshotButton';
 import type { VolumeEntry } from './volumeData';
 
 type Plane = 'axial' | 'sagittal' | 'coronal';
@@ -23,6 +24,8 @@ interface Props {
   gamma: number;
   onMeta?: (meta: CbctMeta) => void;
   onError?: (msg: string) => void;
+  /** the shell's one snapshot button calls the registered composer */
+  snapRef?: SnapRef;
 }
 
 const GRIDS: Record<string, [number, number]> = {
@@ -58,9 +61,9 @@ const HUB_PX = 24; // same dead-zone as the MPR rotate
 
 // The MPR rotate mapping: the cursor SWEEPS its angle around the pivot (grab the image and
 // turn it like a wheel), so a downward drag reads CW right of the pivot and CCW left of it.
-// A plain (dx−dy) mapping can't do that — it feels inverted on one side. Screen y grows
-// downward, so atan2 increases clockwise — +deg = clockwise, matching the handOf sign
-// convention. Inside the hub the angle is unstable → linear distance fallback.
+// A plain (dx−dy) mapping can't do that — it feels inverted on one side.
+// Screen y grows downward, so atan2 increases clockwise — +deg = clockwise, matching the
+// handOf sign convention. Inside the hub the angle is unstable → linear distance fallback.
 // Exported: the pano/reslice/TMJ section rotations reuse this exact mechanic (one source of truth).
 export const sweepDeg = (px: number, py: number, x0: number, y0: number, x1: number, y1: number): number => {
   if (Math.hypot(x0 - px, y0 - py) < HUB_PX || Math.hypot(x1 - px, y1 - py) < HUB_PX) {
@@ -72,7 +75,7 @@ export const sweepDeg = (px: number, py: number, x0: number, y0: number, x1: num
   return deg;
 };
 
-export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: Props) {
+export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, snapRef }: Props) {
   const [entry, setEntry] = useState<VolumeEntry | null>(null);
   const [progress, setProgress] = useState<number | null>(0);
   const [plane, setPlane] = useState<Plane>('axial');
@@ -123,10 +126,11 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
         setProgress(null);
         onMeta?.(e.meta);
       })
-      .catch(() => {
+      .catch((e) => {
+        console.error('[cbct-grid] volume load failed', e);
         if (!stale) {
           setProgress(null);
-          onError?.('volume load failed — see console');
+          onError?.(`volume load failed: ${String(e)}`);
         }
       });
     return () => {
@@ -136,27 +140,19 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
   }, [anon]);
 
   const resetOrientation = useCallback(
-    (p: Plane) => {
+    (p: Plane, opts?: { keepWindow?: boolean }) => {
       setBasis(INIT_BASIS[p]);
       setScoutBasis(SCOUT_BASIS[p]);
-      setCenterOff(0);
+      if (opts?.keepWindow) {
+        // plane SWITCH keeps the reader's window position — re-clamped
+        // against the new cut axis's extent so tiles never sample past the volume
+        const m = entry ? Math.floor(extentAlong(INIT_BASIS[p].n, entry.meta.dims) / 2) - 1 : 0;
+        setCenterOff((o) => Math.max(-m, Math.min(m, o)));
+      } else {
+        setCenterOff(0);
+      }
     },
-    [],
-  );
-
-  const voxMm = entry ? entry.meta.spacing[0] : 1; // isotropic voxels
-  const [rows, cols] = GRIDS[gridKey];
-  const count = rows * cols;
-  const stepVox = Math.max(1, Math.round(spacingMm / voxMm));
-  const slabVox = Math.max(1, Math.round(thickMm / voxMm));
-  const maxOff = entry ? Math.floor(extentAlong(basis.n, entry.meta.dims) / 2) - 1 : 0;
-  const lowerHu = (voi?.center ?? entry?.meta.defaultVoi.center ?? 0) - (voi?.width ?? entry?.meta.defaultVoi.width ?? 1) / 2;
-  const upperHu = (voi?.center ?? entry?.meta.defaultVoi.center ?? 0) + (voi?.width ?? entry?.meta.defaultVoi.width ?? 1) / 2;
-
-  // per-tile offsets along n, centered on centerOff
-  const offsets = useMemo(
-    () => Array.from({ length: count }, (_, k) => centerOff + (k - (count - 1) / 2) * stepVox),
-    [count, centerOff, stepVox],
+    [entry],
   );
 
   // snapshot: scout + the whole tile block, laid out as on screen, → one PNG download
@@ -184,6 +180,22 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
     a.download = `${anon}-grid-${ts}.png`;
     a.click();
   };
+
+  const voxMm = entry ? entry.meta.spacing[0] : 1; // isotropic voxels
+  const [rows, cols] = GRIDS[gridKey];
+  const count = rows * cols;
+  const stepVox = Math.max(1, Math.round(spacingMm / voxMm));
+  const slabVox = Math.max(1, Math.round(thickMm / voxMm));
+  const maxOff = entry ? Math.floor(extentAlong(basis.n, entry.meta.dims) / 2) - 1 : 0;
+  const lowerHu = (voi?.center ?? entry?.meta.defaultVoi.center ?? 0) - (voi?.width ?? entry?.meta.defaultVoi.width ?? 1) / 2;
+  const upperHu = (voi?.center ?? entry?.meta.defaultVoi.center ?? 0) + (voi?.width ?? entry?.meta.defaultVoi.width ?? 1) / 2;
+
+  // per-tile offsets along n, centered on centerOff
+  const offsets = useMemo(
+    () => Array.from({ length: count }, (_, k) => centerOff + (k - (count - 1) / 2) * stepVox),
+    [count, centerOff, stepVox],
+  );
+
 
   // ---- draw tiles
   useEffect(() => {
@@ -390,6 +402,19 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
     return () => el.removeEventListener('wheel', onWheel);
   }, [entry, stepVox, clampOff]);
 
+
+  // one snapshot door: the shell header owns the button; this room registers its composer
+  useEffect(() => {
+    if (!snapRef) return;
+    snapRef.current = () => void takeSnapshot();
+  });
+  useEffect(() => {
+    if (!snapRef) return;
+    return () => {
+      snapRef.current = null;
+    };
+  }, [snapRef]);
+
   const btn = (active: boolean): React.CSSProperties => ({
     padding: '3px 9px',
     borderRadius: 6,
@@ -407,9 +432,19 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
             <button
               key={p}
               style={btn(plane === p)}
+              title={`cut ${p} slices (switching planes straightens the stack — ↺ does the same in place)`}
               onClick={() => {
+                if (p === plane) return; // re-clicking the active plane must not wipe a tuned oblique
+                const wasRotated = basis !== INIT_BASIS[plane] || scoutBasis !== SCOUT_BASIS[plane];
                 setPlane(p);
-                resetOrientation(p);
+                resetOrientation(p, { keepWindow: true });
+                if (wasRotated) {
+                  // announce in the chip — a tuned oblique just straightened,
+                  // and a tooltip nobody hovers is not an announcement
+                  const msg = 'straightened for the new plane';
+                  setChip(msg);
+                  setTimeout(() => setChip((c) => (c === msg ? null : c)), 2500);
+                }
               }}
             >
               {p}
@@ -423,6 +458,15 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
             </button>
           ))}
         </span>
+        <button
+          style={{ ...btn(false), fontSize: 14, lineHeight: 1 }}
+          onClick={() => resetOrientation(plane)}
+          title="reset view — back to the straight orthogonal stack, window recentered"
+        >
+          ↺
+        </button>
+        {/* these live in the TOP toolbar by explicit design preference — do not
+            re-standardize this pane's slider placement into a bottom row */}
         <label style={{ fontSize: 11, color: 'var(--text-dim)' }}>
           spacing {spacingMm.toFixed(1)} mm{' '}
           <input
@@ -432,6 +476,7 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
             step={0.5}
             value={spacingMm}
             onChange={(e) => setSpacingMm(Number(e.target.value))}
+            onDoubleClick={() => setSpacingMm(2)}
             style={{ verticalAlign: 'middle', width: 90 }}
           />
         </label>
@@ -444,27 +489,17 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
             step={0.1}
             value={thickMm}
             onChange={(e) => setThickMm(Number(e.target.value))}
+            onDoubleClick={() => setThickMm(0.5)}
             style={{ verticalAlign: 'middle', width: 90 }}
           />
         </label>
-        <label style={{ display: 'inline-flex', gap: 5, alignItems: 'center', fontSize: 12 }}>
+        <label
+          style={{ display: 'inline-flex', gap: 5, alignItems: 'center', fontSize: 12 }}
+          title="brightest voxel across the slab (off = average)"
+        >
           <input type="checkbox" checked={mip} onChange={(e) => setMip(e.target.checked)} />
           MIP
         </label>
-        <button
-          style={{ ...btn(false), fontSize: 14, lineHeight: 1 }}
-          onClick={() => resetOrientation(plane)}
-          title="reset view — back to the straight orthogonal stack, window recentered"
-        >
-          ↺
-        </button>
-        <button
-          style={btn(false)}
-          onClick={takeSnapshot}
-          title="snapshot: save the grid layout (scout + all sections, marks included) as a PNG image"
-        >
-          📷 snapshot
-        </button>
         {entry && (
           <label style={{ fontSize: 11, color: 'var(--text-dim)', flex: 1, minWidth: 150 }}>
             position{' '}
@@ -475,6 +510,8 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError }: 
               step={1}
               value={Math.round(clampOff(centerOff))}
               onChange={(e) => setCenterOff(Number(e.target.value))}
+              onDoubleClick={() => setCenterOff(0)}
+              title="section-window position along the cut axis · double-click = volume center"
               style={{ verticalAlign: 'middle', width: 'calc(100% - 70px)' }}
             />
           </label>

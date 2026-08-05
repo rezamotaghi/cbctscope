@@ -4,10 +4,10 @@
 // A short click still adds/edits single control points (drag to move; double-click OR
 // right-click a dot to delete it; "Delete arch" removes the whole line).
 //
-// On top of the base pano:
+// Riding on top:
 //   - section controls: count, along-arch thickness, mirror, vertical data range;
 //   - pano depth: radius shift (slide the layer buccal/lingual), multi-layer pano stack,
-//     one-click pano enhance (pano-local window + sharpening), adaptive layer (the layer bends
+//     one-click auto-adjust (pano-local window + sharpening), auto-focus (the layer bends
 //     to follow the sharpest anatomy);
 //   - nerve / root-canal tracing: 3D polylines in VOLUME space, projected live onto the
 //     pano (colored line), every cross-section (crossing dot), and the axial editor;
@@ -42,6 +42,8 @@ import {
 } from './traces';
 import { fetchEvidence, mergeEvidence } from './evidence';
 import DragDivider from './DragDivider';
+import { snapshotPaneCanvases, type SnapRef } from './SnapshotButton';
+import { Ruler } from 'lucide-react';
 import { sweepDeg } from './CbctGrid';
 import { renderOblique, type V3 } from './oblique';
 
@@ -49,8 +51,11 @@ interface Props {
   anon: string;
   voi: { center: number; width: number } | null;
   invert: boolean;
+  gamma: number;
   onMeta?: (meta: CbctMeta) => void;
   onError?: (msg: string) => void;
+  /** the shell's one snapshot button calls the registered composer */
+  snapRef?: SnapRef;
 }
 
 const ARCH_KEY = (anon: string) => `cbctscope-arch:v1:${anon}`;
@@ -157,9 +162,15 @@ function containPos(
 export function VertRangeSliders({
   zFrac,
   setZFrac,
+  verb = 'crop',
+  noun = 'the kept window',
 }: {
   zFrac: [number, number];
   setZFrac: React.Dispatch<React.SetStateAction<[number, number]>>;
+  /** tooltip wording — Region BOUNDS the grow rather than cropping a view, so the generic
+      "crop the kept height" would be wrong there */
+  verb?: string;
+  noun?: string;
 }) {
   const vertical: React.CSSProperties = {
     writingMode: 'vertical-lr',
@@ -170,13 +181,30 @@ export function VertRangeSliders({
   };
   return (
     <div style={{ display: 'flex', flexShrink: 0 }}>
+      {/* Caption strip so the sliders are discoverable — reads top-to-bottom beside them. */}
+      <div
+        title={`vertical range — ${verb} the height: left slider from above, right slider from below · double-click a slider resets its end`}
+        style={{
+          writingMode: 'vertical-lr',
+          fontSize: 10,
+          letterSpacing: 1.5,
+          color: 'var(--text-dim)',
+          textAlign: 'center',
+          whiteSpace: 'nowrap',
+          userSelect: 'none',
+          padding: '0 1px',
+          cursor: 'default',
+        }}
+      >
+        ↕ vertical range
+      </div>
       <input
         type="range"
         min={0}
         max={100}
         step={1}
         value={Math.round(zFrac[1] * 100)}
-        title={`crop from above — drag the handle down (top of the kept window: ${Math.round(zFrac[1] * 100)}%) · double-click resets`}
+        title={`${verb} from above — drag the handle down (top of ${noun}: ${Math.round(zFrac[1] * 100)}%) · double-click resets`}
         onChange={(e) => {
           const v = Number(e.target.value) / 100;
           setZFrac((cur) => [cur[0], Math.max(v, cur[0] + 0.05)]);
@@ -190,7 +218,7 @@ export function VertRangeSliders({
         max={100}
         step={1}
         value={Math.round(zFrac[0] * 100)}
-        title={`crop from below — drag the handle up (bottom of the kept window: ${Math.round(zFrac[0] * 100)}%) · double-click resets`}
+        title={`${verb} from below — drag the handle up (bottom of ${noun}: ${Math.round(zFrac[0] * 100)}%) · double-click resets`}
         onChange={(e) => {
           const v = Number(e.target.value) / 100;
           setZFrac((cur) => [Math.min(v, cur[1] - 0.05), cur[1]]);
@@ -202,7 +230,7 @@ export function VertRangeSliders({
   );
 }
 
-export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) {
+export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, snapRef }: Props) {
   const [entry, setEntry] = useState<VolumeEntry | null>(null);
   const [progress, setProgress] = useState<number | null>(0);
   const [points, setPoints] = useState<ArchPoint[]>([]);
@@ -222,8 +250,11 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
   const [hoverLine, setHoverLine] = useState(false); // finished-arch line under the cursor
   // the "main" arch = the shape at the last finish; exploratory drags don't move it
   const [archHome, setArchHome] = useState<{ points: ArchPoint[]; archZ: number } | null>(null);
+  // recoverable states (auto-arch missing the teeth) surface HERE, inline — never through
+  // onError, which replaces the whole pane and takes the axial view the fix needs with it
+  const [hint, setHint] = useState<string | null>(null);
 
-  // section controls + vertical range
+  // Section controls + vertical range
   const [nSections, setNSections] = useState(5);
   const [sectionThickness, setSectionThickness] = useState(0.5);
   const [mirror, setMirror] = useState(false);
@@ -240,7 +271,7 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
   const [leftFrac, setLeftFrac] = useState(0.34);
   const [panoFrac, setPanoFrac] = useState(0.5);
 
-  // pano depth
+  // Pano depth
   const [radiusShift, setRadiusShift] = useState(0);
   const [nLayers, setNLayers] = useState(1);
   const [layerSpacing, setLayerSpacing] = useState(2);
@@ -249,7 +280,7 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
   const [focusOffsets, setFocusOffsets] = useState<Float32Array | null>(null);
   const [panoLayers, setPanoLayers] = useState<{ img: ReformatImage; off: number }[]>([]);
 
-  // traces · measurements
+  // Traces · measurements
   const [traces, setTraces] = useState<NerveTrace[]>([]);
   const [activeTraceId, setActiveTraceId] = useState<string | null>(null);
   const [measures, setMeasures] = useState<PanoMeasure[]>([]);
@@ -405,7 +436,7 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [curve?.length]);
 
-  // ---- pano recompute (debounced): one image per layer, sharpened if pano enhance says so
+  // ---- pano recompute (debounced): one image per layer, sharpened if auto-adjust says so
   useEffect(() => {
     if (!entry || !curve) {
       setPanoLayers([]);
@@ -490,7 +521,7 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
         effVoi.center - effVoi.width / 2,
         effVoi.center + effVoi.width / 2,
         invert,
-        1,
+        gamma,
       );
       cv.width = idata.width;
       cv.height = idata.height;
@@ -558,7 +589,7 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
       return;
     }
     const img = axialSlice(entry, archZ);
-    drawImage(cv, img, effVoi, invert);
+    drawImage(cv, img, effVoi, invert, gamma);
     const ctx = cv.getContext('2d')!;
     if (stroke && stroke.length > 1) {
       ctx.strokeStyle = ACCENT;
@@ -585,7 +616,7 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
       }
       ctx.stroke();
       // pano slab envelope: two curves flanking the band the pano actually
-      // samples — centered on the rendered layer (radius shift + the adaptive-layer bend),
+      // samples — centered on the rendered layer (radius shift + the auto-focus bend),
       // half-width = slab/2 widened by the outer layers of a stack — CLOSED at both arch
       // ends (one path: out along one side, back along the other, end caps for free).
       // Reacts live to the slab / radius-shift / layers sliders.
@@ -668,7 +699,7 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
         ctx.fillText('drag = move · dbl/right-click = delete', x + 8, y + 12);
       }
     }
-  }, [entry, archZ, effVoi, invert, curve, points, stroke, sPos, sectionSpacing, sectionWidth, hoverIdx, nSections, traces, spz, panoSlab, radiusShift, nLayers, layerSpacing, focusOffsets, tilted, sectionTilt]);
+  }, [entry, archZ, effVoi, invert, gamma, curve, points, stroke, sPos, sectionSpacing, sectionWidth, hoverIdx, nSections, traces, spz, panoSlab, radiusShift, nLayers, layerSpacing, focusOffsets, tilted, sectionTilt]);
 
   // ---- draw: pano layer stack + section lines + z-level + ruler + traces + measurements
   useEffect(() => {
@@ -698,7 +729,7 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
 
     panoLayers.forEach(({ img, off }, b) => {
       const top = b * (bandH + LAYER_GAP);
-      ctx.putImageData(toImageData(img, panoEffVoi, invert), 0, top);
+      ctx.putImageData(toImageData(img, panoEffVoi, invert, gamma), 0, top);
       // per-band overlays
       if (curve) {
         const idx = sPos / img.pxW;
@@ -815,7 +846,7 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
       ctx.stroke();
       if (mm % 50 === 0) ctx.fillText(`${mm}`, x + 2, top + bandH - 12);
     }
-  }, [panoLayers, panoEffVoi, invert, sPos, sectionSpacing, nSections, curve, archZ, zRowOf, zRange, traces, projected, activeTraceId, measures, draft, spz, tilted, sectionTilt, radiusShift, focusOffsets]);
+  }, [panoLayers, panoEffVoi, invert, gamma, sPos, sectionSpacing, nSections, curve, archZ, zRowOf, zRange, traces, projected, activeTraceId, measures, draft, spz, tilted, sectionTilt, radiusShift, focusOffsets]);
 
   // ---- draw: cross-sections (+ z-level + center line + trace crossings + measurements)
   useEffect(() => {
@@ -832,7 +863,7 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
         range: zRange,
         tiltDeg: sectionTilt,
       });
-      drawImage(cv, img, effVoi, invert);
+      drawImage(cv, img, effVoi, invert, gamma);
       const ctx = cv.getContext('2d')!;
       ctx.strokeStyle = MARKER_DIM;
       ctx.beginPath();
@@ -909,7 +940,7 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
       ctx.font = '11px sans-serif';
       ctx.fillText(`${k + 1} · ${s.toFixed(0)} mm${mirror ? ' · mirrored' : ''}`, 4, 12);
     }
-  }, [entry, curve, sPos, sectionSpacing, sectionWidth, sectionThickness, mirror, radiusShift, effVoi, invert, zRowOf, zRange, nSections, traces, projected, measures, draft, sx, spz, archZ, sectionTilt, tilted]);
+  }, [entry, curve, sPos, sectionSpacing, sectionWidth, sectionThickness, mirror, radiusShift, effVoi, invert, gamma, zRowOf, zRange, nSections, traces, projected, measures, draft, sx, spz, archZ, sectionTilt, tilted]);
 
   // ---- axial interactions: freehand lasso OR click points; drag/dblclick edits; wheel = slice
   const axialPos = useCallback(
@@ -1020,7 +1051,7 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
     );
     if (len > 12) {
       const drawn = simplifyStroke(st);
-      setPoints(drawn); // a real lasso REPLACES the arch (a redraw, not an append)
+      setPoints(drawn); // a real lasso REPLACES the arch (lasso redraw)
       setArchDone(true); // a stroke IS a complete arch — placement ends with it
       if (drawn.length >= 3) setArchHome({ points: drawn, archZ });
     } else {
@@ -1229,7 +1260,7 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
     const pos = sectionSurfacePos(k, e);
     if (!pos) return;
     if (activeTrace) {
-      // the canal correction workflow: clicking a section SETS the canal point at this
+      // the correction workflow: clicking a section SETS the canal point at this
       // section's arc position (exact buccolingual offset + height) — upsert within ±1.5 mm
       const pt = panoToVolume(curve, pos.s, pos.zMm, pos.offset);
       setTraces((ts) =>
@@ -1335,8 +1366,9 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
       setPoints(pts);
       setArchDone(true); // a proposed arch is a complete arch — land in the finished phase
       setArchHome({ points: pts, archZ });
+      setHint(null);
     } else {
-      onError?.('auto arch found no tooth-bearing anatomy on this slice — scroll to the teeth and retry');
+      setHint('auto arch found no tooth-bearing anatomy on this slice — scroll to the teeth and retry');
     }
   };
   const runAutoFocus = () => {
@@ -1363,6 +1395,24 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
     padding: '4px 2px',
     flexWrap: 'wrap',
   };
+
+  // one snapshot door: the shell header owns the button; this room registers its composer
+  useEffect(() => {
+    if (!snapRef) return;
+    snapRef.current = () =>
+      void snapshotPaneCanvases(
+        gridRef.current,
+        `${anon} · pano · ${new Date().toISOString().slice(0, 10)}`,
+        `${anon}_pano.png`,
+      );
+  });
+  useEffect(() => {
+    if (!snapRef) return;
+    return () => {
+      snapRef.current = null;
+    };
+  }, [snapRef]);
+
   const chip = (active: boolean): React.CSSProperties => ({
     padding: '3px 8px',
     borderRadius: 6,
@@ -1408,10 +1458,12 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
               display: 'block',
             }}
           />
-          <span style={{ position: 'absolute', top: 6, left: 8, ...small, pointerEvents: 'none' }}>
+          {/* wraps to two lines instead of clipping — right: 30 keeps clear of the
+              vslice; the wheel mention was missing entirely */}
+          <span style={{ position: 'absolute', top: 6, left: 8, right: 30, ...small, pointerEvents: 'none', whiteSpace: 'normal', lineHeight: 1.4 }}>
             {tilted
               ? `OBLIQUE ${sectionTilt >= 0 ? '+' : ''}${sectionTilt.toFixed(0)}° · scout ⊥ the tilted section axis · arch + canals shown as projections · press upright to edit`
-              : `AXIAL ${entry ? `${archZ + 1}/${slices}` : ''} · ${
+              : `AXIAL ${entry ? `${archZ + 1}/${slices}` : ''} · wheel = slice · ${
                   archDone
                     ? 'arch finished — drag a dot to refine · drag the line to move the whole arch'
                     : 'stroke = draw arch · click = add dot · double-click = finish'
@@ -1425,8 +1477,9 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
             step={1}
             value={archZ}
             onChange={(e) => setArchZ(Number(e.target.value))}
+            onDoubleClick={() => setArchZ(Math.floor(slices / 2))}
             onPointerDown={(e) => e.stopPropagation()}
-            title="arch slice · up = superior (S)"
+            title="arch slice · up = superior (S) · double-click = volume middle"
             style={{
               position: 'absolute',
               right: 2,
@@ -1449,10 +1502,10 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
               setArchHome(null); // and so did the home
             }}
             disabled={points.length === 0}
-            title="delete the whole arch line — pano and cross-sections clear with it"
-            style={{ ...chip(false), color: points.length === 0 ? 'var(--text-dim)' : 'var(--text)', cursor: points.length === 0 ? 'default' : 'pointer' }}
+            title={points.length === 0 ? 'no arch to delete yet' : 'delete the whole arch line — pano and cross-sections clear with it'}
+            style={chip(false)}
           >
-            Delete arch
+            delete arch
           </button>
           <button
             onClick={runAutoArch}
@@ -1460,7 +1513,7 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
             title="propose the arch from the anatomy of this axial slice (then drag the dots to adjust)"
             style={chip(false)}
           >
-            Auto arch
+            auto arch
           </button>
           <button
             onClick={() => {
@@ -1470,10 +1523,10 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
               setArchDone(true);
             }}
             disabled={!archHome}
-            title="put the arch back to its main position (as of the last finish) — undoes dot drags and whole-arch drags"
-            style={{ ...chip(false), color: !archHome ? 'var(--text-dim)' : 'var(--text)', cursor: !archHome ? 'default' : 'pointer' }}
+            title={!archHome ? 'nothing to reset — finish an arch first' : 'put the arch back to its main position (as of the last finish) — undoes dot drags and whole-arch drags'}
+            style={chip(false)}
           >
-            Reset arch
+            reset arch
           </button>
           <span style={small}>
             {points.length === 0
@@ -1483,6 +1536,9 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
                 : `${points.length} dots · placing — double-click to finish`}
           </span>
         </div>
+        {hint && (
+          <div style={{ fontSize: 11, color: 'var(--warn)', lineHeight: 1.4, whiteSpace: 'normal' }}>⚠ {hint}</div>
+        )}
 
         {/* nerve / root-canal traces — always fully visible (medical dashboard rule) */}
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: 6 }}>
@@ -1502,11 +1558,14 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
             }}>
               + root canal
             </button>
-            {activeTrace && (
-              <button style={chip(true)} title="stop adding points to this trace" onClick={() => setActiveTraceId(null)}>
-                done tracing
-              </button>
-            )}
+            <button
+              style={chip(!!activeTrace)}
+              disabled={!activeTrace}
+              title={activeTrace ? 'stop adding points to this trace' : 'no active trace — start one with + nerve / + root canal'}
+              onClick={() => setActiveTraceId(null)}
+            >
+              done tracing
+            </button>
           </div>
           {traces.length === 0 && (
             <div style={{ ...small, whiteSpace: 'normal' }}>
@@ -1582,7 +1641,7 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
           />
           <span style={{ position: 'absolute', top: 6, left: 8, ...small, pointerEvents: 'none' }}>
             CURVED PANO · arc-length mm ·{' '}
-            {activeTrace ? `tracing ${activeTrace.name} — click along the canal` : measureMode ? 'drag = measure · right-click = delete a measurement' : 'click or wheel to move sections'}
+            {activeTrace ? `tracing ${activeTrace.name} — click along the canal` : measureMode ? 'drag = measure · right-click = delete a measurement' : 'click or wheel to move sections · right-click a measurement = delete'}
           </span>
         </div>
         <VertRangeSliders zFrac={zFrac} setZFrac={setZFrac} />
@@ -1597,7 +1656,9 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
               step={0.5}
               value={Math.min(sPos, curve?.length ?? 1)}
               disabled={!curve}
+              title={curve ? 'double-click = mid-arch' : 'draw or auto-fit an arch first'}
               onChange={(e) => setSPos(Number(e.target.value))}
+              onDoubleClick={() => curve && setSPos(curve.length / 2)}
               style={{ flex: 1 }}
             />
           </label>
@@ -1610,10 +1671,11 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
               step={1}
               value={panoSlab}
               onChange={(e) => setPanoSlab(Number(e.target.value))}
+              onDoubleClick={() => setPanoSlab(15)}
               style={{ flex: 1 }}
             />
           </label>
-          <label style={{ ...small, display: 'flex', gap: 4, alignItems: 'center' }}>
+          <label style={{ ...small, display: 'flex', gap: 4, alignItems: 'center' }} title="brightest voxel across the slab (off = average)">
             <input type="checkbox" checked={mip} onChange={(e) => setMip(e.target.checked)} /> MIP
           </label>
         </div>
@@ -1633,7 +1695,9 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
               step={0.5}
               value={layerSpacing}
               disabled={nLayers === 1}
+              title={nLayers === 1 ? 'single-layer pano — pick 3 or 5 layers to space them' : 'double-click = 2 mm'}
               onChange={(e) => setLayerSpacing(Number(e.target.value))}
+              onDoubleClick={() => setLayerSpacing(2)}
               style={{ flex: 1 }}
             />
           </label>
@@ -1654,10 +1718,10 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
           <button
             style={chip(!!focusOffsets)}
             disabled={!curve}
-            title="adaptive layer: the layer bends buccal/lingual to follow the sharpest anatomy (teeth) — click again to go back to the flat drawn layer"
+            title="auto-focus: the layer bends buccal/lingual to follow the sharpest anatomy (teeth) — click again to go back to the flat drawn layer"
             onClick={runAutoFocus}
           >
-            adaptive layer{focusOffsets ? ' ✓' : ''}
+            auto-focus{focusOffsets ? ' ✓' : ''}
           </button>
           <button
             style={chip(!!panoVoi)}
@@ -1665,11 +1729,11 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
             title="one-click pano look: contrast window from the pano's own pixels + light sharpening — click again to undo"
             onClick={runAutoAdjust}
           >
-            pano enhance{panoVoi ? ' ✓' : ''}
+            auto-adjust{panoVoi ? ' ✓' : ''}
           </button>
         </div>
         <div style={sliderRow}>
-          <span style={small} title="the vertical crop moved to the handles on the pano's right edge">
+          <span style={small} title="the vertical crop moved to the handles on the pano's right edge (pano-style)">
             vertical range {Math.round(zFrac[0] * 100)}–{Math.round(zFrac[1] * 100)}% (handles right of the pano)
           </span>
           <button
@@ -1686,11 +1750,12 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
             reset position
           </button>
           <button
-            style={chip(measureMode)}
+            style={{ ...chip(measureMode), display: 'inline-flex', alignItems: 'center', gap: 5 }}
             title="measure on the pano / cross-sections: drag a line, true mm — right-click a line to delete it"
             onClick={() => setMeasureMode((v) => !v)}
           >
-            📏 measure{measureMode ? ' ✓' : ''}
+            <Ruler size={13} strokeWidth={2} />
+            measure{measureMode ? ' ✓' : ''}
           </button>
           <button
             style={chip(false)}
@@ -1778,7 +1843,7 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
           )}
         </div>
         <div style={sliderRow}>
-          <label style={{ ...small, display: 'flex', gap: 6, alignItems: 'center' }}>
+          <label style={{ ...small, display: 'flex', gap: 6, alignItems: 'center' }} title="odd counts only — keeps one section exactly on the position line">
             sections {nSections}
             <input
               type="range"
@@ -1787,33 +1852,27 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
               step={2}
               value={nSections}
               onChange={(e) => setNSections(Number(e.target.value))}
+              onDoubleClick={() => setNSections(5)}
               style={{ width: 70 }}
             />
           </label>
           <span style={small} title="right-drag on any section rotates the whole fan in-plane (MPR gesture)">
             tilt {sectionTilt >= 0 ? '+' : ''}{sectionTilt.toFixed(0)}°
           </span>
-          {Math.abs(sectionTilt) > 0.01 && (
-            <button
-              style={chip(false)}
-              title="back upright (0°) — the axial line, canal crossings, and measuring return"
-              onClick={() => setSectionTilt(0)}
-            >
-              upright
-            </button>
-          )}
-          <label style={{ ...small, flex: 1, display: 'flex', gap: 6, alignItems: 'center' }}>
-            section width {sectionWidth} mm
-            <input
-              type="range"
-              min={10}
-              max={50}
-              step={2}
-              value={sectionWidth}
-              onChange={(e) => setSectionWidth(Number(e.target.value))}
-              style={{ flex: 1 }}
-            />
-          </label>
+          <button
+            style={chip(false)}
+            disabled={Math.abs(sectionTilt) <= 0.01}
+            title={
+              Math.abs(sectionTilt) > 0.01
+                ? 'back upright (0°) — the axial line, canal crossings, and measuring return'
+                : 'already upright — right-drag a section to tilt the fan'
+            }
+            onClick={() => setSectionTilt(0)}
+          >
+            upright
+          </button>
+          {/* canonical section-row order (unified 2026-08-05): count → tilt → spacing →
+              width → thickness → trailing toggle. Same anatomy in TMJ and Reslice. */}
           <label style={{ ...small, flex: 1, display: 'flex', gap: 6, alignItems: 'center' }}>
             spacing {sectionSpacing} mm
             <input
@@ -1823,6 +1882,20 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
               step={0.5}
               value={sectionSpacing}
               onChange={(e) => setSectionSpacing(Number(e.target.value))}
+              onDoubleClick={() => setSectionSpacing(3)}
+              style={{ flex: 1 }}
+            />
+          </label>
+          <label style={{ ...small, flex: 1, display: 'flex', gap: 6, alignItems: 'center' }}>
+            width {sectionWidth} mm
+            <input
+              type="range"
+              min={10}
+              max={50}
+              step={2}
+              value={sectionWidth}
+              onChange={(e) => setSectionWidth(Number(e.target.value))}
+              onDoubleClick={() => setSectionWidth(24)}
               style={{ flex: 1 }}
             />
           </label>
@@ -1835,6 +1908,7 @@ export default function CbctPano({ anon, voi, invert, onMeta, onError }: Props) 
               step={0.5}
               value={sectionThickness}
               onChange={(e) => setSectionThickness(Number(e.target.value))}
+              onDoubleClick={() => setSectionThickness(0.5)}
               style={{ flex: 1 }}
             />
           </label>

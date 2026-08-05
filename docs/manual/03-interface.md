@@ -33,8 +33,14 @@ own control rail; the per-mode guides (chapters 8.1 to 8.8) document them
 control by control, including each mode's own mouse gestures. Conventions
 that hold across modes:
 
-- **📷 snapshot buttons** save a PNG of what that mode currently shows,
-  exactly as displayed, to your Downloads folder.
+- **One snapshot button** lives in the header next to export, in the same
+  place no matter which mode is open. It saves a PNG of what the current
+  mode shows, exactly as displayed, to your Downloads folder; each mode
+  supplies its own composition behind that one button.
+- **Double-clicking any slider resets it** (navigation sliders to the volume
+  middle, parameters to their defaults).
+- **Disabled controls stay fully readable** and their tooltip says why they
+  are unavailable; nothing dims, hides, or unmounts.
 - **Pane dividers** between a mode's panes drag to resize and double-click
   back to the default split.
 - Double-click is otherwise a per-mode verb: in MPR it maximizes a pane and

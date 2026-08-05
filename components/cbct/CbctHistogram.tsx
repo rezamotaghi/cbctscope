@@ -22,12 +22,15 @@ interface Props {
   onThreshold?: (hu: number) => void;
   /** value-scale label in the captions; 'HU' for volumes (default), 'gray' for radiographs */
   unit?: string;
+  /** double-click reset targets (the universal slider grammar): the nearest line returns
+      to its default — window mode falls back to the volume extremes when omitted. */
+  defaults?: { lower?: number; upper?: number; threshold?: number };
 }
 
 const W = 208;
 const H = 64;
 
-export default function CbctHistogram({ data, lower, upper, onChange, threshold, onThreshold, unit = 'HU' }: Props) {
+export default function CbctHistogram({ data, lower, upper, onChange, threshold, onThreshold, unit = 'HU', defaults }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [drag, setDrag] = useState<'lower' | 'upper' | 'threshold' | null>(null);
   const thresholdMode = threshold !== undefined;
@@ -112,6 +115,18 @@ export default function CbctHistogram({ data, lower, upper, onChange, threshold,
     const r = canvasRef.current!.getBoundingClientRect();
     move(drag, e.clientX - r.left);
   };
+  const onDouble = (e: React.MouseEvent) => {
+    if (!data) return;
+    const r = canvasRef.current!.getBoundingClientRect();
+    const which = pick(e.clientX - r.left);
+    if (which === 'threshold') {
+      if (defaults?.threshold !== undefined) onThreshold?.(defaults.threshold);
+    } else if (which === 'lower') {
+      onChange?.(Math.min(defaults?.lower ?? data.minHu, upper! - 10), upper!);
+    } else {
+      onChange?.(lower!, Math.max(defaults?.upper ?? data.maxHu, lower! + 10));
+    }
+  };
 
   return (
     <div>
@@ -123,6 +138,7 @@ export default function CbctHistogram({ data, lower, upper, onChange, threshold,
         onPointerMove={onMove}
         onPointerUp={() => setDrag(null)}
         onPointerCancel={() => setDrag(null)}
+        onDoubleClick={onDouble}
         style={{
           width: '100%',
           height: H,
@@ -134,8 +150,8 @@ export default function CbctHistogram({ data, lower, upper, onChange, threshold,
         }}
         title={
           thresholdMode
-            ? 'drag the line: the 3D render keeps only densities to its right'
-            : 'drag the black/white lines: below black renders black, above white renders white'
+            ? 'drag the line: the 3D render keeps only densities to its right · double-click = reset'
+            : 'drag the black/white lines: below black renders black, above white renders white · double-click a line = reset'
         }
       />
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>

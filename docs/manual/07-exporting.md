@@ -5,10 +5,13 @@ is uploaded, the same local-first rule as reading.
 
 ## 7.1 Snapshots
 
-Every reading mode has a **📷 snapshot** button that saves a PNG of what the
-mode currently shows, exactly as displayed, to your Downloads folder. This is
-the "what I see right now" door, for figures, teaching files, and reports
-written elsewhere.
+The header's **snapshot** button (next to export, same place in every mode)
+saves a PNG of what the current mode shows, exactly as displayed, to your
+Downloads folder. Each mode composes its own image behind that one button:
+MPR captures its visible layout with annotations, Grid its scout and tiles,
+Ceph the cephalogram with its caption, Reslice the whole stack, and the other
+modes their panes as laid out on screen. This is the "what I see right now"
+door, for figures, teaching files, and reports written elsewhere.
 
 ## 7.2 The export menu
 

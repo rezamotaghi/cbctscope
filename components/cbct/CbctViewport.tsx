@@ -38,6 +38,7 @@ import {
   PlanarFreehandROITool,
   StackScrollTool,
   ScaleOverlayTool,
+  WindowLevelTool,
   Enums as csToolsEnums,
   utilities as csToolsUtils,
 } from '@cornerstonejs/tools';
@@ -56,6 +57,8 @@ import { applyClipping, boundsInfo, PlaneIndicators, VTK_KIT, type Crop3d, type 
 import { Eraser3d, type ZRange } from './eraser3d';
 import { computeRoi3dStats, Roi3dOutlines, type Roi3d } from './evidence3d';
 import DragDivider from './DragDivider';
+import { type SnapRef } from './SnapshotButton';
+import { Bookmark, Eraser as EraserIcon } from 'lucide-react';
 import {
   VP,
   MPR_PANES,
@@ -90,6 +93,7 @@ const { MouseBindings } = csToolsEnums;
 export type CbctToolMode =
   | 'crosshairs'
   | 'pan'
+  | 'wl'
   | 'length'
   | 'angle'
   | 'arrow'
@@ -160,6 +164,8 @@ interface Props {
   onError?: (msg: string) => void;
   /** Restoring a saved view patches the read-state controls the App owns. */
   onControlsPatch?: (patch: Partial<CbctControls>) => void;
+  /** the shell's one snapshot button calls the registered composer */
+  snapRef?: SnapRef;
 }
 
 // Panes, viewport ids, slider anatomy, orientation markers and vector math all live in
@@ -327,6 +333,7 @@ function ensureCbctTools() {
     addTool(CrosshairsTool);
     addTool(TrackballRotateTool);
     addTool(ScaleOverlayTool);
+    addTool(WindowLevelTool);
     addTool(ArrowAnnotateTool);
     addTool(LabelTool);
     addTool(RectangleROITool);
@@ -343,6 +350,7 @@ function ensureCbctTools() {
 const TOOL_OF: Record<CbctToolMode, string | null> = {
   crosshairs: CrosshairsTool.toolName,
   pan: PanTool.toolName,
+  wl: WindowLevelTool.toolName,
   length: LengthTool.toolName,
   angle: AngleTool.toolName,
   arrow: ArrowAnnotateTool.toolName,
@@ -477,6 +485,7 @@ export default function CbctViewport({
   onHistogram,
   onError,
   onControlsPatch,
+  snapRef,
 }: Props) {
   const elRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const gridRef = useRef<HTMLDivElement | null>(null);
@@ -620,10 +629,17 @@ export default function CbctViewport({
   const controlsRef = useRef(controls);
   controlsRef.current = controls;
 
-  const saveView = () => {
+  // inline naming (no blocking window.prompt — it froze the whole app mid-read): the
+  // button/V key open a small input in the toolbar; Enter saves, Escape cancels.
+  const [namingView, setNamingView] = useState<string | null>(null);
+  const startNamingView = () => {
+    if (!engineRef.current || !metaRef.current) return;
+    setNamingView(`view ${viewsRef.current.length + 1}`);
+  };
+  const saveView = (rawName: string) => {
     const engine = engineRef.current;
     if (!engine || !metaRef.current) return;
-    const name = window.prompt('Name this view:', `view ${viewsRef.current.length + 1}`)?.trim();
+    const name = rawName.trim();
     if (!name) return;
     const cameras: Record<string, SavedCam> = {};
     for (const id of [...MPR_IDS, VP.v3d]) {
@@ -652,8 +668,8 @@ export default function CbctViewport({
     };
     setViews((v) => [...v, { id: `view-${Date.now().toString(36)}`, name, cameras, patch }]);
   };
-  const saveViewRef = useRef(saveView);
-  saveViewRef.current = saveView;
+  const saveViewRef = useRef(startNamingView);
+  saveViewRef.current = startNamingView;
 
   const applySavedCams = (v: SavedView) => {
     const engine = engineRef.current;
@@ -1165,6 +1181,7 @@ export default function CbctViewport({
       for (const t of [
         PanTool,
         ZoomTool,
+        WindowLevelTool,
         LengthTool,
         AngleTool,
         ArrowAnnotateTool,
@@ -1800,6 +1817,14 @@ export default function CbctViewport({
     el3d?.addEventListener('pointerup', cutEnd);
     el3d?.addEventListener('pointercancel', cutEnd);
 
+    // wheel = zoom (up = in) — the fourth quadrant was the only wheel-dead pane; muscle
+    // memory from the slice panes expects a response. Same math as the chord zoom.
+    const wheel3d = (e: WheelEvent) => {
+      e.preventDefault();
+      applyZoom3d(-e.deltaY * 0.25);
+    };
+    el3d?.addEventListener('wheel', wheel3d, { passive: false });
+
     // ---- clean-rendering eraser: left-drag paints while eraser mode is on (trackball is
     // set passive then, so the drag can't also orbit). Each sample rays into the volume and
     // blanks a sphere at the first visible surface — "erase what you touch".
@@ -1877,6 +1902,7 @@ export default function CbctViewport({
       el3d?.removeEventListener('pointermove', cutMove);
       el3d?.removeEventListener('pointerup', cutEnd);
       el3d?.removeEventListener('pointercancel', cutEnd);
+      el3d?.removeEventListener('wheel', wheel3d);
       el3d?.removeEventListener('pointerdown', erDown);
       el3d?.removeEventListener('pointermove', erMove);
       el3d?.removeEventListener('pointerup', erUp);
@@ -2141,6 +2167,28 @@ export default function CbctViewport({
     if (controls.gamma !== 1) applyMprGamma(engineRef.current, voi, controls.invert, controls.gamma);
     engineRef.current.renderViewports(MPR_IDS);
   }, [controls.voi, controls.invert, controls.gamma, ready]);
+
+  // W/L tool → sidebar sync: a left-drag writes VOI into the dragged pane only; mirroring it
+  // into the app's Window section re-applies it to ALL panes (applyVoi above) and keeps the
+  // sliders/histogram truthful. VOI_MODIFIED fires on the viewport ELEMENT (unlike the
+  // annotation events, which use the global eventTarget) — listen per pane. The numeric
+  // guard breaks the echo loop: applyVoi re-fires the event with the values we just patched.
+  useEffect(() => {
+    if (!ready) return;
+    const onVoi = (evt: Event) => {
+      const d = (evt as CustomEvent<{ viewportId?: string; range?: { lower: number; upper: number } }>).detail;
+      if (!d?.range) return;
+      const center = Math.round((d.range.lower + d.range.upper) / 2);
+      const width = Math.max(10, Math.round(d.range.upper - d.range.lower));
+      const cur = controlsRef.current.voi ?? metaRef.current?.defaultVoi;
+      if (cur && Math.abs(cur.center - center) < 1 && Math.abs(cur.width - width) < 1) return;
+      onControlsPatch?.({ voi: { center, width } });
+    };
+    const els = MPR_IDS.map((id) => elRefs.current[id]).filter(Boolean) as HTMLElement[];
+    els.forEach((el) => el.addEventListener(Enums.Events.VOI_MODIFIED, onVoi));
+    return () => els.forEach((el) => el.removeEventListener(Enums.Events.VOI_MODIFIED, onVoi));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
 
   useEffect(() => {
     if (!ready || !engineRef.current) return;
@@ -2601,6 +2649,18 @@ export default function CbctViewport({
 
   // Re-home only the 3D pane's camera (Reset views resets window/slices/everything).
   // Projection-aware: a plain resetCamera under perspective leaves the volume a dot.
+  // one snapshot door: the shell header owns the button; MPR registers its bespoke composer
+  useEffect(() => {
+    if (!snapRef) return;
+    snapRef.current = () => void takeSnapshot();
+  });
+  useEffect(() => {
+    if (!snapRef) return;
+    return () => {
+      snapRef.current = null;
+    };
+  }, [snapRef]);
+
   const home3d = () => {
     if (!engineRef.current) return;
     try {
@@ -2808,6 +2868,15 @@ export default function CbctViewport({
             >
               {c.label}
               {sliceInfo[c.id] ? `  ${sliceInfo[c.id].idx + 1}/${sliceInfo[c.id].n}` : ''}
+              {/* the 3D pane carries its own gesture caption; the slice panes were the app's
+                  biggest discoverability hole. Only the pane-unique gesture — wheel/left are
+                  in the header legend, dbl-click maximize in the pane tooltip — so the line
+                  ends well before the top-center orientation letter. */}
+              {c.id !== VP.v3d && (
+                <span style={{ color: 'var(--text-dim)', fontWeight: 'normal' }}>
+                  {'  ·  right-drag: rotate'}
+                </span>
+              )}
             </span>
             {c.id !== VP.v3d && (
               <span
@@ -2916,8 +2985,12 @@ export default function CbctViewport({
                   }}
                   onPointerUp={() => setDragSlice(null)}
                   onLostPointerCapture={() => setDragSlice(null)}
-                  onDoubleClick={(e) => e.stopPropagation()}
-                  title={SLIDER_TIP[c.id] ?? 'slice position'}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation(); // a dbl-click on the slider must not maximize the pane
+                    const n = sliceInfo[c.id].n;
+                    jumpTo(c.id, sliceIndexFor(c.id, Math.floor(n / 2), n));
+                  }}
+                  title={`${SLIDER_TIP[c.id] ?? 'slice position'} · double-click = volume middle`}
                   style={{
                     position: 'absolute',
                     right: 2,
@@ -3099,10 +3172,14 @@ export default function CbctViewport({
                     fontSize: 11,
                   }}
                 >
-                  ⌫ eraser
+                  <EraserIcon size={12} strokeWidth={2} style={{ marginRight: 5, verticalAlign: '-2px' }} />
+                  eraser
                 </button>
                 {eraseMode && (
                   <>
+                    <span style={{ fontSize: 10, color: 'var(--text)', textShadow: '0 1px 2px #000' }}>
+                      radius {eraseRadius} mm
+                    </span>
                     <input
                       type="range"
                       min={1}
@@ -3110,12 +3187,10 @@ export default function CbctViewport({
                       step={0.5}
                       value={eraseRadius}
                       onChange={(e) => setEraseRadius(Number(e.target.value))}
-                      title={`brush radius ${eraseRadius} mm`}
+                      onDoubleClick={() => setEraseRadius(4)}
+                      title={`brush radius ${eraseRadius} mm · double-click = 4 mm`}
                       style={{ width: 70 }}
                     />
-                    <span style={{ fontSize: 10, color: 'var(--text)', textShadow: '0 1px 2px #000' }}>
-                      {eraseRadius}mm
-                    </span>
                     <button
                       onClick={() => {
                         const zr = eraserRef.current?.undo();
@@ -3125,14 +3200,14 @@ export default function CbctViewport({
                         }
                       }}
                       disabled={eraseInfo.undo === 0}
-                      title="undo the last erase stroke"
+                      title={eraseInfo.undo ? 'undo the last erase stroke' : 'nothing to undo yet'}
                       style={{
                         width: 26,
                         height: 24,
                         borderRadius: 5,
                         border: '1px solid var(--border)',
                         background: 'rgba(27,31,39,0.85)',
-                        color: eraseInfo.undo ? 'var(--text)' : 'var(--text-dim)',
+                        color: 'var(--text)',
                         fontSize: 12,
                         padding: 0,
                       }}
@@ -3148,14 +3223,14 @@ export default function CbctViewport({
                         }
                       }}
                       disabled={eraseInfo.redo === 0}
-                      title="redo the undone erase stroke"
+                      title={eraseInfo.redo ? 'redo the undone erase stroke' : 'nothing to redo'}
                       style={{
                         width: 26,
                         height: 24,
                         borderRadius: 5,
                         border: '1px solid var(--border)',
                         background: 'rgba(27,31,39,0.85)',
-                        color: eraseInfo.redo ? 'var(--text)' : 'var(--text-dim)',
+                        color: 'var(--text)',
                         fontSize: 12,
                         padding: 0,
                       }}
@@ -3169,14 +3244,18 @@ export default function CbctViewport({
                         });
                       }}
                       disabled={eraseInfo.undo === 0 && eraseInfo.redo === 0}
-                      title="revert every erase — the full volume returns to the render"
+                      title={
+                        eraseInfo.undo || eraseInfo.redo
+                          ? 'revert every erase — the full volume returns to the render'
+                          : 'nothing erased yet'
+                      }
                       style={{
                         height: 24,
                         padding: '0 8px',
                         borderRadius: 5,
                         border: '1px solid var(--border)',
                         background: 'rgba(27,31,39,0.85)',
-                        color: eraseInfo.undo || eraseInfo.redo ? 'var(--text)' : 'var(--text-dim)',
+                        color: 'var(--text)',
                         fontSize: 11,
                       }}
                     >
@@ -3238,51 +3317,69 @@ export default function CbctViewport({
 
       <div
         onDoubleClick={(e) => e.stopPropagation()}
-        // centered over the axial pane, one row BELOW its label (top 4 clipped the label's
-        // slice counter; grid center collides with the sagittal label; corners are taken)
+        // anchored to the AXIAL pane's REAL center (derived from the live split — a fixed
+        // left:25% drifts over arbitrary content after a divider drag), one row BELOW its
+        // label; a maximized pane owns the whole grid, so center on it instead
         style={{
           position: 'absolute',
           top: 26,
-          left: '25%',
+          left: maximized ? '50%' : `calc((100% - 6px) * ${split.c / 2} + 3px)`,
           transform: 'translateX(-50%)',
           zIndex: 3,
           display: 'flex',
           gap: 6,
         }}
       >
-        <button
-          onClick={() => void takeSnapshot()}
-          title="snapshot: save the current layout (annotations included) as a PNG image"
-          style={{
-            height: 24,
-            padding: '0 10px',
-            borderRadius: 5,
-            border: '1px solid var(--border)',
-            background: 'rgba(27,31,39,0.9)',
-            color: 'var(--text)',
-            fontSize: 11,
-          }}
-        >
-          📷 snapshot
-        </button>
-        <button
-          onClick={saveView}
-          title="save the current view — all four cameras + window + render settings, under a name (V)"
-          style={{
-            height: 24,
-            padding: '0 10px',
-            borderRadius: 5,
-            border: '1px solid var(--border)',
-            background: 'rgba(27,31,39,0.9)',
-            color: 'var(--text)',
-            fontSize: 11,
-          }}
-        >
-          🔖 save view (V)
-        </button>
+        {namingView !== null ? (
+          <input
+            autoFocus
+            value={namingView}
+            onChange={(e) => setNamingView(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                saveView(namingView);
+                setNamingView(null);
+              } else if (e.key === 'Escape') setNamingView(null);
+            }}
+            onBlur={() => setNamingView(null)}
+            title="name this view — Enter saves, Esc cancels"
+            style={{
+              height: 24,
+              width: 160,
+              padding: '0 8px',
+              borderRadius: 5,
+              border: '1px solid var(--accent)',
+              background: 'rgba(27,31,39,0.95)',
+              color: 'var(--text)',
+              fontSize: 11,
+            }}
+          />
+        ) : (
+          <button
+            onClick={startNamingView}
+            title="save the current view — all four cameras + window + render settings, under a name (V)"
+            style={{
+              height: 24,
+              padding: '0 10px',
+              borderRadius: 5,
+              border: '1px solid var(--border)',
+              background: 'rgba(27,31,39,0.9)',
+              color: 'var(--text)',
+              fontSize: 11,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+            }}
+          >
+            <Bookmark size={12} strokeWidth={2} />
+            save view (V)
+          </button>
+        )}
       </div>
 
-      {controls.showOverlay && (measures.length > 0 || rois3d.length > 0 || views.length > 0) && (
+      {/* NOT gated on showOverlay: O hides the drawings on the panes, but the management
+          panel must stay reachable — it is the only way to restore/delete hidden objects */}
+      {(measures.length > 0 || rois3d.length > 0 || views.length > 0) && (
         <div
           style={{
             position: 'absolute',
@@ -3445,7 +3542,9 @@ export default function CbctViewport({
           )}
           {views.map((v) => (
             <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '1px 4px' }}>
-              <span style={{ width: 18, textAlign: 'center' }}>🔖</span>
+              <span style={{ width: 18, textAlign: 'center', display: 'inline-flex', justifyContent: 'center' }}>
+                <Bookmark size={12} strokeWidth={2} />
+              </span>
               <button
                 onClick={() => restoreView(v)}
                 title="restore this saved view (cameras + window + render settings)"

@@ -19,7 +19,7 @@ Alignment:
   hill-climb) over the overlap.
 - auto + rotation: also searches rotation; slower.
 - reset transform: returns B to the identity transform.
-- Manual sliders: translation X, Y, Z (-60 to 60 mm) and rotation rX, rY, rZ (-20 to 20
+- Manual sliders (in the toolbar above the previews): translation X, Y, Z (-60 to 60 mm) and rotation rX, rY, rZ (-20 to 20
   degrees). Double-click a slider to zero that axis.
 
 Overlay modes for the tri-plane preview: color (A green, B magenta, so overlap reads
@@ -45,6 +45,8 @@ Window: the shared Window (HU) presets, center, width, and invert control the pr
 3. Run auto align first for the translation, then auto + rotation if the two scans are
    also rotated relative to each other.
 4. Refine by hand with the sliders while watching both the fringes and the NCC readout;
+   wheel over any preview steps the compared slice, so alignment can be verified away
+   from the three center slices (misalignment at the condyles shows before you bake);
    nudge the axis whose fringe is largest.
 5. Cross-check the alignment on all three planes, not just one; a transform that looks
    right axially can still be off in the superior-inferior direction.

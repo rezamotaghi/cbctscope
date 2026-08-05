@@ -5,14 +5,20 @@
 | Key | Action |
 |---|---|
 | `N` / `P` | Next / previous volume |
-| `1` … `9`, `0` | Select tool: Crosshairs, Pan, Length, Angle, Arrow, Text, Rect ROI, Ellipse ROI, Freehand, 3D ROI |
-| `R` | Reset orientation (radiograph view: fit) |
-| `C` | Toggle plane lines |
-| `O` | Toggle overlays |
-| `V` | Save the current view |
+| `1` … `9`, `0` | Select tool: Crosshairs, Pan, Length, Angle, Arrow, Text, Rect ROI, Ellipse ROI, Freehand, 3D ROI (MPR only) |
+| `W` | Select the W/L (window/level) tool (MPR only) |
+| `R` | Reset orientation (MPR; radiograph view: fit) |
+| `C` | Toggle plane lines (MPR only) |
+| `O` | Toggle overlays (MPR only) |
+| `V` | Save the current view (MPR only) |
 | `Del` / `Backspace` | Delete the selected annotation |
 
-Keys are ignored while you are typing in a text field.
+Keys are ignored while you are typing in a text field. The tool and overlay
+keys act only in the MPR room, so a stray keypress in another mode cannot
+change state you cannot see there. The header's "keys" button opens this
+reference in the app. Double-clicking any slider resets it: navigation
+sliders return to the volume middle, parameter sliders to their defaults,
+and the histogram's cut lines to the automatic window.
 
 ## Mouse, MPR slice panes
 

@@ -24,8 +24,8 @@ Section orientation:
 - "parallel to axis": sections parallel to the axis, the corrected coronal stack, labeled
   lat and med.
 
-sync sides: editing one side mirrors the line to the other side about the midline, for a
-symmetric starting point that can then be refined per side.
+sync sides: editing one side (dragging an endpoint or the whole line) mirrors it to the other side about the midline, for a
+symmetric starting point that can then be refined per side. A fresh draw fills the other side only when it is empty; it never replaces a placed line there, so a stray stroke cannot wipe a tuned opposite side.
 
 clear lines: deletes both axis lines. "Reset lines" restores both axis lines to where
 they were drawn, rolling back exploratory nudges.

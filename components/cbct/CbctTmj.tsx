@@ -9,6 +9,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadVolumeData, type CbctMeta, type VolumeEntry } from './volumeData';
 import { axialSlice, drawImage, renderLineSection, type ZRange } from './curvedReformat';
+import { snapshotPaneCanvases, type SnapRef } from './SnapshotButton';
 import { sweepDeg } from './CbctGrid';
 import { VertRangeSliders } from './CbctPano';
 import DragDivider from './DragDivider';
@@ -17,8 +18,11 @@ interface Props {
   anon: string;
   voi: { center: number; width: number } | null;
   invert: boolean;
+  gamma: number;
   onMeta?: (meta: CbctMeta) => void;
   onError?: (msg: string) => void;
+  /** the shell's one snapshot button calls the registered composer */
+  snapRef?: SnapRef;
 }
 
 type Side = 'R' | 'L';
@@ -82,7 +86,7 @@ function segDist(p: [number, number], a: [number, number], b: [number, number]):
   return Math.hypot(p[0] - (a[0] + t * vx), p[1] - (a[1] + t * vy));
 }
 
-export default function CbctTmj({ anon, voi, invert, onMeta, onError }: Props) {
+export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, snapRef }: Props) {
   const [entry, setEntry] = useState<VolumeEntry | null>(null);
   const [progress, setProgress] = useState<number | null>(0);
   const [z, setZ] = useState(0);
@@ -97,7 +101,7 @@ export default function CbctTmj({ anon, voi, invert, onMeta, onError }: Props) {
   const [draft, setDraft] = useState<AxisLine | null>(null); // line being drawn
   // the lines as DRAWN — a fresh draw sets it; endpoint/whole-line nudges don't (pano's arch-home)
   const [linesHome, setLinesHome] = useState<Partial<Record<Side, AxisLine>>>({});
-  // Fan rotation: the MPR/grid right-drag, TMJ edition — one in-plane tilt
+  // Fan rotation : the MPR/grid right-drag, TMJ edition — one in-plane tilt
   // PER SIDE (each condyle's fan spins on its own). The scout stays upright: one scout
   // serves two independent sides, so an oblique re-cut can't be right for both. A tilted
   // side's band dashes instead (exact shadow — see the axial draw effect).
@@ -193,18 +197,33 @@ export default function CbctTmj({ anon, voi, invert, onMeta, onError }: Props) {
     [midX],
   );
 
-  /** Commit a line to a side; with sync on, the other side gets the mirror. A fresh draw
-   *  IS the new home for the side(s) it lands on — nudges afterwards don't move home. */
+  /** Commit a freshly DRAWN line to a side. Home keeps the REPLACED line as the recovery
+   *  point (one-step undo): a stray draw over a placed line must not overwrite the only
+   *  path back — "Reset lines" restores the previous placement. A side's FIRST line
+   *  anchors its own home; nudges afterwards don't move home.
+   *  Sync gate: a fresh draw mirrors only into an EMPTY other side —
+   *  replacing the far condyle's placed line from a stroke on THIS side is exactly how a
+   *  stray draw wiped both sides at once. Deliberate synced editing stays live on
+   *  endpoint/whole-line drags, which require grabbing an existing line. */
   const commitLine = useCallback(
     (l: AxisLine) => {
       const cx = (l.a[0] + l.b[0]) / 2;
       const side: Side = cx < midX ? 'R' : 'L'; // LPS: +x = patient LEFT ⇒ low x = RIGHT
-      const apply = (cur: Partial<Record<Side, AxisLine>>) =>
-        sync ? { R: side === 'R' ? l : mirrorLine(l), L: side === 'L' ? l : mirrorLine(l) } : { ...cur, [side]: l };
-      setLines(apply);
-      setLinesHome(apply);
+      const other: Side = side === 'R' ? 'L' : 'R';
+      const fillOther = sync && !lines[other];
+      setLinesHome((home) => {
+        const next = { ...home };
+        next[side] = lines[side] ?? l;
+        if (fillOther) next[other] = mirrorLine(l);
+        return next;
+      });
+      setLines((cur) => {
+        const next = { ...cur, [side]: l };
+        if (fillOther) next[other] = mirrorLine(l);
+        return next;
+      });
     },
-    [midX, sync, mirrorLine],
+    [midX, sync, mirrorLine, lines],
   );
 
   /** Per-side section geometry: centers stepped along the axis (or its normal), oriented
@@ -243,7 +262,7 @@ export default function CbctTmj({ anon, voi, invert, onMeta, onError }: Props) {
     const cv = axialCv.current;
     if (!cv || !entry) return;
     const img = axialSlice(entry, z);
-    drawImage(cv, img, effVoi, invert);
+    drawImage(cv, img, effVoi, invert, gamma);
     const ctx = cv.getContext('2d')!;
     const toPx = (p: [number, number]): [number, number] => [p[0] / img.pxW, p[1] / img.pxH];
     const drawLine = (l: AxisLine, color: string, label: Side | null) => {
@@ -317,7 +336,7 @@ export default function CbctTmj({ anon, voi, invert, onMeta, onError }: Props) {
       drawLine(l, SIDE_COLOR[side], side);
     }
     if (draft) drawLine(draft, 'rgba(255,255,255,0.85)', null);
-  }, [entry, z, effVoi, invert, lines, draft, sideGeom, nSec, secSpacing, secWidth, secThickness, mode, zRange, tilt]);
+  }, [entry, z, effVoi, invert, gamma, lines, draft, sideGeom, nSec, secSpacing, secWidth, secThickness, mode, zRange, tilt]);
 
   // ---- draw: per-side sections
   useEffect(() => {
@@ -347,7 +366,7 @@ export default function CbctTmj({ anon, voi, invert, onMeta, onError }: Props) {
           range: zRange,
           tiltDeg: tilt[side],
         });
-        drawImage(cv, img, effVoi, invert);
+        drawImage(cv, img, effVoi, invert, gamma);
         const ctx = cv.getContext('2d')!;
         ctx.strokeStyle = MARKER_DIM;
         ctx.beginPath();
@@ -376,7 +395,7 @@ export default function CbctTmj({ anon, voi, invert, onMeta, onError }: Props) {
         }
       }
     }
-  }, [entry, sideGeom, nSec, secSpacing, secWidth, secThickness, mode, zRange, effVoi, invert, lines, tilt]);
+  }, [entry, sideGeom, nSec, secSpacing, secWidth, secThickness, mode, zRange, effVoi, invert, gamma, lines, tilt]);
 
   // ---- axial interactions: draw a new axis line; drag endpoints; move a line; right-click deletes
   const axialPos = useCallback(
@@ -545,6 +564,24 @@ export default function CbctTmj({ anon, voi, invert, onMeta, onError }: Props) {
     padding: '4px 2px',
     flexWrap: 'wrap',
   };
+
+  // one snapshot door: the shell header owns the button; this room registers its composer
+  useEffect(() => {
+    if (!snapRef) return;
+    snapRef.current = () =>
+      void snapshotPaneCanvases(
+        gridRef.current,
+        `${anon} · tmj · ${new Date().toISOString().slice(0, 10)}`,
+        `${anon}_tmj.png`,
+      );
+  });
+  useEffect(() => {
+    if (!snapRef) return;
+    return () => {
+      snapRef.current = null;
+    };
+  }, [snapRef]);
+
   const chip = (active: boolean): React.CSSProperties => ({
     padding: '3px 8px',
     borderRadius: 6,
@@ -554,7 +591,6 @@ export default function CbctTmj({ anon, voi, invert, onMeta, onError }: Props) {
     cursor: 'pointer',
     fontSize: 11,
   });
-
 
   const sideRow = (side: Side) => (
     <div key={side} style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', gap: 6 }}>
@@ -644,9 +680,9 @@ export default function CbctTmj({ anon, voi, invert, onMeta, onError }: Props) {
               display: 'block',
             }}
           />
-          <span style={{ position: 'absolute', top: 6, left: 8, ...small, pointerEvents: 'none' }}>
-            AXIAL {entry ? `${z + 1}/${slices}` : ''} · scroll to the condyles · drag = axis line per side ·
-            right-click = delete
+          <span style={{ position: 'absolute', top: 6, left: 8, right: 30, ...small, pointerEvents: 'none', whiteSpace: 'normal', lineHeight: 1.4 }}>
+            AXIAL {entry ? `${z + 1}/${slices}` : ''} · wheel = slice · scroll to the condyles · drag = axis
+            line per side · right-click = delete
           </span>
           <input
             className="vslice"
@@ -656,8 +692,9 @@ export default function CbctTmj({ anon, voi, invert, onMeta, onError }: Props) {
             step={1}
             value={z}
             onChange={(e) => setZ(Number(e.target.value))}
+            onDoubleClick={() => setZ(Math.floor(slices / 2))}
             onPointerDown={(e) => e.stopPropagation()}
-            title="scout slice · up = superior (S)"
+            title="scout slice · up = superior (S) · double-click = volume middle"
             style={{
               position: 'absolute',
               right: 2,
@@ -686,7 +723,7 @@ export default function CbctTmj({ anon, voi, invert, onMeta, onError }: Props) {
           >
             ∥ axis
           </button>
-          <label style={{ ...small, display: 'flex', gap: 4, alignItems: 'center' }} title="editing one side mirrors the line to the other side about the midline">
+          <label style={{ ...small, display: 'flex', gap: 4, alignItems: 'center' }} title="editing one side mirrors the line to the other about the midline; a fresh draw fills the other side only if it is empty — it never replaces a placed line there">
             <input type="checkbox" checked={sync} onChange={(e) => setSync(e.target.checked)} /> sync sides
           </label>
           <button
@@ -704,10 +741,14 @@ export default function CbctTmj({ anon, voi, invert, onMeta, onError }: Props) {
           <button
             style={chip(false)}
             disabled={!linesHome.R && !linesHome.L}
-            title="restore both axis lines to where they were drawn — exploratory nudges roll back (the pano's Reset arch)"
+            title={
+              !linesHome.R && !linesHome.L
+                ? 'nothing to reset — draw an axis line first'
+                : "restore both axis lines to where they were drawn — exploratory nudges roll back (the pano's reset arch)"
+            }
             onClick={() => setLines({ ...linesHome })}
           >
-            Reset lines
+            reset lines
           </button>
         </div>
         <div style={{ ...small, whiteSpace: 'normal', lineHeight: 1.5 }}>
@@ -782,7 +823,7 @@ export default function CbctTmj({ anon, voi, invert, onMeta, onError }: Props) {
           <VertRangeSliders zFrac={zFrac} setZFrac={setZFrac} />
         </div>
         <div style={sliderRow}>
-          <label style={{ ...small, display: 'flex', gap: 6, alignItems: 'center' }}>
+          <label style={{ ...small, display: 'flex', gap: 6, alignItems: 'center' }} title="odd counts only — keeps one section exactly on the condyle axis">
             sections {nSec}
             <input
               type="range"
@@ -791,9 +832,27 @@ export default function CbctTmj({ anon, voi, invert, onMeta, onError }: Props) {
               step={2}
               value={nSec}
               onChange={(e) => setNSec(Number(e.target.value))}
+              onDoubleClick={() => setNSec(5)}
               style={{ width: 70 }}
             />
           </label>
+          {/* canonical section-row order (unified 2026-08-05): count → tilt → spacing →
+              width → thickness. Same anatomy in Pano and Reslice. */}
+          <span style={small} title="right-drag on any tile rotates that side's whole fan in-plane (MPR gesture)">
+            tilt R {tilt.R >= 0 ? '+' : ''}{tilt.R.toFixed(0)}° · L {tilt.L >= 0 ? '+' : ''}{tilt.L.toFixed(0)}°
+          </span>
+          <button
+            style={chip(false)}
+            disabled={Math.abs(tilt.R) <= 0.01 && Math.abs(tilt.L) <= 0.01}
+            title={
+              Math.abs(tilt.R) > 0.01 || Math.abs(tilt.L) > 0.01
+                ? 'both fans back upright (0°)'
+                : 'already upright — right-drag a tile to tilt its fan'
+            }
+            onClick={() => setTilt({ R: 0, L: 0 })}
+          >
+            upright
+          </button>
           <label style={{ ...small, flex: 1, display: 'flex', gap: 6, alignItems: 'center' }}>
             spacing {secSpacing.toFixed(1)} mm
             <input
@@ -803,6 +862,7 @@ export default function CbctTmj({ anon, voi, invert, onMeta, onError }: Props) {
               step={0.5}
               value={secSpacing}
               onChange={(e) => setSecSpacing(Number(e.target.value))}
+              onDoubleClick={() => setSecSpacing(2.5)}
               style={{ flex: 1 }}
             />
           </label>
@@ -815,6 +875,7 @@ export default function CbctTmj({ anon, voi, invert, onMeta, onError }: Props) {
               step={2}
               value={secWidth}
               onChange={(e) => setSecWidth(Number(e.target.value))}
+              onDoubleClick={() => setSecWidth(34)}
               style={{ flex: 1 }}
             />
           </label>
@@ -827,17 +888,10 @@ export default function CbctTmj({ anon, voi, invert, onMeta, onError }: Props) {
               step={0.5}
               value={secThickness}
               onChange={(e) => setSecThickness(Number(e.target.value))}
+              onDoubleClick={() => setSecThickness(0.5)}
               style={{ flex: 1 }}
             />
           </label>
-          <span style={small} title="right-drag on any tile rotates that side's whole fan in-plane (MPR gesture)">
-            tilt R {tilt.R >= 0 ? '+' : ''}{tilt.R.toFixed(0)}° · L {tilt.L >= 0 ? '+' : ''}{tilt.L.toFixed(0)}°
-          </span>
-          {(Math.abs(tilt.R) > 0.01 || Math.abs(tilt.L) > 0.01) && (
-            <button style={chip(false)} title="both fans back upright (0°)" onClick={() => setTilt({ R: 0, L: 0 })}>
-              upright
-            </button>
-          )}
         </div>
         <div style={sliderRow}>
           <span style={small} title="crop the sections vertically — the handles moved to the right edge of the sections (pano-style)">

@@ -21,6 +21,7 @@ import {
   type ZRange,
 } from './curvedReformat';
 import DragDivider from './DragDivider';
+import { type SnapRef } from './SnapshotButton';
 import { sweepDeg } from './CbctGrid';
 import { VertRangeSliders } from './CbctPano';
 import { renderOblique, type V3 } from './oblique';
@@ -29,8 +30,11 @@ interface Props {
   anon: string;
   voi: { center: number; width: number } | null;
   invert: boolean;
+  gamma: number;
   onMeta?: (meta: CbctMeta) => void;
   onError?: (msg: string) => void;
+  /** the shell's one snapshot button calls the registered composer */
+  snapRef?: SnapRef;
 }
 
 const RESLICE_KEY = (anon: string) => `cbctscope-reslice:v1:${anon}`;
@@ -106,7 +110,7 @@ interface SliceGeom {
   label: string;
 }
 
-export default function CbctReslice({ anon, voi, invert, onMeta, onError }: Props) {
+export default function CbctReslice({ anon, voi, invert, gamma, onMeta, onError, snapRef }: Props) {
   const [entry, setEntry] = useState<VolumeEntry | null>(null);
   const [progress, setProgress] = useState<number | null>(0);
   const [points, setPoints] = useState<ArchPoint[]>([]);
@@ -124,6 +128,9 @@ export default function CbctReslice({ anon, voi, invert, onMeta, onError }: Prop
   // then FINISHED — clicks inert, dots drag, the line drags as a whole; home = last finish
   const [pathDone, setPathDone] = useState(false);
   const [pathHome, setPathHome] = useState<{ points: ArchPoint[]; z: number } | null>(null);
+  // recoverable states (a guarded stroke, a failed PNG save) surface HERE inline — never
+  // through onError, which replaces the whole pane and the drawn path with it
+  const [hint, setHint] = useState<string | null>(null);
   const [hoverLine, setHoverLine] = useState(false);
   // shared in-plane tilt of the stack (the MPR/grid right-drag) + the draggable pane split
   const [tilt, setTilt] = useState(0);
@@ -318,7 +325,7 @@ export default function CbctReslice({ anon, voi, invert, onMeta, onError }: Prop
         effVoi.center - effVoi.width / 2,
         effVoi.center + effVoi.width / 2,
         invert,
-        1,
+        gamma,
       );
       cv.width = idata.width;
       cv.height = idata.height;
@@ -357,7 +364,7 @@ export default function CbctReslice({ anon, voi, invert, onMeta, onError }: Prop
       return;
     }
     const img = axialSlice(entry, z);
-    drawImage(cv, img, effVoi, invert);
+    drawImage(cv, img, effVoi, invert, gamma);
     const ctx = cv.getContext('2d')!;
     const toPx = (p: { x: number; y: number }): [number, number] => [p.x / img.pxW, p.y / img.pxH];
     if (stroke && stroke.length > 1) {
@@ -517,7 +524,7 @@ export default function CbctReslice({ anon, voi, invert, onMeta, onError }: Prop
         ctx.stroke();
       }
     });
-  }, [entry, z, effVoi, invert, curve, line, points, stroke, sliceGeoms, count, distance, width, thickness, outMode, hoverIdx, tilted, tilt, hasPath, stackFrame, dims, sx, sy, spacing]);
+  }, [entry, z, effVoi, invert, gamma, curve, line, points, stroke, sliceGeoms, count, distance, width, thickness, outMode, hoverIdx, tilted, tilt, hasPath, stackFrame, dims, sx, sy, spacing]);
 
   // ---- draw the output stack
   useEffect(() => {
@@ -540,7 +547,7 @@ export default function CbctReslice({ anon, voi, invert, onMeta, onError }: Prop
         }
       }
       if (img) {
-        drawImage(cv, img, effVoi, invert);
+        drawImage(cv, img, effVoi, invert, gamma);
         const ctx = cv.getContext('2d')!;
         ctx.fillStyle = i === (count - 1) / 2 ? MARKER : '#9aa3b2';
         ctx.font = '10px sans-serif';
@@ -548,7 +555,7 @@ export default function CbctReslice({ anon, voi, invert, onMeta, onError }: Prop
         ctx.fillText(`${i + 1} · ${off > 0 ? '+' : ''}${off.toFixed(1)} mm`, 4, 11);
       }
     }
-  }, [entry, hasPath, line, curve, sliceGeoms, count, distance, width, thickness, mip, outMode, zRange, effVoi, invert, tilt]);
+  }, [entry, hasPath, line, curve, sliceGeoms, count, distance, width, thickness, mip, outMode, zRange, effVoi, invert, gamma, tilt]);
 
   // ---- stack rotation: the MPR/grid right-drag on any tile spins the whole stack in-plane
   const onTileDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -699,10 +706,20 @@ export default function CbctReslice({ anon, voi, invert, onMeta, onError }: Prop
     if (!st) return;
     const len = st.reduce((a, p, i) => (i ? a + Math.hypot(p.x - st[i - 1].x, p.y - st[i - 1].y) : 0), 0);
     if (len > 12) {
+      // an accidental wiggle mid-click-placing must not wipe the dots already placed —
+      // freehand replacement only runs from an empty path or over a FINISHED one
+      if (points.length > 0 && !pathDone) {
+        setHint('a drag would replace your placed dots — double-click to finish or "clear path" first');
+        return;
+      }
       const drawn = simplifyStroke(st);
+      const replaced = pathDone && points.length >= 2 ? points.map((p) => ({ ...p })) : null;
       setPoints(drawn); // a stroke REPLACES the path — and IS a complete one
       setPathDone(true);
-      if (drawn.length >= 2) setPathHome({ points: drawn, z });
+      setHint(null);
+      // the recovery point is the path this stroke REPLACED (one-step undo) — overwriting
+      // home with the new stroke would leave "Reset path" nothing to restore
+      if (drawn.length >= 2) setPathHome(replaced ? { points: replaced, z } : { points: drawn, z });
     } else {
       setPoints((pts) => [...pts, st[0]]); // a click appends a control point
       lastAppendRef.current = performance.now();
@@ -791,13 +808,31 @@ export default function CbctReslice({ anon, voi, invert, onMeta, onError }: Prop
       a.href = url;
       a.download = `${anon}_reslice_${outMode}.png`;
       a.click();
-    } catch {
-      onError?.('snapshot failed');
+      setHint(null);
+    } catch (e) {
+      console.error('[cbct-reslice] snapshot failed', e);
+      setHint('snapshot failed — the stack is untouched, try again');
     }
-  }, [count, curve, outMode, distance, anon, onError]);
+  }, [count, curve, outMode, distance, anon]);
 
   const small: React.CSSProperties = { fontSize: 11, color: 'var(--text-dim)', whiteSpace: 'nowrap' };
   const sliderRow: React.CSSProperties = { display: 'flex', gap: 10, alignItems: 'center', padding: '4px 2px', flexWrap: 'wrap' };
+
+  // one snapshot door: the shell header owns the button; this room registers its composer
+  useEffect(() => {
+    if (!snapRef) return;
+    snapRef.current = () => {
+      if (!hasPath) setHint('draw a path first — the stack is what gets snapshotted');
+      else saveStack();
+    };
+  });
+  useEffect(() => {
+    if (!snapRef) return;
+    return () => {
+      snapRef.current = null;
+    };
+  }, [snapRef]);
+
   const chip = (active: boolean): React.CSSProperties => ({
     padding: '3px 8px',
     borderRadius: 6,
@@ -845,12 +880,12 @@ export default function CbctReslice({ anon, voi, invert, onMeta, onError }: Prop
               display: 'block',
             }}
           />
-          <span style={{ position: 'absolute', top: 6, left: 8, ...small, pointerEvents: 'none' }}>
+          <span style={{ position: 'absolute', top: 6, left: 8, right: 30, ...small, pointerEvents: 'none', whiteSpace: 'normal', lineHeight: 1.4 }}>
             {tilted
               ? `OBLIQUE ${tilt >= 0 ? '+' : ''}${tilt.toFixed(0)}° · scout ⊥ the tilted stack axis · path shown as projection · press upright to edit`
-              : `AXIAL ${entry ? `${z + 1}/${slices}` : ''} · ${
+              : `AXIAL ${entry ? `${z + 1}/${slices}` : ''} · wheel = slice · ${
                   pathDone
-                    ? 'path finished — drag a dot to refine · drag the line to move the whole path'
+                    ? 'path finished — drag a dot to refine · drag the line to move the whole path · dbl/right-click dot = delete'
                     : 'drag a line (2 pts) or curve (≥3) · click = add · double-click = finish'
                 }`}
           </span>
@@ -862,8 +897,9 @@ export default function CbctReslice({ anon, voi, invert, onMeta, onError }: Prop
             step={1}
             value={z}
             onChange={(e) => setZ(Number(e.target.value))}
+            onDoubleClick={() => setZ(Math.floor(slices / 2))}
             onPointerDown={(e) => e.stopPropagation()}
-            title="scout slice · up = superior (S)"
+            title="scout slice · up = superior (S) · double-click = volume middle"
             style={{ position: 'absolute', right: 2, top: 26, bottom: 26, width: 20, height: 'auto', writingMode: 'vertical-lr', direction: 'rtl', zIndex: 1 }}
           />
         </div>
@@ -888,9 +924,13 @@ export default function CbctReslice({ anon, voi, invert, onMeta, onError }: Prop
             clear path
           </button>
           <button
-            style={{ ...chip(false), color: !pathHome ? 'var(--text-dim)' : 'var(--text)', cursor: !pathHome ? 'default' : 'pointer' }}
+            style={chip(false)}
             disabled={!pathHome}
-            title="put the path back to its main position (as of the last finish) — undoes dot drags and whole-path drags"
+            title={
+              !pathHome
+                ? 'nothing to reset — finish a path first'
+                : 'put the path back to its main position (as of the last finish) — undoes dot drags and whole-path drags'
+            }
             onClick={() => {
               if (!pathHome || pathHome.points.length < 2) return;
               setPoints(pathHome.points.map((p) => ({ ...p })));
@@ -898,10 +938,7 @@ export default function CbctReslice({ anon, voi, invert, onMeta, onError }: Prop
               setPathDone(true);
             }}
           >
-            Reset path
-          </button>
-          <button style={chip(false)} disabled={!hasPath} title="save the whole stack as one PNG" onClick={saveStack}>
-            💾 save stack
+            reset path
           </button>
           <span style={small}>{isCurved ? 'curved arc' : line ? 'straight line' : `${points.length}/2 points`}</span>
         </div>
@@ -921,6 +958,9 @@ export default function CbctReslice({ anon, voi, invert, onMeta, onError }: Prop
             reset position
           </button>
         </div>
+        {hint && (
+          <div style={{ fontSize: 11, color: 'var(--warn)', lineHeight: 1.4, whiteSpace: 'normal' }}>⚠ {hint}</div>
+        )}
         <div style={{ ...small, whiteSpace: 'normal', lineHeight: 1.5 }}>
           Draw ANY line or arc on the scout and get a fresh slice stack cut against it — a road
           through the volume no orthogonal plane gives you. ⊥ cross walks the path cutting
@@ -1005,31 +1045,36 @@ export default function CbctReslice({ anon, voi, invert, onMeta, onError }: Prop
         <VertRangeSliders zFrac={zFrac} setZFrac={setZFrac} />
         </div>
         <div style={sliderRow}>
+          {/* canonical section-row order (unified 2026-08-05): count → tilt → spacing →
+              width → thickness → trailing toggle. Same anatomy in Pano and TMJ. */}
           <label style={{ ...small, display: 'flex', gap: 6, alignItems: 'center' }}>
             slices {count}
-            <input type="range" min={3} max={16} step={1} value={count} onChange={(e) => setCount(Number(e.target.value))} style={{ width: 90 }} />
+            <input type="range" min={3} max={16} step={1} value={count} onChange={(e) => setCount(Number(e.target.value))} onDoubleClick={() => setCount(9)} style={{ width: 70 }} />
           </label>
           <span style={small} title="right-drag on any tile rotates the whole stack in-plane (MPR gesture)">
             tilt {tilt >= 0 ? '+' : ''}{tilt.toFixed(0)}°
           </span>
-          {tilted && (
-            <button style={chip(false)} title="back upright (0°) — scout and path editing return" onClick={() => setTilt(0)}>
-              upright
-            </button>
-          )}
+          <button
+            style={chip(false)}
+            disabled={!tilted}
+            title={tilted ? 'back upright (0°) — scout and path editing return' : 'already upright — right-drag a tile to tilt the stack'}
+            onClick={() => setTilt(0)}
+          >
+            upright
+          </button>
           <label style={{ ...small, flex: 1, display: 'flex', gap: 6, alignItems: 'center' }}>
-            distance {distance.toFixed(1)} mm
-            <input type="range" min={0.5} max={10} step={0.5} value={distance} onChange={(e) => setDistance(Number(e.target.value))} style={{ flex: 1 }} />
+            spacing {distance.toFixed(1)} mm
+            <input type="range" min={0.5} max={10} step={0.5} value={distance} onChange={(e) => setDistance(Number(e.target.value))} onDoubleClick={() => setDistance(3)} style={{ flex: 1 }} />
           </label>
           <label style={{ ...small, flex: 1, display: 'flex', gap: 6, alignItems: 'center' }}>
             width {width} mm
-            <input type="range" min={10} max={60} step={2} value={width} onChange={(e) => setWidth(Number(e.target.value))} style={{ flex: 1 }} />
+            <input type="range" min={10} max={60} step={2} value={width} onChange={(e) => setWidth(Number(e.target.value))} onDoubleClick={() => setWidth(30)} style={{ flex: 1 }} />
           </label>
           <label style={{ ...small, flex: 1, display: 'flex', gap: 6, alignItems: 'center' }} title="average this many mm into each slice">
             thickness {thickness.toFixed(1)} mm
-            <input type="range" min={0} max={10} step={0.5} value={thickness} onChange={(e) => setThickness(Number(e.target.value))} style={{ flex: 1 }} />
+            <input type="range" min={0} max={10} step={0.5} value={thickness} onChange={(e) => setThickness(Number(e.target.value))} onDoubleClick={() => setThickness(0.5)} style={{ flex: 1 }} />
           </label>
-          <label style={{ ...small, display: 'flex', gap: 4, alignItems: 'center' }}>
+          <label style={{ ...small, display: 'flex', gap: 4, alignItems: 'center' }} title="brightest voxel across the slab (off = average)">
             <input type="checkbox" checked={mip} onChange={(e) => setMip(e.target.checked)} /> MIP
           </label>
         </div>

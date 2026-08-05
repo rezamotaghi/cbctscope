@@ -108,6 +108,24 @@ code {
    this is a medical dashboard: a control you have to discover by hovering is a control that
    doesn't exist. Native slider appearance (familiar, high-contrast), accent-colored.
    (A 2026-07-09 pass dimmed these to 0.35 opacity at rest — rejected: clarity first.) */
+/* One slider grammar, app-wide: every range input carries the house accent so no pane
+   invents its own look. Disabled sliders keep full contrast (reading-environment rule)
+   and say "not now" through the cursor alone. */
+input[type='range'] {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+input[type='range']:disabled {
+  cursor: not-allowed;
+}
+
+/* Disabled convention (one, app-wide): a disabled control keeps FULL contrast — it must
+   stay readable at a glance — and communicates "not now" via the cursor plus a tooltip
+   that says WHY. Never dim, never hide, never unmount. */
+button:disabled {
+  cursor: not-allowed;
+}
+
 .vslice {
   accent-color: var(--accent);
   cursor: pointer;

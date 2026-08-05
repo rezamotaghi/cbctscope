@@ -501,17 +501,23 @@ export function toImageData(
   img: { data: Int16Array | ArrayLike<number>; width: number; height: number },
   voi: { center: number; width: number },
   invert: boolean,
+  gamma = 1,
 ): ImageData {
   const { width, height } = img;
   const lower = voi.center - voi.width / 2;
-  const scale = 255 / Math.max(1, voi.width);
+  const range = Math.max(1, voi.width);
+  // same clamp then gamma then invert order as renderOblique, so the sidebar gamma slider
+  // means ONE thing in every room
+  const invGamma = 1 / Math.max(0.05, gamma);
   const id = new ImageData(width, height);
   const px = id.data;
   const data = img.data;
   for (let i = 0, n = width * height; i < n; i++) {
-    let g = (Number(data[i]) - lower) * scale;
-    g = g < 0 ? 0 : g > 255 ? 255 : g;
-    if (invert) g = 255 - g;
+    let t = (Number(data[i]) - lower) / range;
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    if (gamma !== 1) t = Math.pow(t, invGamma);
+    if (invert) t = 1 - t;
+    const g = Math.round(t * 255);
     const o = i * 4;
     px[o] = px[o + 1] = px[o + 2] = g;
     px[o + 3] = 255;
@@ -525,6 +531,7 @@ export function drawImage(
   img: { data: Int16Array | ArrayLike<number>; width: number; height: number },
   voi: { center: number; width: number },
   invert: boolean,
+  gamma = 1,
 ): void {
   const { width, height } = img;
   if (!Number.isFinite(width) || !Number.isFinite(height) || width < 1 || height < 1) {
@@ -535,7 +542,7 @@ export function drawImage(
   if (canvas.height !== height) canvas.height = height;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
-  ctx.putImageData(toImageData(img, voi, invert), 0, 0);
+  ctx.putImageData(toImageData(img, voi, invert, gamma), 0, 0);
 }
 
 /** Robust display window from a reformat's own pixels (pano auto-adjust, contrast half). */

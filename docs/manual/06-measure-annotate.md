@@ -8,7 +8,8 @@ covers the reading workflow; this chapter is the tool reference.
 ## 6.1 The tool palette
 
 The active tool runs on the left mouse button. Keys `1` to `9` and `0` select
-tools in palette order:
+tools in palette order, and `W` selects the window/level tool (it sits at the
+end of the palette so the number keys keep their historical meaning):
 
 | Key | Tool | What it does |
 |---|---|---|
@@ -22,6 +23,7 @@ tools in palette order:
 | 8 | Ellipse ROI | An ellipse with density statistics |
 | 9 | Freehand | An open stroke measures a curved path in mm; closing the loop makes a region with density statistics |
 | 0 | 3D ROI | A rectangle extended through the slice by the box-depth slider (1 to 60 mm), returning volume and density statistics, outlined in the 3D pane |
+| W | W/L | Window/level by dragging on any slice: up/down moves the window center, left/right changes its width. The sidebar Window section follows live |
 
 ## 6.2 Selecting and deleting
 

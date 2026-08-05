@@ -29,7 +29,15 @@ way on its 0 to 4095 scale.
 
 - **Histogram**: the current volume's value distribution, with the black and
   white cut lines draggable directly on it. Below the black line renders
-  black; above the white line renders white.
+  black; above the white line renders white. Double-clicking a cut line
+  returns it to the automatic window. The histogram is computed when the
+  volume loads, so it is available in every mode.
+- **One window, every mode**: the Window section governs the whole app. Every
+  reading mode, including the virtual cephalogram, renders with the same
+  center, width, gamma, and invert you see here; there are no per-mode
+  duplicates of these controls.
+- **Double-click resets**: every slider in the app resets on double-click
+  (window sliders to the automatic values, gamma to 1).
 - **Center and width sliders**: the same window numerically. The sliders span
   this image's actual value range, and width moves on a logarithmic scale, so
   narrow diagnostic windows adjust finely while the far end still reaches the
