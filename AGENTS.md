@@ -35,11 +35,18 @@ verb, export format, or error message): update the affected manual chapter, and 
 reading-mode guide if the change is per-mode, in the same commit. `tests/manual.test.ts`
 drift-checks the enumerable surface (view modes, tool palette, window presets, MCP verbs,
 the manifest, the front-page version) against the source, so the gates fail when those go
-stale; prose accuracy is on the author of the change. A `package.json` version bump
-includes the version line in `docs/manual/00-front.md` and, in `CITATION.cff`, both
-`version:` and `date-released:` (that file feeds the Zenodo deposit; its `doi:` stays
-the concept DOI until the release mints a version DOI, then gets pinned in a follow-up
-commit).
+stale; prose accuracy is on the author of the change. A `package.json` version bump is a
+four-line checklist, all in the same commit (CITATION.cff feeds the Zenodo deposit):
+
+1. the version line in `docs/manual/00-front.md`;
+2. `CITATION.cff` `version:`;
+3. `CITATION.cff` `date-released:` (the day the release can first exist);
+4. `CITATION.cff` `doi:` RESET to the concept DOI `10.5281/zenodo.21431452`. The previous
+   release's version DOI becomes a wrong self-citation the moment the version changes.
+   Missed on the v1.5.0 bump; the drift test now fails a bump that keeps it.
+
+The GitHub release then mints the new version DOI on Zenodo, and a follow-up commit pins
+it in `doi:`.
 
 ## Gates
 

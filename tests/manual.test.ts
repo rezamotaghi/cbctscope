@@ -117,6 +117,39 @@ describe('user manual tracks the app (docs/manual/)', () => {
     expect(released! >= bumped, `date-released ${released} predates the ${version} bump of ${bumped}`).toBe(true);
   });
 
+  it('a version bump resets the citation DOI to the concept DOI', () => {
+    // The ritual: the bump commit resets doi: to the concept DOI, because the previous
+    // release's version DOI becomes a wrong self-citation the moment the version changes;
+    // the new version DOI exists only after the release and is pinned in a follow-up
+    // commit. The v1.5.0 bump shipped the v1.4.0 DOI with green gates, caught only in
+    // review — hence this check. Bumps up to 1.5.0 predate it and stay green.
+    const CONCEPT_DOI = '10.5281/zenodo.21431452';
+    const version = (JSON.parse(read('package.json')) as { version: string }).version;
+    const [major, minor] = version.split('.').map(Number);
+    if (major < 1 || (major === 1 && minor <= 5)) return;
+
+    let bumpCommit: string;
+    try {
+      bumpCommit = execFileSync('git', ['log', '-1', '--format=%H', '-S', `version: ${version}`, '--', 'CITATION.cff'], {
+        cwd: root,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+    } catch {
+      return; // no git history available (shallow export)
+    }
+    if (!bumpCommit) return; // version line not yet committed, e.g. mid-bump working tree
+    const cffAtBump = execFileSync('git', ['show', `${bumpCommit}:CITATION.cff`], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    expect(
+      cffAtBump.includes(`doi: ${CONCEPT_DOI}`),
+      `the ${version} bump commit must carry the concept DOI ${CONCEPT_DOI}; the version DOI is pinned only in the follow-up commit after the release mints it`,
+    ).toBe(true);
+  });
+
   it('no chapter uses an em dash', () => {
     const files = readdirSync(path.join(root, 'docs/manual')).filter((n) => n.endsWith('.md'));
     for (const name of files) expect(read(`docs/manual/${name}`), `${name} contains an em/en dash`).not.toMatch(/[—–]/);
