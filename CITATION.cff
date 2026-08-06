@@ -24,8 +24,8 @@ abstract: >-
   Research use only; not a medical device.
 repository-code: "https://github.com/rezamotaghi/cbctscope"
 version: 1.5.0
-date-released: 2026-08-05
-doi: 10.5281/zenodo.21803949
+date-released: 2026-08-06
+doi: 10.5281/zenodo.21431452
 license: AGPL-3.0-or-later
 keywords:
   - CBCT
