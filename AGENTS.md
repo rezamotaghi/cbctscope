@@ -36,7 +36,8 @@ reading-mode guide if the change is per-mode, in the same commit. `tests/manual.
 drift-checks the enumerable surface (view modes, tool palette, window presets, MCP verbs,
 the manifest, the front-page version) against the source, so the gates fail when those go
 stale; prose accuracy is on the author of the change. A `package.json` version bump is a
-four-line checklist, all in the same commit (CITATION.cff feeds the Zenodo deposit):
+six-line checklist (CITATION.cff feeds the Zenodo deposit); lines 1 to 4 land in the bump
+commit itself:
 
 1. the version line in `docs/manual/00-front.md`;
 2. `CITATION.cff` `version:`;
@@ -44,9 +45,11 @@ four-line checklist, all in the same commit (CITATION.cff feeds the Zenodo depos
 4. `CITATION.cff` `doi:` RESET to the concept DOI `10.5281/zenodo.21431452`. The previous
    release's version DOI becomes a wrong self-citation the moment the version changes.
    Missed on the v1.5.0 bump; the drift test now fails a bump that keeps it.
-
-The GitHub release then mints the new version DOI on Zenodo, and a follow-up commit pins
-it in `doi:`.
+5. the GitHub release then mints the new version DOI on Zenodo, and a follow-up commit pins
+   it in `doi:`;
+6. update downstream surfaces per the Vault page's release ritual, in the same sitting. A
+   release is not done when the release and the DOI exist; it is done when the surfaces
+   that cite the version read it.
 
 ## Gates
 
