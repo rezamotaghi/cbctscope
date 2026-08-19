@@ -6,13 +6,14 @@ AI-agent control.**
 
 [![DOI: 10.5281/zenodo.21431452](docs/media/doi-badge.svg)](https://doi.org/10.5281/zenodo.21431452)
 
-![An AI agent driving CBCTScope over MCP on the built-in synthetic phantom: window presets, slice navigation, multi-slice grid, curved panoramic with cross-sections](docs/media/cbctscope-demo.gif)
+![An AI agent driving CBCTScope over MCP on a real CBCT: slice navigation down to the dentition, window presets, a bone 3D render, then the multi-slice grid, curved panoramic with cross-sections, TMJ, reslice and virtual cephalogram](docs/media/cbctscope-demo.gif)
 
-*Above: an agent driving the viewer in demo mode. Window preset, slice
-navigation, the multi-slice grid, and the mode switches are MCP verbs sent by
-the agent; the arch proposal and pano enhancement are the viewer's own
-one-click tools. The volume is the built-in synthetic phantom, so no patient
-data can appear, by construction.*
+*Above: an agent driving the viewer. Slice navigation, the window presets,
+every mode switch, and the closing view reset are MCP verbs sent by the agent;
+the 3D orbit, the arch, the focal trough and the cephalogram contrast are the
+viewer's own one-click tools. The volume is the same real CBCT as the stills
+below: shown with written patient consent, de-identified before it was ever
+opened, and rendered in bone only, never as a soft-tissue surface.*
 
 CBCTScope opens the CBCT exports already on your computer and reads them in
 eight purpose-built modes: MPR with 3D rendering, multi-slice grid, curved
@@ -35,9 +36,13 @@ slices, and takes snapshots. The agent moves the camera. The human reads.
 
 ## The interface at a glance
 
-| MPR + 3D | Multi-slice grid | Curved panoramic |
-|---|---|---|
-| [![MPR: axial, sagittal, coronal and 3D render with crosshairs, HU windowing, slab and MIP controls](docs/media/thumb-mpr.png)](docs/media/thumb-mpr.png) | [![Grid: parallel axial slices with a sagittal scout, spacing and thickness controls](docs/media/thumb-grid.png)](docs/media/thumb-grid.png) | [![Pano: arch spline on the axial, curved panoramic, perpendicular cross-sections](docs/media/thumb-pano.png)](docs/media/thumb-pano.png) |
+| MPR + 3D | Multi-slice grid | Curved panoramic | TMJ condyles |
+|---|---|---|---|
+| [![MPR: axial, sagittal, coronal and a bone 3D render, crosshairs on a molar, HU windowing, slab and MIP controls](docs/media/thumb-mpr.png)](docs/media/thumb-mpr.png) | [![Grid: nine parallel axial slices through the dentition with a sagittal scout, spacing and thickness controls](docs/media/thumb-grid.png)](docs/media/thumb-grid.png) | [![Pano: arch spline on the axial, curved panoramic of the arch, perpendicular cross-sections](docs/media/thumb-pano.png)](docs/media/thumb-pano.png) | [![TMJ: both condyles in axis-corrected sagittal sections, five per side, with the axis line drawn per condyle on the axial scout](docs/media/thumb-tmj.png)](docs/media/thumb-tmj.png) |
+
+*The four stills above are a real CBCT: a 16×16cm, 200 µm Planmeca ProMax
+volume, shown with the written consent of the patient and de-identified before
+it was ever opened.*
 
 Click any thumbnail for full resolution. Each reading mode has its own guide,
 written the way a reader actually moves through a volume:

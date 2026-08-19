@@ -17,5 +17,6 @@ is on the author of the change. See AGENTS.md, "The user manual".
 
 Style: professional manual register, imperative voice. **Bold** marks a UI
 element, `code` marks something typed or a key. Notes and cautions are
-blockquotes. No em dashes. No screenshots with real patient data, ever; if a
-chapter needs an image, capture the synthetic phantom.
+blockquotes. No em dashes. Chapter images default to the synthetic
+phantom; a real scan may appear only under the consent and de-identification
+standard in AGENTS.md, hard rule 3.
