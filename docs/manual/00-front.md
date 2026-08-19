@@ -6,7 +6,7 @@ AI-agent control.**
 
 | | |
 |---|---|
-| Software version | 1.5.0 |
+| Software version | 1.5.1 |
 | Manual revision | August 2026 |
 | Author | Dr. Reza Motaghi, oral and maxillofacial radiologist |
 | Project page | <https://github.com/rezamotaghi/cbctscope> |
