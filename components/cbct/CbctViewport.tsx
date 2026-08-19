@@ -2181,9 +2181,20 @@ export default function CbctViewport({
   // sliders/histogram truthful. VOI_MODIFIED fires on the viewport ELEMENT (unlike the
   // annotation events, which use the global eventTarget) — listen per pane. The numeric
   // guard breaks the echo loop: applyVoi re-fires the event with the values we just patched.
+  //
+  // ⚠ Cornerstone fires the SAME event when it ATTACHES a volume (createVolumeActor applies
+  // the volume's own default range), and `ready` flips before the volume attaches, so this
+  // listener used to mistake that for a user drag and silently overwrite whatever window the
+  // reader had set (a preset, the sliders, the histogram lines, a drag) with the volume default
+  // on EVERY return to MPR and every volume swap. It surfaced as "the window in Pano/TMJ/
+  // Reslice is not what I set" (2026-08-19): those rooms only ever showed the clobbered value.
+  // A VOI event is user intent ONLY while the W/L tool is the active tool AND a pointer is down
+  // on a slice pane; everything else (mount, swap, our own applyVoi) is ignored.
+  const wlPointerDownRef = useRef(false);
   useEffect(() => {
     if (!ready) return;
     const onVoi = (evt: Event) => {
+      if (controlsRef.current.toolMode !== 'wl' || !wlPointerDownRef.current) return;
       const d = (evt as CustomEvent<{ viewportId?: string; range?: { lower: number; upper: number } }>).detail;
       if (!d?.range) return;
       const center = Math.round((d.range.lower + d.range.upper) / 2);
@@ -2192,9 +2203,31 @@ export default function CbctViewport({
       if (cur && Math.abs(cur.center - center) < 1 && Math.abs(cur.width - width) < 1) return;
       onControlsPatch?.({ voi: { center, width } });
     };
+    const onDown = () => {
+      wlPointerDownRef.current = true;
+    };
+    // the tool's own pointerup handler (on the pane) runs before this window-level one, and
+    // its last VOI write may land in the same tick — release the flag a tick later
+    const onUp = () => {
+      setTimeout(() => {
+        wlPointerDownRef.current = false;
+      }, 0);
+    };
     const els = MPR_IDS.map((id) => elRefs.current[id]).filter(Boolean) as HTMLElement[];
-    els.forEach((el) => el.addEventListener(Enums.Events.VOI_MODIFIED, onVoi));
-    return () => els.forEach((el) => el.removeEventListener(Enums.Events.VOI_MODIFIED, onVoi));
+    els.forEach((el) => {
+      el.addEventListener(Enums.Events.VOI_MODIFIED, onVoi);
+      el.addEventListener('pointerdown', onDown);
+    });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      els.forEach((el) => {
+        el.removeEventListener(Enums.Events.VOI_MODIFIED, onVoi);
+        el.removeEventListener('pointerdown', onDown);
+      });
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
 
