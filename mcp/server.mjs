@@ -120,11 +120,15 @@ server.registerTool(
   {
     title: 'Navigate slices',
     description:
-      'Move an MPR pane to a slice: pane is axial, sagittal, or coronal; give an absolute index or a delta from the current slice. Available in mpr mode.',
+      'Move an MPR pane to a slice: pane is axial, sagittal, or coronal; give an absolute index or a delta from the current slice. The index counts the way the pane label does (axial superior→inferior, coronal posterior→anterior, sagittal right→left), 0-based: the pane labelled "AXIAL 622/801 S→I" is index 621. Available in mpr mode.',
     inputSchema: {
       pane: z.enum(['axial', 'sagittal', 'coronal']),
-      index: z.number().int().optional().describe('absolute slice index (0-based)'),
-      delta: z.number().int().optional().describe('offset from the current slice'),
+      index: z
+        .number()
+        .int()
+        .optional()
+        .describe('absolute slice index, 0-based, in the pane\'s own count (label number minus 1; axial counts from the superior end)'),
+      delta: z.number().int().optional().describe('offset from the current slice (positive = toward the pane label\'s "to" end: inferior / anterior / patient-left)'),
     },
   },
   async (args) => text(await command('navigate_slice', args)),

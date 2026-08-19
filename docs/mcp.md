@@ -46,7 +46,7 @@ Set `CBCTSCOPE_URL` if the viewer runs on a non-default port (default `http://lo
 | `select_volume` | `id` | Display that volume. |
 | `set_view_mode` | `mode` | One of `mpr`, `grid`, `pano`, `tmj`, `reslice`, `ceph`, `region`, `stitch`. |
 | `set_window_level` | `preset` or `center` + `width`, optional `invert` | HU display window. Presets: `Auto`, `Bone`, `Teeth`, `Soft`. |
-| `navigate_slice` | `pane`, `index` or `delta` | Move an MPR pane (`axial`, `sagittal`, `coronal`) to a slice. |
+| `navigate_slice` | `pane`, `index` or `delta` | Move an MPR pane (`axial`, `sagittal`, `coronal`) to a slice. `index` is 0-based and counts the way the pane label does: axial superior→inferior, coronal posterior→anterior, sagittal right→left, so the pane labelled `AXIAL 622/801 S→I` is `index: 621`, and a positive `delta` moves toward the label's "to" end (inferior / anterior / patient-left). An agent and a reader therefore mean the same slice by the same number, off by the 1 of a 0-based index. |
 | `snapshot` | none | PNG of the current viewing area, all visible panes. |
 | `reset_view` | optional `full` | Cameras back to orthogonal; `full` also resets window, inversion, and gamma. |
 

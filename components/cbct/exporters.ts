@@ -124,9 +124,13 @@ export interface SliceStackOptions {
 
 /**
  * Render the chosen planes into one .zip of PNGs (+ a meta.json that makes the stack
- * self-describing). Filenames carry the ORIGINAL slice index along that axis, zero-padded,
- * so a file maps straight back to the viewer position. toBlob is async per slice, so the
- * UI keeps painting between slices; onProgress feeds the busy line.
+ * self-describing). Filenames carry the 0-based VOXEL index along that axis, zero-padded —
+ * the same index space as meta.json's dims/origin/spacing and the NIfTI export, so the stack
+ * stays a data artifact that downstream tools can address. That is NOT the on-screen count:
+ * the viewer's slice ordinals are the PANE count (axial S→I, coronal P→A, sagittal R→L; see
+ * geometry.ts § slice ordinals), which runs against the voxel axis on axial and coronal. The
+ * mapping is spelled out in meta.json's note rather than renaming the files. toBlob is async
+ * per slice, so the UI keeps painting between slices; onProgress feeds the busy line.
  */
 export async function exportSliceStack(
   entry: VolumeEntry,
@@ -163,7 +167,7 @@ export async function exportSliceStack(
     window: opts.window,
     every_nth: n,
     planes: planeCounts,
-    note: 'filenames carry the original slice index along that axis; window/invert/gamma are baked into the pixels (full-fidelity voxels live in the NIfTI/DICOM exports)',
+    note: 'filenames carry the 0-based voxel index along that axis (axial z runs inferior→superior, coronal y anterior→posterior, sagittal x right→left, matching dims/origin/spacing and the NIfTI export). The viewer counts slices the pane way (axial S→I, coronal P→A, sagittal R→L, 1-based): on-screen slice k of n is file n-k for axial and coronal, file k-1 for sagittal. window/invert/gamma are baked into the pixels (full-fidelity voxels live in the NIfTI/DICOM exports)',
   };
   entries.unshift({ name: 'meta.json', data: new TextEncoder().encode(JSON.stringify(meta, null, 2)) });
   onProgress('zipping…');

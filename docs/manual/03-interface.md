@@ -49,6 +49,15 @@ that hold across modes:
   place no matter which mode is open. It saves a PNG of what the current
   mode shows, exactly as displayed, to your Downloads folder; each mode
   supplies its own composition behind that one button.
+- **Slice numbers count one way, everywhere.** Every slice ordinal on screen or in
+  a saved PNG is the pane's own count, 1-based, with its direction printed beside
+  the number: `AXIAL 622/801 S→I` means slice 622 of 801 counting from the
+  superior (top) end; coronal counts P→A (back to front), sagittal R→L (patient
+  right to left). The axial scouts in Pano, TMJ, Reslice and Region use the same
+  count as the MPR axial pane, so a number read in one mode means the same slice
+  in another. The slice-stack export is the one deliberate exception: its
+  filenames carry the voxel index (chapter 7), and its `meta.json` states the
+  mapping.
 - **Double-clicking any slider resets it** (navigation sliders to the volume
   middle, parameters to their defaults).
 - **Disabled controls stay fully readable** and their tooltip says why they

@@ -27,7 +27,12 @@ Downloads:
 - **PNG slice stack** (`.zip`): one PNG per slice at the currently displayed
   window, for slides, papers, and any image tool. Choose which planes (axial,
   sagittal, coronal) and every-nth-slice thinning. A `meta.json` with the
-  geometry rides along, so the images remain measurable downstream.
+  geometry rides along, so the images remain measurable downstream. Filenames
+  carry the 0-based voxel index along the axis (the same index space as the
+  geometry and the NIfTI export), which for axial and coronal runs opposite to
+  the on-screen count: on-screen slice k of n is file n-k on those two planes and
+  file k-1 on sagittal. `meta.json` states this, so a figure can be traced back
+  to the pane number it was read under.
 - **NIfTI volume** (`.nii.gz`): the volume in HU, the lingua franca of
   research imaging tools (3D Slicer, ITK-SNAP, nibabel, MONAI).
 - **STL surface mesh**: an iso-surface at a chosen HU threshold, for 3D

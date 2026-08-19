@@ -13,6 +13,7 @@ import { snapshotPaneCanvases, type SnapRef } from './SnapshotButton';
 import { sweepDeg } from './CbctGrid';
 import { VertRangeSliders } from './CbctPano';
 import DragDivider from './DragDivider';
+import { PANE_DIRECTION, paneIndexFromBuffer, sliceOrdinal } from './geometry';
 
 interface Props {
   anon: string;
@@ -681,7 +682,7 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
             }}
           />
           <span style={{ position: 'absolute', top: 6, left: 8, right: 30, ...small, pointerEvents: 'none', whiteSpace: 'normal', lineHeight: 1.4 }}>
-            AXIAL {entry ? `${z + 1}/${slices}` : ''} · wheel = slice · scroll to the condyles · drag = axis
+            AXIAL {entry ? sliceOrdinal(paneIndexFromBuffer('axial', z, slices), slices, PANE_DIRECTION.axial) : ''} · wheel = slice · scroll to the condyles · drag = axis
             line per side · right-click = delete
           </span>
           <input

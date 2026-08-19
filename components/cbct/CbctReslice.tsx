@@ -25,6 +25,7 @@ import { type SnapRef } from './SnapshotButton';
 import { sweepDeg } from './CbctGrid';
 import { VertRangeSliders } from './CbctPano';
 import { renderOblique, type V3 } from './oblique';
+import { PANE_DIRECTION, paneIndexFromBuffer, sliceOrdinal } from './geometry';
 
 interface Props {
   anon: string;
@@ -883,7 +884,7 @@ export default function CbctReslice({ anon, voi, invert, gamma, onMeta, onError,
           <span style={{ position: 'absolute', top: 6, left: 8, right: 30, ...small, pointerEvents: 'none', whiteSpace: 'normal', lineHeight: 1.4 }}>
             {tilted
               ? `OBLIQUE ${tilt >= 0 ? '+' : ''}${tilt.toFixed(0)}° · scout ⊥ the tilted stack axis · path shown as projection · press upright to edit`
-              : `AXIAL ${entry ? `${z + 1}/${slices}` : ''} · wheel = slice · ${
+              : `AXIAL ${entry ? sliceOrdinal(paneIndexFromBuffer('axial', z, slices), slices, PANE_DIRECTION.axial) : ''} · wheel = slice · ${
                   pathDone
                     ? 'path finished — drag a dot to refine · drag the line to move the whole path · dbl/right-click dot = delete'
                     : 'drag a line (2 pts) or curve (≥3) · click = add · double-click = finish'

@@ -11,9 +11,11 @@ in the viewer is a specialization; when in doubt, start in MPR.
 ## The controls
 
 Panes. The screen is a 2 by 2 grid: AXIAL, SAGITTAL, CORONAL, 3D. Double-click any pane
-to maximize it; double-click again to restore. Each slice pane shows its slice counter,
-patient-orientation letters computed from the live camera (they stay correct after oblique
-rotation), a live HU readout under the cursor (a 3 by 3 by 3 neighborhood mean), a slice
+to maximize it; double-click again to restore. Each slice pane shows its slice counter
+with the direction the count runs (`622/801 S→I`: slice 1 is the most superior; coronal
+counts P→A, sagittal R→L; the letters follow the live camera, so an obliqued pane reports
+the direction it actually scrolls along), patient-orientation letters computed from the live
+camera (they stay correct after oblique rotation), a live HU readout under the cursor (a 3 by 3 by 3 neighborhood mean), a slice
 slider on the right edge, and a flip button that mirrors the viewing direction.
 
 Mouse, on the slice panes: the wheel scrolls the hovered pane; the left button runs the

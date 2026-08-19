@@ -12,6 +12,7 @@ import { growRegion, HU_PRESETS, type GrowResult, type GrowBox } from './regionG
 import { VertRangeSliders } from './CbctPano';
 import DragDivider from './DragDivider';
 import { snapshotPaneCanvases, type SnapRef } from './SnapshotButton';
+import { PANE_DIRECTION, paneIndexFromBuffer, sliceOrdinal } from './geometry';
 
 interface Props {
   anon: string;
@@ -593,7 +594,7 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
             style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'crosshair', touchAction: 'none', display: 'block' }}
           />
           <span style={{ position: 'absolute', top: 6, left: 8, ...small, pointerEvents: 'none' }}>
-            AXIAL {entry ? `${axialZ + 1}/${nz}` : ''} · drag = box (corners resize · inside moves · right-click deletes) · click = seed · wheel = slice
+            AXIAL {entry ? sliceOrdinal(paneIndexFromBuffer('axial', axialZ, nz), nz, PANE_DIRECTION.axial) : ''} · drag = box (corners resize · inside moves · right-click deletes) · click = seed · wheel = slice
           </span>
           <input
             className="vslice"

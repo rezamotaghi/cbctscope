@@ -12,7 +12,7 @@ do the two sides compare?"
 ## The controls
 
 The axial scout (left) opens near the level of the condyles, with a slice slider (wheel
-scrolls). Drag one line per condyle along the long axis of the condylar head, lateral pole
+scrolls); its slice caption uses the MPR axial count (`S→I`, slice 1 at the top). Drag one line per condyle along the long axis of the condylar head, lateral pole
 to medial pole. The side is assigned automatically from the patient midline. Drag an
 endpoint to adjust the axis; drag the line body to move it; right-click a line deletes it.
 The lines and scout slice persist per volume.

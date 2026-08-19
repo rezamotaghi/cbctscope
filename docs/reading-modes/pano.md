@@ -11,7 +11,9 @@ the course of the mandibular canal traced in three dimensions.
 
 ## The controls
 
-The arch editor (left) shows an axial slice with its own slice slider (wheel scrolls).
+The arch editor (left) shows an axial slice with its own slice slider (wheel scrolls); its
+caption counts slices the same way as the MPR axial pane (`AXIAL 622/801 S→I`, slice 1 at
+the top of the head), so a slice number carries between modes unchanged.
 The arch has two phases. While PLACING, draw the arch in one freehand stroke or click
 control points along it; double-click finishes the arch (a stray double-click dot is
 popped, not kept). Once FINISHED, clicks on the slice are inert: drag a dot to refine it,

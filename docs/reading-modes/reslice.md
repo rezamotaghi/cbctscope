@@ -11,7 +11,8 @@ arch and TMJ does for the condyles.
 
 ## The controls
 
-The axial scout (left) has a slice slider (wheel scrolls). The path has two phases, the
+The axial scout (left) has a slice slider (wheel scrolls) and the MPR axial slice count
+(`S→I`, slice 1 at the top). The path has two phases, the
 same lifecycle as the pano arch. While placing, drag a freehand stroke or click control
 points: two points make a straight line, three or more make a curved arc; double-click
 finishes the path. Once finished, clicks are inert: drag a dot to refine, drag the line

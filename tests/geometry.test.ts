@@ -4,12 +4,17 @@ import {
   VP,
   MPR_IDS,
   MPR_PANES,
+  PANE_DIRECTION,
   axisLabel,
+  bufferIndexFromPane,
   cross,
   markersFromCamera,
   normalizeV,
+  paneIndexFromBuffer,
   rotateVec,
+  sliceDirection,
   sliceIndexFor,
+  sliceOrdinal,
   sliceValue,
 } from '../components/cbct/geometry';
 
@@ -87,6 +92,59 @@ const MPR_CAMERAS = {
   sagittal: { viewPlaneNormal: [1, 0, 0], viewUp: [0, 0, 1], viewRight: [0, 1, 0] },
   coronal: { viewPlaneNormal: [0, -1, 0], viewUp: [0, 0, 1], viewRight: [1, 0, 0] },
 } as const;
+
+describe('slice ordinals: one count for every number a reader sees', () => {
+  // The bug these guard: MPR printed Cornerstone's pane index while the axial scouts printed
+  // the buffer z, so one physical slice carried two numbers summing to n+1 (622 vs 180 of 801).
+  const n = 801;
+
+  it('counts the axial pane from the top of the head: buffer z=0 (inferior) is the LAST slice', () => {
+    expect(paneIndexFromBuffer('axial', 0, n)).toBe(n - 1);
+    expect(paneIndexFromBuffer('axial', n - 1, n)).toBe(0);
+    // the reported case: buffer z 179 (scout said 180/801) IS pane index 621 (MPR said 622/801)
+    expect(paneIndexFromBuffer('axial', 179, n)).toBe(621);
+    expect(sliceOrdinal(paneIndexFromBuffer('axial', 179, n), n)).toBe('622/801');
+  });
+
+  it('counts the coronal pane from the back of the head and the sagittal pane from patient right', () => {
+    expect(paneIndexFromBuffer('coronal', 0, n)).toBe(n - 1); // buffer y=0 is anterior → last
+    expect(paneIndexFromBuffer('sagittal', 0, n)).toBe(0); // buffer x=0 is patient right → first
+  });
+
+  it('round-trips buffer ↔ pane on every pane', () => {
+    for (const pane of MPR_PANES) {
+      for (const b of [0, 1, 179, 400, n - 2, n - 1]) {
+        expect(bufferIndexFromPane(pane, paneIndexFromBuffer(pane, b, n), n)).toBe(b);
+      }
+    }
+  });
+
+  it('agrees with the slider: the pane index is what the slider already moves', () => {
+    // pane index 0 on axial is superior; the flipped slider puts superior at the top (value n-1)
+    expect(sliceValue(VP.axial, { idx: paneIndexFromBuffer('axial', n - 1, n), n })).toBe(n - 1);
+  });
+
+  it("derives each pane's count direction from Cornerstone's own camera, and the constants agree", () => {
+    for (const pane of MPR_PANES) {
+      expect(sliceDirection(MPR_CAMERAS[pane]), pane).toEqual(PANE_DIRECTION[pane]);
+    }
+    expect(PANE_DIRECTION.axial).toEqual({ from: 'S', to: 'I' });
+    expect(PANE_DIRECTION.coronal).toEqual({ from: 'P', to: 'A' });
+    expect(PANE_DIRECTION.sagittal).toEqual({ from: 'R', to: 'L' });
+  });
+
+  it('follows an obliqued camera instead of the orthogonal letters', () => {
+    // axial pane rolled past 45° toward coronal: the count now runs mostly posterior→anterior
+    expect(sliceDirection({ viewPlaneNormal: [0, -0.8, -0.6] })).toEqual({ from: 'P', to: 'A' });
+    expect(sliceDirection({})).toBeNull();
+  });
+
+  it('prints the 1-based ordinal with its direction beside it', () => {
+    expect(sliceOrdinal(621, 801, PANE_DIRECTION.axial)).toBe('622/801 S→I');
+    expect(sliceOrdinal(0, 801, PANE_DIRECTION.sagittal)).toBe('1/801 R→L');
+    expect(sliceOrdinal(0, 801, null)).toBe('1/801');
+  });
+});
 
 describe('markersFromCamera', () => {
   it('returns null before the camera exists', () => {

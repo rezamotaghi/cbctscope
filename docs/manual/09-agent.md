@@ -51,7 +51,7 @@ environment variable (default `http://localhost:3810`).
 | `select_volume` | `id` | Display that volume. |
 | `set_view_mode` | `mode` | One of the eight reading modes, by name. |
 | `set_window_level` | `preset` or `center` + `width`, optional `invert` | The density window. |
-| `navigate_slice` | `pane`, `index` or `delta` | Move an MPR pane to a slice. |
+| `navigate_slice` | `pane`, `index` or `delta` | Move an MPR pane to a slice. `index` is 0-based in the pane's own count (the label `AXIAL 622/801 S→I` is index 621; axial counts from the superior end, coronal from posterior, sagittal from patient right); `delta` moves toward the label's "to" end. |
 | `snapshot` | none | PNG of the current viewing area, all visible panes. |
 | `reset_view` | optional `full` | Cameras back to orthogonal; `full` also resets window, inversion, gamma. |
 

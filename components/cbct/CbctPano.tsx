@@ -46,6 +46,7 @@ import { snapshotPaneCanvases, type SnapRef } from './SnapshotButton';
 import { Ruler } from 'lucide-react';
 import { sweepDeg } from './CbctGrid';
 import { renderOblique, type V3 } from './oblique';
+import { PANE_DIRECTION, paneIndexFromBuffer, sliceOrdinal } from './geometry';
 
 interface Props {
   anon: string;
@@ -1463,7 +1464,7 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
           <span style={{ position: 'absolute', top: 6, left: 8, right: 30, ...small, pointerEvents: 'none', whiteSpace: 'normal', lineHeight: 1.4 }}>
             {tilted
               ? `OBLIQUE ${sectionTilt >= 0 ? '+' : ''}${sectionTilt.toFixed(0)}° · scout ⊥ the tilted section axis · arch + canals shown as projections · press upright to edit`
-              : `AXIAL ${entry ? `${archZ + 1}/${slices}` : ''} · wheel = slice · ${
+              : `AXIAL ${entry ? sliceOrdinal(paneIndexFromBuffer('axial', archZ, slices), slices, PANE_DIRECTION.axial) : ''} · wheel = slice · ${
                   archDone
                     ? 'arch finished — drag a dot to refine · drag the line to move the whole arch'
                     : 'stroke = draw arch · click = add dot · double-click = finish'

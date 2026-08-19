@@ -66,12 +66,15 @@ import {
   SLIDER_TIP,
   sliceValue,
   sliceIndexFor,
+  sliceDirection,
+  sliceOrdinal,
   cross,
   markersFromCamera,
   normalizeV,
   rotateVec,
   type MprPane,
   type Markers,
+  type SliceDirection,
 } from './geometry';
 import {
   composeSnapshot,
@@ -496,8 +499,10 @@ export default function CbctViewport({
   const huRefs = useRef<Record<string, HTMLSpanElement | null>>({}); // HU chips update imperatively (60 Hz, no re-render)
   const prevAnonRef = useRef<string | null>(null);
   const [progress, setProgress] = useState<number | null>(0);
-  const [sliceInfo, setSliceInfo] = useState<Record<string, { idx: number; n: number }>>({});
-  const sliceInfoRef = useRef<Record<string, { idx: number; n: number }>>({});
+  // idx is Cornerstone's PANE index — the one count every visible slice number uses (see
+  // geometry.ts § slice ordinals); dir is which way it runs, read off the live camera.
+  const [sliceInfo, setSliceInfo] = useState<Record<string, { idx: number; n: number; dir: SliceDirection | null }>>({});
+  const sliceInfoRef = useRef<Record<string, { idx: number; n: number; dir: SliceDirection | null }>>({});
   sliceInfoRef.current = sliceInfo;
   const [markers, setMarkers] = useState<Record<string, Markers>>({});
   const [measures, setMeasures] = useState<MeasureRow[]>([]);
@@ -719,7 +724,9 @@ export default function CbctViewport({
       const svg = controlsRef.current.showOverlay ? (el?.querySelector('svg') as SVGSVGElement | null) : null;
       const base = id === VP.v3d ? '3D' : id.replace('cbct-', '').toUpperCase();
       const info = sliceInfoRef.current[id];
-      panes.push({ canvas, svg, label: info ? `${base} ${info.idx + 1}/${info.n}` : base });
+      // the baked label is the pane's own count + direction, so a figure never has to be
+      // re-read against the room it came from
+      panes.push({ canvas, svg, label: info ? `${base} ${sliceOrdinal(info.idx, info.n, info.dir)}` : base });
     }
     const url = await composeSnapshot(panes, `${anon} · ${new Date().toLocaleString()}`);
     if (!url) return;
@@ -1129,7 +1136,8 @@ export default function CbctViewport({
         const idx = (vp as unknown as { getSliceIndex?: () => number }).getSliceIndex?.();
         const n = (vp as unknown as { getNumberOfSlices?: () => number }).getNumberOfSlices?.();
         if (idx != null && n != null && Number.isFinite(idx)) {
-          setSliceInfo((s) => ({ ...s, [id]: { idx, n } }));
+          const dir = sliceDirection(vp.getCamera());
+          setSliceInfo((s) => ({ ...s, [id]: { idx, n, dir } }));
         }
         const m = markersFromCamera(vp.getCamera());
         if (m) setMarkers((s) => ({ ...s, [id]: m }));
@@ -2867,7 +2875,7 @@ export default function CbctViewport({
               }}
             >
               {c.label}
-              {sliceInfo[c.id] ? `  ${sliceInfo[c.id].idx + 1}/${sliceInfo[c.id].n}` : ''}
+              {sliceInfo[c.id] ? `  ${sliceOrdinal(sliceInfo[c.id].idx, sliceInfo[c.id].n, sliceInfo[c.id].dir)}` : ''}
               {/* the 3D pane carries its own gesture caption; the slice panes were the app's
                   biggest discoverability hole. Only the pane-unique gesture — wheel/left are
                   in the header legend, dbl-click maximize in the pane tooltip — so the line
@@ -3021,7 +3029,7 @@ export default function CbctViewport({
                         color: 'var(--text)',
                       }}
                     >
-                      {sliceInfo[c.id].idx + 1}/{sliceInfo[c.id].n}
+                      {sliceOrdinal(sliceInfo[c.id].idx, sliceInfo[c.id].n, sliceInfo[c.id].dir)}
                     </span>
                   </div>
                 )}

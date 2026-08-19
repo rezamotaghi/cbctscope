@@ -13,7 +13,7 @@ case.
 ## The controls
 
 The axial scout: drag draws the bounding box, a click drops the seed, and the wheel
-scrolls the slice. The box limits how far the fill can spread in-plane; without a box the
+scrolls the slice (its caption uses the MPR axial count, `S→I`, slice 1 at the top). The box limits how far the fill can spread in-plane; without a box the
 whole slice extent is used. The seed must land on a voxel inside the density range, or
 the grow reports nothing and asks for a better seed or a wider range.
 
