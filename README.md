@@ -232,9 +232,10 @@ Built on [Cornerstone3D](https://www.cornerstonejs.org/) and Next.js. All render
 ## Author
 
 Built by [Dr. Reza Motaghi](https://rezamotaghi.com/research), board-certified
-oral and maxillofacial radiologist, 100,000+ studies reported, who builds,
-trains and evaluates the imaging AI he reads with. CBCTScope is the viewer
-I read with. If you use it in research, please cite it (see
+oral and maxillofacial radiologist, 100,000+ studies reported, who trains
+imaging models on his own reads and tests them on cases they have never seen.
+CBCTScope is the viewer I read CBCT with. If you use it in research, please
+cite it (see
 [CITATION.cff](CITATION.cff)).
 
 ## License
