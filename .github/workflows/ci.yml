@@ -9,7 +9,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # Full history: tests/manual.test.ts reads git history (the commit that introduced
+      # the current version) to check CITATION.cff. A shallow clone attributes that line
+      # to HEAD and fails any push made on a later day than the bump.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22

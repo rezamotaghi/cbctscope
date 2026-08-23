@@ -35,6 +35,20 @@ const presets = [...declBlock(appSrc, 'const WL_PRESETS').matchAll(/^ {2}(\w+):/
 const tools = [...declBlock(appSrc, 'const TOOL_LABEL').matchAll(/: '([^']+)'/g)].map((m) => m[1]);
 const verbs = [...mcpSrc.matchAll(/registerTool\(\s*'(\w+)'/g)].map((m) => m[1]);
 
+/** True when git history is unavailable or truncated (no repo, or a shallow clone). */
+function historyUnavailable(): boolean {
+  try {
+    const shallow = execFileSync('git', ['rev-parse', '--is-shallow-repository'], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    return shallow === 'true';
+  } catch {
+    return true;
+  }
+}
+
 describe('user manual tracks the app (docs/manual/)', () => {
   it('extracted the enumerable surface from the source', () => {
     expect(modes.length).toBeGreaterThanOrEqual(8);
@@ -101,7 +115,9 @@ describe('user manual tracks the app (docs/manual/)', () => {
     // date-released is the only pinned release field that is not the version string, so the
     // other checks cannot see it go stale: a bump that forgets it ships the PREVIOUS release's
     // date to Zenodo with green gates. Anchor it to the commit that introduced the current
-    // version, which is the day the release could first exist.
+    // version, which is the day the release could first exist. A shallow clone would
+    // attribute that line to HEAD and give a wrong answer, so it skips instead.
+    if (historyUnavailable()) return;
     let bumped: string;
     try {
       bumped = execFileSync('git', ['log', '-1', '--format=%cs', '-S', `version: ${version}`, '--', 'CITATION.cff'], {
@@ -127,6 +143,7 @@ describe('user manual tracks the app (docs/manual/)', () => {
     const version = (JSON.parse(read('package.json')) as { version: string }).version;
     const [major, minor] = version.split('.').map(Number);
     if (major < 1 || (major === 1 && minor <= 5)) return;
+    if (historyUnavailable()) return; // a shallow clone would blame HEAD, see above
 
     let bumpCommit: string;
     try {
