@@ -59,4 +59,6 @@ npm run typecheck && npm run lint && npm test && npm run build
 
 All four must pass before a change is done. Never run `npm run build` while a dev server is up; they share `.next` and a concurrent build corrupts it (recovery: stop the server, `rm -rf .next`).
 
+`tests/docs.test.ts` caps the size of this file, shrink-only: when `AGENTS.md` grows past the byte number in that test, trim the file, never raise the number.
+
 The browser contract for every volume source is identical: Int16 LE HU voxels, x-fastest / y / z-ascending, plus a geometry JSON. Keep new sources on that contract and every reading mode works on them unchanged.
