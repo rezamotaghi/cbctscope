@@ -1,15 +1,21 @@
 'use client';
 // Agent bridge (client half): subscribes to /api/agent/events and executes navigation and
-// visualization commands against the live app state. Every verb moves the camera or reads
-// pixels; none produces findings — the human reads the images.
+// visualization commands against the live app state. Every verb moves the camera, restores
+// a presentation, or reads pixels; none produces findings — the human reads the images.
+//
+// Two channels: the App's own handlers (volume, mode, window, 3D style) and window events
+// answered by whichever reading-mode component is mounted (slices, arch position, saved
+// views, the mode's part of the state). An event nobody consumes fails fast with a clear
+// error, so a verb the current mode cannot serve never hangs.
 import { useEffect, useRef } from 'react';
 
 export interface AgentHandlers {
-  /** current app state summary (volume, view mode, window) */
+  /** current app state summary (volume, view mode, window, 3D style) */
   getState: () => Record<string, unknown>;
   selectVolume: (id: string) => string | null; // error message or null
   setViewMode: (mode: string) => string | null;
   setWindow: (patch: { center?: number; width?: number; preset?: string; invert?: boolean }) => string | null;
+  setStyle3d: (style: string) => string | null;
   resetView: (full: boolean) => string | null;
   /** a newer viewer tab took over the agent connection (single-viewer contract) */
   onEvicted?: () => void;
@@ -21,17 +27,28 @@ interface AgentCommand {
   args: Record<string, unknown>;
 }
 
-/** Ask CbctViewport (MPR mode) to change slice; resolves false if nobody listens. */
-function navigateSlice(args: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> {
+/** Reply signature every mode-side listener uses: ok, an error for the agent, data for the state. */
+export type AgentReply = (ok: boolean, error?: string, data?: Record<string, unknown>) => void;
+
+/**
+ * Ask the mounted reading-mode component something over a window event
+ * (`cbctscope-agent-<name>`). Resolves with its reply, or with `fallback` after 500 ms when
+ * no listener consumed the event (that mode has nothing to answer).
+ */
+function ask(
+  name: string,
+  args: Record<string, unknown>,
+  fallback: string,
+): Promise<{ ok: boolean; error?: string; data?: Record<string, unknown> }> {
   return new Promise((resolve) => {
-    const detail = {
-      ...args,
-      reply: (ok: boolean, error?: string) => resolve({ ok, error }),
+    let done = false;
+    const reply: AgentReply = (ok, error, data) => {
+      if (done) return;
+      done = true;
+      resolve({ ok, error, data });
     };
-    const ev = new CustomEvent('cbctscope-agent-nav', { detail, cancelable: true });
-    window.dispatchEvent(ev);
-    // no listener consumed it (not in MPR mode / viewport not mounted)
-    setTimeout(() => resolve({ ok: false, error: 'slice navigation is available in MPR mode only' }), 500);
+    window.dispatchEvent(new CustomEvent(`cbctscope-agent-${name}`, { detail: { ...args, reply }, cancelable: true }));
+    setTimeout(() => reply(false, fallback), 500);
   });
 }
 
@@ -119,6 +136,21 @@ export function useAgentBridge(handlers: AgentHandlers) {
       es.close();
       if (!dead) ref.current.onEvicted?.();
     });
+    // the App's summary plus whatever the mounted mode answers (slices, grid, pano, views)
+    const fullState = async () => {
+      const q = await ask('query', {}, '');
+      return { ...ref.current.getState(), ...(q.ok ? q.data : {}) };
+    };
+    // after a state-mutating verb, let React commit before reading state back
+    const settled = () => new Promise<void>((r) => setTimeout(r, 120)).then(fullState);
+    const must = (err: string | null) => {
+      if (err) throw new Error(err);
+    };
+    const asked = async (name: string, args: Record<string, unknown>, fallback: string) => {
+      const r = await ask(name, args, fallback);
+      if (!r.ok) throw new Error(r.error ?? `${name} failed`);
+      return r.data ?? {};
+    };
     es.onmessage = async (msg) => {
       let cmd: AgentCommand;
       try {
@@ -130,50 +162,51 @@ export function useAgentBridge(handlers: AgentHandlers) {
       let result: unknown;
       let error: string | undefined;
       const h = ref.current;
-      // after a state-mutating verb, let React commit before reading state back
-      const settled = () =>
-        new Promise<void>((r) => setTimeout(r, 60)).then(() => ref.current.getState());
+      const a = cmd.args;
       try {
         switch (cmd.verb) {
           case 'get_state':
-            result = h.getState();
+            result = await fullState();
             break;
-          case 'select_volume': {
-            const err = h.selectVolume(String(cmd.args.id ?? ''));
-            if (err) throw new Error(err);
+          case 'select_volume':
+            must(h.selectVolume(String(a.id ?? '')));
             result = await settled();
             break;
-          }
-          case 'set_view_mode': {
-            const err = h.setViewMode(String(cmd.args.mode ?? ''));
-            if (err) throw new Error(err);
+          case 'set_view_mode':
+            must(h.setViewMode(String(a.mode ?? '')));
             result = await settled();
             break;
-          }
-          case 'set_window_level': {
-            const err = h.setWindow(cmd.args as { center?: number; width?: number; preset?: string; invert?: boolean });
-            if (err) throw new Error(err);
+          case 'set_window_level':
+            must(h.setWindow(a as { center?: number; width?: number; preset?: string; invert?: boolean }));
             result = await settled();
             break;
-          }
-          case 'navigate_slice': {
-            const nav = await navigateSlice(cmd.args);
-            if (!nav.ok) throw new Error(nav.error ?? 'navigation failed');
+          case 'set_3d_style':
+            must(h.setStyle3d(String(a.style ?? '')));
             result = await settled();
             break;
-          }
-          case 'reset_view': {
-            const err = h.resetView(cmd.args.full === true);
-            if (err) throw new Error(err);
+          case 'navigate_slice':
+            await asked('nav', a, 'this reading mode has no slice to move (MPR, grid, and pano do)');
             result = await settled();
             break;
+          case 'navigate_arch':
+            await asked('arch', a, 'navigate_arch works in pano mode');
+            result = await settled();
+            break;
+          case 'views': {
+            const data = await asked('views', a, 'saved views are available in MPR mode');
+            result = a.op === 'list' ? data : await settled();
+            break;
           }
+          case 'reset_view':
+            must(h.resetView(a.full === true));
+            result = await settled();
+            break;
           case 'snapshot': {
             // let the current frame settle before reading pixels
             await new Promise((r) => setTimeout(r, 150));
             const shot = await captureSnapshot();
             if (!shot.ok) throw new Error(shot.error ?? 'snapshot failed');
-            result = shot.result;
+            result = { ...(shot.result as object), state: await fullState() };
             break;
           }
           default:

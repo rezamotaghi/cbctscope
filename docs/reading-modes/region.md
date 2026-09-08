@@ -64,7 +64,7 @@ grayscale; the mask overlay is independent of the window.
 
 `open_scan`, `list_volumes`, `select_volume`, `set_view_mode` (mode `region`),
 `set_window_level`, and `snapshot` apply; the snapshot captures the scout, the seed
-planes with the mask, and the on-screen panels. `navigate_slice` is MPR-only; box, seed,
+planes with the mask, and the on-screen panels. `navigate_slice` has nothing to move here (it works in MPR, grid, and pano) and answers with a clear error; box, seed,
 and range are on-screen controls with no agent verb, and no verb returns the statistics.
 Example sequence: `set_view_mode` to `region`, `snapshot`.
 

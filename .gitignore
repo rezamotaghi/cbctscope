@@ -5,6 +5,10 @@
 /.next/
 /out/
 
+# MCP bundle staging + output (npm run mcpb); the bundle ships as a release asset
+/.mcpb/
+/dist/
+
 # generated
 next-env.d.ts
 *.tsbuildinfo

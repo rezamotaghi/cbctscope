@@ -61,7 +61,7 @@ projection name, and the date.
 `open_scan`, `list_volumes`, `select_volume`, `set_view_mode` (mode `ceph`),
 `set_window_level`, and `snapshot` apply. `set_window_level` adjusts the shared window
 the cephalogram is rendered with; auto contrast is an on-screen control that writes
-into the same shared window. `navigate_slice` is MPR-only. Example sequence: `set_view_mode` to
+into the same shared window. `navigate_slice` has nothing to move here (it works in MPR, grid, and pano) and answers with a clear error. Example sequence: `set_view_mode` to
 `ceph`, `set_window_level` with `invert: true` for a film-negative look, `snapshot`.
 
 ## Limits

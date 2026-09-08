@@ -1,0 +1,59 @@
+{
+  "manifest_version": "0.3",
+  "name": "cbctscope",
+  "display_name": "CBCTScope",
+  "version": "1.6.0",
+  "description": "Navigation-only AI-agent control of the CBCTScope CBCT viewer running on this machine. Research use only; not a medical device.",
+  "long_description": "CBCTScope is a local-first CBCT and 2D radiograph viewer. This bundle connects Claude Desktop to a viewer already running on this computer: the agent can open a scan (or let you pick one, without ever seeing the path), switch reading modes, set the window, step through slices, walk the panoramic arch, bookmark and restore saved views, and take snapshots to look at. No tool returns findings or diagnoses, no tool executes code, and nothing leaves the machine. Start the viewer first: https://github.com/rezamotaghi/cbctscope",
+  "author": {
+    "name": "Dr. Reza Motaghi",
+    "url": "https://rezamotaghi.com"
+  },
+  "homepage": "https://github.com/rezamotaghi/cbctscope",
+  "documentation": "https://github.com/rezamotaghi/cbctscope/blob/main/docs/mcp.md",
+  "license": "AGPL-3.0-or-later",
+  "keywords": ["CBCT", "DICOM", "medical imaging", "dental", "radiology", "viewer"],
+  "server": {
+    "type": "node",
+    "entry_point": "server.mjs",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server.mjs"],
+      "env": {
+        "CBCTSCOPE_URL": "${user_config.viewer_url}"
+      }
+    }
+  },
+  "tools": [
+    { "name": "open_scan", "description": "Point the viewer at a local CBCT export by path; returns the volume catalog." },
+    { "name": "pick_scan", "description": "Open the native file dialog so the human picks a scan; returns the label and catalog, never the path." },
+    { "name": "list_volumes", "description": "List every volume the viewer can display, with technical geometry." },
+    { "name": "select_volume", "description": "Display the volume with the given id." },
+    { "name": "viewer_state", "description": "Read what is on screen: volume, mode, window, slice positions, 3D style, saved views." },
+    { "name": "set_view_mode", "description": "Switch the reading mode (mpr, grid, pano, tmj, reslice, ceph, region, stitch)." },
+    { "name": "set_window_level", "description": "Set the display window by preset or center/width, optionally inverted." },
+    { "name": "set_3d_style", "description": "Pick the 3D pane's rendering style." },
+    { "name": "navigate_slice", "description": "Move to a slice in the pane's own count (MPR panes, the grid window, the pano axial editor)." },
+    { "name": "navigate_arch", "description": "Pano: center the cross-sections at a position along the drawn arch, in mm." },
+    { "name": "list_views", "description": "List the saved views of the selected volume and who saved each." },
+    { "name": "goto_view", "description": "Restore a saved view by id or name." },
+    { "name": "save_view", "description": "Bookmark the current presentation under a name, marked as agent-saved." },
+    { "name": "snapshot", "description": "Capture the visible panes as a PNG with a one-line state caption." },
+    { "name": "reset_view", "description": "Reset the cameras to orthogonal; optionally also window, inversion, and gamma." }
+  ],
+  "user_config": {
+    "viewer_url": {
+      "type": "string",
+      "title": "Viewer URL",
+      "description": "Where the CBCTScope viewer is running (start it with npm run dev or the double-click starter).",
+      "default": "http://localhost:3810",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  }
+}

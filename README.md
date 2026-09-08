@@ -191,10 +191,20 @@ The safe behavior is the only behavior the software has:
 ## AI-agent control (MCP)
 
 If you use an AI assistant that speaks MCP (Claude Code, Claude Desktop, and
-others), it can drive the viewer for you: open a scan, switch reading modes,
-set the window, step through slices, take snapshots to look at. It cannot do
-more than that, by design: no tool returns a finding or an interpretation, and
-no tool executes code, so the agent can never become the reader.
+others), it can drive the viewer for you: open a scan (or let you pick one in
+the native dialog, so it never sees the path), switch reading modes, set the
+window, step through slices, walk the panoramic arch, bookmark and restore
+saved views, take snapshots to look at. It cannot do more than that, by
+design: no tool returns a finding or an interpretation, and no tool executes
+code, so the agent can never become the reader. A view the agent saves is
+badged **agent** in the viewer, so a bookmark is never mistaken for yours.
+
+Every verb declares what it does (read-only or not, never destructive), returns
+structured state, and comes with read-only resources and four ready-made
+reading choreographies as prompts; `docs/mcp.md` has the full contract. For
+Claude Desktop, each release also carries a one-click `cbctscope-<version>.mcpb`
+bundle of the server, and the repository ships an Agent Skill in
+`skills/cbctscope-reading/`.
 
 Start the viewer, open it in a browser, then register the MCP server with your agent host:
 

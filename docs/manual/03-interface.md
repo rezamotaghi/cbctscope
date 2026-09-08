@@ -80,7 +80,9 @@ sliders, a gamma slider, and an invert checkbox.
 In MPR, a side panel lists every annotation and measurement on the current
 volume (chapter 6) together with **saved views**. Press `V`, or use the panel,
 to save the current view: all four pane cameras plus the display state
-(window, render settings). One click on a saved view restores it exactly.
+(window, render settings). One click on a saved view restores it exactly. A
+view saved by an AI agent over MCP (chapter 9) carries an **agent** badge, so
+your bookmarks and the agent's never mix.
 Annotations and saved views persist per volume across sessions; they are
 stored as small text sidecars on this machine, never inside the scan
 (section 10.2).

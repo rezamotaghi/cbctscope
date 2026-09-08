@@ -103,12 +103,16 @@ O overlay master switch, V save view, Del delete selected.
 
 ## Over MCP
 
-All eight verbs apply here, and `navigate_slice` works only in this mode. A typical
-sequence: `open_scan` with a local export path, `list_volumes` to read the geometry,
-`select_volume`, `set_view_mode` to `mpr`, `set_window_level` with the `Bone` preset,
-`navigate_slice` with `pane: "axial"` and an `index` or `delta`, then `snapshot`.
-`reset_view` returns the cameras to orthogonal; with `full: true` it also resets window,
-inversion, and gamma.
+Every verb applies here. `navigate_slice` moves the three panes, `set_3d_style` picks
+the 3D pane's style, and the saved-view verbs (`list_views`, `goto_view`, `save_view`)
+work on this mode's views; a view the agent saves carries the **agent** badge.
+`viewer_state` reports each pane's slice in the pane count with its direction. A typical
+sequence: `open_scan` with a local export path (or `pick_scan` to let the reader choose),
+`list_volumes` to read the geometry, `select_volume`, `set_view_mode` to `mpr`,
+`set_window_level` with the `Bone` preset, `navigate_slice` with `pane: "axial"` and an
+`index` or `delta`, then `snapshot`. `reset_view` returns the cameras to orthogonal; with
+`full: true` it also resets window, inversion, and gamma. The `mpr-survey` and
+`replay-views` prompts are this workflow, scripted.
 
 ## Limits
 

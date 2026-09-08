@@ -76,7 +76,7 @@ Window: the shared Window (HU) presets, center, width, and invert apply.
 
 `open_scan`, `list_volumes`, `select_volume`, `set_view_mode` (mode `reslice`),
 `set_window_level`, and `snapshot` apply; the snapshot captures the scout and the output
-stack as laid out. `navigate_slice` is MPR-only; the path is drawn by hand and has no
+stack as laid out. `navigate_slice` has nothing to move here (it works in MPR, grid, and pano) and answers with a clear error; the path is drawn by hand and has no
 agent verb. Example sequence: `set_view_mode` to `reslice`, `set_window_level` preset
 `Bone`, `snapshot`.
 

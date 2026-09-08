@@ -24,6 +24,8 @@ export interface SavedView {
   cameras: Record<string, SavedCam>;
   /** the read-state controls to restore alongside the cameras */
   patch: Partial<CbctControls>;
+  /** who saved it: absent = the reader at the keyboard; 'agent' = over the agent bridge (badged in the UI) */
+  by?: 'agent';
 }
 
 export const EVIDENCE_SCHEMA = 'cbctscope-evidence-v1' as const;

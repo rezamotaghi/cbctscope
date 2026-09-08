@@ -11,6 +11,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { loadVolumeData, type CbctMeta } from './volumeData';
 import { renderOblique, rotV, extentAlong, canvasPoint, handOf, type Basis } from './oblique';
 import { composeGridSnapshot, type SnapPane } from './evidence';
+import { PANE_DIRECTION, bufferIndexFromPane, paneIndexFromBuffer } from './geometry';
+import type { AgentReply } from './useAgentBridge';
 import DragDivider from './DragDivider';
 import { type SnapRef } from './SnapshotButton';
 import type { VolumeEntry } from './volumeData';
@@ -401,6 +403,73 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
   }, [entry, stepVox, clampOff]);
+
+  // agent bridge (CBCTScope-only): the window centre as a slice in the pane count, and slice
+  // navigation — index in that count (the unrotated basis), delta in whole grid spacings;
+  // pane switches the plane. Rotated grids report oblique: the index then runs along the
+  // oblique normal.
+  useEffect(() => {
+    const unrotated = (p: Plane, b: Basis) => b.n.every((c, i) => c === INIT_BASIS[p].n[i]);
+    const onQuery = (e: Event) => {
+      const reply = (e as CustomEvent).detail?.reply as AgentReply | undefined;
+      if (!reply || !entry) return;
+      const n = extentAlong(basis.n, entry.meta.dims);
+      const d = PANE_DIRECTION[plane];
+      reply(true, undefined, {
+        grid: {
+          plane,
+          index: paneIndexFromBuffer(plane, Math.floor(n / 2) + centerOff, n),
+          count: n,
+          direction: `${d.from}→${d.to}`,
+          tiles: count,
+          spacingMm: Number((stepVox * voxMm).toFixed(1)),
+          oblique: !unrotated(plane, basis),
+        },
+      });
+      e.preventDefault();
+    };
+    const onNav = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { pane?: string; index?: number; delta?: number; reply?: AgentReply };
+      const reply = detail?.reply ?? (() => {});
+      e.preventDefault();
+      if (!entry) {
+        reply(false, 'volume not loaded yet');
+        return;
+      }
+      let p: Plane = plane;
+      if (detail.pane !== undefined) {
+        if (!(detail.pane in INIT_BASIS)) {
+          reply(false, `pane must be one of: ${Object.keys(INIT_BASIS).join(', ')}`);
+          return;
+        }
+        p = detail.pane as Plane;
+      }
+      const b = p === plane ? basis : INIT_BASIS[p];
+      const n = extentAlong(b.n, entry.meta.dims);
+      const half = Math.floor(n / 2);
+      const lim = half - 1;
+      let off: number;
+      if (typeof detail.index === 'number') off = bufferIndexFromPane(p, Math.round(detail.index), n) - half;
+      else if (typeof detail.delta === 'number') off = (p === plane ? centerOff : 0) + Math.round(detail.delta) * stepVox;
+      else {
+        reply(false, 'index or delta required');
+        return;
+      }
+      off = Math.max(-lim, Math.min(lim, off));
+      if (p !== plane) {
+        setPlane(p);
+        resetOrientation(p);
+      }
+      setCenterOff(off);
+      reply(true);
+    };
+    window.addEventListener('cbctscope-agent-query', onQuery);
+    window.addEventListener('cbctscope-agent-nav', onNav);
+    return () => {
+      window.removeEventListener('cbctscope-agent-query', onQuery);
+      window.removeEventListener('cbctscope-agent-nav', onNav);
+    };
+  }, [entry, plane, basis, centerOff, stepVox, voxMm, count, resetOrientation]);
 
 
   // one snapshot door: the shell header owns the button; this room registers its composer

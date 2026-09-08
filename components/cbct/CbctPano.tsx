@@ -46,7 +46,8 @@ import { snapshotPaneCanvases, type SnapRef } from './SnapshotButton';
 import { Ruler } from 'lucide-react';
 import { sweepDeg } from './CbctGrid';
 import { renderOblique, type V3 } from './oblique';
-import { PANE_DIRECTION, paneIndexFromBuffer, sliceOrdinal } from './geometry';
+import { PANE_DIRECTION, bufferIndexFromPane, paneIndexFromBuffer, sliceOrdinal } from './geometry';
+import type { AgentReply } from './useAgentBridge';
 
 interface Props {
   anon: string;
@@ -1358,6 +1359,78 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
     els.forEach((el) => el.addEventListener('wheel', onWheel, { passive: false }));
     return () => els.forEach((el) => el.removeEventListener('wheel', onWheel));
   }, [curve, nSections]);
+
+  // agent bridge (CBCTScope-only): the axial editor slice in the pane count, the position
+  // along the arch in mm, and the two verbs that move them. The arch itself is hand-drawn;
+  // no verb places anatomy.
+  useEffect(() => {
+    const onQuery = (e: Event) => {
+      const reply = (e as CustomEvent).detail?.reply as AgentReply | undefined;
+      if (!reply || !entry) return;
+      const d = PANE_DIRECTION.axial;
+      reply(true, undefined, {
+        pano: {
+          axial: { index: paneIndexFromBuffer('axial', archZ, slices), count: slices, direction: `${d.from}→${d.to}` },
+          archMm: curve ? Number(sPos.toFixed(1)) : null,
+          archLengthMm: curve ? Number(curve.length.toFixed(1)) : null,
+        },
+      });
+      e.preventDefault();
+    };
+    const onNav = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { pane?: string; index?: number; delta?: number; reply?: AgentReply };
+      const reply = detail?.reply ?? (() => {});
+      e.preventDefault();
+      if (!entry) {
+        reply(false, 'volume not loaded yet');
+        return;
+      }
+      if (detail.pane !== 'axial') {
+        reply(false, 'pano: only pane axial (the axial editor) moves here; navigate_arch moves the cross-sections');
+        return;
+      }
+      let paneIdx: number;
+      if (typeof detail.index === 'number') paneIdx = Math.round(detail.index);
+      else if (typeof detail.delta === 'number') paneIdx = paneIndexFromBuffer('axial', archZ, slices) + Math.round(detail.delta);
+      else {
+        reply(false, 'index or delta required');
+        return;
+      }
+      paneIdx = Math.max(0, Math.min(slices - 1, paneIdx));
+      setArchZ(bufferIndexFromPane('axial', paneIdx, slices));
+      reply(true);
+    };
+    const onArch = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { position_mm?: number; delta_mm?: number; reply?: AgentReply };
+      const reply = detail?.reply ?? (() => {});
+      e.preventDefault();
+      if (!curve) {
+        reply(false, 'no arch drawn: the reader draws it in the axial editor first');
+        return;
+      }
+      let sNext: number;
+      if (typeof detail.position_mm === 'number') sNext = detail.position_mm;
+      else if (typeof detail.delta_mm === 'number') sNext = sPos + detail.delta_mm;
+      else {
+        reply(false, 'position_mm or delta_mm required');
+        return;
+      }
+      if (!Number.isFinite(sNext)) {
+        reply(false, 'position must be a number of mm');
+        return;
+      }
+      setSPos(Math.max(0, Math.min(curve.length, sNext)));
+      reply(true);
+    };
+    window.addEventListener('cbctscope-agent-query', onQuery);
+    window.addEventListener('cbctscope-agent-nav', onNav);
+    window.addEventListener('cbctscope-agent-arch', onArch);
+    return () => {
+      window.removeEventListener('cbctscope-agent-query', onQuery);
+      window.removeEventListener('cbctscope-agent-nav', onNav);
+      window.removeEventListener('cbctscope-agent-arch', onArch);
+    };
+  }, [entry, slices, curve, archZ, sPos]);
 
   // ---- one-click helpers
   const runAutoArch = () => {

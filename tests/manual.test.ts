@@ -83,9 +83,23 @@ describe('user manual tracks the app (docs/manual/)', () => {
     for (const label of styleLabels) expect(guide, `mpr.md must name 3D style "${label}"`).toContain(label);
   });
 
-  it('every MCP verb is documented in the agent chapter', () => {
-    const chapter = read('docs/manual/09-agent.md');
-    for (const verb of verbs) expect(chapter, `09-agent.md must document verb "${verb}"`).toContain(verb);
+  it('every MCP verb is documented in the agent chapter and the MCP contract', () => {
+    for (const file of ['docs/manual/09-agent.md', 'docs/mcp.md']) {
+      const doc = read(file);
+      for (const verb of verbs) expect(doc, `${file} must document verb "${verb}"`).toContain(`\`${verb}\``);
+    }
+  });
+
+  it('every MCP resource and prompt is documented in the agent chapter and the MCP contract', () => {
+    const resources = [...mcpSrc.matchAll(/registerResource\(\s*'(\w+)'/g)].map((m) => m[1]);
+    const prompts = [...mcpSrc.matchAll(/registerPrompt\(\s*'([\w-]+)'/g)].map((m) => m[1]);
+    expect(resources.length).toBeGreaterThanOrEqual(3);
+    expect(prompts.length).toBeGreaterThanOrEqual(3);
+    for (const file of ['docs/manual/09-agent.md', 'docs/mcp.md']) {
+      const doc = read(file);
+      for (const r of resources) expect(doc, `${file} must document resource cbctscope://${r}`).toContain(`cbctscope://${r}`);
+      for (const p of prompts) expect(doc, `${file} must document prompt "${p}"`).toContain(`\`${p}\``);
+    }
   });
 
   it('the manifest and the manual directory agree', () => {

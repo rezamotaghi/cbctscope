@@ -19,8 +19,8 @@ CBCTScope: a complete, local-first CBCT and 2D radiograph viewer (Next.js + Corn
 - `app/` Next.js app router: the single reading screen plus `/api/cbct/*` (volume sources) and `/api/agent/*` (the MCP bridge: SSE command channel + result round-trip).
 - `components/cbct/` the viewer: `CbctApp` (shell/state), `CbctViewport` (MPR + 3D), one component per reading mode, and pure math modules (`curvedReformat`, `stitch`, `regionGrow`, `oblique`, `render3d`, ...).
 - `lib/server/` volume sources: `localSource` (user-opened exports, read in place), `fused` (session stitches, memory only), `phantom` (synthetic demo), `dicom` (shared contract), `agentBus` (command bus), `config` (app-data paths).
-- `mcp/server.mjs` the stdio MCP server; a thin proxy onto `/api/agent/command`.
-- `scripts/demo.mjs` the cross-platform `npm run demo` launcher; `Start CBCTScope.command` / `Start CBCTScope.bat` at the root are the double-click starters (install on first run, normal mode, open the browser).
+- `mcp/` the stdio MCP server (`server.mjs`, a thin proxy onto `/api/agent/command`) plus its `package.json` and MCPB `manifest.json` for the one-click bundle (`npm run mcpb`, built by `scripts/mcpb.mjs`); `skills/cbctscope-reading/` the Agent Skill that teaches a host the verbs.
+- `scripts/demo.mjs` the cross-platform `npm run demo` launcher; `scripts/mcp-smoke.mjs` the live MCP check; `Start CBCTScope.command` / `Start CBCTScope.bat` at the root are the double-click starters (install on first run, normal mode, open the browser).
 - `tests/` vitest on the pure math + the manual drift test; `docs/` MCP contract, per-mode reading guides, and the user manual (`docs/manual/`, see below).
 
 ## The user manual
@@ -39,7 +39,7 @@ stale; prose accuracy is on the author of the change. A `package.json` version b
 six-line checklist (CITATION.cff feeds the Zenodo deposit); lines 1 to 4 land in the bump
 commit itself:
 
-1. the version line in `docs/manual/00-front.md`;
+1. the version line in `docs/manual/00-front.md`, `mcp/package.json`, `mcp/manifest.json`;
 2. `CITATION.cff` `version:`;
 3. `CITATION.cff` `date-released:` (the day the release can first exist);
 4. `CITATION.cff` `doi:` RESET to the concept DOI `10.5281/zenodo.21431452`. The previous
@@ -57,7 +57,7 @@ commit itself:
 npm run typecheck && npm run lint && npm test && npm run build
 ```
 
-All four must pass before a change is done. Never run `npm run build` while a dev server is up; they share `.next` and a concurrent build corrupts it (recovery: stop the server, `rm -rf .next`).
+All four must pass before a change is done. A change to the agent surface also runs `npm run mcp:smoke` against a live demo tab. Never run `npm run build` while a dev server is up; they share `.next` and a concurrent build corrupts it (recovery: stop the server, `rm -rf .next`).
 
 `tests/docs.test.ts` caps the size of this file, shrink-only: when `AGENTS.md` grows past the byte number in that test, trim the file, never raise the number.
 

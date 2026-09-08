@@ -59,6 +59,7 @@ import { computeRoi3dStats, Roi3dOutlines, type Roi3d } from './evidence3d';
 import DragDivider from './DragDivider';
 import { type SnapRef } from './SnapshotButton';
 import { Bookmark, Eraser as EraserIcon } from 'lucide-react';
+import type { AgentReply } from './useAgentBridge';
 import {
   VP,
   MPR_PANES,
@@ -641,7 +642,7 @@ export default function CbctViewport({
     if (!engineRef.current || !metaRef.current) return;
     setNamingView(`view ${viewsRef.current.length + 1}`);
   };
-  const saveView = (rawName: string) => {
+  const saveView = (rawName: string, by?: 'agent') => {
     const engine = engineRef.current;
     if (!engine || !metaRef.current) return;
     const name = rawName.trim();
@@ -671,10 +672,12 @@ export default function CbctViewport({
       crop3d: { x: [...c.crop3d.x], y: [...c.crop3d.y], z: [...c.crop3d.z] },
       planes3d: c.planes3d,
     };
-    setViews((v) => [...v, { id: `view-${Date.now().toString(36)}`, name, cameras, patch }]);
+    setViews((v) => [...v, { id: `view-${Date.now().toString(36)}`, name, cameras, patch, ...(by ? { by } : {}) }]);
   };
   const saveViewRef = useRef(startNamingView);
   saveViewRef.current = startNamingView;
+  const saveViewFnRef = useRef(saveView);
+  saveViewFnRef.current = saveView;
 
   const applySavedCams = (v: SavedView) => {
     const engine = engineRef.current;
@@ -703,6 +706,8 @@ export default function CbctViewport({
     // re-apply once they have settled
     setTimeout(() => applySavedCams(v), 250);
   };
+  const restoreViewRef = useRef(restoreView);
+  restoreViewRef.current = restoreView;
 
   // ---- snapshots: the visible layout (maximized pane, else all four) → one PNG download,
   // annotation SVG layers included; labels + case/timestamp footer for report figures.
@@ -2763,6 +2768,67 @@ export default function CbctViewport({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // agent bridge: this mode's part of the viewer state (slice positions in the pane count,
+  // saved views) and the saved-view verbs. An agent-saved view carries by: 'agent' so the
+  // reader sees whose bookmark it is.
+  useEffect(() => {
+    const viewRows = () => viewsRef.current.map((v) => ({ id: v.id, name: v.name, by: v.by ?? 'reader' }));
+    const onQuery = (e: Event) => {
+      const reply = (e as CustomEvent).detail?.reply as AgentReply | undefined;
+      if (!reply) return;
+      const slices: Record<string, { index: number; count: number; direction: string | null }> = {};
+      for (const pane of MPR_PANES) {
+        const info = sliceInfoRef.current[VP[pane]];
+        if (info) slices[pane] = { index: info.idx, count: info.n, direction: info.dir ? `${info.dir.from}→${info.dir.to}` : null };
+      }
+      reply(true, undefined, { slices, views: viewRows() });
+      e.preventDefault();
+    };
+    const onViews = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { op?: string; view?: string; name?: string; reply?: AgentReply };
+      const reply = detail?.reply ?? (() => {});
+      e.preventDefault();
+      if (detail.op === 'list') {
+        reply(true, undefined, { views: viewRows() });
+        return;
+      }
+      if (detail.op === 'goto') {
+        const key = String(detail.view ?? '');
+        const v = viewsRef.current.find((x) => x.id === key) ?? viewsRef.current.find((x) => x.name === key);
+        if (!v) {
+          const names = viewsRef.current.map((x) => `${x.name} (${x.id})`).join(', ');
+          reply(false, names ? `no saved view "${key}"; saved: ${names}` : 'this volume has no saved views');
+          return;
+        }
+        restoreViewRef.current(v);
+        reply(true);
+        return;
+      }
+      if (detail.op === 'save') {
+        const name = String(detail.name ?? '').trim();
+        if (!name) {
+          reply(false, 'name required');
+          return;
+        }
+        if (!engineRef.current || !metaRef.current) {
+          reply(false, 'viewer not ready');
+          return;
+        }
+        saveViewFnRef.current(name, 'agent');
+        reply(true);
+        return;
+      }
+      reply(false, `unknown views op: ${String(detail.op)}`);
+    };
+    window.addEventListener('cbctscope-agent-query', onQuery);
+    window.addEventListener('cbctscope-agent-views', onViews);
+    return () => {
+      window.removeEventListener('cbctscope-agent-query', onQuery);
+      window.removeEventListener('cbctscope-agent-views', onViews);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div
       ref={gridRef}
@@ -3604,6 +3670,22 @@ export default function CbctViewport({
               >
                 {v.name}
               </button>
+              {v.by === 'agent' && (
+                <span
+                  title="saved by an AI agent over the agent bridge, not by you"
+                  style={{
+                    fontSize: 10,
+                    lineHeight: '14px',
+                    padding: '0 5px',
+                    borderRadius: 4,
+                    border: '1px solid var(--border)',
+                    color: 'var(--text)',
+                    letterSpacing: 0.4,
+                  }}
+                >
+                  agent
+                </span>
+              )}
               <button
                 onClick={() => setViews((vs) => vs.filter((x) => x.id !== v.id))}
                 title="delete this saved view"

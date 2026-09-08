@@ -100,9 +100,14 @@ overrides them for the pano until toggled off).
 
 `open_scan`, `list_volumes`, `select_volume`, `set_view_mode` (mode `pano`),
 `set_window_level`, and `snapshot` apply; the snapshot captures the axial editor, the
-pano, and the cross-sections as laid out. `navigate_slice` is MPR-only, and arch drawing
-and tracing are hand work with no agent verb. Example sequence: `set_view_mode` to
-`pano`, `set_window_level` preset `Teeth`, `snapshot`.
+pano, and the cross-sections as laid out. `navigate_slice` with `pane: "axial"` moves the
+axial editor slice; `navigate_arch` centers the cross-sections at a position along the
+arch in mm from the patient-right end (`position_mm` or `delta_mm`). `viewer_state`
+reports the axial slice, the arch position, and the arch length, or no arch when none is
+drawn. Arch drawing and tracing stay hand work with no agent verb: an agent that finds no
+arch asks the reader to draw it. Example sequence: `set_view_mode` to `pano`,
+`set_window_level` preset `Teeth`, `navigate_arch` with `position_mm: 0`, then `delta_mm`
+steps with a `snapshot` at each; the `pano-survey` prompt is this sequence, scripted.
 
 ## Limits
 

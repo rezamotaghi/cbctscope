@@ -470,6 +470,8 @@ export default function CbctApp() {
       window: { center: voiShown.center, width: voiShown.width, auto: controls.voi === null },
       invert: controls.invert,
       tool: controls.toolMode,
+      style3d: controls.render3d.style,
+      gamma: controls.gamma,
     }),
     selectVolume: (id) => {
       if (!volumes.some((v) => v.anon === id)) return `unknown volume id: ${id}`;
@@ -498,6 +500,12 @@ export default function CbctApp() {
         setControls((c) => ({ ...c, voi: { center: Math.round(cNum), width: Math.round(wNum) } }));
       }
       if (invert !== undefined) setControls((c) => ({ ...c, invert: !!invert }));
+      return null;
+    },
+    setStyle3d: (style) => {
+      if (!(style in RENDER_STYLES)) return `unknown 3D style: ${style} (valid: ${Object.keys(RENDER_STYLES).join(', ')})`;
+      if (isXray) return 'the open image is a 2D radiograph: there is no 3D render';
+      pickStyle(style);
       return null;
     },
     resetView: (full) => {

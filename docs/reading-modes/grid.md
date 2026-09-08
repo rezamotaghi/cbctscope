@@ -64,10 +64,14 @@ what spacing, with what slab, averaged or MIP.
 
 `open_scan`, `list_volumes`, `select_volume`, `set_view_mode` (mode `grid`), and
 `set_window_level` apply; `snapshot` captures the scout and all tiles as laid out.
-`navigate_slice` does not work here (MPR only), and a plain `reset_view` has no camera to
-reset in this mode; `reset_view` with `full: true` still returns the shared window to its
-defaults. Example sequence: `set_view_mode` to `grid`, `set_window_level` preset `Bone`,
-`snapshot`.
+`navigate_slice` moves the window centre along the grid's plane: `index` is the centre
+slice in the pane count (unrotated grid), `delta` steps whole grid spacings like the
+wheel, and `pane` switches the plane. `viewer_state` reports the plane, the centre slice,
+the tile count and spacing, and whether the grid is rotated (then the index runs along the
+oblique normal). A plain `reset_view` has no camera to reset in this mode; `reset_view`
+with `full: true` still returns the shared window to its defaults. Example sequence:
+`set_view_mode` to `grid`, `set_window_level` preset `Bone`, `navigate_slice` with
+`pane: "coronal"` and an `index`, `snapshot`.
 
 ## Limits
 

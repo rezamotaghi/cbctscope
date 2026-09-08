@@ -23,7 +23,8 @@ The viewer writes exactly one folder, the app-data folder `~/.cbctscope`
 
 - **Annotation sidecars**: your measurements, labels, saved views, and 3D
   ROIs, one small text file per volume, holding labels, world-mm coordinates,
-  and HU statistics. Never pixels.
+  and HU statistics. Never pixels. A view an AI agent saves over MCP is stored
+  there too, marked as agent-saved (chapter 9).
 - **A source pointer**: the path of the last opened export, so normal mode can
   restore it on the next start.
 

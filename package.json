@@ -1,6 +1,6 @@
 {
   "name": "cbctscope",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "private": true,
   "description": "Local-first CBCT viewer with native AI-agent control (MCP). Research use only.",
   "license": "AGPL-3.0-or-later",
@@ -16,7 +16,9 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "mcp": "node mcp/server.mjs"
+    "mcp": "node mcp/server.mjs",
+    "mcp:smoke": "node scripts/mcp-smoke.mjs",
+    "mcpb": "node scripts/mcpb.mjs"
   },
   "dependencies": {
     "@cornerstonejs/core": "5.6.12",
@@ -31,6 +33,7 @@
     "zod": "^3.25.0"
   },
   "devDependencies": {
+    "@anthropic-ai/mcpb": "2.1.2",
     "@types/node": "22.20.0",
     "@types/react": "18.3.31",
     "@types/react-dom": "18.3.7",
