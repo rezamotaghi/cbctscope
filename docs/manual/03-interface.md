@@ -11,7 +11,7 @@ every control is visible at full contrast at all times, by design.
 From left to right (the numbers match the callouts in the picture):
 
 1. **CBCTScope**, the program name, followed by the **version chip** (for
-   example `v1.5.0`). Clicking the chip opens a short panel naming the
+   example `v1.6.0`). Clicking the chip opens a short panel naming the
    software, its version, its author, and its research-use status; Escape or a
    click outside closes it. Quote the version from here when reporting a
    problem or citing the software.
