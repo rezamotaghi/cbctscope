@@ -18,9 +18,10 @@ abstract: >-
   Scans never leave the user's computer: the server binds to loopback, nothing
   is uploaded, and no hosted instance exists. To our knowledge it is also the
   first CBCT viewer with native AI-agent control: a built-in Model Context
-  Protocol (MCP) server exposes eight navigation-only verbs (open, mode,
-  window, slice, snapshot, reset), so an agent can operate the viewer while
-  producing no findings; interpretation remains with the human reader.
+  Protocol (MCP) server exposes fifteen navigation-only verbs (open or pick a
+  scan, viewer state, mode, window, 3D style, slice and arch navigation, saved
+  views, snapshot, reset), so an agent can operate the viewer while producing
+  no findings; interpretation remains with the human reader.
   Research use only; not a medical device.
 repository-code: "https://github.com/rezamotaghi/cbctscope"
 version: 1.6.0
