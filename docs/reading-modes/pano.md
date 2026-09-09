@@ -1,5 +1,19 @@
 # Pano
 
+> **At a glance**
+> - **The question:** survey the dentition and jaws in one panoramic layout, then see any
+>   point in cross-section, including the mandibular canal traced in three dimensions.
+> - **Start:** scroll the axial editor to a slice through the tooth-bearing arch, draw the
+>   arch in one stroke through the roots and alveolar process (or click **Auto arch** and
+>   adjust the dots), double-click to finish; the pano and its cross-sections render live.
+> - **Three gestures:** on the axial editor, a stroke draws the arch and the wheel scrolls;
+>   on the pano, a click or the wheel moves the cross-sections along the arch; right-drag
+>   on a cross-section tilts the whole frame.
+> - **Leave it for:** measurements in true anatomical mm (MPR), and anything outside the
+>   sampled slab, which the pano simply does not contain.
+
+![Pano on the consented real CBCT: the axial arch editor with the drawn arch and slab envelope on the left, the curved panoramic reformat with its arc ruler, and the numbered cross-sections below](../media/manual/mode-pano.webp)
+
 ## What this mode is for
 
 Pano reconstructs a curved panoramic view along the dental arch, with perpendicular
@@ -9,72 +23,88 @@ questions: surveying the dentition and jaws in one familiar panoramic layout, th
 dropping into a cross-section to see any point in its buccolingual dimension, including
 the course of the mandibular canal traced in three dimensions.
 
+## Gestures
+
+| Gesture | Where | Action |
+|---|---|---|
+| Freehand stroke, or clicks | axial editor, while PLACING | Draw the arch in one stroke, or click control points along it |
+| Double-click | axial editor, while PLACING | Finish the arch (a stray double-click dot is popped, not kept) |
+| Drag a dot | axial editor, once FINISHED | Refine the arch |
+| Drag the line itself | axial editor, once FINISHED | Move the whole arch |
+| Double-click or right-click a dot | axial editor, once FINISHED | Delete that dot |
+| Wheel | axial editor | Scroll the slice; the caption counts like the MPR axial pane (`AXIAL 622/801 S→I`, slice 1 at the top of the head), so a slice number carries between modes unchanged |
+| Click or wheel | pano | Move the cross-section position along the arch |
+| Right-drag | any cross-section | Rotate the section fan (tilt), with a live degree chip |
+| Click | pano, while tracing | Add a point to the trace |
+| Click | cross-section, while tracing | Set that point's exact buccolingual position and height at that arc position |
+| Right-click a point | pano | Delete that trace point |
+| Drag | pano or cross-section, with measure on | Measure in mm on that reformat surface; right-click a line deletes it |
+| Drag a divider | between editor, pano, and sections | Resize; double-click resets |
+| Double-click a handle or slider | pano edge, controls | Reset it |
+
 ## The controls
 
-The arch editor (left) shows an axial slice with its own slice slider (wheel scrolls); its
-caption counts slices the same way as the MPR axial pane (`AXIAL 622/801 S→I`, slice 1 at
-the top of the head), so a slice number carries between modes unchanged.
-The arch has two phases. While PLACING, draw the arch in one freehand stroke or click
-control points along it; double-click finishes the arch (a stray double-click dot is
-popped, not kept). Once FINISHED, clicks on the slice are inert: drag a dot to refine it,
-drag the line itself to move the whole arch, double-click or right-click a dot to delete
-it. The status chip under the editor always names the phase. "Auto arch" proposes the
-arch from the anatomy of the current slice, to be adjusted by dragging the dots. "Delete
-arch" removes the whole line (clearing the pano and cross-sections) and returns to
-placing; "Reset arch" puts the arch back to its position as of the last finish, undoing
-dot and whole-arch drags. The arch persists per volume across sessions.
+**The arch editor** (left) shows an axial slice with its own slice slider. The arch has
+two phases, PLACING and FINISHED, and the status chip under the editor always names the
+phase; once FINISHED, clicks on the slice are inert. "Auto arch" proposes the arch from
+the anatomy of the current slice, to be adjusted by dragging the dots. "Delete arch"
+removes the whole line (clearing the pano and cross-sections) and returns to placing;
+"Reset arch" puts the arch back to its position as of the last finish, undoing dot and
+whole-arch drags. The arch persists per volume across sessions.
 
 The editor also draws the slab envelope: two green curves flanking the band of anatomy
 the pano actually samples, centered on the rendered layer (radius shift and the adaptive
 bend included) and closed at the arch ends. What sits between the curves is in the pano;
 what sits outside is not.
 
-The pano canvas: click or wheel moves the cross-section position along the arch; a ruler
-marks arc-length in mm. Its controls:
+**The pano canvas** carries a ruler marking arc-length in mm. Its controls:
 
-- section position along arch: the same movement as a slider, in mm.
-- slab (2 to 40 mm): the depth sampled around the arch layer; MIP switches the slab from
-  average to brightest-voxel.
-- layers (1, 3, or 5) and layer spacing (0.5 to 6 mm): a stack of parallel pano layers to
-  flip through the focal trough.
-- radius shift (-8 to +8 mm): slides the whole sampling layer buccal or lingual without
-  redrawing the arch; double-click resets.
-- adaptive layer: the layer bends buccal or lingual to follow the sharpest anatomy; click
-  again to return to the flat drawn layer.
-- pano enhance: a one-click contrast window computed from the pano's own pixels plus light
-  sharpening; click again to undo.
-- vertical crop: two handles on the pano's right edge. Drag the top handle down or the
-  bottom handle up to cut skull base or hyoid level out of the pano and sections; the
-  kept band scales into the fixed pane, and double-click on a handle resets it. This is
-  a real cut of the sampled range, not a mask.
+| Control | Range or options | What it does |
+|---|---|---|
+| section position along arch | mm | The same movement as a click on the pano, as a slider |
+| slab | 2 to 40 mm | The depth sampled around the arch layer; MIP switches the slab from average to brightest-voxel |
+| layers | 1, 3, or 5 | A stack of parallel pano layers to flip through the focal trough |
+| layer spacing | 0.5 to 6 mm | The distance between those layers |
+| radius shift | -8 to +8 mm | Slides the whole sampling layer buccal or lingual without redrawing the arch; double-click resets |
+| adaptive layer | toggle | The layer bends buccal or lingual to follow the sharpest anatomy; click again to return to the flat drawn layer |
+| pano enhance | toggle | A one-click contrast window computed from the pano's own pixels plus light sharpening; click again to undo. It overrides the shared window for the pano until toggled off |
+| vertical crop | two handles on the pano's right edge | Drag the top handle down or the bottom handle up to cut skull base or hyoid level out of the pano and sections; the kept band scales into the fixed pane, and double-click on a handle resets it. This is a real cut of the sampled range, not a mask |
 
-Cross-sections: sections (1 to 9), section width (10 to 50 mm), spacing (1 to 10 mm),
-thickness (0 to 10 mm averaged along the arch), and mirror, which flips which side of the
-arch faces left in every section. Each section is numbered to match its line on the axial
-editor and on the pano, and labeled with its arc position in mm.
+**Cross-sections:**
 
-Section rotation: right-drag on any cross-section rotates the section fan, the same sweep
-gesture as the MPR and grid rotations, with a live degree chip. The tilt drives the whole
-frame rigidly: the pano re-cuts with the same leaning vertical, the axial editor goes
-oblique to match, and the arch and canal traces stay visible on it as dashed true
+| Control | Range or options | What it does |
+|---|---|---|
+| sections | 1 to 9 | How many cross-sections |
+| section width | 10 to 50 mm | The width of each section |
+| spacing | 1 to 10 mm | The distance between sections |
+| thickness | 0 to 10 mm | Averaged along the arch |
+| mirror | toggle | Flips which side of the arch faces left in every section |
+
+Each section is numbered to match its line on the axial editor and on the pano, and
+labeled with its arc position in mm.
+
+**Section rotation.** Right-drag on any cross-section rotates the section fan, the same
+sweep gesture as the MPR and grid rotations, with a live degree chip. The tilt drives the
+whole frame rigidly: the pano re-cuts with the same leaning vertical, the axial editor
+goes oblique to match, and the arch and canal traces stay visible on it as dashed true
 projections. "reset position" returns the reading position (sections to mid-arch, tilt
 upright, full vertical crop, radius shift zero) while leaving the arch, slab settings,
 and pane layout untouched. The pane dividers between editor, pano, and sections drag to
 resize and double-click to reset.
 
-Canal traces: "+ nerve" or "+ root canal" starts a trace. Click along the canal on the
-pano to add points; click on a cross-section to set the exact buccolingual position and
-height at that arc position; right-click a point on the pano deletes it. "done tracing"
-stops adding points. Each trace is a 3D polyline in volume space, projected live onto the
-pano as a colored line, onto every cross-section as a crossing dot, and onto the axial
-editor as dots. Traces can be hidden or deleted per trace and persist in the evidence
-sidecar.
+**Canal traces.** "+ nerve" or "+ root canal" starts a trace. Click along the canal on
+the pano to add points; click on a cross-section to set the exact buccolingual position
+and height at that arc position; right-click a point on the pano deletes it. "done
+tracing" stops adding points. Each trace is a 3D polyline in volume space, projected live
+onto the pano as a colored line, onto every cross-section as a crossing dot, and onto the
+axial editor as dots. Traces can be hidden or deleted per trace and persist in the
+evidence sidecar.
 
-Measure: the measure button turns dragging on the pano or a cross-section into a mm
+**Measure.** The measure button turns dragging on the pano or a cross-section into a mm
 measurement on that reformat surface; right-click a line deletes it, and "clear" removes
 all of them. Measurements persist with the traces.
 
-Window: the shared Window (HU) presets, center, width, and invert apply (pano enhance
+**Window.** The shared Window (HU) presets, center, width, and invert apply (pano enhance
 overrides them for the pano until toggled off).
 
 ## A reading workflow

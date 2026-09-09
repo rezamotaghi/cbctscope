@@ -1,0 +1,3 @@
+# The Windows starter keeps CRLF line endings byte for byte (the batch-file convention);
+# never let git rewrite them on checkout, in the index, or in the GitHub ZIP.
+*.bat -text

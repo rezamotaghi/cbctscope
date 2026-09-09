@@ -1,5 +1,19 @@
 # Stitch
 
+> **At a glance**
+> - **The question:** align and merge two scans of the same subject into one volume when
+>   the region of interest spans both.
+> - **Start:** with the base volume open as A, pick B from the same-patient candidates,
+>   keep the **color** overlay, run **auto align**, refine with the sliders until the
+>   colored fringes are gone, then **bake & load**.
+> - **Three gestures:** the wheel over any preview steps the compared slice; drag a slider
+>   to nudge one axis; double-click a slider to zero it.
+> - **Leave it for:** anything that is not a rigid difference between two scans of one
+>   subject: distortion, growth, or a different acquisition geometry cannot be corrected
+>   here.
+
+![Stitch on the consented real CBCT: the volume picker for A and B, the alignment buttons and transform sliders, and the axial, sagittal, and coronal overlay previews before a second volume is picked](../media/manual/mode-stitch.webp)
+
 ## What this mode is for
 
 Stitch rigidly registers two CBCT volumes of the same subject and fuses them into one
@@ -8,33 +22,27 @@ region of interest spans two acquisitions, or two scans of the same patient need
 read in one frame, this aligns them and merges them into a single volume. The current
 volume is A; you pick B from the catalog.
 
+## Gestures
+
+| Gesture | Where | Action |
+|---|---|---|
+| Wheel | any preview pane | Step the compared slice, so alignment can be verified away from the three center slices |
+| Drag a slider | toolbar above the previews | Nudge that axis of the transform |
+| Double-click a slider | toolbar | Zero that axis |
+
 ## The controls
 
-Volume picker: A is the current volume (shown green); pick B (shown magenta) from the
-same-patient candidates in the catalog. Fused volumes are excluded as inputs.
-
-Alignment:
-
-- auto align: finds the best translation by maximizing density cross-correlation (an NCC
-  hill-climb) over the overlap.
-- auto + rotation: also searches rotation; slower.
-- reset transform: returns B to the identity transform.
-- Manual sliders (in the toolbar above the previews): translation X, Y, Z (-60 to 60 mm) and rotation rX, rY, rZ (-20 to 20
-  degrees). Double-click a slider to zero that axis.
-
-Overlay modes for the tri-plane preview: color (A green, B magenta, so overlap reads
-neutral grey and misalignment shows as colored fringes), blend (average of the two),
-checker (alternating tiles of A and B), A (A only), and B (B only).
-
-Preview: axial, sagittal, and coronal panes rendered at A's center. An overlap NCC
-readout updates whenever the transform settles; higher is better, and it turns green
-above a threshold.
-
-bake & load: resamples both volumes onto one shared grid, averaging the overlap, registers
-the fused volume, uploads it to the server, and switches the viewer to it in MPR. The
-fused volume gets a `fused_` id and lives in server memory for this session only.
-
-Window: the shared Window (HU) presets, center, width, and invert control the preview.
+| Control | Options or range | What it does |
+|---|---|---|
+| Volume picker | A (green), B (magenta) | A is the current volume; pick B from the same-patient candidates in the catalog. Fused volumes are excluded as inputs. |
+| auto align | button | Finds the best translation by maximizing density cross-correlation (an NCC hill-climb) over the overlap. |
+| auto + rotation | button | Also searches rotation; slower. |
+| reset transform | button | Returns B to the identity transform. |
+| Manual sliders | translation X, Y, Z (-60 to 60 mm); rotation rX, rY, rZ (-20 to 20 degrees) | In the toolbar above the previews; double-click a slider to zero that axis. |
+| Overlay mode | color, blend, checker, A, B | color: A green, B magenta, so overlap reads neutral grey and misalignment shows as colored fringes; blend: the average of the two; checker: alternating tiles of A and B; A or B: that volume only. |
+| Preview | axial, sagittal, coronal | Rendered at A's center. An overlap NCC readout updates whenever the transform settles; higher is better, and it turns green above a threshold. |
+| bake & load | button | Resamples both volumes onto one shared grid, averaging the overlap, registers the fused volume, uploads it to the server (the viewer process on this machine), and switches the viewer to it in MPR. The fused volume gets a `fused_` id and lives in server memory for this session only. |
+| Window | shared sidebar | The shared Window (HU) presets, center, width, and invert control the preview. |
 
 ## A reading workflow
 

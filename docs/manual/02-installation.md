@@ -20,8 +20,9 @@
    choose **Download ZIP**, and unzip it somewhere permanent. With git,
    `git clone` works as usual.
 2. On macOS and Windows, that is the whole installation: the starter file in
-   section 2.3 downloads the viewer's components by itself on first run (a
-   few minutes, once). To install from a terminal instead, open one in the
+   section 2.3 downloads the viewer's components by itself on first run
+   (once; section 2.3 gives the size). To install from a terminal instead,
+   open one in the
    unzipped `cbctscope` folder and run `npm install`.
    On macOS: open Terminal, type `cd ` with a trailing space, drag the folder
    onto the Terminal window, press return.
@@ -37,8 +38,11 @@ describes the one small app-data folder that the viewer writes elsewhere.
 **By double-click** (macOS and Windows): in the `cbctscope` folder,
 double-click **Start CBCTScope.command** (macOS) or **Start CBCTScope.bat**
 (Windows). It installs on first run if needed, starts the viewer in normal
-mode, and opens the browser by itself once the viewer answers. The first
-macOS open needs a right-click and **Open** (chapter 11).
+mode, and opens the browser by itself once the viewer answers. If macOS or
+Windows shows a security prompt on this first open, chapter 11 gives the
+one-time answer for each system. The first run downloads the viewer's
+components once: about 130 MB downloaded, 600 MB on disk, ten to fifteen
+seconds on the author's Mac and connection, longer on a slow one.
 
 **From a terminal** (any OS, and the way to choose demo mode): in the
 `cbctscope` folder run

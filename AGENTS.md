@@ -20,7 +20,7 @@ CBCTScope: a complete, local-first CBCT and 2D radiograph viewer (Next.js + Corn
 - `components/cbct/` the viewer: `CbctApp` (shell/state), `CbctViewport` (MPR + 3D), one component per reading mode, and pure math modules (`curvedReformat`, `stitch`, `regionGrow`, `oblique`, `render3d`, ...).
 - `lib/server/` volume sources: `localSource` (user-opened exports, read in place), `fused` (session stitches, memory only), `phantom` (synthetic demo), `dicom` (shared contract), `agentBus` (command bus), `config` (app-data paths).
 - `mcp/` the stdio MCP server (`server.mjs`, a thin proxy onto `/api/agent/command`) plus its `package.json` and MCPB `manifest.json` for the one-click bundle (`npm run mcpb`, built by `scripts/mcpb.mjs`); `skills/cbctscope-reading/` the Agent Skill that teaches a host the verbs.
-- `scripts/demo.mjs` the cross-platform `npm run demo` launcher; `scripts/mcp-smoke.mjs` the live MCP check; `Start CBCTScope.command` / `Start CBCTScope.bat` at the root are the double-click starters (install on first run, normal mode, open the browser).
+- `scripts/demo.mjs` the cross-platform `npm run demo` launcher; `scripts/mcp-smoke.mjs` the live MCP check; `scripts/manual-shots.mjs` recaptures the manual's stills; `Start CBCTScope.command` / `Start CBCTScope.bat` at the root are the double-click starters (install on first run, normal mode, open the browser).
 - `tests/` vitest on the pure math + the manual drift test; `docs/` MCP contract, per-mode reading guides, and the user manual (`docs/manual/`, see below).
 
 ## The user manual

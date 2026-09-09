@@ -1,6 +1,6 @@
 # Reading-room guides
 
-One guide per reading mode, written from clinical practice: not a feature list, but how a
+One guide per reading mode, each opening with an at-a-glance card and a still of the mode on a consented, de-identified real CBCT, written from clinical practice: not a feature list, but how a
 reader moves through a volume in that mode, which controls serve which question, and where
 the mode stops.
 

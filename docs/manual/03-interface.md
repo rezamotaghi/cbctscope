@@ -6,37 +6,47 @@ every control is visible at full contrast at all times, by design.
 
 ## 3.1 The header
 
-From left to right:
+![The header on the built-in phantom, numbered left to right: name and version chip, the research-use badge, the mode tabs, the volume picker, export, snapshot, open, the image line, the hint line, keys, and help](../media/manual/header.webp)
 
-- **CBCTScope**, the program name, followed by the **version chip** (for
-  example `v1.5.0`). Clicking the chip opens a short panel naming the
-  software, its version, its author, and its research-use status; Escape or a
-  click outside closes it. Quote the version from here when reporting a
-  problem or citing the software.
-- **Research use only. Not for diagnosis.** A permanent badge, not a
-  dismissible banner. It states what the program is; see "Intended use" on
-  the manual's front page.
-- **Mode tabs**: MPR, Grid, Pano, TMJ, Reslice, Ceph, Region, Stitch. One
-  click switches the reading mode; the loaded volume is untouched. Chapter 8
-  introduces the modes. A 2D radiograph replaces the tabs with a single
-  **2D radiograph** label, since the volume modes have nothing to act on.
-- **Volume picker**: a dropdown listing every image the viewer currently
-  serves, grouped as 🧬 fused (session stitches from the Stitch mode),
-  📂 opened (your export), and the built-in demo phantom. Each entry shows its
-  field of view, matrix, and acquisition details where present. The **‹** and
-  **›** buttons, or the `N` and `P` keys, cycle through the list.
-- **⇩ export**: the volume export menu (chapter 7). Shown for volumes, not
-  for 2D radiographs, whose slice stacks and surface meshes have no meaning.
-- **snapshot**: saves what the current mode shows as a PNG (chapter 7). This
-  one button serves every mode, including 2D radiographs.
-- **📂 open**: the source menu for opening and closing your own exports
-  (chapter 4).
-- **keys**: the keyboard reference, every hotkey in words (chapter 12).
-- **Image line**: the current image's label, field of view in cm, matrix,
-  source kind (slices, multiframe, or radiograph), and voxel or pixel size in
-  µm.
-- **Hint line** (right edge): a live reminder of the mouse and key bindings
-  for the current context. It changes with the active tool and image class.
+From left to right (the numbers match the callouts in the picture):
+
+1. **CBCTScope**, the program name, followed by the **version chip** (for
+   example `v1.5.0`). Clicking the chip opens a short panel naming the
+   software, its version, its author, and its research-use status; Escape or a
+   click outside closes it. Quote the version from here when reporting a
+   problem or citing the software.
+2. **Research use only. Not for diagnosis.** A permanent badge, not a
+   dismissible banner. It states what the program is; see "Intended use" on
+   the manual's front page.
+3. **Mode tabs**: MPR, Grid, Pano, TMJ, Reslice, Ceph, Region, Stitch. One
+   click switches the reading mode; the loaded volume is untouched. Chapter 8
+   introduces the modes. A 2D radiograph replaces the tabs with a single
+   **2D radiograph** label, since the volume modes have nothing to act on.
+4. **Volume picker**: a dropdown listing every image the viewer currently
+   serves, grouped as 🧬 fused (session stitches from the Stitch mode),
+   📂 opened (your export), and the built-in demo phantom. Each entry shows its
+   field of view, matrix, and acquisition details where present. The **‹** and
+   **›** buttons, or the `N` and `P` keys, cycle through the list.
+5. **⇩ export**: the volume export menu (chapter 7). Shown for volumes, not
+   for 2D radiographs, whose slice stacks and surface meshes have no meaning.
+6. **snapshot**: saves what the current mode shows as a PNG (chapter 7). This
+   one button serves every mode, including 2D radiographs.
+7. **📂 open**: the source menu for opening and closing your own exports
+   (chapter 4).
+8. **keys**: the keyboard reference, every hotkey in words (chapter 12).
+9. **help ▾**: two links, the reading guide for the current mode (chapter 8)
+   and this manual, both on the project's GitHub page, opening in a new
+   browser tab. They are the only way out of the viewer, and they open only
+   when you click them; the viewer itself never contacts the network
+   (chapter 10).
+10. **Image line**: the current image's name, field of view in cm, matrix,
+   source kind (slices, multiframe, or radiograph), and voxel or pixel size in
+   µm. The built-in phantom is named **Synthetic phantom** here, and while
+   nothing of yours is open the line adds a reminder that it carries no
+   patient data, that **open** loads your own scan, and that **help** opens
+   the guide.
+11. **Hint line** (right edge): a live reminder of the mouse and key bindings
+   for the current context. It changes with the active tool and image class.
 
 ## 3.2 The mode area
 

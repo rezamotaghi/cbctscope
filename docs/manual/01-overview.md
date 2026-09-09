@@ -45,6 +45,7 @@ CBCTScope opens two classes of image:
 A synthetic phantom is built into the program: jaws, dental arches, teeth with
 enamel and pulp, a metal crown, airway, sinuses, and TMJ condyles, all
 procedurally generated. It loads the moment the viewer starts, so every part
-of this manual can be tried with zero patient data. When the program is
-started in demo mode it additionally never remembers a previously opened scan
-(section 2.4).
+of this manual can be tried with zero patient data; the header names it and,
+until you open an export of your own, says where **open** and **help** are.
+When the program is started in demo mode it additionally never remembers a
+previously opened scan (section 2.4).

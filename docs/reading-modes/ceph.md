@@ -1,5 +1,18 @@
 # Ceph
 
+> **At a glance**
+> - **The question:** an overall skeletal impression in a familiar projected radiographic
+>   format, reproducible off the same scan.
+> - **Start:** pick a projection preset (**Lateral L**, **Lateral R**, **PA**, or **AP**),
+>   click **auto contrast**, then choose the average projection or **MIP**.
+> - **Three gestures:** drag on the image horizontally to turn the head and vertically to
+>   tilt it; the turn and tilt sliders do the same numerically; double-click a slider to
+>   zero it.
+> - **Leave it for:** any ambiguity of superimposition (MPR is one mode switch away), and
+>   landmarks, tracing, or measurements, which this mode does not have.
+
+![Ceph on the consented real CBCT: a lateral virtual cephalogram as a densest-only MIP after auto contrast, with the projection presets, turn and tilt controls, and the shared window in the sidebar](../media/manual/mode-ceph.webp)
+
 ## What this mode is for
 
 Ceph renders a virtual cephalogram: the whole volume projected flat along one viewing
@@ -9,32 +22,29 @@ reconstructed from the same scan. It answers the projection questions: an overal
 skeletal impression in a familiar radiographic format, and a reproducible 2D image that
 can be regenerated at exactly the same geometry from the same volume.
 
+## Gestures
+
+| Gesture | Where | Action |
+|---|---|---|
+| Horizontal drag | the image | Turn the head about the vertical axis |
+| Vertical drag | the image | Tilt (sagittal) |
+| Double-click a slider | controls | Zero it |
+
+While dragging, the projection renders at a coarse stride and refines to full resolution
+when you let go. The current turn and tilt are shown on the image.
+
 ## The controls
 
-Projection presets: Lateral L (profile, looking from the left), Lateral R (profile,
-looking from the right), PA (front, postero-anterior), and AP (front, antero-posterior).
-Picking a preset zeroes the rotation sliders.
-
-MIP (densest-only): unchecked, the projection is the average along each ray, the
-film-like look with every structure summed; checked, only the densest structure per ray
-survives, a bone-forward look.
-
-Rotation: drag on the image turns the head (horizontal drag = turn, vertical drag =
-tilt), or use the sliders: turn (-180 to 180 degrees about the vertical axis) and
-sagittal tilt (-60 to 60 degrees). Double-click a slider to zero it. The current turn and
-tilt are shown on the image. While dragging, the projection renders at a coarse stride
-and refines to full resolution when you let go.
-
-Contrast: the cephalogram is windowed by the sidebar's shared Window section, one set
-of center/width/gamma controls for the whole app, so the numbers you read there are the
-numbers this image uses. "auto contrast" computes a window from the projection's own
-densities (the projected values are not slice HU, so the volume window is usually not
-the right one) and writes it into that shared section; its check mark shows only while
-that window is still active. "reset window" returns to the automatic volume window.
-The shared invert checkbox produces the film-negative rendering.
-
-snapshot (header button): saves the current cephalogram with a caption carrying the volume id, the
-projection name, and the date.
+| Control | Options or range | What it does |
+|---|---|---|
+| Projection presets | Lateral L, Lateral R, PA, AP | Lateral L is the profile looking from the left, Lateral R the profile looking from the right, PA the front (postero-anterior), AP the front (antero-posterior). Picking a preset zeroes the rotation sliders. |
+| MIP (densest-only) | checkbox | Unchecked, the projection is the average along each ray, the film-like look with every structure summed; checked, only the densest structure per ray survives, a bone-forward look. |
+| turn | -180 to 180 degrees | Rotation about the vertical axis. |
+| sagittal tilt | -60 to 60 degrees | Tilt. |
+| Contrast | the shared Window section | The cephalogram is windowed by the sidebar's shared Window section, one set of center, width, and gamma controls for the whole app, so the numbers you read there are the numbers this image uses. The shared invert checkbox produces the film-negative rendering. |
+| auto contrast | button | Computes a window from the projection's own densities (the projected values are not slice HU, so the volume window is usually not the right one) and writes it into that shared section; its check mark shows only while that window is still active. |
+| reset window | button | Returns to the automatic volume window. |
+| snapshot | header button | Saves the current cephalogram with a caption carrying the volume id, the projection name, and the date. |
 
 ## A reading workflow
 

@@ -1,5 +1,17 @@
 # Grid
 
+> **At a glance**
+> - **The question:** show this whole region slice by slice at a glance, at a chosen
+>   spacing and any angle, the way a printed multi-slice sheet would.
+> - **Start:** pick the plane and a grid size, set the window, then drag the section
+>   window over the region on the scout and set the spacing so the stack covers it.
+> - **Three gestures:** on the scout, left-drag moves the section window and right-drag
+>   rotates the stack through the anatomy; the wheel, anywhere in the mode, steps the
+>   window by one spacing.
+> - **Leave it for:** measurements, annotations, and saved views, which live in MPR.
+
+![Grid on the consented real CBCT: a sagittal scout with numbered section lines on the left and nine parallel axial slices through the dentition on the right, each tile labeled with its offset in mm](../media/manual/mode-grid.webp)
+
 ## What this mode is for
 
 Grid shows many parallel slices of one stack on one screen: a chosen number of images at a
@@ -8,38 +20,30 @@ along any oblique direction you rotate into. It answers the survey question: "sh
 whole region, slice by slice, at a glance," the way a printed multi-slice sheet would,
 with the added ability to re-angle the entire stack through the anatomy.
 
+## Gestures
+
+| Gesture | Where | Action |
+|---|---|---|
+| Left-drag or click | scout | Grab the section window and move it |
+| Right-drag | scout | Rotate the scout image itself: the section lines stay put on screen while the anatomy turns under them, and the grid re-cuts obliquely through the rotated anatomy, with a live degree chip during the drag |
+| Wheel | anywhere in the mode | Step the whole window by one spacing unit |
+| Double-click a slider | controls | Reset it |
+
+The tiles themselves are display-only.
+
 ## The controls
 
-Plane: axial, sagittal, or coronal picks the initial cutting direction. Switching planes
-straightens a rotated stack (announced briefly in the on-screen chip) but keeps your
-window position along the new axis; re-clicking the already-active plane does nothing,
-so a tuned oblique cannot be wiped by a stray click. The ↺ button straightens in place.
-
-Grid size: 2x2, 3x3, 4x4, or 4x6 tiles. Each tile is labeled with its offset in mm from
-the stack center and a tile number that matches the numbered section lines on the scout.
-
-spacing (0.5 to 10 mm): the distance between consecutive slices in the stack.
-
-thickness (0.1 to 10 mm): the slab averaged into each slice; the MIP checkbox takes the
-brightest voxel across the slab instead of the average.
-
-reset orientation: back to the straight orthogonal stack after any rotation.
-
-position: a slider that moves the whole slice window along the stack normal.
-
-The scout pane (left) is the control surface. It shows the perpendicular reference view
-(a sagittal scout for an axial grid, an axial scout otherwise) with one numbered line per
-tile. Left-drag or click on the scout grabs the section window and moves it. Right-drag
-rotates the scout image itself: the section lines stay put on screen while the anatomy
-turns under them, and the grid re-cuts obliquely through the rotated anatomy, with a live
-degree chip during the drag. The wheel, anywhere in the mode, steps the whole window by
-one spacing unit. The tiles themselves are display-only.
-
-Window: the shared Window (HU) panel applies here, including the presets, the histogram
-cut lines, center and width, gamma, and invert.
-
-A status line under the grid restates the current geometry: how many parallel slices, at
-what spacing, with what slab, averaged or MIP.
+| Control | Options or range | What it does |
+|---|---|---|
+| Plane | axial, sagittal, coronal | The initial cutting direction. Switching planes straightens a rotated stack (announced briefly in the on-screen chip) but keeps your window position along the new axis; re-clicking the already-active plane does nothing, so a tuned oblique cannot be wiped by a stray click. The ↺ button straightens in place. |
+| Grid size | 2x2, 3x3, 4x4, 4x6 | The tiles on screen. Each tile is labeled with its offset in mm from the stack center and a tile number that matches the numbered section lines on the scout. |
+| spacing | 0.5 to 10 mm | The distance between consecutive slices in the stack. |
+| thickness | 0.1 to 10 mm | The slab averaged into each slice; the MIP checkbox takes the brightest voxel across the slab instead of the average. |
+| reset orientation | button | Back to the straight orthogonal stack after any rotation. |
+| position | slider | Moves the whole slice window along the stack normal. |
+| Scout pane | left | The control surface: the perpendicular reference view (a sagittal scout for an axial grid, an axial scout otherwise) with one numbered line per tile. |
+| Window | shared sidebar | The shared Window (HU) panel applies here, including the presets, the histogram cut lines, center and width, gamma, and invert. |
+| Status line | under the grid | Restates the current geometry: how many parallel slices, at what spacing, with what slab, averaged or MIP. |
 
 ## A reading workflow
 

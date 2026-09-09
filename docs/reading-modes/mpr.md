@@ -1,5 +1,20 @@
 # MPR
 
+> **At a glance**
+> - **The question:** what is here, in three dimensions: localize it, follow it across
+>   planes, measure it in true millimetres, present it. The default read; when in doubt,
+>   start here.
+> - **Start:** open the scan, press `R` for orthogonal planes, pick a window preset
+>   (**Bone**, **Teeth**, **Soft**, or **Auto**), click a structure to spot the crosshairs.
+> - **Three gestures:** the wheel scrolls the hovered pane; the left button runs the tool
+>   (with **Crosshairs**, a click spots the crosshairs and a drag pans); right-drag rotates
+>   the section. On the 3D pane, left-drag orbits and right-drag cuts in.
+> - **Leave it for:** a slice-by-slice survey (Grid), the dental arch (Pano), the condyles
+>   (TMJ), any other cut (Reslice), a film-like projection (Ceph), a density region
+>   (Region), two volumes of one subject (Stitch).
+
+![MPR on the consented real CBCT: axial, sagittal, and coronal panes with the crosshairs spotted on a molar, the bone-only 3D render, and the tool, window, and 3D controls in the sidebar](../media/manual/mode-mpr.webp)
+
 ## What this mode is for
 
 MPR is the default read: three orthogonal slice panes (axial, sagittal, coronal) with
@@ -8,78 +23,97 @@ linked crosshairs, plus a 3D render in the fourth pane. It answers the general q
 measuring it in true millimetres, and presenting it as a labeled figure. Everything else
 in the viewer is a specialization; when in doubt, start in MPR.
 
+## Gestures and keys
+
+| Gesture or key | Where | Action |
+|---|---|---|
+| Wheel | slice pane | Scroll the hovered pane |
+| Left click or drag | slice pane | The active tool; with Crosshairs, a click spots the crosshairs to that point and a drag pans |
+| Shift + left click | slice pane | Select an annotation |
+| Right-drag | slice pane | Rotate the section about the crosshair center; all three planes rotate rigidly and stay mutually orthogonal, with a live degree chip |
+| Shift + right-drag, or right+left chord drag | slice pane | Zoom |
+| Middle-drag | slice pane | Pan |
+| Double-click | any pane | Maximize the pane; again to restore the 2 by 2 layout |
+| Left-drag | 3D pane | Rotate the render |
+| Middle-drag | 3D pane | Pan |
+| Right-drag | 3D pane | Cut progressively into the render (the cutaway, below) |
+| Right+left chord drag | 3D pane | Zoom |
+| `1` to `9`, `0` | anywhere | Tools in palette order (Crosshairs to 3D ROI) |
+| `W` | anywhere | The window/level tool |
+| `R` | anywhere | Reset orientation |
+| `C` | anywhere | Plane lines on or off |
+| `O` | anywhere | Overlay master switch |
+| `V` | anywhere | Save the current view |
+| `Del` | anywhere | Delete the selected object |
+| `N` / `P` | anywhere | Next or previous volume |
+| Double-click a slider | sidebar | Reset it |
+
 ## The controls
 
-Panes. The screen is a 2 by 2 grid: AXIAL, SAGITTAL, CORONAL, 3D. Double-click any pane
-to maximize it; double-click again to restore. Each slice pane shows its slice counter
-with the direction the count runs (`622/801 S→I`: slice 1 is the most superior; coronal
-counts P→A, sagittal R→L; the letters follow the live camera, so an obliqued pane reports
-the direction it actually scrolls along), patient-orientation letters computed from the live
-camera (they stay correct after oblique rotation), a live HU readout under the cursor (a 3 by 3 by 3 neighborhood mean), a slice
-slider on the right edge, and a flip button that mirrors the viewing direction.
+**Panes.** The screen is a 2 by 2 grid: AXIAL, SAGITTAL, CORONAL, 3D. Each slice pane
+shows its slice counter with the direction the count runs (`622/801 S→I`: slice 1 is the
+most superior; coronal counts P→A, sagittal R→L; the letters follow the live camera, so
+an obliqued pane reports the direction it actually scrolls along), patient-orientation
+letters computed from the live camera (they stay correct after oblique rotation), a live
+HU readout under the cursor (a 3 by 3 by 3 neighborhood mean), a slice slider on the
+right edge, and a flip button that mirrors the viewing direction.
 
-Mouse, on the slice panes: the wheel scrolls the hovered pane; the left button runs the
-active tool (in Crosshairs mode a click spots the crosshairs to that point and a drag
-pans); right-drag rotates the section about the crosshair center, with all three planes
-rotating rigidly so they stay mutually orthogonal (a live degree chip shows the sweep);
-shift right-drag or a right+left chord drag zooms; middle-drag pans. On the 3D pane:
-left-drag rotates, middle-drag pans, right-drag cuts progressively into the render (see
-below), and the same right+left chord drag zooms.
+**Tool palette** ("Tool (1-9, 0)"): Crosshairs, Pan, Length, Angle, Arrow, Text, Rect
+ROI, Ellipse ROI, Freehand, 3D ROI, on hotkeys 1 through 9 and 0; W/L on `W`. Arrow and
+Text prompt for a label. Rect and Ellipse ROIs report density (HU) stats. A Freehand open
+stroke measures a curved path in mm; closing the loop turns it into a region with HU
+stats. 3D ROI drags a rectangle on any slice pane and extends it through the slice by the
+"box depth" slider (1 to 60 mm, default 10), returning volume and density stats with an
+outline in the 3D pane. Del deletes the selected object.
 
-Tool palette ("Tool (1-9, 0)"): Crosshairs, Pan, Length, Angle, Arrow, Text, Rect ROI,
-Ellipse ROI, Freehand, 3D ROI, on hotkeys 1 through 9 and 0. Arrow and Text prompt for a
-label. Rect and Ellipse ROIs report density (HU) stats. A Freehand open stroke measures a
-curved path in mm; closing the loop turns it into a region with HU stats. 3D ROI drags a
-rectangle on any slice pane and extends it through the slice by the "box depth" slider
-(1 to 60 mm, default 10), returning volume and density stats with an outline in the 3D
-pane. Del deletes the selected object.
+**Window (HU).** Presets Auto, Bone, Teeth, Soft; a histogram whose black and white cut
+lines can be dragged directly (below black renders black, above white renders white);
+center and width sliders; a gamma slider (1 = linear, double-click resets); an invert
+checkbox.
 
-Window (HU): presets Auto, Bone, Teeth, Soft; a histogram whose black and white cut lines
-can be dragged directly (below black renders black, above white renders white); center and
-width sliders; a gamma slider (1 = linear, double-click resets); an invert checkbox.
-
-Slab / MIP: per-pane slab thickness (0.1 to 20 mm) and a MIP checkbox that takes the
+**Slab / MIP.** Per-pane slab thickness (0.1 to 20 mm) and a MIP checkbox that takes the
 brightest voxel across the slab instead of the average.
 
-3D render: a style picker with two parametric groups, Styles (Shaded, Shiny, Surface,
-Soft tissue, MIP, X-ray, X-ray shaded, B&W X-ray) and CBCT tuned (bone + teeth, teeth
-high density, translucent bone with solid teeth), plus generic CT presets that apply
-as-is without the adjust sliders. Surface, a bone-toned isosurface, is the default. The
-shaded styles light off the render's opacity cloud with local ambient occlusion, so
-sockets and interproximal gaps self-shadow. For the parametric styles: cut-off threshold
-(densities below stay transparent; also draggable on the render histogram; double-click
-returns to the style's default), transparency, contrast, brightness, pseudo-color (none,
-hot, cool, rainbow), depth enhancement (flat interiors fade, surfaces pop), smooth 3D
-surface (the 3D pane renders from a lightly denoised copy of the volume; slice views
-always keep the original voxels; on by default), cinematic light (in-volume light
-scattering for soft shadows, slower to orbit), a light-follows-camera toggle with fixed
-light azimuth and height sliders when off, and an optional soft-tissue overlay (a
-skin-toned translucent band with its own threshold and opacity). While the camera moves,
-the render temporarily coarsens its sampling and sharpens again on idle. Perspective
-projection is a separate toggle (off = orthographic; toggling re-homes the 3D camera).
-Plane indicators draw the three section planes and a bounding box inside the render.
+**3D render, style.** A style picker with two parametric groups, Styles (Shaded, Shiny,
+Surface, Soft tissue, MIP, X-ray, X-ray shaded, B&W X-ray) and CBCT tuned (bone + teeth,
+teeth high density, translucent bone with solid teeth), plus generic CT presets that
+apply as-is without the adjust sliders. Surface, a bone-toned isosurface, is the default.
+The shaded styles light off the render's opacity cloud with local ambient occlusion, so
+sockets and interproximal gaps self-shadow.
 
-Crop 3D: per-axis keep ranges (R to L, A to P, I to S) that crop the render only; the
-slices are unaffected. "Un-crop + clear cuts" restores the full volume. Cutaway:
-right-drag on the 3D pane opens a cut plane facing the camera; dragging up pushes it
-deeper, down backs it out. Later right-drags resume the same cut from its current depth;
-backing out past zero removes it (so does the scissors chip), and only then does a new
-drag open a fresh plane facing wherever the camera is now.
+**3D render, adjust** (parametric styles): cut-off threshold (densities below stay
+transparent; also draggable on the render histogram; double-click returns to the style's
+default), transparency, contrast, brightness, pseudo-color (none, hot, cool, rainbow),
+depth enhancement (flat interiors fade, surfaces pop), smooth 3D surface (the 3D pane
+renders from a lightly denoised copy of the volume; slice views always keep the original
+voxels; on by default), cinematic light (in-volume light scattering for soft shadows,
+slower to orbit), a light-follows-camera toggle with fixed light azimuth and height
+sliders when off, and an optional soft-tissue overlay (a skin-toned translucent band with
+its own threshold and opacity). While the camera moves, the render temporarily coarsens
+its sampling and sharpens again on idle. Perspective projection is a separate toggle
+(off = orthographic; toggling re-homes the 3D camera). Plane indicators draw the three
+section planes and a bounding box inside the render.
 
-Render eraser: the "eraser" button on the 3D pane turns left-drag into a brush (radius
-1 to 12 mm) that erases what you touch on the render. It edits a 3D-only copy of the
-voxels; the slice panes never change. Undo, redo, and revert are on the same toolbar.
+**Crop 3D.** Per-axis keep ranges (R to L, A to P, I to S) that crop the render only; the
+slices are unaffected. "Un-crop + clear cuts" restores the full volume.
 
-My 3D presets: save the current render settings under a name; the star marks one as the
-default applied on app start.
+**Cutaway.** Right-drag on the 3D pane opens a cut plane facing the camera; dragging up
+pushes it deeper, down backs it out. Later right-drags resume the same cut from its
+current depth; backing out past zero removes it (so does the scissors chip), and only
+then does a new drag open a fresh plane facing wherever the camera is now.
 
-Snapshot and views: "snapshot" saves the visible layout (annotations included) as a PNG.
-"save view (V)" stores all four cameras plus window and render settings under a name; the
-objects panel restores it in one click. Annotations, saved views, and 3D ROIs persist per
-volume in the evidence sidecar and return when the volume is reopened.
+**Render eraser.** The "eraser" button on the 3D pane turns left-drag into a brush
+(radius 1 to 12 mm) that erases what you touch on the render. It edits a 3D-only copy of
+the voxels; the slice panes never change. Undo, redo, and revert are on the same toolbar.
 
-Keys: N/P next or previous volume, 1-9 and 0 tools, R reset orientation, C plane lines,
-O overlay master switch, V save view, Del delete selected.
+**My 3D presets.** Save the current render settings under a name; the star marks one as
+the default applied on app start.
+
+**Snapshot and views.** "snapshot" (header) saves the visible layout (annotations
+included) as a PNG. "save view (V)" stores all four cameras plus window and render
+settings under a name; the objects panel restores it in one click. Annotations, saved
+views, and 3D ROIs persist per volume in the evidence sidecar and return when the volume
+is reopened.
 
 ## A reading workflow
 

@@ -27,7 +27,7 @@ import CbctStitch from './CbctStitch';
 import { useAgentBridge } from './useAgentBridge';
 import AboutBadge from '@/components/AboutBadge';
 import SnapshotButton, { type SnapRef } from './SnapshotButton';
-import { FolderOpen, Keyboard } from 'lucide-react';
+import { BookOpen, FolderOpen, Keyboard } from 'lucide-react';
 
 interface ListEntry {
   anon: string;
@@ -51,6 +51,12 @@ const isFusedVol = (id: string) => id.startsWith('fused_');
 const isDemoVol = (id: string) => id.startsWith('demo_');
 
 type ViewMode = 'mpr' | 'grid' | 'pano' | 'tmj' | 'reslice' | 'ceph' | 'region' | 'stitch';
+
+// Where the header's "help" entry and the about panel point: the docs on the project page.
+// The main branch, because the README's install path is the main-branch ZIP, so the running
+// code and the linked page match. The viewer itself never fetches anything: the link opens
+// in a new tab only when the reader clicks it.
+const DOCS_URL = 'https://github.com/rezamotaghi/cbctscope/blob/main/';
 const VIEW_MODES: [ViewMode, string, string][] = [
   ['mpr', 'MPR', 'orthogonal slices + 3D render'],
   ['grid', 'Grid', 'many parallel slices on one screen'],
@@ -225,6 +231,9 @@ export default function CbctApp() {
   const [srcLabel, setSrcLabel] = useState<string | null>(null);
   const [srcNonce, setSrcNonce] = useState(0); // bump = refetch the volume list
   const [srcMenu, setSrcMenu] = useState(false);
+  /** the header's help menu: this mode's reading guide and the user manual */
+  const [helpMenu, setHelpMenu] = useState(false);
+  const helpMenuRef = useRef<HTMLDivElement | null>(null);
   const [picking, setPicking] = useState(false);
   const srcMenuRef = useRef<HTMLDivElement | null>(null);
   const wantLocalRef = useRef(false); // after an open, jump to the first opened volume
@@ -243,6 +252,14 @@ export default function CbctApp() {
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
   }, [srcMenu]);
+  useEffect(() => {
+    if (!helpMenu) return;
+    const onDown = (e: MouseEvent) => {
+      if (helpMenuRef.current && !helpMenuRef.current.contains(e.target as Node)) setHelpMenu(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [helpMenu]);
 
   const current = useMemo(() => volumes.find((v) => v.anon === anon) ?? null, [volumes, anon]);
   /** the open image is a single 2D radiograph — the volumetric modes don't apply */
@@ -742,12 +759,24 @@ export default function CbctApp() {
             {/* the case identity leads the line in full contrast — the id everything else
                 (exports, sidecars) is filed under; local/fused volumes show their label */}
             <span style={{ color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
-              {(isFusedVol(current.anon) || isLocalVol(current.anon)) && current.label ? current.label : current.anon}
+              {isDemoVol(current.anon)
+                ? 'Synthetic phantom'
+                : (isFusedVol(current.anon) || isLocalVol(current.anon)) && current.label
+                  ? current.label
+                  : current.anon}
             </span>
             {' · '}
             {volLabel(current)} ·{' '}
             {current.kind === 'mf' ? 'multiframe' : current.kind === 'xray' ? 'radiograph' : 'slices'} ·{' '}
             {(current.spacing[0] * 1000).toFixed(0)} µm {current.kind === 'xray' ? 'pixels' : 'voxels'}
+            {/* first-run hint: while the built-in phantom is on screen and nothing of the reader's
+                is open, say so and point at the two doors. A line in the header, not a dialog:
+                nothing to dismiss, and it leaves by itself once an export is opened. */}
+            {isDemoVol(current.anon) && !srcLabel && (
+              <span style={{ color: 'var(--text)' }}>
+                {' · '}built-in, no patient data · your own scan: <b>open</b> · guide: <b>help</b>
+              </span>
+            )}
           </span>
         )}
         <span style={{ flex: 1 }} />
@@ -801,6 +830,61 @@ export default function CbctApp() {
               <div>O — overlays on / off</div>
               <div>V — save the current view</div>
               <div>Del — delete the selected object</div>
+            </div>
+          )}
+        </div>
+        {/* help: this mode's reading guide (manual chapter 8) and the user manual, on the
+            project page. Plain links the reader clicks; the viewer never contacts the network
+            itself. A menu like "open", so the manual is one click away in every mode. */}
+        <div ref={helpMenuRef} style={{ position: 'relative' }}>
+          <button
+            style={btn(helpMenu)}
+            onClick={() => setHelpMenu((v) => !v)}
+            title="help: the reading guide for this mode and the user manual, on the project page. They open in a new tab when you click them; the viewer itself sends nothing."
+          >
+            <BookOpen size={13} strokeWidth={2} style={{ marginRight: 5, verticalAlign: '-2px' }} />
+            help ▾
+          </button>
+          {helpMenu && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                zIndex: 50,
+                marginTop: 2,
+                minWidth: 240,
+                background: 'var(--panel)',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                padding: 4,
+              }}
+            >
+              <a
+                className="menu-item"
+                style={{ textDecoration: 'none', color: 'var(--text)', boxSizing: 'border-box' }}
+                href={
+                  isXray
+                    ? `${DOCS_URL}docs/manual/04-opening-scans.md#45-2d-radiographs`
+                    : `${DOCS_URL}docs/reading-modes/${viewMode}.md`
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setHelpMenu(false)}
+              >
+                📖 {isXray ? '2D radiographs, in the manual' : `${VIEW_MODES.find(([m]) => m === viewMode)?.[1] ?? viewMode} reading guide`}
+              </a>
+              <a
+                className="menu-item"
+                style={{ textDecoration: 'none', color: 'var(--text)', boxSizing: 'border-box' }}
+                href={`${DOCS_URL}docs/manual/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setHelpMenu(false)}
+              >
+                📘 User manual
+              </a>
             </div>
           )}
         </div>

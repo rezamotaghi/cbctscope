@@ -6,6 +6,21 @@ AI-agent control.**
 
 [![DOI: 10.5281/zenodo.21431452](docs/media/doi-badge.svg)](https://doi.org/10.5281/zenodo.21431452)
 
+**[Run it](#run-it)** (three steps) · **[Open your own scan](#opening-your-own-scan)** ·
+**[Reading guides](docs/reading-modes/)** · **[User manual](docs/manual/)** ·
+**[For AI agents](#ai-agent-control-mcp)** · **[Cite it](#author)**
+
+- **Clinicians and students:** read the CBCT exports already on your computer
+  in eight purpose-built modes, free, with no account, no upload, and nothing
+  leaving the machine. It starts on a built-in phantom, so the whole viewer can
+  be learned with zero patient data.
+- **Researchers:** one instrument that reads CBCT volumes and 2D radiographs
+  under identical display settings, for multi-reader studies, with NIfTI, STL,
+  and PNG slice-stack export and a citable DOI for every release.
+- **Agent builders:** a built-in MCP server with fifteen navigation-only verbs,
+  a one-click Claude Desktop bundle, and an Agent Skill. The agent moves the
+  camera; the human reads.
+
 ![An AI agent driving CBCTScope over MCP on a real CBCT: slice navigation down to the dentition, window presets, a bone 3D render, then the multi-slice grid, curved panoramic with cross-sections, TMJ, reslice and virtual cephalogram](docs/media/cbctscope-demo.gif)
 
 *Above: an agent driving the viewer. Slice navigation, the window presets,
@@ -51,7 +66,7 @@ installation to the keyboard reference, lives in [docs/manual](docs/manual/).
 
 ## Run it
 
-About five minutes, no technical background needed. CBCTScope is not an
+Three steps, no technical background needed. CBCTScope is not an
 installed app with an icon: it is a small local program you start once per
 reading session, and your browser is the screen. Everything is undone by
 deleting the folder.
@@ -72,14 +87,17 @@ deleting the folder.
    choose **Download ZIP**, and unzip it somewhere you can find again (Desktop
    is fine). If you use git, `git clone` works as usual.
 3. **Start it.** In the unzipped folder, double-click **Start
-   CBCTScope.command** on macOS or **Start CBCTScope.bat** on Windows. The
-   first macOS open needs a right-click and **Open** (the one-time warning
-   macOS shows for downloaded files). The first start downloads the viewer's
-   components, once, a few minutes; then your browser opens the viewer by
-   itself. A built-in **synthetic phantom** loads immediately: jaws, dental
-   arches, teeth with enamel and pulp, a metal crown, airway, sinuses, and TMJ
-   condyles, all procedurally generated. The full viewer works with zero
-   patient data.
+   CBCTScope.command** on macOS or **Start CBCTScope.bat** on Windows. If the
+   system shows a security prompt on this first open, the one-time answer for
+   each system is under "If something goes wrong" below. The first start
+   downloads the viewer's components once (about 130 MB downloaded, 600 MB on
+   disk: ten to fifteen seconds on the author's Mac and connection, longer on
+   a slow one); then your browser opens the viewer by itself. A built-in
+   **synthetic phantom** loads immediately: jaws, dental arches, teeth with
+   enamel and pulp, a metal crown, airway, sinuses, and TMJ condyles, all
+   procedurally generated. The full viewer works with zero patient data, and
+   the header says so until you open a scan of your own. **help** in the
+   header opens the reading guide for the mode you are in.
 
 To stop the viewer, close the starter's window or press Ctrl-C in it. Next
 session, double-click again: startup is quick once installed.
@@ -98,9 +116,22 @@ first launch both modes show the phantom.
 
 ### If something goes wrong
 
-- **macOS refuses to open Start CBCTScope.command** ("unidentified
-  developer"): right-click the file, choose **Open**, confirm. macOS asks
-  once; afterwards a plain double-click works.
+- **macOS refuses to open Start CBCTScope.command** ("Apple could not
+  verify" or "unidentified developer"): open **System Settings**, click
+  **Privacy & Security**, scroll down, click **Open Anyway**, and confirm
+  **Open** in the prompt that reappears. macOS asks once; afterwards a plain
+  double-click works. On older macOS versions the same override is a
+  right-click on the file and **Open**.
+- **Windows shows a security warning for Start CBCTScope.bat** ("the
+  publisher could not be verified", or a SmartScreen notice): choose **Run**
+  (under SmartScreen, **More info**, then **Run anyway**). Windows asks this
+  for files downloaded from the internet; the starter only installs and
+  starts the viewer inside its own folder.
+- **You cannot install Node.js on this computer** (no administrator rights, a
+  managed clinic PC): nodejs.org also offers a standalone binary that needs no
+  installer, and CBCTScope itself writes nothing outside its own folder and
+  `~/.cbctscope`. Whether either may run on a managed computer is your IT
+  department's call; ask them rather than working around a policy.
 - **`npm: command not found`** (or `'npm' is not recognized`): Node.js is not
   installed yet, or the terminal was opened before the install finished.
   Install it, then open a new terminal window and retry.

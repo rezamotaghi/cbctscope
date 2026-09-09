@@ -2,10 +2,22 @@
 
 ## Installation and startup
 
-- **macOS refuses to open `Start CBCTScope.command`** ("unidentified
-  developer" or "Apple could not verify"): right-click the file, choose
-  **Open**, confirm. macOS asks once for a downloaded file; afterwards a
-  plain double-click works.
+- **macOS refuses to open `Start CBCTScope.command`** ("Apple could not
+  verify" or "unidentified developer"): open **System Settings**, click
+  **Privacy & Security**, scroll down, click **Open Anyway**, and confirm
+  **Open** in the prompt that reappears. macOS asks once for a downloaded
+  file; afterwards a plain double-click works. On older macOS versions the
+  same override is a right-click on the file and **Open**.
+- **Windows shows a security warning for `Start CBCTScope.bat`** ("the
+  publisher could not be verified", or a SmartScreen notice): choose **Run**
+  (under SmartScreen, **More info**, then **Run anyway**). Windows asks this
+  for files downloaded from the internet; the starter only installs and
+  starts the viewer inside its own folder.
+- **Node.js cannot be installed on this computer** (no administrator rights,
+  a managed clinic PC): nodejs.org also offers a standalone binary that needs
+  no installer, and CBCTScope itself writes nothing outside its own folder
+  and the app-data folder (section 10.2). Whether either may run on a managed
+  computer is the IT department's call; ask rather than work around a policy.
 - **`npm: command not found`** (macOS) or **`'npm' is not recognized`**
   (Windows): Node.js is not installed yet, or the terminal was opened before
   the installation finished. Install Node.js (section 2.1), then open a new

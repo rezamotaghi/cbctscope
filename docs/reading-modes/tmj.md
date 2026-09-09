@@ -1,5 +1,18 @@
 # TMJ
 
+> **At a glance**
+> - **The question:** what does each condyle look like in sections corrected to its own
+>   axis, and how do the two sides compare?
+> - **Start:** scroll the scout to the level where both condylar heads are widest, drag
+>   one line per condyle along its long axis (lateral pole to medial pole), set a bone
+>   window; the sections appear as soon as a line exists.
+> - **Three gestures:** on the scout, drag draws or moves an axis line and right-click
+>   deletes it; the wheel scrolls the scout slice; right-drag on a section tilts that
+>   side's fan.
+> - **Leave it for:** measurements, which live in MPR at the same location.
+
+![TMJ on the consented real CBCT: the axial scout with one axis line per condyle on the left, and the right and left condyle rows in axis-corrected sections on the right](../media/manual/mode-tmj.webp)
+
 ## What this mode is for
 
 TMJ reads both temporomandibular joints side by side, each in sections corrected to its
@@ -9,48 +22,40 @@ its own long axis, so the joint is read in its plane, not the scanner's. It answ
 paired question: "what does each condyle look like in properly oriented sections, and how
 do the two sides compare?"
 
+## Gestures
+
+| Gesture | Where | Action |
+|---|---|---|
+| Drag on the image | scout | Draw one axis line per condyle, lateral pole to medial pole; the side is assigned automatically from the patient midline |
+| Drag an endpoint | scout | Adjust the axis |
+| Drag the line body | scout | Move the line |
+| Right-click a line | scout | Delete it |
+| Wheel | scout | Scroll the slice; the caption uses the MPR axial count (`S→I`, slice 1 at the top) |
+| Right-drag | any section | Rotate that side's fan, independently per side |
+| Drag a divider | between scout and sections, between the rows | Resize; double-click resets |
+| Double-click a crop handle | sections column | Reset that handle |
+
+The lines and the scout slice persist per volume.
+
 ## The controls
 
-The axial scout (left) opens near the level of the condyles, with a slice slider (wheel
-scrolls); its slice caption uses the MPR axial count (`S→I`, slice 1 at the top). Drag one line per condyle along the long axis of the condylar head, lateral pole
-to medial pole. The side is assigned automatically from the patient midline. Drag an
-endpoint to adjust the axis; drag the line body to move it; right-click a line deletes it.
-The lines and scout slice persist per volume.
-
-Section orientation:
-
-- "perpendicular to axis": sections perpendicular to each condyle's axis, the corrected
-  sagittal stack, labeled A (anterior) and P (posterior).
-- "parallel to axis": sections parallel to the axis, the corrected coronal stack, labeled
-  lat and med.
-
-sync sides: editing one side (dragging an endpoint or the whole line) mirrors it to the other side about the midline, for a
-symmetric starting point that can then be refined per side. A fresh draw fills the other side only when it is empty; it never replaces a placed line there, so a stray stroke cannot wipe a tuned opposite side.
-
-clear lines: deletes both axis lines. "Reset lines" restores both axis lines to where
-they were drawn, rolling back exploratory nudges.
-
-vertical crop: two handles on the right edge of the sections column trim the sections
-top and bottom to the condyle and fossa region (the default keeps roughly the upper
-three quarters of the volume); double-click on a handle resets it.
-
-Shared section controls: sections (3 to 9 per side), spacing (0.5 to 6 mm), width (16 to
-60 mm), and thickness (0 to 6 mm averaged across each section). The scout outlines each
-side's sampled band in green with cut marks showing where that side's sections cut. Each
-section is labeled with its side, number, and offset in mm from the axis midpoint.
-
-Fan rotation: right-drag on any section rotates that side's fan, the same sweep gesture
-as the other modes, independently per side. The scout itself stays upright by design
-(one scout serves two independent sides): a tilted side's band redraws dashed as its
-exact axial shadow, its cut marks and orientation letters hide, and the axis line stays
-editable throughout. "reset position" returns both fans upright and the vertical crop to
-the condyle default, leaving lines, section parameters, and pane splits untouched.
-
-The right side of the screen shows the RIGHT condyle row above the LEFT condyle row, each
-side cut against its own axis with the same section settings; the scout|sections and
-row dividers drag to resize and double-click to reset.
-
-Window: the shared Window (HU) presets, center, width, and invert apply.
+| Control | Options or range | What it does |
+|---|---|---|
+| Section orientation | perpendicular to axis | Sections perpendicular to each condyle's axis, the corrected sagittal stack, labeled A (anterior) and P (posterior). |
+| | parallel to axis | Sections parallel to the axis, the corrected coronal stack, labeled lat and med. |
+| sync sides | checkbox | Editing one side (dragging an endpoint or the whole line) mirrors it to the other side about the midline, for a symmetric starting point that can then be refined per side. A fresh draw fills the other side only when it is empty; it never replaces a placed line there, so a stray stroke cannot wipe a tuned opposite side. |
+| clear lines | button | Deletes both axis lines. |
+| Reset lines | button | Restores both axis lines to where they were drawn, rolling back exploratory nudges. |
+| vertical crop | two handles on the right edge of the sections column | Trim the sections top and bottom to the condyle and fossa region (the default keeps roughly the upper three quarters of the volume); double-click on a handle resets it. |
+| sections | 3 to 9 per side | Shared section controls: how many sections each side gets. |
+| spacing | 0.5 to 6 mm | Distance between sections. |
+| width | 16 to 60 mm | Width of each section. |
+| thickness | 0 to 6 mm | Averaged across each section. |
+| Scout band and labels | scout, sections | The scout outlines each side's sampled band in green with cut marks showing where that side's sections cut. Each section is labeled with its side, number, and offset in mm from the axis midpoint. |
+| Fan rotation | right-drag on any section | Rotates that side's fan, the same sweep gesture as the other modes, independently per side. The scout itself stays upright by design (one scout serves two independent sides): a tilted side's band redraws dashed as its exact axial shadow, its cut marks and orientation letters hide, and the axis line stays editable throughout. |
+| reset position | button | Returns both fans upright and the vertical crop to the condyle default, leaving lines, section parameters, and pane splits untouched. |
+| Layout | right side of the screen | The RIGHT condyle row above the LEFT condyle row, each side cut against its own axis with the same section settings; the divider between scout and sections and the row divider drag to resize and double-click to reset. |
+| Window | shared sidebar | The shared Window (HU) presets, center, width, and invert apply. |
 
 ## A reading workflow
 

@@ -65,6 +65,25 @@ describe('user manual tracks the app (docs/manual/)', () => {
     }
   });
 
+  it('every reading guide opens with an At a glance card and embeds its still', () => {
+    for (const mode of modes) {
+      const guide = read(`docs/reading-modes/${mode}.md`);
+      expect(guide, `${mode}.md must open with the At a glance card`).toContain('> **At a glance**');
+      expect(guide, `${mode}.md must embed its still`).toContain(`../media/manual/mode-${mode}.webp`);
+      expect(existsSync(path.join(root, `docs/media/manual/mode-${mode}.webp`)), `still for mode "${mode}"`).toBe(true);
+    }
+  });
+
+  it('the interface chapter documents the help menu, names the phantom, and carries the header still', () => {
+    const chapter = read('docs/manual/03-interface.md');
+    expect(appSrc, 'the header help menu was removed or renamed').toContain('help ▾');
+    expect(chapter, '03-interface.md must document the help menu').toContain('**help ▾**');
+    expect(appSrc, 'the phantom label was removed or renamed').toContain("'Synthetic phantom'");
+    expect(chapter, '03-interface.md must name the phantom as the header does').toContain('**Synthetic phantom**');
+    expect(chapter, '03-interface.md must embed the header still').toContain('../media/manual/header.webp');
+    expect(existsSync(path.join(root, 'docs/media/manual/header.webp')), 'header still').toBe(true);
+  });
+
   it('every window preset is documented in the display chapter', () => {
     const chapter = read('docs/manual/05-display.md');
     for (const preset of presets) expect(chapter, `05-display.md must document preset "${preset}"`).toContain(preset);
