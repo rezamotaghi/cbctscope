@@ -24,7 +24,7 @@ abstract: >-
   Research use only; not a medical device.
 repository-code: "https://github.com/rezamotaghi/cbctscope"
 version: 1.6.0
-date-released: 2026-09-08
+date-released: 2026-09-09
 doi: 10.5281/zenodo.22668210
 license: AGPL-3.0-or-later
 keywords:

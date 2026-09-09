@@ -41,7 +41,7 @@ commit itself:
 
 1. the version line in `docs/manual/00-front.md`, `mcp/package.json`, `mcp/manifest.json`;
 2. `CITATION.cff` `version:`;
-3. `CITATION.cff` `date-released:` (the day the release can first exist);
+3. `CITATION.cff` `date-released:` (the GitHub release day; when the release is published later than the bump, the DOI-pin commit corrects it to Zenodo's publication date);
 4. `CITATION.cff` `doi:` RESET to the concept DOI `10.5281/zenodo.21431452`. The previous
    release's version DOI becomes a wrong self-citation the moment the version changes.
    Missed on the v1.5.0 bump; the drift test now fails a bump that keeps it.
