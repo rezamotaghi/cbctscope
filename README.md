@@ -219,7 +219,7 @@ Start the viewer, open it in a browser, then register the MCP server with your a
 }
 ```
 
-The agent gets eight verbs, all navigation or visualization: `open_scan`, `list_volumes`, `select_volume`, `set_view_mode`, `set_window_level`, `navigate_slice`, `snapshot`, `reset_view`. Details and the full contract: [docs/mcp.md](docs/mcp.md).
+The agent gets fifteen verbs, all navigation or visualization: `open_scan`, `pick_scan`, `list_volumes`, `select_volume`, `viewer_state`, `set_view_mode`, `set_window_level`, `set_3d_style`, `navigate_slice`, `navigate_arch`, `list_views`, `goto_view`, `save_view`, `snapshot`, `reset_view`. Details and the full contract: [docs/mcp.md](docs/mcp.md).
 
 CBCTScope is one of a pair of agent-native instruments built on the same principle (bounded verbs for the agent, commit rights for the human); the other is [Quoin](https://github.com/rezamotaghi/quoin), a text editor for macOS where any agent may edit the buffer and only the human holds the save button. Both at [rezamotaghi.com](https://rezamotaghi.com).
 

@@ -83,8 +83,9 @@ describe('user manual tracks the app (docs/manual/)', () => {
     for (const label of styleLabels) expect(guide, `mpr.md must name 3D style "${label}"`).toContain(label);
   });
 
-  it('every MCP verb is documented in the agent chapter and the MCP contract', () => {
-    for (const file of ['docs/manual/09-agent.md', 'docs/mcp.md']) {
+  it('every MCP verb is documented in the README, the agent chapter, and the MCP contract', () => {
+    // the README's verb sentence rotted at v1.6.0 (still "eight verbs"); pin it too
+    for (const file of ['README.md', 'docs/manual/09-agent.md', 'docs/mcp.md']) {
       const doc = read(file);
       for (const verb of verbs) expect(doc, `${file} must document verb "${verb}"`).toContain(`\`${verb}\``);
     }
