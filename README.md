@@ -91,8 +91,8 @@ deleting the folder.
    system shows a security prompt on this first open, the one-time answer for
    each system is under "If something goes wrong" below. The first start
    downloads the viewer's components once (about 130 MB downloaded, 600 MB on
-   disk: ten to fifteen seconds on the author's Mac and connection, longer on
-   a slow one); then your browser opens the viewer by itself. A built-in
+   disk: ten to fifteen seconds on the author's Mac and connection in
+   September 2026, longer on a slow one); then your browser opens the viewer by itself. A built-in
    **synthetic phantom** loads immediately: jaws, dental arches, teeth with
    enamel and pulp, a metal crown, airway, sinuses, and TMJ condyles, all
    procedurally generated. The full viewer works with zero patient data, and

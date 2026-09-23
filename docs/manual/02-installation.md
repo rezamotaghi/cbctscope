@@ -42,7 +42,8 @@ mode, and opens the browser by itself once the viewer answers. If macOS or
 Windows shows a security prompt on this first open, chapter 11 gives the
 one-time answer for each system. The first run downloads the viewer's
 components once: about 130 MB downloaded, 600 MB on disk, ten to fifteen
-seconds on the author's Mac and connection, longer on a slow one.
+seconds on the author's Mac and connection in September 2026, longer on a
+slow one.
 
 **From a terminal** (any OS, and the way to choose demo mode): in the
 `cbctscope` folder run
