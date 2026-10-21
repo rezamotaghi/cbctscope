@@ -1,9 +1,7 @@
 # CBCTScope User Manual
 
 **A complete, local-first CBCT and 2D radiograph viewer, built by a
-board-certified oral and maxillofacial radiologist. The first purpose-built
-CBCT reading viewer with native AI-agent control, and the only one found whose
-agent surface is navigation-only.**
+board-certified oral and maxillofacial radiologist. The first CBCT reading viewer with native AI-agent control, built on the rule the benchmarks now confirm: the agent moves the camera, the human reads.**
 
 | | |
 |---|---|

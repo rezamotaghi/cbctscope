@@ -1,9 +1,7 @@
 # CBCTScope
 
 **A complete, local-first CBCT and 2D radiograph viewer, built by a
-board-certified oral and maxillofacial radiologist. The first purpose-built
-CBCT reading viewer with native AI-agent control, and the only one found whose
-agent surface is navigation-only.**
+board-certified oral and maxillofacial radiologist. The first CBCT reading viewer with native AI-agent control, built on the rule the benchmarks now confirm: the agent moves the camera, the human reads.**
 
 [![DOI: 10.5281/zenodo.21431452](docs/media/doi-badge.svg)](https://doi.org/10.5281/zenodo.21431452)
 
@@ -41,10 +39,11 @@ account, no cloud, no upload, ever. No agent is required; CBCTScope is a
 complete standalone viewer.
 
 It is also, to our knowledge, the first purpose-built CBCT reading viewer with
-native AI-agent control, and the only one found whose agent surface is
-navigation-only: through a built-in [MCP](https://modelcontextprotocol.io)
-server, an agent opens scans, switches reading modes, sets the window, moves
-through slices, and takes snapshots. The agent moves the camera. The human reads.
+native AI-agent control: through a built-in
+[MCP](https://modelcontextprotocol.io) server, an agent opens scans, switches
+reading modes, sets the window, moves through slices, and takes snapshots. The
+agent moves the camera. The human reads. That split was the design from the
+first commit, and it is where the evidence has since landed (see "Why this exists").
 
 > **Research use only. Not a medical device.** CBCTScope visualizes and
 > navigates volumes. It never produces findings, measurements-as-conclusions,
@@ -260,7 +259,7 @@ CBCTScope is one of a pair of agent-native instruments built on the same princip
 
 ## Why this exists
 
-To our knowledge, CBCTScope is the first purpose-built CBCT reading viewer with native AI-agent control, and the only one found whose agent surface is navigation-only. Neighboring projects exist and deserve credit: [dicom-mcp](https://github.com/ChristianHinge/dicom-mcp) and the [Flux Inc. DICOM MCP server](https://github.com/fluxinc/dicom-mcp-server) query PACS metadata over MCP, [dicom-viewer-mcp-app](https://github.com/ThalesMMS/dicom-viewer-mcp-app) prototypes MCP-driven DICOM slice rendering, and [mcp-slicer](https://github.com/zhaoyouj/mcp-slicer) drives 3D Slicer through raw Python execution. [PrismaMRI](https://github.com/AbramovychYurii/PrismaMRI) is a general MRI and CT viewer whose Claude Desktop MCP bridge, since 31/05/26, lets the agent navigate, set the window, measure, pin findings graded by severity, and write a structured description of the study that the user can export as a PDF report. The Agent module of [Slicer Automated Dental Tools](https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools), since 20/07/26, has a local model (Qwen3-8B through Ollama) pick, configure, and run one of the extension's CBCT and intraoral-scan analysis tools, such as segmentation, landmarking, or orientation, from a natural-language request inside 3D Slicer. None of these six is a purpose-built CBCT reading environment, and none constrains the agent to a small set of clinical navigation verbs. CBCTScope does both: a dental and maxillofacial reading workflow, plus an agent surface that is deliberately navigation-only.
+To our knowledge, CBCTScope is the first purpose-built CBCT reading viewer with native AI-agent control. It was built on one rule: the agent moves the camera, the human reads. The field has since arrived at the same place. The first benchmark of agents operating a radiology viewer ([ABRA](https://arxiv.org/abs/2605.11224), May 2026) found ten current models executing viewer actions at 89 percent or better while reaching correct outcomes on only 0 to 25 percent of real annotation tasks, and located the bottleneck in perception, not in tool orchestration. A navigation-only agent surface is the strong half of that result, by design. Neighboring projects exist and deserve credit: [dicom-mcp](https://github.com/ChristianHinge/dicom-mcp) and the [Flux Inc. DICOM MCP server](https://github.com/fluxinc/dicom-mcp-server) query PACS metadata over MCP, [dicom-viewer-mcp-app](https://github.com/ThalesMMS/dicom-viewer-mcp-app) prototypes MCP-driven DICOM slice rendering, and [mcp-slicer](https://github.com/zhaoyouj/mcp-slicer) drives 3D Slicer through raw Python execution. [PrismaMRI](https://github.com/AbramovychYurii/PrismaMRI) is a general MRI and CT viewer whose Claude Desktop MCP bridge, since 31/05/26, lets the agent navigate, set the window, measure, pin findings graded by severity, and write a structured description of the study that the user can export as a PDF report. The Agent module of [Slicer Automated Dental Tools](https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools), since 20/07/26, has a local model (Qwen3-8B through Ollama) pick, configure, and run one of the extension's CBCT and intraoral-scan analysis tools, such as segmentation, landmarking, or orientation, from a natural-language request inside 3D Slicer. None of these six is a purpose-built CBCT reading environment, and none constrains the agent to a small set of clinical navigation verbs: each gives the agent something other than the camera, PACS queries, code execution, analysis tools, or the findings themselves. CBCTScope does both: a dental and maxillofacial reading workflow, plus an agent surface that is deliberately navigation-only.
 
 ## Development
 

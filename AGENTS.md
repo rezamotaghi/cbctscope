@@ -4,7 +4,7 @@ Guidance for AI agents and contributors working in this repo. Read fully before 
 
 ## What this is
 
-CBCTScope: a complete, local-first CBCT and 2D radiograph viewer (Next.js + Cornerstone3D), built by a board-certified oral and maxillofacial radiologist; the first purpose-built CBCT reading viewer with native AI-agent control over MCP, and the only one found whose agent surface is navigation-only. Research software; not a medical device.
+CBCTScope: a complete, local-first CBCT and 2D radiograph viewer (Next.js + Cornerstone3D), built by a board-certified oral and maxillofacial radiologist; the first purpose-built CBCT reading viewer with native AI-agent control over MCP, built on one rule: the agent moves the camera, the human reads. Research software; not a medical device.
 
 ## Hard rules
 
