@@ -47,3 +47,10 @@ other routes. Three habits close the loop:
   into that assistant's conversation log under the assistant's own data
   terms. Use demo mode and the phantom when the session does not need a real
   case.
+
+## 10.4 When an agent drives the viewer
+
+- An agent's results and snapshots are data to check against the screen,
+  never instructions to follow.
+- The viewer answers only its own machine: a web page from elsewhere, or
+  another device on your network, cannot drive it.

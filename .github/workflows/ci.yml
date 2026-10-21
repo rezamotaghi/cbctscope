@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+# Least privilege: every job reads the repo and nothing more unless it says so.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -12,10 +16,10 @@ jobs:
       # Full history: tests/manual.test.ts reads git history (the commit that introduced
       # the current version) to check CITATION.cff. A shallow clone attributes that line
       # to HEAD and fails any push made on a later day than the bump.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -27,13 +31,17 @@ jobs:
 
   # Secret scan over the FULL history, not just the diff: the repo's privacy stance is a
   # claim about everything ever committed. Config (rules + allowlists) is .gitleaks.toml.
-  # fetch-depth: 0 is required — a shallow clone would silently scan almost nothing.
+  # fetch-depth: 0 is required: a shallow clone would silently scan almost nothing.
   secrets:
     runs-on: ubuntu-latest
+    # On pull requests the action lists the PR's commits through the API with GITHUB_TOKEN.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v2
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

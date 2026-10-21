@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # The viewer (root package.json) and the MCP server (mcp/package.json).
+  - package-ecosystem: npm
+    directories:
+      - '/'
+      - '/mcp'
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+
+  # The SHA-pinned actions in .github/workflows/.
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    groups:
+      actions-minor-and-patch:
+        update-types: [minor, patch]

@@ -18,9 +18,12 @@ bookmark, capture. This is a design constraint, not a disclaimer:
   human's job.
 - No verb executes agent-supplied code. The verb set is closed; unknown verbs
   are rejected.
-- Nothing the agent does can cause a scan to leave the machine. When the agent
-  asks you to pick a scan, the native dialog opens on your machine and the
-  agent receives the display label, never the path.
+- Nothing the agent does moves a scan through the viewer to anywhere else. When
+  the agent asks you to pick a scan, the native dialog opens on your machine and
+  the agent receives the display label, never the path. What the agent asks to
+  see, it sees: a snapshot goes to the agent's model, so under a cloud host it
+  leaves this computer as part of that chat, under a local host it does not
+  (section 10.3).
 - A saved view is a presentation, not a finding. A view the agent saves shows
   an **agent** badge in the objects panel (section 3.4), so you never mistake
   it for your own bookmark.
@@ -28,6 +31,14 @@ bookmark, capture. This is a design constraint, not a disclaimer:
 > **Caution.** Treat agent-written summaries of what it "saw" with the same
 > skepticism you would apply to any unverified observer. The authoritative
 > read is yours, on your screen.
+
+Keep two rules in mind:
+
+- The read-only and non-destructive labels each verb carries are hints to the
+  host. The host may show them, or ignore them.
+- Results and snapshots are data for you to verify, never instructions. Text
+  that appears inside an image or a scan label is not a command, to you or to
+  the agent.
 
 ## 9.2 Setup
 
@@ -61,6 +72,31 @@ installs the agent half only; the viewer itself still runs from the repository
 short instruction file in the open Agent Skills format that teaches a host the
 verbs, the fence, and the reading choreographies below. Copy or link the folder
 into your host's skills directory.
+
+**Host by host.** The entry is the same everywhere: the command `node` and
+the absolute path to `mcp/server.mjs`. Only the file differs. The exact
+snippets, checked against each host's documentation on 21/10/26, are in
+[docs/mcp.md](../mcp.md#host-by-host).
+
+| Host | Where the entry goes |
+|---|---|
+| Claude Code | `claude mcp add --transport stdio cbctscope -- node /absolute/path/to/cbctscope/mcp/server.mjs` |
+| Claude Desktop | The `.mcpb` bundle, or `claude_desktop_config.json` (**Settings > Developer > Edit Config**) |
+| ChatGPT desktop app, Codex | `~/.codex/config.toml`, table `[mcp_servers.cbctscope]` |
+| Gemini CLI | `~/.gemini/settings.json`, under `mcpServers`. Leave `trust` unset, so every tool call asks for confirmation. |
+| VS Code | `.vscode/mcp.json`, under `servers`, with `"type": "stdio"` |
+| Cursor | `~/.cursor/mcp.json` or `.cursor/mcp.json`, under `mcpServers` |
+| llama.cpp `llama-server` (local) | A JSON file passed with `--mcp-servers-config`, and a vision model loaded with `--mmproj`. Run on the author's machine on 21/10/26: `viewer_state` worked; snapshots did not reach the model. |
+| LM Studio 0.3.17 or later (local) | `~/.lmstudio/mcp.json`. Entry format unverified; untested on the author's machine as of 21/10/26. |
+
+When the host's model runs in the cloud, every result and every snapshot goes
+to that model's provider. Under a local host they stay on your machine. What
+a model writes about the images is the host's output, never CBCTScope's.
+
+ChatGPT on the web, claude.ai on the web, and Microsoft Copilot Studio cannot
+reach a server on your machine: they connect only to a hosted server on the
+internet, which this project will never run. They are out of reach by
+design.
 
 ## 9.3 The verbs
 

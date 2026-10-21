@@ -92,4 +92,26 @@ describe('MCPB manifest and the Agent Skill track the server', () => {
     for (const t of tools) expect(fm![2], `SKILL.md must name verb ${t}`).toContain(`\`${t}\``);
     for (const p of prompts) expect(fm![2], `SKILL.md must name prompt ${p}`).toContain(`\`${p}\``);
   });
+
+  // The Agent Skills specification (agentskills.io/specification, read 21/10/26) allows exactly
+  // six frontmatter fields; hosts that validate uploads reject any other key, so a seventh
+  // field would make the skill fail to install without any error in this repo.
+  it('the skill frontmatter stays within the six fields of the Agent Skills specification', () => {
+    const skill = read('skills/cbctscope-reading/SKILL.md');
+    const fm = /^---\n([\s\S]*?)\n---\n/.exec(skill);
+    expect(fm).toBeTruthy();
+    const allowed = ['name', 'description', 'license', 'compatibility', 'metadata', 'allowed-tools'];
+    const keys = [...fm![1].matchAll(/^([A-Za-z][\w-]*):/gm)].map((m) => m[1]);
+    for (const k of keys) expect(allowed, `frontmatter field "${k}" is not in the specification`).toContain(k);
+    expect(keys).toContain('name');
+    expect(keys).toContain('description');
+    const name = /^name:\s*(.+)$/m.exec(fm![1])![1].trim();
+    expect(name).toMatch(/^[\p{Ll}\p{N}]+(?:-[\p{Ll}\p{N}]+)*$/u);
+    expect(name.length).toBeLessThanOrEqual(64);
+    const compatibility = /^compatibility:\s*(.+)$/m.exec(fm![1])?.[1].trim();
+    if (compatibility !== undefined) {
+      expect(compatibility.length).toBeGreaterThan(0);
+      expect(compatibility.length).toBeLessThanOrEqual(500);
+    }
+  });
 });

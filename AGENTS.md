@@ -4,7 +4,7 @@ Guidance for AI agents and contributors working in this repo. Read fully before 
 
 ## What this is
 
-CBCTScope: a complete, local-first CBCT and 2D radiograph viewer (Next.js + Cornerstone3D), built by a board-certified oral and maxillofacial radiologist, and the first with native AI-agent control over MCP. Research software; not a medical device.
+CBCTScope: a complete, local-first CBCT and 2D radiograph viewer (Next.js + Cornerstone3D), built by a board-certified oral and maxillofacial radiologist; the first purpose-built CBCT reading viewer with native AI-agent control over MCP, and the only one found whose agent surface is navigation-only. Research software; not a medical device.
 
 ## Hard rules
 
@@ -57,7 +57,7 @@ commit itself:
 npm run typecheck && npm run lint && npm test && npm run build
 ```
 
-All four must pass before a change is done. A change to the agent surface also runs `npm run mcp:smoke` against a live demo tab. Never run `npm run build` while a dev server is up; they share `.next` and a concurrent build corrupts it (recovery: stop the server, `rm -rf .next`).
+All four must pass before a change is done. A change to the agent surface also runs `npm run mcp:smoke` against a live demo tab. GitHub adds CodeQL (`.github/workflows/codeql.yml`) and Dependabot (`.github/dependabot.yml`); every action is pinned to a commit SHA. Never run `npm run build` while a dev server is up; they share `.next` and a concurrent build corrupts it (recovery: stop the server, `rm -rf .next`).
 
 `tests/docs.test.ts` caps the size of this file, shrink-only: when `AGENTS.md` grows past the byte number in that test, trim the file, never raise the number.
 
