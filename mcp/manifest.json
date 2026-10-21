@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "cbctscope",
   "display_name": "CBCTScope",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Navigation-only AI-agent control of the CBCTScope CBCT viewer running on this machine. Research use only; not a medical device.",
   "long_description": "CBCTScope is a local-first CBCT and 2D radiograph viewer. This bundle connects Claude Desktop to a viewer already running on this computer: the agent can open a scan (or let you pick one, without ever seeing the path), switch reading modes, set the window, step through slices, walk the panoramic arch, bookmark and restore saved views, and take snapshots to look at. No tool returns findings or diagnoses, no tool executes code, and nothing leaves the machine. Start the viewer first: https://github.com/rezamotaghi/cbctscope",
   "author": {

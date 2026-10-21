@@ -1,6 +1,6 @@
 {
   "name": "cbctscope-mcp",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "private": true,
   "description": "CBCTScope MCP server: navigation-only AI-agent control of the local viewer. Research use only.",
   "license": "AGPL-3.0-or-later",
