@@ -46,7 +46,9 @@ commit itself:
    release's version DOI becomes a wrong self-citation the moment the version changes.
    Missed on the v1.5.0 bump; the drift test now fails a bump that keeps it.
 5. the GitHub release then mints the new version DOI on Zenodo, and a follow-up commit pins
-   it in `doi:`;
+   it in `doi:`. If Zenodo's GitHub page shows the release as Received with no progress after
+   ten minutes (21/10/26: two hours, no deposit created), delete the GitHub release, keep the
+   tag, publish it again; the new release id gets a fresh event and minted within a minute;
 6. update downstream surfaces per the Vault page's release ritual, in the same sitting. A
    release is not done when the release and the DOI exist; it is done when the surfaces
    that cite the version read it.
