@@ -47,10 +47,22 @@ describe('MCP server tracks the viewer source', () => {
     const blocks = server.split(/registerTool\(/).slice(1);
     expect(blocks.length).toBe(tools.length);
     for (const [i, b] of blocks.entries()) {
-      const head = b.slice(0, b.indexOf('\n  async'));
+      // the config object ends where the handler starts (registrations sit inside buildServer)
+      const end = b.search(/\n\s+async\b/);
+      expect(end, `tool ${tools[i]} has no async handler`).toBeGreaterThan(0);
+      const head = b.slice(0, end);
       expect(head, `tool ${tools[i]} lacks annotations`).toMatch(/annotations:/);
       expect(head, `tool ${tools[i]} lacks outputSchema`).toMatch(/outputSchema:/);
     }
+  });
+
+  // SDK v2: a server connected straight to StdioServerTransport speaks only the 2025 era;
+  // serveStdio with legacy openings served keeps the hosts that open with initialize
+  // (2025-11-25) and the hosts on 2026-07-28 (per-request _meta) on one server.
+  it('serves both protocol eras over stdio', () => {
+    expect(server).toMatch(/serveStdio\(\s*\(\)\s*=>\s*buildServer\(\)\s*\)/);
+    expect(server, 'legacy openings must stay served').not.toMatch(/legacy:\s*'reject'/);
+    expect(server, 'a direct transport connect serves the 2025 era only').not.toMatch(/\.connect\(/);
   });
 });
 
@@ -71,6 +83,14 @@ describe('MCPB manifest and the Agent Skill track the server', () => {
   it('lists exactly the registered tools', () => {
     expect(manifest.tools.map((t) => t.name).sort()).toEqual([...tools].sort());
     for (const t of manifest.tools) expect(t.description.length, `manifest tool ${t.name} description`).toBeGreaterThan(20);
+  });
+
+  it('declares one Node floor, in mcp/package.json and the manifest', () => {
+    const engines = (JSON.parse(read('mcp/package.json')) as { engines: { node: string } }).engines.node;
+    const runtime = (JSON.parse(read('mcp/manifest.json')) as { compatibility: { runtimes: { node: string } } }).compatibility.runtimes.node;
+    const major = (range: string) => Number(/^>=\s*(\d+)/.exec(range)?.[1]);
+    expect(major(engines), 'mcp/package.json engines.node').toBeGreaterThanOrEqual(20); // SDK v2 needs Node 20
+    expect(major(runtime), 'manifest compatibility.runtimes.node').toBe(major(engines));
   });
 
   it('points at the server file', () => {

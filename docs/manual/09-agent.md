@@ -89,6 +89,14 @@ snippets, checked against each host's documentation on 21/10/26, are in
 | llama.cpp `llama-server` (local) | A JSON file passed with `--mcp-servers-config`, and a vision model loaded with `--mmproj`. Run on the author's machine on 21/10/26: `viewer_state` worked; snapshots did not reach the model. |
 | LM Studio 0.3.17 or later (local) | `~/.lmstudio/mcp.json`. Entry format unverified; untested on the author's machine as of 21/10/26. |
 
+The server speaks both current revisions of the protocol, with nothing to set.
+Hosts on the original handshake (revision 2025-11-25) and hosts on the newer
+stateless revision 2026-07-28, such as Claude Code on its v2 runtime and
+GitHub Copilot CLI 1.0.81 or later, connect to the same server and see the
+same verbs, resources, and prompts. The server needs Node.js 20 or later: the
+Node.js 22 that runs the viewer (chapter 2) covers an entry by path, and the
+bundle declares the same floor to Claude Desktop.
+
 When the host's model runs in the cloud, every result and every snapshot goes
 to that model's provider. Under a local host they stay on your machine. What
 a model writes about the images is the host's output, never CBCTScope's.

@@ -55,7 +55,7 @@ What CBCTScope does:
 - `middleware.ts` runs on every path, the agent bridge included. It answers 403 to any request whose `Host` is not `127.0.0.1`, `localhost`, or `[::1]`, and to any request that carries an `Origin` that is malformed or not loopback. A rebound request still carries the attacker's hostname in `Host`, so it fails.
 - A page served from another port on this machine counts as loopback. [SECURITY.md](../SECURITY.md) places anything that runs on the machine inside the trust boundary.
 
-The same class hit the official MCP SDKs: [CVE-2025-66414](https://nvd.nist.gov/vuln/detail/CVE-2025-66414) (TypeScript, before 1.24.0), [CVE-2025-66416](https://nvd.nist.gov/vuln/detail/CVE-2025-66416) (Python, before 1.23.0), [CVE-2026-34742](https://nvd.nist.gov/vuln/detail/CVE-2026-34742) (Go, before 1.4.0), and [CVE-2026-35568](https://nvd.nist.gov/vuln/detail/CVE-2026-35568) (Java, before 1.0.0). Each concerns an HTTP server on localhost that did not check the `Host` header; the TypeScript and Python advisories state that stdio servers are unaffected. CBCTScope's MCP server uses stdio (TypeScript SDK 1.30.0), and the viewer's HTTP bridge carries the equivalent check in `middleware.ts`.
+The same class hit the official MCP SDKs: [CVE-2025-66414](https://nvd.nist.gov/vuln/detail/CVE-2025-66414) (TypeScript, before 1.24.0), [CVE-2025-66416](https://nvd.nist.gov/vuln/detail/CVE-2025-66416) (Python, before 1.23.0), [CVE-2026-34742](https://nvd.nist.gov/vuln/detail/CVE-2026-34742) (Go, before 1.4.0), and [CVE-2026-35568](https://nvd.nist.gov/vuln/detail/CVE-2026-35568) (Java, before 1.0.0). Each concerns an HTTP server on localhost that did not check the `Host` header; the TypeScript and Python advisories state that stdio servers are unaffected. CBCTScope's MCP server uses stdio (TypeScript SDK 2.4.0), and the viewer's HTTP bridge carries the equivalent check in `middleware.ts`.
 
 Left to the host: nothing for this class.
 
@@ -71,7 +71,7 @@ What CBCTScope does:
 
 Left to the host: the confirmation before each call, and the control that stops the agent.
 
-Missing: there is no rate limit on the agent command bus, although the MCP specification (revision 2025-11-25) says servers MUST rate limit tool invocations. A per-process cap is queued for a later release.
+Missing: there is no rate limit on the agent command bus, although the MCP specification (revisions 2025-11-25 and 2026-07-28) says servers MUST rate limit tool invocations. A per-process cap is queued for a later release.
 
 ## Architecture
 
@@ -82,6 +82,10 @@ agent host ──stdio──> mcp/server.mjs ──HTTP──> viewer server ─
 ```
 
 The MCP server is a thin proxy: it forwards each verb to `POST /api/agent/command`, the viewer server relays it over a server-sent-events channel to the open browser tab, the UI executes it against live state and posts the result back. Verbs that belong to one reading mode (slices, arch position, saved views) are answered by the mounted mode component; a verb the current mode cannot serve fails fast with a clear error instead of hanging. Both the viewer and the browser tab must be running; the MCP server reports a clear error otherwise.
+
+## Protocol revisions
+
+The server runs on the MCP TypeScript SDK v2 (`@modelcontextprotocol/server` 2.4.0, schemas in Zod 4) and needs Node.js 20 or later (the viewer needs 22). It is dual-era: the first message a host sends picks the protocol revision for that connection. A host that opens with the `initialize` handshake gets revision 2025-11-25, as every host on a 2025-era SDK does; a host that opens with the stateless revision 2026-07-28 (no handshake, a `server/discover` call, the protocol version in each request's `_meta`) gets 2026-07-28. Claude Code on its v2 client runtime (v2.1.232 or later) asks stdio servers for 2026-07-28, and GitHub Copilot CLI supports it from 1.0.81 (27/08/26); Anthropic has not documented which revision Claude Desktop negotiates, and either works. The verbs, resources, and prompts are the same in both eras: one factory builds the server for each connection. Sources, checked 28/10/26: [SDK guide to 2026-07-28](https://ts.sdk.modelcontextprotocol.io/v2/migration/support-2026-07-28), [Claude Code MCP docs](https://code.claude.com/docs/en/mcp), [Copilot CLI changelog](https://github.com/github/copilot-cli/blob/main/changelog.md).
 
 ## Setup
 
@@ -307,7 +311,7 @@ working by hand; agent commands always go to exactly one tab, never race between
 
 ## Checking the surface
 
-`npm run mcp:smoke` (with the demo viewer running and a browser tab open) spawns the server the way a host does and walks every tool, resource, and prompt on the phantom, failing on the first wrong answer. `npm run mcp:smoke -- --pick` also opens the native dialog.
+`npm run mcp:smoke` (with the demo viewer running and a browser tab open) spawns the server the way a host does and walks every tool, resource, and prompt on the phantom, failing on the first wrong answer. It walks once per protocol revision (a client that opens with `initialize`, then one pinned to 2026-07-28) and checks that a client which probes and falls back lands on 2026-07-28; `npm run mcp:smoke -- --era=2025-11-25` or `--era=2026-07-28` runs one walk. `npm run mcp:smoke -- --pick` also opens the native dialog.
 
 ## A note on trust
 

@@ -2,20 +2,40 @@
 // Live smoke test of the MCP surface against a RUNNING viewer with a browser tab open
 // (npm run demo, then open http://localhost:3810). Spawns mcp/server.mjs the way a host
 // does, walks every tool, resource, and prompt on the demo phantom, and fails on the first
-// wrong answer. Not part of `npm test` (needs a live browser); run it before a release:
-//   npm run mcp:smoke            (pick_scan skipped: it opens a modal dialog)
-//   npm run mcp:smoke -- --pick  (also opens the native dialog; cancel it by hand)
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+// wrong answer. The server is dual-era, so the walk runs once per protocol era: a client
+// that opens with `initialize` (revision 2025-11-25, Claude Desktop and most hosts today)
+// and a client pinned to the stateless revision 2026-07-28 (`server/discover`, per-request
+// `_meta`). A third connection in `auto` mode, the probe-then-fall-back that dual-era hosts
+// run, must land on 2026-07-28. Not part of `npm test` (needs a live browser); run it
+// before a release:
+//   npm run mcp:smoke                      (both eras; pick_scan skipped: it opens a modal dialog)
+//   npm run mcp:smoke -- --era=2025-11-25  (one era only; or --era=2026-07-28)
+//   npm run mcp:smoke -- --pick            (also opens the native dialog; cancel it by hand)
+import { Client } from '@modelcontextprotocol/client';
+import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const SERVER = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'mcp', 'server.mjs');
 const withPick = process.argv.includes('--pick');
+// client-side negotiation per era: 'legacy' sends `initialize`; a pin speaks only that revision
+const ERAS = {
+  '2025-11-25': { mode: 'legacy', era: 'legacy' },
+  '2026-07-28': { mode: { pin: '2026-07-28' }, era: 'modern' },
+};
+const eraArg = process.argv.find((a) => a.startsWith('--era='))?.slice('--era='.length);
+if (eraArg && !ERAS[eraArg]) {
+  console.error(`unknown --era=${eraArg}; use one of ${Object.keys(ERAS).join(', ')}`);
+  process.exit(2);
+}
 
-const client = new Client({ name: 'cbctscope-smoke', version: '0' });
-await client.connect(new StdioClientTransport({ command: process.execPath, args: [SERVER], stderr: 'pipe' }));
+const connect = async (mode) => {
+  const client = new Client({ name: 'cbctscope-smoke', version: '0' }, { versionNegotiation: { mode } });
+  await client.connect(new StdioClientTransport({ command: process.execPath, args: [SERVER], stderr: 'pipe' }));
+  return client;
+};
 
+let client;
 let failed = 0;
 const check = (label, cond, detail = '') => {
   console.log(`${cond ? 'PASS' : 'FAIL'}  ${label}${detail ? `  ${detail}` : ''}`);
@@ -28,7 +48,8 @@ const call = async (name, args = {}) => {
 };
 const state = (r) => r.structuredContent?.state;
 
-try {
+/** One full walk of the surface over the connected client. */
+async function walk(first) {
   // ---- surface
   const tools = (await client.listTools()).tools;
   check('tools listed', tools.length >= 15, `${tools.length} tools`);
@@ -142,14 +163,43 @@ try {
   // ---- reset + optional pick
   st = state(await call('reset_view', { full: true }));
   check('reset_view full returns Auto window', st.window?.auto === true);
-  if (withPick) {
+  if (withPick && first) {
     const picked = await call('pick_scan', { kind: 'folder' });
     check('pick_scan (dialog): answered without a path', !JSON.stringify(picked.structuredContent).includes('"path"'), JSON.stringify(picked.structuredContent));
   }
-} catch (e) {
-  check('smoke run completed', false, e instanceof Error ? e.message : String(e));
-} finally {
-  await client.close();
+}
+
+for (const [i, era] of (eraArg ? [eraArg] : Object.keys(ERAS)).entries()) {
+  const spec = ERAS[era];
+  console.log(`\n== protocol revision ${era}`);
+  try {
+    client = await connect(spec.mode);
+    const got = `${client.getProtocolEra()} ${client.getNegotiatedProtocolVersion()}`;
+    check(`negotiated ${era}`, got === `${spec.era} ${era}`, got);
+    await walk(i === 0);
+  } catch (e) {
+    check(`smoke run completed (${era})`, false, e instanceof Error ? e.message : String(e));
+  } finally {
+    await client?.close();
+    client = undefined;
+  }
+}
+
+if (!eraArg) {
+  // what a dual-era host does: probe with server/discover, fall back to initialize if refused
+  console.log('\n== auto negotiation (probe, then fall back)');
+  try {
+    client = await connect('auto');
+    const got = `${client.getProtocolEra()} ${client.getNegotiatedProtocolVersion()}`;
+    check('auto selects 2026-07-28', got === 'modern 2026-07-28', got);
+    const tools = (await client.listTools()).tools;
+    check('auto: tools listed', tools.length >= 15, `${tools.length} tools`);
+  } catch (e) {
+    check('auto negotiation completed', false, e instanceof Error ? e.message : String(e));
+  } finally {
+    await client?.close();
+    client = undefined;
+  }
 }
 console.log(failed ? `\n${failed} check(s) FAILED` : '\nall checks passed');
 process.exit(failed ? 1 : 0);
