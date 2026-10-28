@@ -23,9 +23,9 @@
   "dependencies": {
     "@modelcontextprotocol/client": "^2.4.0",
     "@modelcontextprotocol/server": "^2.4.0",
-    "@cornerstonejs/core": "5.13.1",
-    "@cornerstonejs/dicom-image-loader": "5.13.1",
-    "@cornerstonejs/tools": "5.13.1",
+    "@cornerstonejs/core": "5.13.2",
+    "@cornerstonejs/dicom-image-loader": "5.13.2",
+    "@cornerstonejs/tools": "5.13.2",
     "dicom-parser": "1.8.21",
     "lucide-react": "^1.59.0",
     "next": "15.5.22",
