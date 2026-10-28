@@ -48,7 +48,7 @@ async function viewerFetch(path, init) {
     res = await fetch(`${VIEWER_URL}${path}`, init);
   } catch {
     throw new Error(
-      `cannot reach the viewer at ${VIEWER_URL} — start it with \`npm run dev\` and open it in a browser`,
+      `cannot reach the viewer at ${VIEWER_URL}: start it with \`npm run dev\` and open it in a browser`,
     );
   }
   const body = await res.json().catch(() => ({}));
@@ -141,7 +141,7 @@ function buildServer() {
     {
       title: 'Open a local CBCT scan',
       description:
-        'Point the viewer at a local CBCT export: a folder, a DICOMDIR, a multiframe DICOM file, one slice of a series, or a single 2D radiograph file. The scan is read in place and never leaves the machine. Returns the volume catalog. Navigation only — this tool never interprets the images.',
+        'Point the viewer at a local CBCT export: a folder, a DICOMDIR, a multiframe DICOM file, one slice of a series, or a single 2D radiograph file. The scan is read in place and never leaves the machine. Returns the volume catalog. Navigation only: this tool never interprets the images.',
       inputSchema: z.object({
         path: z.string().describe('Absolute local path to the export folder, DICOMDIR, or DICOM file'),
       }),
@@ -246,7 +246,7 @@ function buildServer() {
     {
       title: 'Set window/level',
       description:
-        'Set the HU display window: either a preset (Auto, Bone, Teeth, Soft) or an explicit center/width. Optionally toggle grayscale inversion. Visualization only — changes how voxels map to gray values.',
+        'Set the HU display window: either a preset (Auto, Bone, Teeth, Soft) or an explicit center/width. Optionally toggle grayscale inversion. Visualization only: it changes how voxels map to gray values.',
       inputSchema: z.object({
         preset: z.enum(WL_PRESETS).optional(),
         center: z.number().optional().describe('window center in HU'),
@@ -327,7 +327,7 @@ function buildServer() {
     {
       title: 'List saved views',
       description:
-        'The saved views of the selected volume (MPR mode): id, name, and who saved it (reader or agent). A saved view is a presentation — cameras, window, render settings — not a finding.',
+        'The saved views of the selected volume (MPR mode): id, name, and who saved it (reader or agent). A saved view is a presentation (cameras, window, render settings), not a finding.',
       inputSchema: z.object({}),
       outputSchema: VIEWS_OUT,
       annotations: READ,

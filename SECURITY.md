@@ -86,8 +86,8 @@ another tab.
   in the `dev` and `start` scripts of `package.json`), so no other device can connect. The
   MCP server speaks stdio and opens no port. This Host and Origin check is the protection
   the official MCP SDKs switched on for their HTTP transports after these DNS-rebinding
-  advisories: CVE-2025-66414 (TypeScript SDK, fixed in 1.24.0; the SDK this project uses, at
-  1.30.0), CVE-2025-66416 (Python SDK, fixed in `mcp` 1.23.0), CVE-2026-34742 (Go SDK, fixed
+  advisories: CVE-2025-66414 (TypeScript SDK, fixed in 1.24.0; this project now runs the SDK v2
+  packages, 2.4.0), CVE-2025-66416 (Python SDK, fixed in `mcp` 1.23.0), CVE-2026-34742 (Go SDK, fixed
   in 1.4.0), and CVE-2026-35568 (Java SDK, fixed in 1.0.0). CBCTScope uses none of those
   HTTP transports; its server speaks stdio, which the advisories list as unaffected.
 - **Left to the host.** Nothing. This boundary lives in the viewer.
