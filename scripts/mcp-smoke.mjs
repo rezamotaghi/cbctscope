@@ -31,7 +31,7 @@ if (eraArg && !ERAS[eraArg]) {
 
 const connect = async (mode) => {
   const client = new Client({ name: 'cbctscope-smoke', version: '0' }, { versionNegotiation: { mode } });
-  await client.connect(new StdioClientTransport({ command: process.execPath, args: [SERVER], stderr: 'pipe' }));
+  await client.connect(new StdioClientTransport({ command: process.execPath, args: [SERVER], env: { ...process.env }, stderr: 'pipe' }));
   return client;
 };
 

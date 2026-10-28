@@ -335,6 +335,11 @@ function ensureCbctTools() {
   if (cbctToolsAdded) return;
   try {
     addTool(CrosshairsTool);
+    addTool(PanTool);
+    addTool(ZoomTool);
+    addTool(StackScrollTool);
+    addTool(LengthTool);
+    addTool(AngleTool);
     addTool(TrackballRotateTool);
     addTool(ScaleOverlayTool);
     addTool(WindowLevelTool);
