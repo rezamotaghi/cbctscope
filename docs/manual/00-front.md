@@ -5,7 +5,7 @@ board-certified oral and maxillofacial radiologist. The first CBCT reading viewe
 
 | | |
 |---|---|
-| Software version | 1.6.1 |
+| Software version | 2.0.0 |
 | Manual revision | October 2026 |
 | Author | Dr. Reza Motaghi, oral and maxillofacial radiologist |
 | Project page | <https://github.com/rezamotaghi/cbctscope> |
