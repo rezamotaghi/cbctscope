@@ -27,7 +27,7 @@ abstract: >-
 repository-code: "https://github.com/rezamotaghi/cbctscope"
 version: 2.0.0
 date-released: 2026-10-28
-doi: 10.5281/zenodo.21431452
+doi: 10.5281/zenodo.23726588
 license: AGPL-3.0-or-later
 keywords:
   - CBCT
