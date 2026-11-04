@@ -7,7 +7,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { AGENT_SETTINGS_KEY, loadAgentSettings, saveAgentSettings } from '../lib/shared/agentSettings';
-import { forgetKey, getKey, setKey } from '../components/cbct/agent/keyStore';
+import { forgetKey, getKey, setKey } from '../components/cbct/agent/frame/keyStore';
 
 const root = process.cwd();
 const AGENT_DIR = path.join('components', 'cbct', 'agent');
@@ -46,7 +46,7 @@ describe('the provider key is held in memory only', () => {
 
   it('found the agent sources', () => {
     expect(files.length).toBeGreaterThanOrEqual(8);
-    expect(files).toContain(path.join(AGENT_DIR, 'keyStore.ts'));
+    expect(files).toContain(path.join(AGENT_DIR, 'frame', 'keyStore.ts'));
   });
 
   it('no file under components/cbct/agent/ touches a storage API', () => {
@@ -55,7 +55,7 @@ describe('the provider key is held in memory only', () => {
       // a type-only import of the settings module carries no code
       const code = stripComments(readFileSync(path.join(root, f), 'utf8'))
         .split('\n')
-        .filter((l) => !/^export type \{[^}]*\} from '@\/lib\/shared\/agentSettings';$/.test(l.trim()))
+        .filter((l) => !/^(?:export|import) type \{[^}]*\} from '@\/lib\/shared\/agentSettings';$/.test(l.trim()))
         .join('\n');
       for (const re of STORAGE_APIS) {
         if (re.source === 'agentSettings' && f.endsWith('AgentPanel.tsx')) continue;

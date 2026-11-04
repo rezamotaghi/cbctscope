@@ -1,28 +1,21 @@
 'use client';
-// The in-page navigation agent (docs/web-build.md, section 10, item 3; manual section 9.6).
+// The in-page navigation agent (docs/web-build.md, sections 2 and 12; manual section 9.6).
 // AgentToggle sits in the header; AgentPanel is a strip docked under the viewer that pushes
-// the viewer up while open, so it never covers a control. Closed and off on every load. The clinician picks a provider, gives a key (memory only), and
-// switches the agent on through the opt-in dialogue; from then on the panel says so at all
-// times and offers Switch off. Requests run through loop.ts; nothing is sent to any provider
-// before the clinician confirms. Full contrast, nothing hidden or dimmed (hard rule 4).
+// the viewer up while open, so it never covers a control. Closed and off on every load. The
+// clinician picks a provider, gives a key, and switches the agent on through the opt-in
+// dialogue; the key is posted once to the sandboxed agent frame (agentFrame.ts), which alone
+// holds it and alone talks to the provider. The session lives in agentUi.ts, so closing the
+// panel unmounts it while a request in flight keeps its Stop in the header. Model prose is
+// shown only in the labelled block, after the reading-term guard. Nothing is sent to any
+// provider before the clinician confirms. Full contrast, nothing hidden or dimmed (hard rule 4).
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import type { PageTransport } from '../agentTransport';
 import { loadAgentSettings, saveAgentSettings } from '@/lib/shared/agentSettings';
+import { MODEL_TEXT_HEADING } from '@/lib/shared/readingTerms.mjs';
 import { agentUi } from './agentUi';
-import { forgetKey, getKey, setKey } from './keyStore';
-import { MAX_TOOL_CALLS, runTurn, type AgentEvent } from './loop';
-import { PROVIDERS, provider as providerOf } from './providers';
-import { isLoopbackEndpoint, LOCAL_PRESETS } from './providers/hosts';
-import type { ProviderId, Turn } from './providers/types';
+import { isLoopbackEndpoint, LOCAL_PRESETS, PROVIDERS, provider as providerOf, type ProviderId } from './catalog';
 
-type Phase = 'off' | 'setup' | 'confirm' | 'on';
 
-interface LogLine {
-  who: 'you' | 'agent' | 'tool' | 'error' | 'note';
-  text: string;
-}
-
-const LOCAL_NOTE = 'Your browser decides whether a page may reach a local server; the desktop app always can.';
+const LOCAL_NOTE = 'The local server must accept requests from the agent frame (CORS); llama-server does by default.';
 
 /** the docked strip under the viewer: fixed height, never over a control (hard rule 4) */
 export const AGENT_STRIP_HEIGHT = 220;
@@ -125,21 +118,23 @@ export function OptInDialog({
   );
 }
 
-const fmtArgs = (a: Record<string, unknown>) => (Object.keys(a).length ? ` ${JSON.stringify(a)}` : '');
 
-export default function AgentPanel({ transport }: { transport: PageTransport }) {
-  const [phase, setPhase] = useState<Phase>('off');
+export default function AgentPanel() {
+  const ui = useSyncExternalStore(agentUi.subscribe, agentUi.get, agentUi.server);
+  if (!ui.open) return null; // closed = unmounted; the session and its header controls live on
+  return <AgentPanelBody />;
+}
+
+function AgentPanelBody() {
+  const ui = useSyncExternalStore(agentUi.subscribe, agentUi.get, agentUi.server);
   const [providerId, setProviderId] = useState<ProviderId>('anthropic');
   const [endpoint, setEndpoint] = useState(LOCAL_PRESETS[0].endpoint);
   const [model, setModel] = useState(PROVIDERS[0].defaultModel);
   const [keyInput, setKeyInput] = useState('');
   const [setupError, setSetupError] = useState('');
   const [request, setRequest] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [log, setLog] = useState<LogLine[]>([]);
-  const turns = useRef<Turn[]>([]);
-  const abort = useRef<AbortController | null>(null);
   const logEnd = useRef<HTMLDivElement | null>(null);
+  const modelEnd = useRef<HTMLDivElement | null>(null);
 
   // remembered choices (never the key), read after hydration
   useEffect(() => {
@@ -151,21 +146,14 @@ export default function AgentPanel({ transport }: { transport: PageTransport }) 
 
   useEffect(() => {
     logEnd.current?.scrollIntoView({ block: 'nearest' });
-  }, [log]);
-
-  // a closed or reloaded tab forgets the key anyway; an unmounted panel stops its request
-  useEffect(
-    () => () => {
-      abort.current?.abort();
-      forgetKey();
-    },
-    [],
-  );
+  }, [ui.log]);
+  useEffect(() => {
+    modelEnd.current?.scrollIntoView({ block: 'nearest' });
+  }, [ui.modelText]);
 
   const info = providerOf(providerId);
   const local = providerId === 'local';
   const providerName = local ? `${info.label} (${endpoint})` : info.label;
-  const add = (line: LogLine) => setLog((l) => [...l, line]);
 
   const chooseProvider = (id: ProviderId) => {
     setProviderId(id);
@@ -181,107 +169,37 @@ export default function AgentPanel({ transport }: { transport: PageTransport }) 
       return setSetupError('The local endpoint must be http://127.0.0.1:<port> or http://localhost:<port>.');
     }
     setSetupError('');
-    setPhase('confirm');
+    agentUi.setPhase('confirm');
   };
 
   const switchOn = () => {
-    setKey(keyInput);
-    setKeyInput('');
+    const key = keyInput.trim();
+    setKeyInput(''); // the panel forgets the key; the frame gets it once
     saveAgentSettings({ provider: providerId, endpoint, model: model.trim() });
-    turns.current = [];
-    setLog([{ who: 'note', text: `Ask for a view, for example: "show the left TMJ in sagittal, bone window". At most ${MAX_TOOL_CALLS} steps per request.` }]);
-    setPhase('on');
+    void agentUi.switchOn({ provider: providerId, model: model.trim(), endpoint, key });
   };
 
   const cancelOptIn = () => {
     setKeyInput('');
-    setPhase('setup');
+    agentUi.setPhase('setup');
   };
 
-  const switchOff = () => {
-    abort.current?.abort();
-    abort.current = null;
-    forgetKey();
-    turns.current = [];
-    setBusy(false);
-    setLog([]);
-    setRequest('');
-    setPhase('off');
-  };
-
-  const stop = () => {
-    abort.current?.abort();
-  };
-
-  const send = async () => {
+  const send = () => {
     const text = request.trim();
-    if (!text || busy || phase !== 'on') return;
+    if (!text || ui.busy || ui.phase !== 'on') return;
     setRequest('');
-    add({ who: 'you', text });
-    const ctrl = new AbortController();
-    abort.current = ctrl;
-    setBusy(true);
-    const conversation = turns.current;
-    const mark = conversation.length;
-    const onEvent = (e: AgentEvent) => {
-      if (ctrl.signal.aborted) return;
-      if (e.kind === 'text') add({ who: 'agent', text: e.text });
-      else if (e.kind === 'call') add({ who: 'tool', text: `${e.name}${fmtArgs(e.args)}` });
-      else if (e.isError) add({ who: 'error', text: `${e.name}: ${e.text}` });
-      else if (e.image) add({ who: 'note', text: `snapshot sent to ${providerName}` });
-    };
-    try {
-      await runTurn({
-        adapter: info.adapter,
-        transport,
-        model: model.trim(),
-        key: getKey(),
-        endpoint,
-        turns: conversation,
-        request: text,
-        signal: ctrl.signal,
-        onEvent,
-      });
-    } catch (err) {
-      // a failed or stopped request leaves no half turn behind for the next one
-      conversation.length = mark;
-      if (ctrl.signal.aborted) {
-        if (abort.current === ctrl) add({ who: 'note', text: 'Stopped.' });
-      } else {
-        add({ who: 'error', text: err instanceof Error ? err.message : String(err) });
-      }
-    } finally {
-      if (abort.current === ctrl) {
-        abort.current = null;
-        setBusy(false);
-      }
-    }
+    void agentUi.send(text);
   };
 
-  const ui = useSyncExternalStore(agentUi.subscribe, agentUi.get, agentUi.server);
   const closeButton = (
-    <button style={button(false)} onClick={() => agentUi.set({ open: false })}>
+    <button style={button(false)} onClick={() => agentUi.setOpen(false)}>
       Close panel
     </button>
   );
 
-  // the header toggle shows the status and offers Switch off too
-  const switchOffRef = useRef(switchOff);
-  switchOffRef.current = switchOff;
-  useEffect(() => {
-    agentUi.set({ status: phase === 'on' ? `Agent: on, ${providerName}` : null });
-  }, [phase, providerName]);
-  useEffect(() => {
-    agentUi.onSwitchOff(() => switchOffRef.current());
-    return () => {
-      agentUi.onSwitchOff(null);
-      agentUi.set({ status: null, open: false });
-    };
-  }, []);
-
-  if (phase === 'off') {
+  if (ui.phase === 'off') {
     return (
-      <div style={{ ...strip, display: ui.open ? 'block' : 'none' }} id="agent-panel" data-testid="agent-panel">
+      <div style={strip} id="agent-panel" data-testid="agent-panel">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <strong>Agent: off</strong>
           <span style={{ flex: 1 }} />
@@ -291,18 +209,18 @@ export default function AgentPanel({ transport }: { transport: PageTransport }) 
           A navigation agent on your own model account: you ask for a view in words, it moves the camera, you read.
           Nothing is sent anywhere until you switch it on.
         </p>
-        <button style={button(true)} onClick={() => setPhase('setup')}>
+        <button style={button(true)} onClick={() => agentUi.setPhase('setup')}>
           Set up the navigation agent
         </button>
       </div>
     );
   }
 
-  if (phase === 'setup' || phase === 'confirm') {
+  if (ui.phase === 'setup' || ui.phase === 'confirm' || ui.phase === 'starting') {
     return (
-      <div style={{ ...strip, display: ui.open ? 'block' : 'none' }} id="agent-panel" data-testid="agent-panel">
+      <div style={strip} id="agent-panel" data-testid="agent-panel">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-          <strong>Agent: off</strong>
+          <strong>{ui.phase === 'starting' ? 'Agent: starting' : 'Agent: off'}</strong>
           <span style={{ flex: 1 }}>A navigation agent on your own model account. It moves the camera; you read.</span>
           {closeButton}
         </div>
@@ -378,11 +296,13 @@ export default function AgentPanel({ transport }: { transport: PageTransport }) 
           />
         </label>
         </div>
-        <p style={{ margin: '0 0 8px' }}>The key stays in this tab&apos;s memory only and is never stored.</p>
+        <p style={{ margin: '0 0 8px' }}>
+          The key goes once to the agent&apos;s sealed frame, stays in its memory only and is never stored.
+        </p>
         {local && <p style={{ margin: '0 0 8px' }}>{LOCAL_NOTE}</p>}
-        {setupError && (
+        {(setupError || ui.log.some((l) => l.who === 'error')) && (
           <p role="alert" style={{ margin: '0 0 8px', color: 'var(--warn)' }}>
-            {setupError}
+            {setupError || ui.log.filter((l) => l.who === 'error').at(-1)?.text}
           </p>
         )}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
@@ -391,16 +311,16 @@ export default function AgentPanel({ transport }: { transport: PageTransport }) 
             onClick={() => {
               setKeyInput('');
               setSetupError('');
-              setPhase('off');
+              agentUi.setPhase('off');
             }}
           >
             Close
           </button>
-          <button style={button(true)} onClick={askToSwitchOn}>
+          <button style={button(true)} onClick={askToSwitchOn} disabled={ui.phase === 'starting'}>
             Switch on…
           </button>
         </div>
-        {phase === 'confirm' && (
+        {ui.phase === 'confirm' && (
           <OptInDialog providerName={providerName} local={local} onSwitchOn={switchOn} onCancel={cancelOptIn} />
         )}
       </div>
@@ -408,11 +328,11 @@ export default function AgentPanel({ transport }: { transport: PageTransport }) 
   }
 
   return (
-    <div style={{ ...strip, display: ui.open ? 'flex' : 'none', flexDirection: 'column' }} id="agent-panel" data-testid="agent-panel">
+    <div style={{ ...strip, display: 'flex', flexDirection: 'column' }} id="agent-panel" data-testid="agent-panel">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-        <strong>Agent: on, {providerName}</strong>
+        <strong>Agent: on, {ui.providerName}</strong>
         <span style={{ flex: 1 }}>Nothing the agent says is a finding. The read is yours.</span>
-        <button style={button(false)} onClick={switchOff}>
+        <button style={button(false)} onClick={() => agentUi.switchOff()}>
           Switch off
         </button>
         {closeButton}
@@ -431,16 +351,38 @@ export default function AgentPanel({ transport }: { transport: PageTransport }) 
           background: 'var(--panel-2)',
         }}
       >
-        {log.map((l, i) => (
+        {ui.log.map((l, i) => (
           <div key={i} style={{ color: l.who === 'error' ? 'var(--warn)' : 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-            <b>{l.who === 'you' ? 'You' : l.who === 'agent' ? 'Agent' : l.who === 'tool' ? 'Step' : l.who === 'error' ? 'Error' : 'Note'}:</b>{' '}
-            {l.text}
+            <b>{l.who === 'you' ? 'You' : l.who === 'tool' ? 'Step' : l.who === 'error' ? 'Error' : 'Note'}:</b> {l.text}
           </div>
         ))}
-        {busy && <div>Working…</div>}
+        {ui.busy && <div>Working…</div>}
         <div ref={logEnd} />
       </div>
-      <div style={{ width: 340, maxWidth: '45%', display: 'flex', flexDirection: 'column' }}>
+      <section
+        aria-label={MODEL_TEXT_HEADING}
+        data-testid="agent-model-text"
+        style={{
+          flex: 1,
+          minWidth: 0,
+          overflowY: 'auto',
+          border: '2px solid var(--text)',
+          borderRadius: 6,
+          padding: '6px 8px',
+          background: 'var(--panel)',
+          color: 'var(--text)',
+        }}
+      >
+        <h3 style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 700 }}>{MODEL_TEXT_HEADING}</h3>
+        {ui.modelText.length === 0 && <div>No model text yet.</div>}
+        {ui.modelText.map((m, i) => (
+          <div key={i} data-replaced={m.replaced ? 'true' : undefined} style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontStyle: m.replaced ? 'italic' : 'normal' }}>
+            {m.text}
+          </div>
+        ))}
+        <div ref={modelEnd} />
+      </section>
+      <div style={{ width: 300, maxWidth: '35%', display: 'flex', flexDirection: 'column' }}>
       <textarea
         style={{ ...field, flex: 1, minHeight: 48, resize: 'none' }}
         aria-label="Request to the agent"
@@ -450,15 +392,15 @@ export default function AgentPanel({ transport }: { transport: PageTransport }) 
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            void send();
+            send();
           }
         }}
       />
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 6 }}>
-        <button style={button(false)} onClick={stop}>
+        <button style={button(false)} onClick={() => agentUi.stop()}>
           Stop
         </button>
-        <button style={button(true)} onClick={() => void send()}>
+        <button style={button(true)} onClick={send}>
           Send
         </button>
       </div>
@@ -468,7 +410,11 @@ export default function AgentPanel({ transport }: { transport: PageTransport }) 
   );
 }
 
-/** The header's Agent button: opens and closes the docked panel; shows the status while on. */
+/**
+ * The header's agent controls: the Agent button opens and closes the docked panel and shows the
+ * status while on; Stop is here whenever a request runs (open panel or not), and Switch off
+ * whenever the agent is on.
+ */
 export function AgentToggle() {
   const ui = useSyncExternalStore(agentUi.subscribe, agentUi.get, agentUi.server);
   return (
@@ -483,6 +429,15 @@ export function AgentToggle() {
       >
         {ui.status ?? 'Agent: off'}
       </button>
+      {ui.busy && (
+        <button
+          style={{ ...button(false), fontSize: 11, padding: '2px 8px' }}
+          data-testid="agent-header-stop"
+          onClick={() => agentUi.stop()}
+        >
+          Stop
+        </button>
+      )}
       {ui.status && (
         <button style={{ ...button(false), fontSize: 11, padding: '2px 8px' }} onClick={() => agentUi.switchOff()}>
           Switch off

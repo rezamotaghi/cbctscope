@@ -69,13 +69,14 @@ to your browser and has no server that could receive anything back.
   Clearing the site's data in the browser settings removes them. Besides
   marks, the browser remembers that you acknowledged the research-use
   dialogue and, if you set up the in-page agent, its provider, endpoint and
-  model id. Never the API key: that stays in the tab's memory only.
+  model id. Never the API key: that stays in the agent frame's memory only.
 - **Nothing is uploaded.** The page carries a Content Security Policy whose
-  network rule (`connect-src`) forbids it to contact any host but its own,
-  the three model providers' API hosts, and a model server on this computer's
-  loopback. The page contacts none of those until you switch the in-page
-  agent on (section 9.6), and then only the provider you chose, with the
-  snapshots the agent asks for. The project's tests fail on any request to
+  network rule (`connect-src`) forbids it to contact any host but its own.
+  The in-page agent (section 9.6) runs in a sealed frame with a policy of its
+  own that allows the three model providers' API hosts and a model server on
+  this computer's loopback, and nothing else. The frame exists only after you
+  switch the agent on, and then contacts only the provider you chose, with
+  the snapshots the agent asks for. The project's tests fail on any request to
   another host before that and on any absolute address in the browser code
   outside one reviewed list. A marks file or an export leaves the browser
   only as a download you trigger.

@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { WEB_CSP, WEB_CSP_DIRECTIVES } from '../components/webCsp.mjs';
+import { AGENT_FRAME_CSP_DIRECTIVES, agentFrameCsp, WEB_CSP, WEB_CSP_DIRECTIVES } from '../components/webCsp.mjs';
 import {
   DEFAULT_SIZE_NOTICE_MIB,
   formatBytes,
@@ -26,30 +26,13 @@ describe('the web CSP', () => {
     }),
   );
 
-  // the opt-in in-page agent's providers and a loopback model server, and nothing else
-  const CONNECT = [
-    "'self'",
-    'https://api.anthropic.com',
-    'https://api.openai.com',
-    'https://generativelanguage.googleapis.com',
-    'http://127.0.0.1:*',
-    'http://localhost:*',
-  ];
-
-  it('connect-src is exactly the origin, the three provider APIs and loopback', () => {
-    expect(directives.get('connect-src')).toBe(CONNECT.join(' '));
-    expect(WEB_CSP_DIRECTIVES['connect-src']).toEqual(CONNECT);
+  it("connect-src is exactly 'self': the viewer's page contacts no other host", () => {
+    expect(directives.get('connect-src')).toBe("'self'");
+    expect(WEB_CSP_DIRECTIVES['connect-src']).toEqual(["'self'"]);
   });
 
-  it('connect-src names every provider base of the agent, and the agent names no other host', () => {
-    const hosts = readFileSync(path.join(process.cwd(), 'components/cbct/agent/providers/hosts.ts'), 'utf8');
-    const literals = [...hosts.matchAll(/'(https?:\/\/[^']+)'/g)].map((m) => m[1]);
-    expect(literals.length).toBeGreaterThanOrEqual(6);
-    for (const url of literals) {
-      const u = new URL(url);
-      const allowed = u.protocol === 'https:' ? CONNECT.includes(u.origin) : CONNECT.includes(`http://${u.hostname}:*`);
-      expect(allowed, `${url} is not covered by connect-src`).toBe(true);
-    }
+  it("frame-src is 'self', for the agent frame", () => {
+    expect(directives.get('frame-src')).toBe("'self'");
   });
 
   it('carries the contract directives', () => {
@@ -63,6 +46,54 @@ describe('the web CSP', () => {
   it("never allows inline or eval'd script", () => {
     expect(directives.get('script-src')).not.toContain("'unsafe-inline'");
     expect(directives.get('script-src')).not.toContain("'unsafe-eval'");
+  });
+});
+
+describe('the agent frame CSP', () => {
+  // the opt-in in-page agent's providers and a loopback model server, and nothing else
+  const CONNECT = [
+    'https://api.anthropic.com',
+    'https://api.openai.com',
+    'https://generativelanguage.googleapis.com',
+    'http://127.0.0.1:*',
+    'http://localhost:*',
+  ];
+  const frame = new Map(
+    agentFrameCsp(["'sha256-abc='"]).split(';').map((d) => {
+      const [k, ...v] = d.trim().split(/\s+/);
+      return [k, v.join(' ')] as const;
+    }),
+  );
+
+  it('connect-src is exactly the three provider APIs and loopback', () => {
+    expect(frame.get('connect-src')).toBe(CONNECT.join(' '));
+    expect(AGENT_FRAME_CSP_DIRECTIVES['connect-src']).toEqual(CONNECT);
+  });
+
+  it('allows nothing else: default none, the one script by hash, no frames, forms, plugins or base', () => {
+    expect(frame.get('default-src')).toBe("'none'");
+    expect(frame.get('script-src')).toBe("'sha256-abc='");
+    expect(frame.get('object-src')).toBe("'none'");
+    expect(frame.get('base-uri')).toBe("'none'");
+    expect(frame.get('form-action')).toBe("'none'");
+    expect(frame.get('frame-src')).toBe("'none'");
+    expect([...frame.keys()].sort()).toEqual(['base-uri', 'connect-src', 'default-src', 'form-action', 'frame-src', 'object-src', 'script-src']);
+  });
+
+  it('connect-src covers every provider base of the frame', () => {
+    const hosts = readFileSync(path.join(process.cwd(), 'components/cbct/agent/frame/providers/hosts.ts'), 'utf8');
+    const literals = [...hosts.matchAll(/'(https?:\/\/[^']+)'/g)].map((m) => m[1]);
+    expect(literals).toHaveLength(3);
+    for (const url of literals) expect(CONNECT, `${url} is not covered by connect-src`).toContain(new URL(url).origin);
+  });
+
+  it('the built page carries that policy, its script hash, and the provider hosts only in its own code', async () => {
+    const { buildAgentFrameHtml } = await import('../scripts/agent-frame.mjs');
+    const { html, hash } = await buildAgentFrameHtml();
+    expect(html).toContain(hash.slice(1, -1)); // the quotes are entity-encoded in the attribute
+    expect(html).toContain('connect-src https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com http://127.0.0.1:* http://localhost:*');
+    expect(html.match(/<script/g)).toHaveLength(1);
+    expect(html).not.toMatch(/<script[^>]*\bsrc=/);
   });
 });
 

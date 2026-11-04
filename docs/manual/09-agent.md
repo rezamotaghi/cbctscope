@@ -205,24 +205,40 @@ has changed between releases (recent builds use 9931), and the MCP host
 example in docs/mcp.md runs it on 8089; any of these works if the field says so. You may type any model id the
 provider offers. The model must support tool calls and images.
 
-**The key.** Your API key is held in the page's memory only. It is never
-written to the browser's storage, a cookie, or a file, and it goes only to the
-provider you chose, with each request. The browser remembers the provider, the
-endpoint and the model id between visits, never the key.
+**The key.** Your API key goes once to the agent's sealed frame: a small page
+inside the viewer that holds the provider connection and nothing else. The
+frame cannot read the viewer's storage or the page, and the viewer itself
+never contacts a provider. The key stays in the frame's memory only. It is
+never written to the browser's storage, a cookie, or a file, and it goes only
+to the provider you chose, with each request. **Switch off** removes the frame
+and the key with it. The browser remembers the provider, the endpoint and the
+model id between visits, never the key.
+
+**What the model says.** The panel shows the model's own words only in a
+block headed **Model text. Not a reading, not a finding.**, apart from the
+steps and errors. If those words contain report vocabulary (radiolucency,
+lesion, fracture, cyst, "consistent with", findings, and similar terms), the
+block shows instead: "The model offered an interpretation. CBCTScope does not
+display readings; ask for a view, not an opinion." This guard is a word
+filter, not a judge: it catches the obvious terms and not a paraphrase. The
+fence remains yours: the viewer moves the camera, you read.
 
 **The fence.** The agent's instructions state it: navigation and
 visualisation only; never interpret, measure for a diagnosis, or state
 findings; if asked, it answers that reading the images is yours. A request
 stops after at most 12 tool calls, and **Stop** cancels the request in flight.
+While a request runs, **Stop** is also in the header, beside the agent status,
+so closing the panel never hides it. A tool call whose arguments arrive
+malformed is answered to the model as an error and runs nothing.
 Errors appear in the panel in plain words. `open_scan` and `pick_scan` answer
 that you open the scan yourself, with **open** or a drop on the viewer.
 
-**The local endpoint.** Your browser decides whether a page may reach a local
-server; the desktop app always can. From the published site, the browser may
-ask for permission to reach devices on your network, and the server must
-allow the site in its cross-origin (CORS) settings: llama-server allows any
-origin by default; Ollama allows only its own addresses unless you add the
-site to `OLLAMA_ORIGINS`; for LM Studio, look for CORS in its server settings.
+**The local endpoint.** The agent's sealed frame calls the local server, and
+its requests carry no site address (the origin `null`), on the published site
+and in the desktop app alike. The server must accept such cross-origin (CORS)
+requests: llama-server allows any origin by default; Ollama and LM Studio need
+cross-origin requests allowed in their settings. From the published site, the
+browser may also ask for permission to reach devices on your network.
 
 > **Caution.** A snapshot is pixels from your screen. Under a cloud provider
 > it leaves this computer, under that provider's data terms; under a local

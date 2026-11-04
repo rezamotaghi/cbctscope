@@ -11,7 +11,7 @@
 import { GEMINI_BASE } from './hosts';
 import { postJson, ProviderError, type Adapter, type ToolSpec, type Turn } from './types';
 
-export const GEMINI_DEFAULT_MODEL = 'gemini-3.8-flash';
+export { GEMINI_DEFAULT_MODEL } from '../../catalog';
 
 type Part = Record<string, unknown>;
 

@@ -58,11 +58,15 @@ export const localAdapter: Adapter = async (req) => {
     id?: string;
     function?: { name?: string; arguments?: unknown };
   }[];
-  const calls = toolCalls.map((c, i) => ({
-    id: c.id ? String(c.id) : `call-${i + 1}`,
-    name: String(c.function?.name ?? ''),
-    args: parseArgs(c.function?.arguments),
-  }));
+  const calls = toolCalls.map((c, i) => {
+    const parsed = parseArgs(c.function?.arguments);
+    return {
+      id: c.id ? String(c.id) : `call-${i + 1}`,
+      name: String(c.function?.name ?? ''),
+      args: parsed.args,
+      ...(parsed.error ? { argsError: parsed.error } : {}),
+    };
+  });
   // send back exactly what was answered, minus fields a strict server would refuse on input
   const raw: Msg = { role: 'assistant', content: msg.content ?? '' };
   if (toolCalls.length) {

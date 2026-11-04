@@ -10,7 +10,7 @@
 import { ANTHROPIC_BASE } from './hosts';
 import { postJson, ProviderError, type Adapter, type Turn } from './types';
 
-export const ANTHROPIC_DEFAULT_MODEL = 'claude-opus-5-5';
+export { ANTHROPIC_DEFAULT_MODEL } from '../../catalog';
 const API_VERSION = '2026-10-21';
 
 type Block = Record<string, unknown>;

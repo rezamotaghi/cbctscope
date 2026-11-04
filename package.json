@@ -51,6 +51,7 @@
     "eslint": "8.57.1",
     "eslint-config-next": "15.5.22",
     "marked": "18.1.1",
+    "rolldown": "1.2.15",
     "typescript": "5.9.3",
     "vitest": "^5.0.5"
   }

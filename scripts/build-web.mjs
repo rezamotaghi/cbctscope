@@ -13,9 +13,12 @@
 // 3. Writes the CSP meta tag (components/webCsp.mjs) into every exported HTML page, right
 //    after the charset so it precedes every script, with one 'sha256-...' source per inline
 //    script of that page. No 'unsafe-inline' for scripts.
+// 4. Writes agent-frame.html (scripts/agent-frame.mjs), the sandboxed page the in-page agent's
+//    provider calls run in, with its own policy.
 import { spawn } from 'node:child_process';
 import { webCsp } from '../components/webCsp.mjs';
 import { writeManual } from './manual-html.mjs';
+import { AGENT_FRAME_FILE, writeAgentFrame } from './agent-frame.mjs';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -84,7 +87,9 @@ writeManual();
 const code = await run();
 if (code !== 0) process.exit(code);
 
-const manifest = path.join(root, '.next', 'server', 'middleware-manifest.json');
+// the dist directory this build used: next.config.mjs maps --out <dir> to distDir, else .next
+const distDir = outDir === 'out' ? '.next' : outDir;
+const manifest = path.join(root, distDir, 'server', 'middleware-manifest.json');
 if (existsSync(manifest)) {
   const m = JSON.parse(readFileSync(manifest, 'utf8'));
   if (Object.keys(m.middleware ?? {}).length) {
@@ -97,11 +102,14 @@ const outPath = path.join(root, outDir);
 let pages = 0;
 let total = 0;
 for (const file of htmlFiles(outPath)) {
+  if (path.relative(outPath, file) === AGENT_FRAME_FILE) continue; // written below, with its own policy
   const { html, count } = addCsp(readFileSync(file, 'utf8'));
   writeFileSync(file, html);
   pages += 1;
   total += count;
 }
+const frameBytes = await writeAgentFrame(outPath);
+console.log(`build:web: ${outDir}/${AGENT_FRAME_FILE} written (${frameBytes} bytes)`);
 if (!existsSync(path.join(outPath, '.nojekyll'))) {
   console.error('build:web: out/.nojekyll is missing (public/.nojekyll lets GitHub Pages serve _next/)');
   process.exit(1);

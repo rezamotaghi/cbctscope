@@ -1,12 +1,12 @@
 // The Content Security Policy of the web build (docs/web-build.md, section 2). GitHub Pages
 // sends no custom headers, so the policy rides in a meta tag that scripts/build-web.mjs writes
 // into every exported page, first in <head> after the charset, so it governs every script.
-// connect-src is the network half of "nothing leaves the tab": the page may fetch its own
-// origin and, for the opt-in in-page agent only (docs/web-build.md, section 10, item 3), the
-// three model providers' API hosts and a model server on this machine's loopback. Nothing is
-// sent there until the clinician switches the agent on (tests/e2e/web.spec.ts fails on any
-// off-origin request). The list matches components/cbct/agent/providers/hosts.ts;
-// tests/webShell.test.ts pins it to exactly these sources.
+// connect-src is the network half of "nothing leaves the tab": the viewer's page may fetch its
+// own origin and nothing else. The opt-in in-page agent's provider calls run in a separate
+// static page, agent-frame.html (scripts/agent-frame.mjs), loaded in an
+// <iframe sandbox="allow-scripts">: its own policy (AGENT_FRAME_CSP_DIRECTIVES below) is the
+// only one that names the three provider API hosts and loopback, and frame-src 'self' lets the
+// viewer load it. tests/webShell.test.ts pins both policies to exactly these sources.
 //
 // Why the build script and not app/layout.tsx: Next's exported pages carry inline bootstrap
 // scripts whose content embeds the rendered tree, so their hashes cannot appear in that tree;
@@ -22,14 +22,8 @@
 /** @type {Record<string, string[]>} */
 export const WEB_CSP_DIRECTIVES = {
   'default-src': ["'self'"],
-  'connect-src': [
-    "'self'",
-    'https://api.anthropic.com',
-    'https://api.openai.com',
-    'https://generativelanguage.googleapis.com',
-    'http://127.0.0.1:*',
-    'http://localhost:*',
-  ],
+  'connect-src': ["'self'"],
+  'frame-src': ["'self'"],
   'img-src': ["'self'", 'blob:', 'data:'],
   'worker-src': ["'self'", 'blob:'],
   'style-src': ["'self'", "'unsafe-inline'"],
@@ -52,3 +46,36 @@ export function webCsp(scriptSources = []) {
 
 /** the policy without hashes */
 export const WEB_CSP = webCsp();
+
+/**
+ * The agent frame's policy (agent-frame.html): nothing by default; its one inline script by
+ * hash; the three provider API hosts (components/cbct/agent/frame/providers/hosts.ts) and a
+ * model server on loopback as the only connections; no frames, forms, plugins or base URL.
+ * @type {Record<string, string[]>}
+ */
+export const AGENT_FRAME_CSP_DIRECTIVES = {
+  'default-src': ["'none'"],
+  'connect-src': [
+    'https://api.anthropic.com',
+    'https://api.openai.com',
+    'https://generativelanguage.googleapis.com',
+    'http://127.0.0.1:*',
+    'http://localhost:*',
+  ],
+  'script-src': [],
+  'object-src': ["'none'"],
+  'base-uri': ["'none'"],
+  'form-action': ["'none'"],
+  'frame-src': ["'none'"],
+};
+
+/**
+ * The agent frame's policy string with its inline script's hash.
+ * @param {string[]} scriptSources
+ * @returns {string}
+ */
+export function agentFrameCsp(scriptSources) {
+  return Object.entries(AGENT_FRAME_CSP_DIRECTIVES)
+    .map(([k, v]) => `${k} ${(k === 'script-src' ? [...v, ...scriptSources] : v).join(' ')}`)
+    .join('; ');
+}

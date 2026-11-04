@@ -32,11 +32,20 @@ test('no request leaves the served origin and the CSP blocks nothing', async ({ 
   // let workers, codecs and late chunks settle
   await page.waitForTimeout(2000);
   const csp = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
-  // the origin plus the opt-in agent's providers and loopback (components/webCsp.mjs); nothing
-  // is requested from them unless the agent is switched on (this suite's guard proves it)
-  expect(csp).toMatch(
-    /(^|; )connect-src 'self' https:\/\/api\.anthropic\.com https:\/\/api\.openai\.com https:\/\/generativelanguage\.googleapis\.com http:\/\/127\.0\.0\.1:\* http:\/\/localhost:\*(;|$)/,
+  // the viewer's page reaches its own origin only; the agent's providers live in the sandboxed
+  // agent frame and its own policy (components/webCsp.mjs)
+  expect(csp).toMatch(/(^|; )connect-src 'self'(;|$)/);
+  expect(csp).toMatch(/(^|; )frame-src 'self'(;|$)/);
+});
+
+test('the agent frame page carries its own policy: the provider hosts and loopback, nothing else', async ({ request }) => {
+  const res = await request.get('agent-frame.html');
+  expect(res.ok()).toBe(true);
+  const html = await res.text();
+  expect(html).toContain(
+    'connect-src https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com http://127.0.0.1:* http://localhost:*',
   );
+  expect(html).toContain('default-src &#x27;none&#x27;');
 });
 
 test('the MCP eviction banner is absent from the web build', async ({ page }) => {

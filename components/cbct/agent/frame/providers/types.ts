@@ -4,7 +4,7 @@
 // provider's own reply (`raw`) so it can be sent back unchanged on the next request (the
 // providers require their reasoning items, thought signatures or thinking blocks back).
 
-export type { ProviderId } from '@/lib/shared/agentSettings';
+export type { ProviderId } from '../../catalog';
 
 export interface ToolSpec {
   name: string;
@@ -17,6 +17,8 @@ export interface ToolCall {
   id: string;
   name: string;
   args: Record<string, unknown>;
+  /** the model's arguments were not a JSON object: the loop answers this error, runs nothing */
+  argsError?: string;
 }
 
 export interface ToolImage {
@@ -105,14 +107,23 @@ function errorText(data: Record<string, unknown> | null): string {
   return '';
 }
 
-/** parse a JSON arguments string from a model; a malformed one becomes an empty object */
-export function parseArgs(raw: unknown): Record<string, unknown> {
-  if (raw && typeof raw === 'object') return raw as Record<string, unknown>;
-  if (typeof raw !== 'string' || !raw.trim()) return {};
+/**
+ * Parse a model's JSON arguments. An object passes; an absent or empty string is no arguments.
+ * Malformed or truncated JSON, or JSON that is not an object, is an error the model is told
+ * about (the loop answers it as the tool's result), never an empty object that would run the
+ * verb with defaults.
+ */
+export function parseArgs(raw: unknown): { args: Record<string, unknown>; error?: string } {
+  if (raw === undefined || raw === null) return { args: {} };
+  if (typeof raw === 'object' && !Array.isArray(raw)) return { args: raw as Record<string, unknown> };
+  if (typeof raw !== 'string') return { args: {}, error: 'the arguments are not a JSON object' };
+  if (!raw.trim()) return { args: {} };
+  let v: unknown;
   try {
-    const v = JSON.parse(raw);
-    return v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
+    v = JSON.parse(raw);
   } catch {
-    return {};
+    return { args: {}, error: 'the arguments are malformed or truncated JSON; send the call again with a complete JSON object' };
   }
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return { args: {}, error: 'the arguments are not a JSON object' };
+  return { args: v as Record<string, unknown> };
 }

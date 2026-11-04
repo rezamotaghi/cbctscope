@@ -3,13 +3,14 @@
 // names in its header comment.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createPageTransport, type AgentCommand, type PageTransport } from '../components/cbct/agentTransport';
-import { MAX_TOOL_CALLS, RunawayError, runTurn, SYSTEM_PROMPT } from '../components/cbct/agent/loop';
+import { MAX_TOOL_CALLS, RunawayError, runTurn } from '../components/cbct/agent/frame/loop';
+import { SYSTEM_PROMPT } from '../components/cbct/agent/prompt';
 import { executeTool } from '../components/cbct/agent/tools';
-import { anthropicAdapter } from '../components/cbct/agent/providers/anthropic';
-import { openaiAdapter } from '../components/cbct/agent/providers/openai';
-import { geminiAdapter, geminiDeclaration, geminiSchema } from '../components/cbct/agent/providers/gemini';
-import { localAdapter } from '../components/cbct/agent/providers/local';
-import type { Adapter, ProviderRequest, Turn } from '../components/cbct/agent/providers/types';
+import { anthropicAdapter } from '../components/cbct/agent/frame/providers/anthropic';
+import { openaiAdapter } from '../components/cbct/agent/frame/providers/openai';
+import { geminiAdapter, geminiDeclaration, geminiSchema } from '../components/cbct/agent/frame/providers/gemini';
+import { localAdapter } from '../components/cbct/agent/frame/providers/local';
+import { parseArgs, type Adapter, type ProviderRequest, type Turn } from '../components/cbct/agent/frame/providers/types';
 import { PAGE_TOOLS } from '../components/cbct/agent/tools';
 
 /** a page transport whose viewer answers every verb with a small state (and a PNG for snapshot) */
@@ -78,7 +79,9 @@ describe('tool routing', () => {
 });
 
 describe('the loop', () => {
-  const base = { model: 'm', key: 'k', endpoint: '', onEvent: () => {} };
+  const base = { model: 'm', key: 'k', endpoint: '', onEvent: () => {}, system: SYSTEM_PROMPT, tools: PAGE_TOOLS };
+  const execVia = (transport: PageTransport) => (name: string, args: Record<string, unknown>, signal: AbortSignal) =>
+    executeTool(transport, name, args, signal);
 
   it('states the fence in the system prompt', () => {
     expect(SYSTEM_PROMPT).toMatch(/never interpret/i);
@@ -99,7 +102,7 @@ describe('the loop', () => {
       return replies.shift()!;
     };
     const turns: Turn[] = [];
-    const text = await runTurn({ ...base, adapter, transport, turns, request: 'show the TMJ', signal: new AbortController().signal });
+    const text = await runTurn({ ...base, adapter, exec: execVia(transport), turns, request: 'show the TMJ', signal: new AbortController().signal });
     expect(text).toBe('TMJ mode is on screen.');
     expect(seen.map((c) => c.verb)).toEqual(['set_view_mode', 'snapshot']);
     expect(reqs[0].tools).toBe(PAGE_TOOLS);
@@ -113,7 +116,7 @@ describe('the loop', () => {
     let n = 0;
     const adapter: Adapter = async () => ({ text: '', calls: [{ id: String(++n), name: 'viewer_state', args: {} }], raw: n });
     await expect(
-      runTurn({ ...base, adapter, transport, turns: [], request: 'loop', signal: new AbortController().signal }),
+      runTurn({ ...base, adapter, exec: execVia(transport), turns: [], request: 'loop', signal: new AbortController().signal }),
     ).rejects.toBeInstanceOf(RunawayError);
     expect(seen.length).toBe(MAX_TOOL_CALLS);
   });
@@ -125,8 +128,40 @@ describe('the loop', () => {
       ctrl.abort();
       return { text: '', calls: [{ id: '1', name: 'viewer_state', args: {} }], raw: 1 };
     };
-    await expect(runTurn({ ...base, adapter, transport, turns: [], request: 'x', signal: ctrl.signal })).rejects.toThrow();
+    await expect(runTurn({ ...base, adapter, exec: execVia(transport), turns: [], request: 'x', signal: ctrl.signal })).rejects.toThrow();
     expect(seen).toEqual([]);
+  });
+
+  it('answers malformed or truncated tool-call JSON with an argument error and runs nothing', async () => {
+    const { transport, seen } = fakeViewer();
+    const replies = [
+      { text: '', calls: [{ id: '1', name: 'set_view_mode', args: {}, argsError: parseArgs('{"mode": "tm').error }], raw: 'a' },
+      { text: 'done', calls: [], raw: 'b' },
+    ];
+    const reqs: ProviderRequest[] = [];
+    const adapter: Adapter = async (req) => {
+      reqs.push({ ...req, turns: [...req.turns] });
+      return replies.shift()!;
+    };
+    await runTurn({ ...base, adapter, exec: execVia(transport), turns: [], request: 'x', signal: new AbortController().signal });
+    expect(seen).toEqual([]);
+    const result = reqs[1].turns.at(-1);
+    expect(result?.role === 'tool' && result.results[0]).toMatchObject({ isError: true });
+    expect(result?.role === 'tool' && result.results[0].text).toMatch(/invalid arguments for set_view_mode: .*malformed or truncated JSON/);
+  });
+});
+
+describe('parseArgs', () => {
+  it('passes objects and empty input, and reports anything else as an error', () => {
+    expect(parseArgs('{"mode":"tmj"}')).toEqual({ args: { mode: 'tmj' } });
+    expect(parseArgs({ mode: 'tmj' })).toEqual({ args: { mode: 'tmj' } });
+    expect(parseArgs('')).toEqual({ args: {} });
+    expect(parseArgs(undefined)).toEqual({ args: {} });
+    for (const bad of ['{"mode": "tm', 'not json', '[1,2]', '42', 'null']) {
+      const r = parseArgs(bad);
+      expect(r.args).toEqual({});
+      expect(r.error, bad).toBeTruthy();
+    }
   });
 });
 

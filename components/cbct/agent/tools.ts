@@ -1,11 +1,14 @@
 // The in-page agent's tools: the fifteen verbs of the MCP server, from the one shared module
-// (lib/shared/verbs.mjs), executed through the page transport into useAgentBridge, the same
-// hook the loopback bridge drives. No wider surface: an unknown name is refused, and the
-// arguments are checked against the verb's own Zod schema before anything moves.
+// (lib/shared/verbs.mjs), executed in the viewer's page through the page transport into
+// useAgentBridge, the same hook the loopback bridge drives. The agent frame asks for each call
+// by message (agentFrame.ts); it never runs a verb itself. No wider surface: an unknown name is
+// refused, and the arguments are checked against the verb's own Zod schema before anything
+// moves. Stop aborts a call in flight; a call that outlasts the bus timeout fails.
 import { describe, inputJsonSchema, verb as verbOf, VERBS } from '@/lib/shared/verbs.mjs';
 import type { PageTransport } from '../agentTransport';
 import { source } from '../source';
-import type { ToolImage, ToolSpec } from './providers/types';
+import type { ToolOutcome } from './frame/protocol';
+import type { ToolImage, ToolSpec } from './frame/providers/types';
 
 /** the tool list every provider receives: name, description, JSON Schema of the input */
 export const PAGE_TOOLS: ToolSpec[] = VERBS.map((v) => ({
@@ -14,11 +17,7 @@ export const PAGE_TOOLS: ToolSpec[] = VERBS.map((v) => ({
   parameters: inputJsonSchema(v.name),
 }));
 
-export interface ToolOutcome {
-  text: string;
-  image?: ToolImage;
-  isError: boolean;
-}
+export type { ToolOutcome };
 
 /** the longer side of a snapshot sent to a model, in pixels (the providers' image limits) */
 export const SNAPSHOT_MAX_SIDE = 2000;
@@ -56,6 +55,7 @@ export async function executeTool(
   transport: PageTransport,
   name: string,
   args: Record<string, unknown>,
+  signal?: AbortSignal,
 ): Promise<ToolOutcome> {
   let v;
   try {
@@ -73,7 +73,7 @@ export async function executeTool(
     if (route.kind === 'open') return { text: NO_OPEN, isError: true };
     if (route.kind === 'catalog') return { text: json(await source.list()), isError: false };
     const bridgeArgs = name === 'reset_view' ? { full: a.full === true } : { ...a, ...(route.args ?? {}) };
-    const out = await transport.dispatch(route.verb, bridgeArgs);
+    const out = await transport.dispatch(route.verb, bridgeArgs, { signal });
     if (!out.ok) return { text: out.error ?? `${name} failed`, isError: true };
     const result = (out.result ?? {}) as Record<string, unknown>;
     if (name === 'list_views') return { text: json(result.views ?? []), isError: false };

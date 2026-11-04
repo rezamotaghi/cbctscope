@@ -27,7 +27,6 @@ import CbctRegion from './CbctRegion';
 import CbctStitch from './CbctStitch';
 import { useAgentBridge } from './useAgentBridge';
 import { agentTransport } from './agentChannel';
-import { pageTransport } from './agentTransport';
 import AgentPanel, { AgentToggle } from './agent/AgentPanel';
 import ManualDrawer, { guidePage, manualHref } from './ManualDrawer';
 import { AGENT_AVAILABLE, IS_DESKTOP } from './shell';
@@ -815,8 +814,8 @@ export default function CbctApp() {
         >
           {IS_WEB ? 'Research use only. Not a medical device.' : 'Research use only. Not for diagnosis.'}
         </span>
-        {/* the opt-in in-page navigation agent: this toggle opens its panel under the viewer */}
-        <AgentToggle />
+        {/* the opt-in in-page navigation agent (web build and desktop app): this toggle opens its panel under the viewer */}
+        {IS_WEB && <AgentToggle />}
         {IS_WEB && (
           <a
             href={REPO_URL}
@@ -1384,7 +1383,7 @@ export default function CbctApp() {
             </div>
           )}
         </main>
-        <AgentPanel transport={pageTransport} />
+        {IS_WEB && <AgentPanel />}
         </div>
 
         <aside

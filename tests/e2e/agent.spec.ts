@@ -1,9 +1,10 @@
-// The opt-in in-page agent end to end (docs/web-build.md, section 10, item 3), against out/
+// The opt-in in-page agent end to end (docs/web-build.md, sections 2 and 12), against out/
 // with a fake OpenAI-compatible model server on loopback (tests/e2e/fakeProvider.mjs) as the
 // "Local or custom endpoint". No real provider and no key are involved. Every other test in
 // this suite fails on any off-origin request, which proves nothing leaves before opt-in; here
-// the only off-origin requests allowed are the fake server's, and they must start only after
-// the clinician confirms.
+// the only off-origin requests allowed are the fake server's, they must start only after the
+// clinician confirms, and they come from the sandboxed agent frame (origin "null"), never from
+// the viewer's page, whose connect-src is 'self'.
 import { expect, test, type Page } from '@playwright/test';
 import { startFakeProvider } from './fakeProvider.mjs';
 import { waitForVolume } from './helpers';
@@ -12,6 +13,7 @@ interface Fake {
   origin: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   requests: { method: string; path: string; origin: string | undefined; body: any }[];
+  release: () => void;
   close: () => Promise<void>;
 }
 
@@ -28,6 +30,7 @@ test.afterAll(async () => {
 });
 
 test.beforeEach(async ({ page, baseURL }) => {
+  fake.release();
   fake.requests.length = 0;
   offOrigin = [];
   problems = [];
@@ -101,7 +104,7 @@ test('the opt-in dialogue says what the agent is, and Cancel sends nothing', asy
   await expect(d).toContainText('Every snapshot the agent asks for is sent to Local or custom endpoint');
   await expect(d).toContainText('and nowhere else.');
   await expect(d).toContainText('The agent only moves the camera. It is not asked for findings, and nothing it says is a finding.');
-  await expect(d).toContainText('Your browser decides whether a page may reach a local server; the desktop app always can.');
+  await expect(d).toContainText('The local server must accept requests from the agent frame (CORS); llama-server does by default.');
   await d.getByRole('button', { name: 'Cancel' }).click();
   await expect(d).toHaveCount(0);
   await expect(panel(page).getByText('Agent: off')).toBeVisible();
@@ -114,7 +117,16 @@ test('a request moves the viewer and the snapshot reaches the provider as an ima
   await switchOn(page);
   expect(fake.requests).toEqual([]); // switching on sends nothing by itself
   await ask(page, 'show the TMJ');
-  await expect(panel(page).getByText('TMJ mode is on screen at the current window.')).toBeVisible({ timeout: 30_000 });
+  // the model's words appear only in the labelled block, apart from the steps
+  const block = panel(page).getByTestId('agent-model-text');
+  await expect(block.getByText('TMJ mode is on screen at the current window.')).toBeVisible({ timeout: 30_000 });
+  await expect(block).toContainText('Model text. Not a reading, not a finding.');
+  await expect(panel(page).getByTestId('agent-log')).not.toContainText('TMJ mode is on screen');
+
+  // every provider request came from the sandboxed frame: an opaque origin, never the viewer's
+  expect(fake.requests.every((r) => r.origin === 'null')).toBe(true);
+  const sandbox = await page.locator('iframe[data-testid="agent-frame"]').getAttribute('sandbox');
+  expect(sandbox).toBe('allow-scripts');
 
   // three requests: the request, the set_view_mode result, the snapshot result
   expect(fake.requests.map((r) => r.path)).toEqual(['/v1/chat/completions', '/v1/chat/completions', '/v1/chat/completions']);
@@ -150,17 +162,51 @@ test('a request moves the viewer and the snapshot reaches the provider as an ima
 
 test('Switch off stops the request in flight and anything after it', async ({ page }) => {
   await switchOn(page);
-  await ask(page, 'slow: show the TMJ');
-  await expect.poll(() => fake.requests.length, { timeout: 10_000 }).toBe(1);
+  await ask(page, 'hold: show the TMJ');
+  // the fake server holds the second request (after the set_view_mode step) until released:
+  // the turn is provably in flight when Switch off is clicked
+  await expect.poll(() => fake.requests.length, { timeout: 30_000 }).toBe(2);
   // the header's Switch off, beside the status, works with the panel open or closed
   await toggle(page).click();
   await expect(panel(page)).toBeHidden();
   await page.locator('header').getByRole('button', { name: 'Switch off' }).click();
   await expect(toggle(page)).toHaveText('Agent: off');
-  // the slow answer would have asked for set_view_mode and a second request; neither happens
-  await page.waitForTimeout(4000);
-  expect(fake.requests.length).toBe(1);
+  await expect(page.locator('iframe[data-testid="agent-frame"]')).toHaveCount(0); // the key went with it
+  // the held answer would ask for a snapshot and a third request; it never arrives
+  fake.release();
+  await page.waitForTimeout(2000);
+  expect(fake.requests.length).toBe(2);
   await expect(page.locator('header').getByRole('button', { name: 'Switch off' })).toHaveCount(0);
+});
+
+test('closing the panel mid-turn keeps Stop in the header, and it works', async ({ page }) => {
+  await switchOn(page);
+  await ask(page, 'hold: show the TMJ');
+  await expect.poll(() => fake.requests.length, { timeout: 30_000 }).toBe(2);
+  await panel(page).getByRole('button', { name: 'Close panel' }).click();
+  await expect(panel(page)).toHaveCount(0); // closed means unmounted, never hidden
+  const stop = page.locator('header').getByTestId('agent-header-stop');
+  await expect(stop).toBeVisible();
+  await stop.click();
+  await expect(stop).toHaveCount(0);
+  fake.release();
+  await page.waitForTimeout(2000);
+  expect(fake.requests.length).toBe(2);
+  // the agent stays on; the panel says the request stopped
+  await expect(toggle(page)).toHaveText(`Agent: on, Local or custom endpoint (${fake.origin})`);
+  await toggle(page).click();
+  await expect(panel(page).getByTestId('agent-log')).toContainText('Stopped.');
+});
+
+test('model text with report vocabulary is replaced by the guard sentence', async ({ page }) => {
+  await switchOn(page);
+  await ask(page, 'interpret this scan');
+  const block = panel(page).getByTestId('agent-model-text');
+  await expect(block).toContainText(
+    'The model offered an interpretation. CBCTScope does not display readings; ask for a view, not an opinion.',
+    { timeout: 30_000 },
+  );
+  await expect(page.locator('body')).not.toContainText('radiolucency');
 });
 
 test('the open panel docks under the viewer and covers no control', async ({ page }) => {

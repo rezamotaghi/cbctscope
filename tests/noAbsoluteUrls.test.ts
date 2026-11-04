@@ -18,17 +18,17 @@ const ALLOWED = new Set([
 ]);
 const LINK_CONSTANTS = ['REPO_URL', 'RELEASES_URL'];
 
-/** the agent's provider bases and local presets: allowed in this one constants module only */
-const AGENT_HOSTS_FILE = path.join('components', 'cbct', 'agent', 'providers', 'hosts.ts');
-const AGENT_HOSTS = new Set([
-  'https://api.anthropic.com',
-  'https://api.openai.com',
-  'https://generativelanguage.googleapis.com',
+/** the cloud providers' API bases: in the agent frame's code only (it runs sandboxed, with its own CSP) */
+const AGENT_HOSTS_FILE = path.join('components', 'cbct', 'agent', 'frame', 'providers', 'hosts.ts');
+const AGENT_HOSTS = new Set(['https://api.anthropic.com', 'https://api.openai.com', 'https://generativelanguage.googleapis.com']);
+/** the loopback presets the panel shows and the clinician may edit: never requested by the page */
+const PRESETS_FILE = path.join('components', 'cbct', 'agent', 'catalog.ts');
+const PRESETS = new Set([
   'http://127.0.0.1:8080', // llama-server preset
   'http://127.0.0.1:11434', // Ollama preset
   'http://127.0.0.1:1234', // LM Studio preset
 ]);
-/** the CSP's connect-src source expressions: policy, never a request (tests/webShell.test.ts pins them) */
+/** the agent frame's connect-src source expressions: policy, never a request (tests/webShell.test.ts pins them) */
 const CSP_FILE = path.join('components', 'webCsp.mjs');
 const CSP_SOURCES = new Set([
   'https://api.anthropic.com',
@@ -85,6 +85,7 @@ describe('browser code names no off-origin URL', () => {
       for (const m of code.matchAll(/['"`](https?:\/\/[^'"`]*)['"`]/g)) {
         if (ALLOWED.has(m[1])) continue;
         if (f === AGENT_HOSTS_FILE && AGENT_HOSTS.has(m[1])) continue;
+        if (f === PRESETS_FILE && PRESETS.has(m[1])) continue;
         if (f === CSP_FILE && CSP_SOURCES.has(m[1])) continue;
         hits.push(`${f}: ${m[1]}`);
       }
@@ -92,9 +93,21 @@ describe('browser code names no off-origin URL', () => {
     expect(hits).toEqual([]);
   });
 
-  it('the agent hosts module holds exactly the reviewed provider bases and presets', () => {
+  it('the agent hosts module holds exactly the reviewed provider bases, and only frame code imports it', () => {
     const code = stripComments(readFileSync(path.join(root, AGENT_HOSTS_FILE), 'utf8'));
     const urls = [...code.matchAll(/['"`](https?:\/\/[^'"`]*)['"`]/g)].map((m) => m[1]);
     expect(new Set(urls)).toEqual(AGENT_HOSTS);
+    // the viewer's page never bundles a provider address: nothing outside the frame imports the
+    // adapters or their bases
+    const frameDir = path.join('components', 'cbct', 'agent', 'frame') + path.sep;
+    const leaks: string[] = [];
+    for (const f of files) {
+      if (f.startsWith(frameDir)) continue;
+      const src = stripComments(readFileSync(path.join(root, f), 'utf8'));
+      for (const m of src.matchAll(/^\s*(?:import|export)\s+(?!type\b)[^;]*?from\s+['"]([^'"]+)['"]/gm)) {
+        if (/frame\/(?:providers|main|loop|keyStore)/.test(m[1])) leaks.push(`${f}: ${m[1]}`);
+      }
+    }
+    expect(leaks).toEqual([]);
   });
 });

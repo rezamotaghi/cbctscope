@@ -27,12 +27,27 @@ nothing.
   surface (`tests/agentTools.test.ts` compares its tool list with the MCP server's).
 - Nothing is uploaded, because there is no endpoint to upload to. The web build makes no
   network request to any host but its own origin. Enforced three times: the exported HTML
-  carries a Content Security Policy whose `connect-src` is `'self'`; the end-to-end suite
-  fails on any off-origin request; a source test fails on any absolute URL in browser code.
-  Milestone 3 widens `connect-src` to the three provider API hosts and loopback (a static
-  page cannot narrow it to the provider chosen at run time), and the suite proves that no
-  request leaves before the clinician opts in and that the agent's requests go to the
-  chosen endpoint only.
+  carries a Content Security Policy whose `connect-src` is `'self'` (plus `frame-src 'self'`
+  for the agent frame); the end-to-end suite fails on any off-origin request; a source test
+  fails on any absolute URL in browser code outside the agent frame's own module. The opt-in
+  agent of milestone 3 does not widen the viewer's policy: its provider adapters, the key and
+  the fetch loop run in `agent-frame.html`, a static page the build writes with its own CSP
+  meta (`connect-src` the three provider API hosts and loopback, `default-src 'none'`, its one
+  inline script by hash; `scripts/agent-frame.mjs`). The panel loads it in an
+  `<iframe sandbox="allow-scripts">` without `allow-same-origin`, so the frame's origin is
+  opaque and it cannot read the viewer's storage or DOM. Page and frame talk by
+  `postMessage`, each checking the other's window and origin (the page: `"null"`; the frame:
+  the origin it was served from) and a per-session nonce carried in the frame's address. The
+  key is typed in the panel, posted to the frame once, and forgotten by the panel; tool calls
+  come back and run through `pageTransport` in the viewer, and their results (snapshots
+  included) go to the frame as messages. The suite proves that no request leaves before the
+  clinician opts in, that every provider request comes from the frame (origin `null`), and
+  that it goes to the chosen endpoint only.
+- The model's own words are shown only in the panel's labelled block, "Model text. Not a
+  reading, not a finding.", apart from the steps and the status, and the reading-term guard
+  (`lib/shared/readingTerms.mjs`) replaces any text carrying report vocabulary with "The model
+  offered an interpretation. CBCTScope does not display readings; ask for a view, not an
+  opinion." The guard is a word filter, not a judge; the fence remains the clinician's.
 - The demo volume is the synthetic phantom only. No real image enters the repo or the build.
 - The local app has no size ceiling. The web build shows a notice before a large volume loads.
 
@@ -275,9 +290,13 @@ Built to the owner's decisions of 04/11/26:
   `http://127.0.0.1:1234`; the endpoint field accepts any loopback port (current llama-server
   builds default to 9931, so the preset is a starting point, not a claim about the default).
   The panel docks as a strip under the viewer, opened from the header's Agent button, and
-  pushes the viewer up rather than covering any control (hard rule 4). Plain `fetch`, no SDKs, one adapter per provider in
-  `components/cbct/agent/providers/`; every base address lives in `hosts.ts`, the one module
-  `tests/noAbsoluteUrls.test.ts` allows them in. Shapes from each provider's documentation,
+  pushes the viewer up rather than covering any control (hard rule 4). Closing the panel
+  unmounts it; a request in flight keeps its Stop in the header beside the status and Switch
+  off (the session lives in `agent/agentUi.ts`). Plain `fetch`, no SDKs, one adapter per
+  provider in `components/cbct/agent/frame/providers/`, bundled only into the agent frame
+  (section 2); every cloud base address lives in `frame/providers/hosts.ts`, the one module
+  `tests/noAbsoluteUrls.test.ts` allows them in, and no module outside `frame/` imports an
+  adapter. The loopback presets live in `agent/catalog.ts`, which the panel reads. Shapes from each provider's documentation,
   read 04/11/26: Anthropic Messages (`anthropic-version: 2026-10-21` and the
   `anthropic-dangerous-direct-browser-access` header a browser caller sends), default model
   `claude-opus-5-5`; OpenAI Responses (its current models take tools through Responses
@@ -286,33 +305,47 @@ Built to the owner's decisions of 04/11/26:
   `gemini-3.8-flash`; the local endpoint takes a free model id, `qwen3-vl:8b` for the Ollama
   preset (its documented vision example) and empty for the other two (the server's loaded
   model).
-- The key lives in module memory only (`agent/keyStore.ts`); `tests/agentPolicy.test.ts`
+- The key lives in the frame's module memory only (`agent/frame/keyStore.ts`); `tests/agentPolicy.test.ts`
   fails on any storage API under `components/cbct/agent/`. The provider, endpoint and model
   id persist in localStorage through `lib/shared/agentSettings.ts`, which writes those three
   fields only.
 - The opt-in dialogue (title "Switch on the navigation agent", buttons "Switch on" and
   "Cancel") names the provider and states the key, snapshot and fence terms; for the local
-  endpoint it adds that the browser decides whether a page may reach a local server and
-  that the desktop app always can. Off on every load; while on, the panel reads "Agent: on,"
+  endpoint it adds that the local server must accept requests from the agent's frame (CORS). Off on every load; while on, the panel reads "Agent: on,"
   and the provider at all times, beside "Switch off".
-- The loop (`agent/loop.ts`): the fence as the system prompt, the fifteen verbs as tools
-  from `lib/shared/verbs.mjs` (the module the MCP server now imports), calls executed
-  through `pageTransport` with their arguments checked against the verb's Zod schema, a
+- The loop (`agent/frame/loop.ts`, in the frame): the fence as the system prompt and the
+  fifteen verbs as tools, both composed in the page from `lib/shared/verbs.mjs` (the module
+  the MCP server imports) and sent to the frame once, calls executed in the page through
+  `pageTransport` with their arguments checked against the verb's Zod schema (malformed or
+  truncated argument JSON is answered as an argument error, never run with defaults), each
+  call bounded by the bus timeout and the Stop control, a
   snapshot returned as an image (scaled to at most 2000 px on its longer side), at most 12
   tool calls per request, Stop aborts the request in flight, errors in plain words. A failed
   or stopped request leaves no half turn in the conversation.
-- `connect-src`: `'self' https://api.anthropic.com https://api.openai.com
-  https://generativelanguage.googleapis.com http://127.0.0.1:* http://localhost:*`.
+- `connect-src`: the viewer `'self'`; the agent frame `https://api.anthropic.com
+  https://api.openai.com https://generativelanguage.googleapis.com http://127.0.0.1:*
+  http://localhost:*` (section 2).
 - `tests/e2e/agent.spec.ts` drives the panel against a fake OpenAI-compatible server on
   loopback (`tests/e2e/fakeProvider.mjs`): off on load, Cancel sends nothing, a request
   switches the view mode and the snapshot reaches the server as an image part, every
-  request goes to that origin only, Switch off stops the request in flight and any after it.
+  request goes to that origin only and comes from the frame, Switch off and the header's Stop
+  end a held multi-step turn (the fake server holds the second reply until the test releases
+  it, so no timing guess), and report vocabulary in the model's text is replaced.
 - The local endpoint from the published https site: verified in Chromium only from the
   suite's loopback http origin (cross-origin to the fake server, CORS preflight answered).
   Not verified: an https page reaching `http://127.0.0.1` (Chromium treats loopback as
   potentially trustworthy, so mixed-content blocking should not apply, but its
   local-network-access permission prompt and each server's CORS settings decide), and
-  other browsers. The desktop app serves the page from loopback itself, so it always can.
+  other browsers. The frame's requests carry `Origin: null` on every surface, the desktop app
+  included: llama-server answers any origin by default; Ollama and LM Studio need cross-origin
+  requests allowed in their settings (measured against the fake server only).
+
+### Known limitations, hardening pass of 04/11/26
+
+- Framing. A CSP delivered in a meta tag cannot carry `frame-ancestors`, and GitHub Pages
+  sends no response headers, so another site may frame the published viewer. No
+  frame-busting script is used. Remedy: a host that sets headers
+  (`Content-Security-Policy: frame-ancestors 'none'`), for example Cloudflare Pages.
 
 ## 13. The manual
 

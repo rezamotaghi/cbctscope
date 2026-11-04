@@ -7,11 +7,15 @@
 //   and message items (output_text, refusal). With store: false every output item is sent
 //   back in the next input (reasoning items carry their encrypted content), followed by one
 //   function_call_output per call, whose output may be a list of input_text and input_image
-//   (a data URL) parts.
+//   (a data URL) parts. No `include: ['reasoning.encrypted_content']`: the reasoning guide
+//   (developers.openai.com/api/docs/guides/reasoning, "Preserve reasoning without stored
+//   responses", read 04/11/26 through Context7) says that in stateless mode (store: false)
+//   reasoning items carry encrypted_content by default and the API "still accepts the legacy
+//   reasoning.encrypted_content value in include for compatibility, but doesn't require it".
 import { OPENAI_BASE } from './hosts';
 import { parseArgs, postJson, ProviderError, type Adapter, type Turn } from './types';
 
-export const OPENAI_DEFAULT_MODEL = 'gpt-6-astra';
+export { OPENAI_DEFAULT_MODEL } from '../../catalog';
 
 type Item = Record<string, unknown>;
 
@@ -64,6 +68,9 @@ export const openaiAdapter: Adapter = async (req) => {
   }
   const calls = output
     .filter((i) => i.type === 'function_call')
-    .map((i) => ({ id: String(i.call_id), name: String(i.name), args: parseArgs(i.arguments) }));
+    .map((i) => {
+      const parsed = parseArgs(i.arguments);
+      return { id: String(i.call_id), name: String(i.name), args: parsed.args, ...(parsed.error ? { argsError: parsed.error } : {}) };
+    });
   return { text: texts.join('\n').trim(), calls, raw: output };
 };
