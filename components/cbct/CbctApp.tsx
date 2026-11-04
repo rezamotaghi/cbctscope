@@ -25,6 +25,17 @@ import CbctCeph from './CbctCeph';
 import CbctRegion from './CbctRegion';
 import CbctStitch from './CbctStitch';
 import { useAgentBridge } from './useAgentBridge';
+import { sseTransport } from './agentTransport';
+import { IS_WEB, isCanceled, source } from './source';
+import { EVIDENCE_SCHEMA, parseMarksFile, type EvidenceFile } from './evidence';
+import { SIZE_NOTICE_MIB, needsSizeNotice, voxelBytes } from './sizeNotice';
+import { dropLabel, entriesOf, walkEntries } from './dropFiles';
+import {
+  ResearchUseDialog,
+  SizeNoticeDialog,
+  acknowledgeResearch,
+  researchAcknowledged,
+} from './WebDialogs';
 import AboutBadge from '@/components/AboutBadge';
 import SnapshotButton, { type SnapRef } from './SnapshotButton';
 import { BookOpen, FolderOpen, Keyboard } from 'lucide-react';
@@ -57,6 +68,9 @@ type ViewMode = 'mpr' | 'grid' | 'pano' | 'tmj' | 'reslice' | 'ceph' | 'region' 
 // code and the linked page match. The viewer itself never fetches anything: the link opens
 // in a new tab only when the reader clicks it.
 const DOCS_URL = 'https://github.com/rezamotaghi/cbctscope/blob/main/';
+// The web build's header links to the repository (docs/web-build.md, section 7). A link the
+// reader clicks, never a request the page makes; tests/noAbsoluteUrls.test.ts knows both.
+const REPO_URL = 'https://github.com/rezamotaghi/cbctscope';
 const VIEW_MODES: [ViewMode, string, string][] = [
   ['mpr', 'MPR', 'orthogonal slices + 3D render'],
   ['grid', 'Grid', 'many parallel slices on one screen'],
@@ -238,10 +252,24 @@ export default function CbctApp() {
   const srcMenuRef = useRef<HTMLDivElement | null>(null);
   const wantLocalRef = useRef(false); // after an open, jump to the first opened volume
   const wantSwitchRef = useRef<string | null>(null); // after a stitch, jump to the new fused volume
+  // web build: the size notice holds a volume back until the reader continues; the
+  // research-use dialogue opens on the first real open in this browser profile; a load of
+  // marks unmounts the room while the sidecar is replaced, then remounts it
+  const [pendingSize, setPendingSize] = useState<{ anon: string; label: string; bytes: number } | null>(null);
+  const [researchOpen, setResearchOpen] = useState(false);
+  const [marksBusy, setMarksBusy] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const marksInputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
-    fetch('/api/cbct/source')
-      .then((r) => r.json())
-      .then((d) => d.active && setSrcLabel(String(d.label)))
+    // React has no typed prop for the directory picker; set the attribute by hand
+    folderInputRef.current?.setAttribute('webkitdirectory', '');
+  }, []);
+  useEffect(() => {
+    source
+      .opened()
+      .then((o) => o && setSrcLabel(o.label))
       .catch(() => {});
   }, []);
   useEffect(() => {
@@ -317,27 +345,37 @@ export default function CbctApp() {
   // deps would refetch the list on every volume change)
   const anonRef = useRef<string | null>(null);
   anonRef.current = anon;
-  const switchVolume = useCallback((next: string | null) => {
+  // catalog mirror for the size gate (the catalog effect sets it before it switches)
+  const volumesRef = useRef<ListEntry[]>([]);
+  volumesRef.current = volumes;
+  /** web build: hold a large volume back behind the size notice; true = held */
+  const sizeHeld = useCallback((next: string): boolean => {
+    if (!IS_WEB) return false;
+    const v = volumesRef.current.find((e) => e.anon === next);
+    if (!v) return false;
+    const bytes = voxelBytes(v.dims);
+    if (!needsSizeNotice(bytes, SIZE_NOTICE_MIB)) return false;
+    setPendingSize({ anon: next, label: v.label || (isDemoVol(next) ? 'Synthetic phantom' : next), bytes });
+    return true;
+  }, []);
+  const switchVolume = useCallback((next: string | null, confirmed = false) => {
     if (!next || next === anonRef.current) return;
+    if (!confirmed && sizeHeld(next)) return;
     setError(null);
     setMeta(null);
     setHistogram(null);
     setControls((c) => ({ ...defaultControls, render3d: c.render3d })); // fresh state per volume
     setAnon(next);
-  }, []);
+  }, [sizeHeld]);
 
-  // volume list: opened local source + fused volumes + the built-in demo phantom (refetched
-  // when the source changes — no-store so a just-registered volume is never masked by cache)
+  // volume list: fused volumes, then the opened source, then the built-in demo phantom, in
+  // the source's order (refetched when the source changes)
   useEffect(() => {
-    fetch('/api/cbct', { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((j) => {
-        const all: ListEntry[] = j.volumes ?? [];
-        // fused (stitched) volumes first, then opened volumes, then the demo phantom
-        const fused = all.filter((v) => isFusedVol(v.anon));
-        const locals = all.filter((v) => isLocalVol(v.anon));
-        const demo = all.filter((v) => isDemoVol(v.anon));
-        const vols = [...fused, ...locals, ...demo];
+    source
+      .list()
+      .then((vols) => {
+        const locals = vols.filter((v) => isLocalVol(v.anon));
+        volumesRef.current = vols;
         setVolumes(vols);
         if (wantSwitchRef.current && vols.some((v) => v.anon === wantSwitchRef.current)) {
           const target = wantSwitchRef.current;
@@ -348,49 +386,112 @@ export default function CbctApp() {
           switchVolume(locals[0].anon);
         } else if (vols.length) {
           const preferred = locals[0] ?? vols[0];
-          setAnon((cur) => (cur && vols.some((v) => v.anon === cur) ? cur : preferred.anon));
+          const cur = anonRef.current;
+          if (cur && vols.some((v) => v.anon === cur)) {
+            /* keep the volume on screen */
+          } else if (sizeHeld(preferred.anon)) setAnon(null);
+          else setAnon(preferred.anon);
         } else {
           setAnon(null);
         }
       })
-      .catch(() => setError('volume catalog unavailable — is the server running?'));
-  }, [srcNonce, switchVolume]);
+      .catch(() =>
+        setError(IS_WEB ? 'volume catalog unavailable: reload the page' : 'volume catalog unavailable: is the server running?'),
+      );
+  }, [srcNonce, switchVolume, sizeHeld]);
 
-  // point the viewer at a local CBCT export — via the native chooser (the server opens it
-  // on this same machine)
-  const onPickSource = useCallback(async (kind: 'folder' | 'file') => {
+  // point the viewer at a local CBCT export. The local app: the native chooser (the server
+  // opens it in place on this same machine). The web build: files from the picker or a drop,
+  // read into this tab.
+  const openWith = useCallback(async (input: Parameters<typeof source.open>[0]) => {
     setSrcMenu(false);
     setPicking(true);
     try {
-      const r = await fetch('/api/cbct/source/pick', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind }),
-      });
-      const d = await r.json();
-      if (d.canceled) return; // user dismissed the dialog — not an error
-      if (!r.ok || d.error) return setError(String(d.error ?? `open failed (${r.status})`));
+      const r = await source.open(input);
+      if (isCanceled(r)) return; // the reader dismissed the dialog: not an error
+      if (!r.ok) return setError(r.error);
       setError(null);
-      setSrcLabel(String(d.label));
+      setSrcLabel(r.label);
       wantLocalRef.current = true;
       setSrcNonce((n) => n + 1);
+      if (IS_WEB && !researchAcknowledged()) setResearchOpen(true);
     } catch (e) {
       setError(String(e));
     } finally {
       setPicking(false);
     }
   }, []);
+  const onPickSource = useCallback(
+    (kind: 'folder' | 'file') => openWith({ kind: 'native', chooser: kind }),
+    [openWith],
+  );
+  const onFilesChosen = useCallback(
+    (list: FileList | null) => {
+      const files = list ? Array.from(list) : [];
+      if (!files.length) return; // the picker was dismissed
+      const first = files[0];
+      const label = first.webkitRelativePath ? first.webkitRelativePath.split('/')[0] : first.name;
+      void openWith({ kind: 'files', files, label });
+    },
+    [openWith],
+  );
+  const onDropFiles = useCallback(
+    async (dt: DataTransfer) => {
+      const entries = entriesOf(dt); // synchronous: the items die after the drop handler
+      if (!entries.length) return;
+      try {
+        const files = await walkEntries(entries);
+        if (files.length) await openWith({ kind: 'files', files, label: dropLabel(entries) });
+      } catch (e) {
+        setError(`could not read the dropped files: ${String(e)}`);
+      }
+    },
+    [openWith],
+  );
 
   const onCloseSource = useCallback(async () => {
     setSrcMenu(false);
-    try {
-      await fetch('/api/cbct/source', { method: 'DELETE' });
-    } catch {
-      /* server gone — the refetch below will surface it */
-    }
+    await source.close(); // never throws: a gone server surfaces in the refetch below
     setSrcLabel(null);
     setSrcNonce((n) => n + 1);
   }, []);
+
+  // web build: marks travel as a JSON file (the sidecar of the volume on screen)
+  const onSaveMarks = useCallback(async () => {
+    setSrcMenu(false);
+    if (!anon) return;
+    const ev: EvidenceFile = (await source.getEvidence(anon)) ?? {
+      schema: EVIDENCE_SCHEMA,
+      anon,
+      saved_at: new Date().toISOString(),
+      annotations: [],
+      views: [],
+      rois3d: [],
+    };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(ev, null, 2)], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${anon}_marks.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, [anon]);
+  const onLoadMarks = useCallback(
+    async (list: FileList | null) => {
+      const f = list?.[0];
+      if (!f || !anon) return;
+      const parsed = parseMarksFile(await f.text(), anon);
+      if ('error' in parsed) return setError(parsed.error);
+      // unmount the room first so its own autosave cannot write the old marks back
+      setMarksBusy(true);
+      try {
+        await new Promise((r) => setTimeout(r, 50));
+        if (!(await source.putEvidence(parsed.file))) setError('the marks could not be stored in this browser');
+      } finally {
+        setMarksBusy(false);
+      }
+    },
+    [anon],
+  );
 
   // a stitch just produced a fused volume: refetch the catalog, jump to it, open it in MPR
   const onFused = useCallback((fusedAnon: string) => {
@@ -534,7 +635,7 @@ export default function CbctApp() {
       return null;
     },
     onEvicted: () => setAgentEvicted(true),
-  });
+  }, IS_WEB ? null : sseTransport); // the web build of milestone 1 mounts no agent channel
 
   const btn = (active: boolean): React.CSSProperties => ({
     padding: '4px 10px',
@@ -547,7 +648,64 @@ export default function CbctApp() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      {agentEvicted && (
+      {IS_WEB && (
+        <>
+          {/* the web build's pickers: a folder (webkitdirectory, set on mount), one file, a marks file */}
+          <input
+            ref={folderInputRef}
+            type="file"
+            multiple
+            hidden
+            data-testid="open-folder-input"
+            onChange={(e) => {
+              onFilesChosen(e.target.files);
+              e.target.value = '';
+            }}
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            hidden
+            data-testid="open-file-input"
+            onChange={(e) => {
+              onFilesChosen(e.target.files);
+              e.target.value = '';
+            }}
+          />
+          <input
+            ref={marksInputRef}
+            type="file"
+            accept="application/json,.json"
+            hidden
+            data-testid="load-marks-input"
+            onChange={(e) => {
+              void onLoadMarks(e.target.files);
+              e.target.value = '';
+            }}
+          />
+          {pendingSize && (
+            <SizeNoticeDialog
+              label={pendingSize.label}
+              bytes={pendingSize.bytes}
+              onCancel={() => setPendingSize(null)}
+              onContinue={() => {
+                const next = pendingSize.anon;
+                setPendingSize(null);
+                switchVolume(next, true);
+              }}
+            />
+          )}
+          {researchOpen && (
+            <ResearchUseDialog
+              onAcknowledge={() => {
+                acknowledgeResearch();
+                setResearchOpen(false);
+              }}
+            />
+          )}
+        </>
+      )}
+      {!IS_WEB && agentEvicted && (
         <div
           style={{
             display: 'flex',
@@ -602,8 +760,19 @@ export default function CbctApp() {
             padding: '2px 8px',
           }}
         >
-          Research use only. Not for diagnosis.
+          {IS_WEB ? 'Research use only. Not a medical device.' : 'Research use only. Not for diagnosis.'}
         </span>
+        {IS_WEB && (
+          <a
+            href={REPO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="the source code, the local app, and the user manual, on the project page"
+            style={{ fontSize: 12, color: 'var(--text)' }}
+          >
+            repository
+          </a>
+        )}
         {isXray ? (
           <span
             title="A single 2D radiograph is open — the volumetric reading modes apply to CBCT volumes"
@@ -649,6 +818,9 @@ export default function CbctApp() {
             maxWidth: 380,
           }}
         >
+          {/* the web build can hold a volume back (the size notice): say so instead of
+              showing a volume that is not on screen */}
+          {!anon && volumes.length > 0 && <option value="">choose a volume</option>}
           {volumes.some((v) => isFusedVol(v.anon)) && (
             <optgroup label="🧬 stitched (this session)">
               {volumes
@@ -709,13 +881,17 @@ export default function CbctApp() {
             disabled={picking}
             onClick={() => setSrcMenu((v) => !v)}
             title={
-              picking
-                ? 'the native file chooser is open — finish or cancel it first'
-                : 'Open a local CBCT export (folder, DICOMDIR, or DICOM file). Scans are read in place and never leave this computer.'
+              IS_WEB
+                ? picking
+                  ? 'reading the files you chose into this tab'
+                  : 'Open a CBCT export (folder, DICOMDIR, or DICOM file), or drop it on the viewer. The browser reads it into this tab; nothing is uploaded.'
+                : picking
+                  ? 'the native file chooser is open: finish or cancel it first'
+                  : 'Open a local CBCT export (folder, DICOMDIR, or DICOM file). Scans are read in place and never leave this computer.'
             }
           >
             <FolderOpen size={13} strokeWidth={2} style={{ marginRight: 5, verticalAlign: '-2px' }} />
-            {picking ? 'choosing…' : srcLabel ? `${srcLabel} ▾` : 'open ▾'}
+            {picking ? (IS_WEB ? 'opening…' : 'choosing…') : srcLabel ? `${srcLabel} ▾` : 'open ▾'}
           </button>
           {srcMenu && (
             <div
@@ -733,16 +909,65 @@ export default function CbctApp() {
                 padding: 4,
               }}
             >
-              <button className="menu-item" onClick={() => void onPickSource('folder')}>
-                📁 Open folder / DICOMDIR…
-              </button>
-              <button
-                className="menu-item"
-                title="One DICOMDIR, one multiframe volume, or one slice (opens its whole series)"
-                onClick={() => void onPickSource('file')}
-              >
-                🗄 Open DICOM file…
-              </button>
+              {IS_WEB ? (
+                <>
+                  <button
+                    className="menu-item"
+                    title="A CBCT export folder: a DICOMDIR tree, a slice series, or multiframe files"
+                    onClick={() => {
+                      setSrcMenu(false);
+                      folderInputRef.current?.click();
+                    }}
+                  >
+                    📁 Open folder
+                  </button>
+                  <button
+                    className="menu-item"
+                    title="One multiframe volume or one radiograph"
+                    onClick={() => {
+                      setSrcMenu(false);
+                      fileInputRef.current?.click();
+                    }}
+                  >
+                    🗄 Open file
+                  </button>
+                  {anon && (
+                    <>
+                      <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+                      <button
+                        className="menu-item"
+                        title="Download the marks of the volume on screen (annotations, saved views, 3D ROIs) as a JSON file. No pixels."
+                        onClick={() => void onSaveMarks()}
+                      >
+                        ⬇ Save marks to file
+                      </button>
+                      <button
+                        className="menu-item"
+                        title="Replace the marks of the volume on screen with a marks file saved earlier for this same volume"
+                        onClick={() => {
+                          setSrcMenu(false);
+                          marksInputRef.current?.click();
+                        }}
+                      >
+                        ⬆ Load marks from file
+                      </button>
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  <button className="menu-item" onClick={() => void onPickSource('folder')}>
+                    📁 Open folder / DICOMDIR…
+                  </button>
+                  <button
+                    className="menu-item"
+                    title="One DICOMDIR, one multiframe volume, or one slice (opens its whole series)"
+                    onClick={() => void onPickSource('file')}
+                  >
+                    🗄 Open DICOM file…
+                  </button>
+                </>
+              )}
               {srcLabel && (
                 <>
                   <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
@@ -774,7 +999,8 @@ export default function CbctApp() {
                 nothing to dismiss, and it leaves by itself once an export is opened. */}
             {isDemoVol(current.anon) && !srcLabel && (
               <span style={{ color: 'var(--text)' }}>
-                {' · '}built-in, no patient data · your own scan: <b>open</b> · guide: <b>help</b>
+                {' · '}built-in, no patient data · your own scan: <b>open</b>
+                {IS_WEB ? ' or drop it on the viewer' : ''} · guide: <b>help</b>
               </span>
             )}
           </span>
@@ -891,8 +1117,52 @@ export default function CbctApp() {
       </header>
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
-        <main style={{ flex: 1, minWidth: 0, padding: 8 }}>
-          {error ? (
+        <main
+          style={{ flex: 1, minWidth: 0, padding: 8, position: 'relative' }}
+          {...(IS_WEB
+            ? {
+                // the web build: a drop anywhere on the viewer opens it (folders walked recursively)
+                onDragOver: (e: React.DragEvent) => {
+                  if (!e.dataTransfer.types.includes('Files')) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'copy';
+                  setDragOver(true);
+                },
+                onDragLeave: (e: React.DragEvent) => {
+                  if (e.currentTarget === e.target) setDragOver(false);
+                },
+                onDrop: (e: React.DragEvent) => {
+                  e.preventDefault();
+                  setDragOver(false);
+                  void onDropFiles(e.dataTransfer);
+                },
+              }
+            : {})}
+        >
+          {IS_WEB && dragOver && (
+            <div
+              data-testid="drop-zone"
+              style={{
+                position: 'absolute',
+                inset: 8,
+                zIndex: 20,
+                border: '2px dashed var(--text)',
+                borderRadius: 8,
+                background: 'rgba(0,0,0,0.6)',
+                color: 'var(--text)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 15,
+                pointerEvents: 'none',
+              }}
+            >
+              Drop a CBCT folder or file to open it in this tab. Nothing is uploaded.
+            </div>
+          )}
+          {marksBusy ? (
+            <div style={{ color: 'var(--text)', padding: 24 }}>loading marks…</div>
+          ) : error ? (
             <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-start' }}>
               <div style={{ color: 'var(--warn)' }}>{error}</div>
               <button
@@ -1002,7 +1272,9 @@ export default function CbctApp() {
               />
             )
           ) : (
-            <div style={{ color: 'var(--text-dim)', padding: 24 }}>no volumes available</div>
+            <div style={{ color: 'var(--text-dim)', padding: 24 }}>
+              {volumes.length ? 'no volume open: choose one from the volume list' : 'no volumes available'}
+            </div>
           )}
         </main>
 

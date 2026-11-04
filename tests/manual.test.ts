@@ -122,6 +122,24 @@ describe('user manual tracks the app (docs/manual/)', () => {
     }
   });
 
+  it('the web build menu entries, dialogues, and posture line are documented', () => {
+    const dialogs = read('components/cbct/WebDialogs.tsx');
+    const surface: [string, string, string][] = [
+      [appSrc, 'Open folder', 'docs/manual/04-opening-scans.md'],
+      [appSrc, 'Open file', 'docs/manual/04-opening-scans.md'],
+      [appSrc, 'Save marks to file', 'docs/manual/07-exporting.md'],
+      [appSrc, 'Load marks from file', 'docs/manual/07-exporting.md'],
+      [appSrc, 'Research use only. Not a medical device.', 'docs/manual/02-installation.md'],
+      [dialogs, 'Research use only', 'docs/manual/04-opening-scans.md'],
+      [dialogs, 'I understand', 'docs/manual/04-opening-scans.md'],
+      [dialogs, 'Large volume', 'docs/manual/04-opening-scans.md'],
+    ];
+    for (const [src, label, file] of surface) {
+      expect(src, `the web build label "${label}" was removed or renamed`).toContain(label);
+      expect(read(file), `${file} must name "${label}"`).toContain(label);
+    }
+  });
+
   it('the manifest and the manual directory agree', () => {
     const manifest = JSON.parse(read('docs/manual/manifest.json')) as { chapters: { file: string; title: string }[] };
     for (const { file } of manifest.chapters) expect(existsSync(path.join(root, file)), `manifest entry ${file}`).toBe(true);

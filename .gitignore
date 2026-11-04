@@ -4,6 +4,9 @@
 # next.js build output
 /.next/
 /out/
+/out-small/
+/test-results/
+/playwright-report/
 
 # MCP bundle staging + output (npm run mcpb); the bundle ships as a release asset
 /.mcpb/

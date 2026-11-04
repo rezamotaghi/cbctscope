@@ -16,12 +16,13 @@ CBCTScope: a complete, local-first CBCT and 2D radiograph viewer (Next.js + Corn
 
 ## Layout
 
-- `app/` Next.js app router: the single reading screen plus `/api/cbct/*` (volume sources) and `/api/agent/*` (the MCP bridge: SSE command channel + result round-trip).
+- `app/` Next.js app router: the single reading screen plus `/api/cbct/*` (volume sources) and `/api/agent/*` (the MCP bridge).
 - `components/cbct/` the viewer: `CbctApp` (shell/state), `CbctViewport` (MPR + 3D), one component per reading mode, and pure math modules (`curvedReformat`, `stitch`, `regionGrow`, `oblique`, `render3d`, ...).
 - `lib/server/` volume sources: `localSource` (user-opened exports, read in place), `fused` (session stitches, memory only), `phantom` (synthetic demo), `dicom` (shared contract), `agentBus` (command bus), `config` (app-data paths).
-- `mcp/` the stdio MCP server (`server.mjs`, a thin proxy onto `/api/agent/command`) plus its `package.json` and MCPB `manifest.json` for the one-click bundle (`npm run mcpb`, built by `scripts/mcpb.mjs`); `skills/cbctscope-reading/` the Agent Skill that teaches a host the verbs.
-- `scripts/demo.mjs` the cross-platform `npm run demo` launcher; `scripts/mcp-smoke.mjs` the live MCP check; `scripts/manual-shots.mjs` recaptures the manual's stills; `Start CBCTScope.command` / `Start CBCTScope.bat` at the root are the double-click starters (install on first run, normal mode, open the browser).
-- `tests/` vitest on the pure math + the manual drift test; `docs/` MCP contract, per-mode reading guides, and the user manual (`docs/manual/`, see below).
+- `lib/browser/` the web build's `browserSource` behind the `VolumeSource` seam (client code imports `components/cbct/source.ts`); `lib/shared/` DICOM helpers and the phantom for both sides. Contract: `docs/web-build.md`.
+- `mcp/` the stdio MCP server (`server.mjs`, a thin proxy onto `/api/agent/command`) plus the MCPB bundle (`npm run mcpb`); `skills/cbctscope-reading/` the Agent Skill that teaches a host the verbs.
+- `scripts/demo.mjs` the cross-platform `npm run demo` launcher; `scripts/mcp-smoke.mjs` the live MCP check; `scripts/manual-shots.mjs` recaptures the manual's stills; the root `Start CBCTScope.*` files are the double-click starters.
+- `tests/` vitest (pure math, manual drift), `tests/e2e/` Playwright on `out/`; `docs/` MCP contract, reading guides, the manual (`docs/manual/`, see below).
 
 ## The user manual
 
@@ -56,10 +57,10 @@ commit itself:
 ## Gates
 
 ```sh
-npm run typecheck && npm run lint && npm test && npm run build
+npm run typecheck && npm run lint && npm test && npm run build && npm run build:web && npm run test:e2e
 ```
 
-All four must pass before a change is done. A change to the agent surface also runs `npm run mcp:smoke` against a live demo tab. GitHub adds CodeQL (`.github/workflows/codeql.yml`) and Dependabot (`.github/dependabot.yml`); every action is pinned to a commit SHA. Never run `npm run build` while a dev server is up; they share `.next` and a concurrent build corrupts it (recovery: stop the server, `rm -rf .next`).
+All six must pass before a change is done. A change to the agent surface also runs `npm run mcp:smoke` against a live demo tab. GitHub adds CodeQL and Dependabot; every action is pinned to a commit SHA. Never run `npm run build` while a dev server is up; they share `.next` and a concurrent build corrupts it (recovery: stop the server, `rm -rf .next`).
 
 `tests/docs.test.ts` caps the size of this file, shrink-only: when `AGENTS.md` grows past the byte number in that test, trim the file, never raise the number.
 

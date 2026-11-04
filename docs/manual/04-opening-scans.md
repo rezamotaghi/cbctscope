@@ -65,3 +65,29 @@ radiographs carry no HU calibration, and MONOCHROME1 files are flipped so
 bright is always radiopaque. The volumetric reading modes and HU presets do
 not apply to radiographs; the header hint line reflects this while one is
 selected.
+
+## 4.6 Opening in the browser (the web build)
+
+In the web build (section 2.5) the **📂 open** menu offers:
+
+- **📁 Open folder** for an export folder (a DICOMDIR tree, a slice series,
+  or multiframe files). The browser asks you to confirm that the site may read
+  the folder; that confirmation is the browser's, and nothing is uploaded.
+- **🗄 Open file** for one multiframe volume or one radiograph.
+
+A **drop** anywhere on the viewer opens too: drag an export folder or a file
+from your file manager onto the image area, and folders are read with all
+their subfolders. The same accepted formats apply as in section 4.1, and the
+files are recognized by their content, never by their names.
+
+The first time a real scan is opened in a browser profile, the
+**Research use only** dialogue explains that this is not a medical device,
+that the viewer moves the camera and you read, and that nothing leaves the
+browser. **I understand** dismisses it for good in that profile. The phantom
+never shows it.
+
+A volume above the size threshold (512 MiB of voxels by default) shows the
+**Large volume** notice before it loads: its size, and that the browser must
+hold it in memory. **Continue** loads it; **Cancel** leaves the viewer as it
+was. **✕ Close** works as in section 4.3, without any memory of the source
+between visits.
