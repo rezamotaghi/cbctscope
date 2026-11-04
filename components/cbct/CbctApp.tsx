@@ -35,6 +35,7 @@ import { EVIDENCE_SCHEMA, parseMarksFile, type EvidenceFile } from './evidence';
 import { SIZE_NOTICE_MIB, needsSizeNotice, voxelBytes } from './sizeNotice';
 import { dropLabel, entriesOf, walkDrop } from './dropFiles';
 import { selectVolumeVerb, type SwitchOutcome } from './agentSelect';
+import { useDropOverlay } from './useDropOverlay';
 import { downloadBlob } from './exporters';
 import {
   ResearchUseDialog,
@@ -263,7 +264,6 @@ export default function CbctApp() {
   const [pendingSize, setPendingSize] = useState<{ anon: string; label: string; bytes: number } | null>(null);
   const [researchOpen, setResearchOpen] = useState(false);
   const [marksBusy, setMarksBusy] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
   /** web build: the open's progress panel, from the files handed over to the first frame */
   const [openPanel, setOpenPanel] = useState<OpenPanelState | null>(null);
   const openTokenRef = useRef(0); // reports from an earlier open are ignored
@@ -494,6 +494,7 @@ export default function CbctApp() {
     },
     [openWith, beginOpen],
   );
+  const drop = useDropOverlay(IS_WEB, (dt) => void onDropFiles(dt));
 
   const onCloseSource = useCallback(async () => {
     setSrcMenu(false);
@@ -1222,27 +1223,10 @@ export default function CbctApp() {
         <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <main
           style={{ flex: 1, minWidth: 0, minHeight: 0, padding: 8, position: 'relative' }}
-          {...(IS_WEB
-            ? {
-                // the web build: a drop anywhere on the viewer opens it (folders walked recursively)
-                onDragOver: (e: React.DragEvent) => {
-                  if (!e.dataTransfer.types.includes('Files')) return;
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = 'copy';
-                  setDragOver(true);
-                },
-                onDragLeave: (e: React.DragEvent) => {
-                  if (e.currentTarget === e.target) setDragOver(false);
-                },
-                onDrop: (e: React.DragEvent) => {
-                  e.preventDefault();
-                  setDragOver(false);
-                  void onDropFiles(e.dataTransfer);
-                },
-              }
-            : {})}
+          // the web build: a drop anywhere on the viewer opens it (folders walked recursively)
+          {...(IS_WEB ? drop.handlers : {})}
         >
-          {IS_WEB && dragOver && (
+          {IS_WEB && drop.over && (
             <div
               data-testid="drop-zone"
               style={{

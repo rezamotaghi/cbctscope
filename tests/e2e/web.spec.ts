@@ -48,6 +48,41 @@ test('the agent frame page carries its own policy: the provider hosts and loopba
   expect(html).toContain('default-src &#x27;none&#x27;');
 });
 
+test('a drag over the viewer and back out leaves no overlay; Escape clears it too', async ({ page }) => {
+  await waitForVolume(page);
+  const zone = page.getByTestId('drop-zone');
+  // enter the viewer, cross into a child, leave the child, leave the viewer: the child's own
+  // enter and leave must not clear the overlay early, and the last leave must clear it
+  await page.evaluate(() => {
+    const main = document.querySelector('main') as HTMLElement;
+    const child = main.querySelector('canvas, div') as HTMLElement;
+    const dt = new DataTransfer();
+    dt.items.add(new File(['x'], 'x.dcm'));
+    const fire = (el: HTMLElement, type: string) =>
+      el.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt, relatedTarget: document.body }));
+    fire(main, 'dragenter');
+    fire(child, 'dragenter');
+    fire(child, 'dragleave');
+    (window as unknown as { __dt: DataTransfer }).__dt = dt;
+  });
+  await expect(zone).toBeVisible();
+  await page.evaluate(() => {
+    const main = document.querySelector('main') as HTMLElement;
+    const dt = (window as unknown as { __dt: DataTransfer }).__dt;
+    main.dispatchEvent(new DragEvent('dragleave', { bubbles: true, cancelable: true, dataTransfer: dt, relatedTarget: document.body }));
+  });
+  await expect(zone).toHaveCount(0);
+  // enter again, then Escape
+  await page.evaluate(() => {
+    const main = document.querySelector('main') as HTMLElement;
+    const dt = (window as unknown as { __dt: DataTransfer }).__dt;
+    main.dispatchEvent(new DragEvent('dragenter', { bubbles: true, cancelable: true, dataTransfer: dt }));
+  });
+  await expect(zone).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(zone).toHaveCount(0);
+});
+
 test('the MCP eviction banner is absent from the web build', async ({ page }) => {
   await waitForVolume(page);
   await expect(page.getByText('holds the agent connection')).toHaveCount(0);

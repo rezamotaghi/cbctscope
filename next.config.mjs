@@ -13,6 +13,9 @@ const base = {
   // The floating Next.js dev badge sits bottom-left where it covers viewer controls
   // (e.g. the CBCT pano "Clear arch" button), and the dev server runs permanently here.
   devIndicators: false,
+  // the build target as a constant in every build (empty in the local app), so a branch on it is
+  // dead code the bundler drops: the local app carries no browser loader (components/cbct/source.ts)
+  env: { NEXT_PUBLIC_CBCTSCOPE_TARGET: process.env.NEXT_PUBLIC_CBCTSCOPE_TARGET ?? '' },
   webpack: (config) => {
     config.resolve.fallback = { ...(config.resolve.fallback || {}), fs: false };
     config.module.rules.push({ test: /\.wasm$/, type: 'asset/resource' });

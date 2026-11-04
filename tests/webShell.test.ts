@@ -15,6 +15,7 @@ import { DIRS_STOP_REASON, DROP_LIMITS, dropLabel, walkDrop, walkEntries, type D
 import { MAX_WALK_DEPTH } from '../lib/shared/dicomScan';
 import { createPageTransport, type AgentCommand } from '../components/cbct/agentTransport';
 import { HELD_BY_SIZE_NOTICE, selectVolumeVerb } from '../components/cbct/agentSelect';
+import { dragDepth } from '../components/cbct/useDropOverlay';
 import { AGENT_TIMEOUT_MS } from '../lib/shared/agentTimeout';
 import { EVIDENCE_SCHEMA, parseMarksFile } from '../components/cbct/evidence';
 
@@ -286,6 +287,19 @@ describe('the marks file', () => {
     expect(a.data.handles).toEqual({ points: [[1, 2, 3], [4, 5, 6]] });
     expect(r.file.views).toEqual(saved.views);
     expect(r.file.traces).toEqual(saved.traces);
+  });
+});
+
+describe('the drop overlay depth', () => {
+  it('stays up while the pointer crosses children and clears on the last leave or a reset', () => {
+    const d = dragDepth();
+    expect(d.enter()).toBe(true); // the viewer
+    expect(d.enter()).toBe(true); // a child
+    expect(d.leave()).toBe(true); // out of the child, still over the viewer
+    expect(d.leave()).toBe(false); // out of the viewer
+    expect(d.leave()).toBe(false); // never below zero
+    expect(d.enter()).toBe(true);
+    expect(d.reset()).toBe(false); // drop, dragend, Escape, pointer left the window
   });
 });
 
