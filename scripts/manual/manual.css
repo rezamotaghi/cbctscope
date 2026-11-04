@@ -1,5 +1,6 @@
 /* The manual's pages (scripts/manual-html.mjs): the viewer's typography and colours
-   (app/globals.css), dark by default like the viewer, light when the system asks for it.
+   (app/globals.css), dark by default like the viewer, light when the system asks for it,
+   except under .theme-dark (the viewer's help drawer, ?theme=dark), which stays dark.
    Every colour pair is full contrast; nothing is dimmed or revealed on hover. */
 :root {
   --bg: #0c0e12;
@@ -14,7 +15,7 @@
   color-scheme: dark;
 }
 @media (prefers-color-scheme: light) {
-  :root {
+  :root:not(.theme-dark) {
     --bg: #ffffff;
     --panel: #f3f5f8;
     --panel-2: #e8ecf2;
@@ -143,6 +144,24 @@ pre code {
 .toc-title {
   margin: 0 0 8px;
   font-weight: 600;
+}
+/* the phone-width switch for the contents; on wide screens the list is always open */
+.toc-toggle {
+  display: none;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 14px;
+}
+.toc-toggle::after {
+  content: ' \25BE';
+}
+.toc-toggle[aria-expanded='true']::after {
+  content: ' \25B4';
 }
 .toc-list {
   list-style: none;
@@ -305,13 +324,30 @@ main {
     display: block;
     padding: 16px;
   }
+  /* the contents collapse behind a button that stays on screen: the nav is sticky, and the
+     open list scrolls inside it, so the chapter text starts within the first screen */
   .toc {
-    position: static;
-    max-height: none;
-    overflow: visible;
-    margin-bottom: 24px;
-    padding-bottom: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    max-height: 75vh;
+    overflow-y: auto;
+    margin: 0 -16px 20px;
+    padding: 8px 16px;
+    background: var(--bg);
     border-bottom: 1px solid var(--border);
+  }
+  .toc-title {
+    display: none;
+  }
+  .toc-toggle {
+    display: inline-block;
+  }
+  .toc:not(.open) .toc-list {
+    display: none;
+  }
+  .toc.open .toc-list {
+    margin-top: 8px;
   }
   .toc-list {
     display: flex;

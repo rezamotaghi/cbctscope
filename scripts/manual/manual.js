@@ -1,7 +1,36 @@
 // The manual's search box (scripts/manual-html.mjs): filters search-index.json, a file next
 // to this one, in the page. Same origin, fetched once on the first keystroke; nothing else
 // leaves the page and nothing is sent anywhere.
-(function () {
+// It also carries the drawer's theme: ?theme=dark marks the page dark before it paints (this
+// script loads in <head>, without defer) and keeps the flag on every link to another page of
+// the manual, so the drawer stays dark as the reader moves on. And the phone-width
+// "Contents" button opens and closes the list of chapters.
+var DARK = /(?:^|[?&])theme=dark(?:&|$)/.test(location.search);
+if (DARK) document.documentElement.classList.add('theme-dark');
+
+/** a manual page address with the drawer's flag kept, the anchor after it */
+function keepTheme(href) {
+  if (!DARK || /^[a-z]+:|^\/\/|^#/i.test(href) || !/\.html(#|$)/.test(href)) return href;
+  var at = href.indexOf('#');
+  return at < 0 ? href + '?theme=dark' : href.slice(0, at) + '?theme=dark' + href.slice(at);
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  if (DARK) {
+    Array.prototype.forEach.call(document.querySelectorAll('a[href]'), function (a) {
+      a.setAttribute('href', keepTheme(a.getAttribute('href')));
+    });
+  }
+  var toggle = document.querySelector('.toc-toggle');
+  if (toggle) {
+    toggle.addEventListener('click', function () {
+      var open = toggle.parentNode.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  }
+});
+
+document.addEventListener('DOMContentLoaded', function () {
   var input = document.getElementById('q');
   var box = document.getElementById('results');
   if (!input || !box) return;
@@ -51,7 +80,7 @@
     if (shown.length) {
       html += '<ol>' + shown.map(function (e) {
         var page = index.pages[e.i];
-        var href = page.p + (e.id ? '#' + e.id : '');
+        var href = keepTheme(page.p + (e.id ? '#' + e.id : ''));
         var where = page.t === e.h ? page.t : page.t + ': ' + e.h;
         return '<li><a class="where" href="' + esc(href) + '">' + esc(where) + '</a><p>' + snippet(e.x || e.h, words[0]) + '</p></li>';
       }).join('') + '</ol>';
@@ -66,4 +95,4 @@
       box.hidden = false;
     });
   });
-})();
+});

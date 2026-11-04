@@ -335,7 +335,11 @@ Two forms:
 2. **The help drawer in the app**: in the local app and the desktop app, the help menu (and,
    in the desktop app, the header's "Manual") opens the same pages in an iframe in a column
    at the right of the viewer's row, which narrows the viewer and covers no control, with a
-   "Close manual" button.
+   "Close manual" button. The drawer adds `?theme=dark`, so its pages stay dark beside the
+   viewer; the pages in a tab follow the system setting.
+
+At phone width the table of contents collapses behind a "Contents" button that stays on
+screen at the top of every page; on wide screens it is the left column, always open.
 
 A printed form can be generated later from the same pages.
 

@@ -1,6 +1,7 @@
 // The user manual inside the viewer (docs/web-build.md, section 13). The pages are the ones
 // scripts/manual-html.mjs renders into manual/ on this same origin; the drawer shows one in
-// an iframe, with the manual's own table of contents and search. It is a column of the
+// an iframe, with the manual's own table of contents and search, in the dark theme of the
+// viewer whatever the system setting. It is a column of the
 // viewer's row, so opening it narrows the viewer and covers no control (AGENTS.md, hard
 // rule 4). The website opens the same pages in a new tab instead (CbctApp's help menu).
 
@@ -11,6 +12,12 @@ export function guidePage(viewMode: string, isXray: boolean): string {
 
 /** the address of a manual page, relative to the viewer's page, so a base path holds */
 export const manualHref = (page: string) => `manual/${page}`;
+
+/** the drawer's address: the same page with ?theme=dark, so it matches the viewer beside it */
+export function drawerSrc(page: string): string {
+  const [file, hash] = page.split('#');
+  return `${manualHref(file)}?theme=dark${hash ? `#${hash}` : ''}`;
+}
 
 export default function ManualDrawer({ page, onClose }: { page: string; onClose: () => void }) {
   return (
@@ -55,7 +62,7 @@ export default function ManualDrawer({ page, onClose }: { page: string; onClose:
       </div>
       <iframe
         title="CBCTScope user manual"
-        src={manualHref(page)}
+        src={drawerSrc(page)}
         style={{ flex: 1, minHeight: 0, width: '100%', border: 0, background: 'var(--bg)' }}
       />
     </aside>

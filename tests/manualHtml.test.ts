@@ -9,7 +9,7 @@ import path from 'node:path';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterAll, describe, expect, it } from 'vitest';
-import ManualDrawer, { guidePage, manualHref } from '../components/cbct/ManualDrawer';
+import ManualDrawer, { drawerSrc, guidePage, manualHref } from '../components/cbct/ManualDrawer';
 import { pageName, writeManual } from '../scripts/manual-html.mjs';
 
 const root = process.cwd();
@@ -37,6 +37,7 @@ describe('the manual as pages', () => {
   it('lists every manifest title in each page table of contents, in order', () => {
     for (const p of pages) {
       const nav = /<nav class="toc"[\s\S]*?<\/nav>/.exec(html(p))?.[0] ?? '';
+      expect(nav, `${p} has the phone-width Contents button`).toContain('aria-controls="toc-list"');
       const titles = [...nav.matchAll(/<a [^>]*>([^<]+)<\/a>/g)].map((m) => m[1]);
       expect(titles, p).toEqual(manifest.chapters.map((c) => c.title));
     }
@@ -111,7 +112,8 @@ describe('the help drawer', () => {
   it('shows the page relative to the viewer, with a close button', () => {
     expect(manualHref('index.html')).toBe('manual/index.html');
     const markup = renderToStaticMarkup(createElement(ManualDrawer, { page: 'mpr.html', onClose: () => {} }));
-    expect(markup).toContain('src="manual/mpr.html"');
+    expect(markup).toContain('src="manual/mpr.html?theme=dark"');
+    expect(drawerSrc(guidePage('mpr', true))).toBe('manual/04-opening-scans.html?theme=dark#45-2d-radiographs');
     expect(markup).toContain('title="CBCTScope user manual"');
     expect(markup).toMatch(/<button[^>]*>Close manual/);
     expect(markup).toContain('aria-label="User manual"');

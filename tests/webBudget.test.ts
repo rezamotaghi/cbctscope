@@ -7,11 +7,11 @@ import { describe, expect, it } from 'vitest';
 
 /**
  * Measured 2026-11-04 after the manual's pages joined the export (docs/web-build.md, section
- * 13): 10_360_704 bytes, of which manual/ is 2_422_018 (its nine WebP stills about 2 MB). The
+ * 13): 10_365_588 bytes, of which manual/ is 2_426_806 (its nine WebP stills about 2 MB). The
  * integration pass's figure, 7_791_978 with the real browser loader, is superseded; the pages
  * are a deliberate addition, so the budget moves with them.
  */
-const MEASURED = 10_360_704;
+const MEASURED = 10_365_588;
 const BUDGET = Math.round(MEASURED * 1.1);
 
 const out = path.join(process.cwd(), 'out');

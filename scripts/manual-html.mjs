@@ -12,7 +12,8 @@
 // the manifest as the table of contents; headings carry GitHub-style ids, so an anchor that
 // works on GitHub works here; links between chapters point at the generated pages, links to
 // other repo files at the project page (a new tab, never a request), and the stills are copied
-// into media/. No inline script and no remote asset: manual.js and manual.css sit next to the
+// into media/. `?theme=dark` (the viewer's help drawer) forces the dark theme on every page it
+// reaches; without it a page follows the system setting. No inline script and no remote asset: manual.js and manual.css sit next to the
 // pages, so the web build's CSP (written into every exported page by build-web.mjs) holds.
 // Markdown rendering: marked (devDependency, exact version, no dependencies of its own).
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -167,7 +168,7 @@ function shell(manual, { page, title, body }) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
 <link rel="stylesheet" href="manual.css">
-<script src="manual.js" defer></script>
+<script src="manual.js"></script>
 </head>
 <body>
 <header class="bar">
@@ -182,7 +183,8 @@ function shell(manual, { page, title, body }) {
 <div class="layout">
 <nav class="toc" aria-label="Table of contents">
 <p class="toc-title">Contents</p>
-${tocList(manual, page)}
+<button class="toc-toggle" type="button" aria-expanded="false" aria-controls="toc-list">Contents</button>
+${tocList(manual, page).replace('<ol class="toc-list">', '<ol class="toc-list" id="toc-list">')}
 </nav>
 <main>
 <section id="results" class="results" aria-live="polite" hidden></section>

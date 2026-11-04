@@ -315,3 +315,48 @@ test.describe('the manual', () => {
     expect(tabProblems).toEqual([]);
   });
 });
+
+test.describe('the manual, drawer and phone', () => {
+  const manifestTitles = () =>
+    (JSON.parse(readFileSync(path.join(process.cwd(), 'docs/manual/manifest.json'), 'utf8')) as { chapters: { title: string }[] }).chapters.map(
+      (c) => c.title,
+    );
+
+  test('the desktop app opens the manual in a drawer, in the dark theme', async ({ browser, baseURL }) => {
+    // the desktop shell's user-agent token is the only difference the page sees (shell.ts)
+    const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 }, userAgent: 'Mozilla/5.0 Chrome CBCTScope/0.0.0' });
+    const page = await ctx.newPage();
+    const tabProblems = guardPage(page, new URL(baseURL as string).origin);
+    await page.goto('/');
+    await waitForVolume(page);
+    await page.getByRole('button', { name: /help ▾/ }).click();
+    await page.getByRole('button', { name: '📘 User manual' }).click();
+    const drawer = page.getByTestId('manual-drawer');
+    await expect(drawer).toBeVisible();
+    const frame = page.frameLocator('iframe[title="CBCTScope user manual"]');
+    await expect(frame.getByRole('heading', { level: 1, name: 'CBCTScope User Manual' })).toBeVisible();
+    await expect(frame.locator('html')).toHaveClass(/\btheme-dark\b/);
+    await page.getByRole('button', { name: /Close manual/ }).click();
+    await expect(drawer).toHaveCount(0);
+    expect(tabProblems).toEqual([]);
+    await ctx.close();
+  });
+
+  test('at 375 px the contents sit behind a visible Contents button and the text starts on the first screen', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto('/manual/05-display.html');
+    const toggle = page.getByRole('button', { name: 'Contents' });
+    const list = page.locator('#toc-list');
+    await expect(toggle).toBeVisible();
+    await expect(list).toBeHidden();
+    const h1 = await page.getByRole('heading', { level: 1 }).boundingBox();
+    expect(h1 && h1.y + h1.height).toBeLessThan(812);
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(list).toBeVisible();
+    await expect(list.getByRole('link')).toHaveText(manifestTitles());
+    // the button stays on screen after a scroll
+    await page.mouse.wheel(0, 3000);
+    await expect(toggle).toBeInViewport();
+  });
+});
