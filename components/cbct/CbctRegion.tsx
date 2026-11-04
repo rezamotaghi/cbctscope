@@ -4,7 +4,7 @@
 // then clicks a seed inside the target: every connected voxel in range floods out (bounded by
 // the box) into a mask shown over all three orthogonal planes. The panel reports volume,
 // HU stats, and the per-height cross-sectional area profile with the narrowest slice flagged —
-// the airway read. Pure canvas off the shared HU cache; the fill runs in regionGrow.ts.
+// the airway view. Pure canvas off the shared HU cache; the fill runs in regionGrow.ts.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadVolumeData, type CbctMeta, type VolumeEntry } from './volumeData';
 import { toImageData } from './curvedReformat';

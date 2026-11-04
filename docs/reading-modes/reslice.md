@@ -1,7 +1,7 @@
 # Reslice
 
 > **At a glance**
-> - **The question:** cut a fresh slice stack along this exact structure, a straight line
+> - **What the view shows:** cut a fresh slice stack along this exact structure, a straight line
 >   at any angle or a curved arc, where the fixed planes do not reach.
 > - **Start:** scroll the scout to the slice where the structure is best defined, draw the
 >   path (drag a stroke, or click points: two make a line, three or more an arc),

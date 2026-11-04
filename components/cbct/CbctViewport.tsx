@@ -633,7 +633,7 @@ export default function CbctViewport({
   finalizeRoiRef.current = finalizeRoi;
 
   // ---- saved views (V): all four pane cameras + the read-state controls, named — one click
-  // returns to a finding's exact presentation. Restoring patches the App's controls and then
+  // returns to a region's exact presentation. Restoring patches the App's controls and then
   // re-applies the cameras (twice: the render-settings effects can re-fit the 3D camera).
   const [views, setViews] = useState<SavedView[]>([]);
   const viewsRef = useRef<SavedView[]>([]);

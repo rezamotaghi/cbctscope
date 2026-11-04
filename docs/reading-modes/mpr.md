@@ -1,8 +1,8 @@
 # MPR
 
 > **At a glance**
-> - **The question:** what is here, in three dimensions: localize it, follow it across
->   planes, measure it in true millimetres, present it. The default read; when in doubt,
+> - **What the view shows:** what is here, in three dimensions: localize it, follow it across
+>   planes, measure it in true millimetres, present it. The default view; when in doubt,
 >   start here.
 > - **Start:** open the scan, press `R` for orthogonal planes, pick a window preset
 >   (**Bone**, **Teeth**, **Soft**, or **Auto**), click a structure to spot the crosshairs.
@@ -17,7 +17,7 @@
 
 ## What this mode is for
 
-MPR is the default read: three orthogonal slice panes (axial, sagittal, coronal) with
+MPR is the default view: three orthogonal slice panes (axial, sagittal, coronal) with
 linked crosshairs, plus a 3D render in the fourth pane. It answers the general question
 "what is here, in three dimensions": localizing a structure, following it across planes,
 measuring it in true millimetres, and presenting it as a labeled figure. Everything else

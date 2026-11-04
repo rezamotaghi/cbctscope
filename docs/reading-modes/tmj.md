@@ -1,7 +1,7 @@
 # TMJ
 
 > **At a glance**
-> - **The question:** what does each condyle look like in sections corrected to its own
+> - **What the view shows:** what does each condyle look like in sections corrected to its own
 >   axis, and how do the two sides compare?
 > - **Start:** scroll the scout to the level where both condylar heads are widest, drag
 >   one line per condyle along its long axis (lateral pole to medial pole), set a bone

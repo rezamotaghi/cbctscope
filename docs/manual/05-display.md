@@ -40,7 +40,7 @@ way on its 0 to 4095 scale.
   (window sliders to the automatic values, gamma to 1).
 - **Center and width sliders**: the same window numerically. The sliders span
   this image's actual value range, and width moves on a logarithmic scale, so
-  narrow diagnostic windows adjust finely while the far end still reaches the
+  narrow windows adjust finely while the far end still reaches the
   full span.
 - **Gamma**: bends the gray ramp; 1 is linear. Double-click the slider to
   reset.

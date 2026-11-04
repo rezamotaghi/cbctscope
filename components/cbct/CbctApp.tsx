@@ -603,7 +603,7 @@ export default function CbctApp() {
   const voiShown = controls.voi ?? meta?.defaultVoi ?? { center: 0, width: 1 };
   // Window sliders span this image's ACTUAL value range (full spectrum — the Auto/default
   // window always lies inside, so any hand-set window can be walked back; a fixed cap could
-  // put the original width out of reach). Width runs on a log scale: narrow diagnostic
+  // put the original width out of reach). Width runs on a log scale: narrow
   // windows get fine steps, the far end still reaches the full span. Bounds also swallow the
   // current value so the thumb never clips while histogram data is still loading. Fallbacks
   // are mode-aware: HU for a volume, 0–4095 gray for a 2D radiograph.

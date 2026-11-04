@@ -1,7 +1,7 @@
 # Pano
 
 > **At a glance**
-> - **The question:** survey the dentition and jaws in one panoramic layout, then see any
+> - **What the view shows:** survey the dentition and jaws in one panoramic layout, then see any
 >   point in cross-section, including the mandibular canal traced in three dimensions.
 > - **Start:** scroll the axial editor to a slice through the tooth-bearing arch, draw the
 >   arch in one stroke through the roots and alveolar process (or click **Auto arch** and

@@ -1,7 +1,7 @@
 # Region
 
 > **At a glance**
-> - **The question:** how large is this connected low-density or high-density region, and
+> - **What the view shows:** how large is this connected low-density or high-density region, and
 >   where is it narrowest? The upper airway is the canonical case.
 > - **Start:** scroll the scout to the middle of the target, pick a density preset
 >   (**air / airway**, **soft tissue**, **bone**, or **tooth / root**), drag a bounding box
@@ -58,7 +58,7 @@ case.
    else.
 5. If the mask leaks, tighten the box, narrow the range, or reduce the depth; if it
    under-fills, widen the range or enable smooth to close pinholes.
-6. For an airway read: air preset, a box around the pharynx, seed in the air column; the
+6. For an airway view: air preset, a box around the pharynx, seed in the air column; the
    graph then gives the area at each height with the narrowest slice flagged.
 7. Read the narrowest level on the sagittal and coronal panes at the dashed line, not
    only on the graph.

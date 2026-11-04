@@ -1,7 +1,7 @@
 # Grid
 
 > **At a glance**
-> - **The question:** show this whole region slice by slice at a glance, at a chosen
+> - **What the view shows:** show this whole region slice by slice at a glance, at a chosen
 >   spacing and any angle, the way a printed multi-slice sheet would.
 > - **Start:** pick the plane and a grid size, set the window, then drag the section
 >   window over the region on the scout and set the spacing so the stack covers it.

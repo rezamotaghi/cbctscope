@@ -1,7 +1,7 @@
 # Ceph
 
 > **At a glance**
-> - **The question:** an overall skeletal impression in a familiar projected radiographic
+> - **What the view shows:** an overall skeletal overview in a familiar projected radiographic
 >   format, reproducible off the same scan.
 > - **Start:** pick a projection preset (**Lateral L**, **Lateral R**, **PA**, or **AP**),
 >   click **auto contrast**, then choose the average projection or **MIP**.
@@ -19,7 +19,7 @@ Ceph renders a virtual cephalogram: the whole volume projected flat along one vi
 direction, like a film. Every structure along each ray is integrated into one 2D
 radiograph, so the result reads like a conventional cephalometric or skull projection
 reconstructed from the same scan. It answers the projection questions: an overall
-skeletal impression in a familiar radiographic format, and a reproducible 2D image that
+skeletal overview in a familiar radiographic format, and a reproducible 2D image that
 can be regenerated at exactly the same geometry from the same volume.
 
 ## Gestures

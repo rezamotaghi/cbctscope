@@ -1,7 +1,7 @@
 # Stitch
 
 > **At a glance**
-> - **The question:** align and merge two scans of the same subject into one volume when
+> - **What the view shows:** align and merge two scans of the same subject into one volume when
 >   the region of interest spans both.
 > - **Start:** with the base volume open as A, pick B from the same-patient candidates,
 >   keep the **color** overlay, run **auto align**, refine with the sliders until the
