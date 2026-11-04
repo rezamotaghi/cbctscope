@@ -32,10 +32,14 @@ test('no request leaves the served origin and the CSP blocks nothing', async ({ 
   // let workers, codecs and late chunks settle
   await page.waitForTimeout(2000);
   const csp = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
-  expect(csp).toMatch(/(^|; )connect-src 'self'(;|$)/);
+  // the origin plus the opt-in agent's providers and loopback (components/webCsp.mjs); nothing
+  // is requested from them unless the agent is switched on (this suite's guard proves it)
+  expect(csp).toMatch(
+    /(^|; )connect-src 'self' https:\/\/api\.anthropic\.com https:\/\/api\.openai\.com https:\/\/generativelanguage\.googleapis\.com http:\/\/127\.0\.0\.1:\* http:\/\/localhost:\*(;|$)/,
+  );
 });
 
-test('the agent surface is absent from the web build', async ({ page }) => {
+test('the MCP eviction banner is absent from the web build', async ({ page }) => {
   await waitForVolume(page);
   await expect(page.getByText('holds the agent connection')).toHaveCount(0);
 });

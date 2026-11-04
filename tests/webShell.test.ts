@@ -1,5 +1,7 @@
 // The web build's pure pieces (docs/web-build.md, sections 2, 4, 6, 7, 8): the CSP string,
 // the size-notice decision, the drop walker, the marks-file parser, the page transport.
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { WEB_CSP, WEB_CSP_DIRECTIVES } from '../components/webCsp.mjs';
 import {
@@ -21,9 +23,30 @@ describe('the web CSP', () => {
     }),
   );
 
-  it("connect-src is exactly 'self': the page can reach no other host", () => {
-    expect(directives.get('connect-src')).toBe("'self'");
-    expect(WEB_CSP_DIRECTIVES['connect-src']).toEqual(["'self'"]);
+  // the opt-in in-page agent's providers and a loopback model server, and nothing else
+  const CONNECT = [
+    "'self'",
+    'https://api.anthropic.com',
+    'https://api.openai.com',
+    'https://generativelanguage.googleapis.com',
+    'http://127.0.0.1:*',
+    'http://localhost:*',
+  ];
+
+  it('connect-src is exactly the origin, the three provider APIs and loopback', () => {
+    expect(directives.get('connect-src')).toBe(CONNECT.join(' '));
+    expect(WEB_CSP_DIRECTIVES['connect-src']).toEqual(CONNECT);
+  });
+
+  it('connect-src names every provider base of the agent, and the agent names no other host', () => {
+    const hosts = readFileSync(path.join(process.cwd(), 'components/cbct/agent/providers/hosts.ts'), 'utf8');
+    const literals = [...hosts.matchAll(/'(https?:\/\/[^']+)'/g)].map((m) => m[1]);
+    expect(literals.length).toBeGreaterThanOrEqual(6);
+    for (const url of literals) {
+      const u = new URL(url);
+      const allowed = u.protocol === 'https:' ? CONNECT.includes(u.origin) : CONNECT.includes(`http://${u.hostname}:*`);
+      expect(allowed, `${url} is not covered by connect-src`).toBe(true);
+    }
   });
 
   it('carries the contract directives', () => {

@@ -36,8 +36,8 @@ checked against the code, what is left to the MCP host, and what is missing. Las
 A poisoned tool hides instructions in its name, description, or schema. A rug pull changes a
 tool after the user approved it.
 
-- **In place.** The tool definitions are static strings in `mcp/server.mjs`,
-  registered once before the transport connects. The server fetches nothing from the
+- **In place.** The tool definitions are static strings in `lib/shared/verbs.mjs`, which
+  `mcp/server.mjs` imports and registers once before the transport connects. The server fetches nothing from the
   network and never changes its tool list at runtime, so the definitions a host shows are
   the ones that run until the user installs a new version. The verb set is closed:
   navigation and visualization only, no code execution, and the viewer rejects any verb it
@@ -72,6 +72,11 @@ downscales it.
   snapshot before the model sees it.
 - **Missing.** Labels and view names pass through as written. There is no filter for
   instruction-like text, and pixels come from the scan, which can carry burned-in text.
+- **The in-page agent.** In the web build and the desktop app the clinician may switch on an
+  agent that runs on their own model account: text injected through a snapshot or a label
+  now reaches that account's model, still bounded by the same fifteen verbs, and the
+  provider key never leaves the tab's memory except in requests to the chosen provider.
+  See [docs/mcp.md](docs/mcp.md) (threat model) and manual section 9.6.
 
 ### Confused deputy against the localhost server
 
@@ -129,7 +134,8 @@ process, and the scans are all on one machine controlled by one person.
 ## Data handling
 
 - Scans are read in place from the folder you pick. Nothing is copied or uploaded.
-- No telemetry, no analytics, no outbound network calls.
+- No telemetry, no analytics, no outbound network calls, except the requests of the opt-in
+  in-page agent to the model provider the clinician chose, after they switch it on.
 - Absolute file paths never reach the browser or the agent transcript. The UI shows a display
   label derived from the folder and file names you opened, plus technical geometry.
 - The only disk writes are an app-data folder (`~/.cbctscope`) holding annotation sidecars

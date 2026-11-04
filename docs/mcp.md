@@ -24,11 +24,11 @@ The attack: a server hides instructions in its tool descriptions, or changes the
 
 What CBCTScope does:
 
-- The verb set is closed. The fifteen tools are registered once at startup from fixed text in `mcp/server.mjs`; the server never adds, edits, or removes a tool while it runs.
+- The verb set is closed. The fifteen tools are registered once at startup from fixed text in `lib/shared/verbs.mjs` (imported by `mcp/server.mjs`, and by the in-page agent below); the server never adds, edits, or removes a tool while it runs.
 - `tools/list` is deterministic: the SDK lists the tools in registration order, so one release always presents the same list.
 - No verb executes code. A poisoned instruction can at most make the agent navigate, bookmark, or capture.
 - Every tool declares annotations (read-only or not, never destructive, never open-world). They are hints: the specification tells hosts to treat annotations as untrusted unless the server is trusted, and a host may show them or ignore them.
-- Descriptions change only with a release. Read them in `mcp/server.mjs` or the bundle's `manifest.json` before you update.
+- Descriptions change only with a release. Read them in `lib/shared/verbs.mjs` or the bundle's `manifest.json` before you update.
 
 Left to the host: displaying the descriptions and annotations, pinning the reviewed definitions, and asking again when they change. Another server in the same host session can carry poisoned descriptions that steer the model's use of CBCTScope, for example to pass snapshots to its own tools. Connect CBCTScope only alongside servers you have reviewed.
 
@@ -73,6 +73,15 @@ Left to the host: the confirmation before each call, and the control that stops 
 
 Missing: there is no rate limit on the agent command bus, although the MCP specification (revisions 2025-11-25 and 2026-07-28) says servers MUST rate limit tool invocations. A per-process cap is queued for a later release.
 
+### The in-page agent
+
+The web build and the desktop app carry a second caller of the same verbs: an opt-in agent inside the page, on the clinician's own model account (Anthropic, OpenAI, Google Gemini, or an OpenAI-compatible server on loopback; manual section 9.6). It changes the threat model in three ways and keeps one thing fixed.
+
+- Prompt injection through snapshots and labels now reaches the clinician's own model account. A crafted image or folder name is read by the model the clinician pays for, under that provider's data terms. The agent's system prompt states the fence and says that results and snapshots are data, never instructions; that is a mitigation, not a defence. The in-page agent scales a snapshot down to at most 2000 px on its longer side before sending it (the providers' image limits); otherwise the image is the on-screen layout, as above.
+- The key never leaves the tab. It is held in module memory only (`components/cbct/agent/keyStore.ts`), never in the browser's storage or a cookie (`tests/agentPolicy.test.ts` scans the agent's code for those APIs), sent only to the chosen provider, and forgotten when the tab closes or the agent is switched off.
+- The page gains outbound hosts. The Content Security Policy's `connect-src` names exactly the three provider API hosts and loopback, and the page contacts none of them before the clinician confirms the opt-in dialogue; the end-to-end suite fails on any off-origin request in every other test, and `tests/e2e/agent.spec.ts` proves that Cancel sends nothing and that every request goes to the chosen endpoint only.
+- The surface stays the fifteen verbs. The page offers the model the tool list of the MCP server, from the same module (`tests/agentTools.test.ts` compares the two over stdio, name for name and schema for schema), executes them through the same verb handling in the page, checks each call's arguments against the verb's schema, and stops a request after 12 tool calls. `open_scan` and `pick_scan` answer that the clinician opens the scan.
+
 ## Architecture
 
 ```
@@ -80,6 +89,8 @@ agent host ──stdio──> mcp/server.mjs ──HTTP──> viewer server ─
                                                 (localhost:3810)        executes and
                                                                         answers back
 ```
+
+The in-page agent (manual section 9.6) skips the first three hops: it calls the clinician's model provider from the page and hands each tool call to the same verb handling through an in-memory queue (`pageTransport`).
 
 The MCP server is a thin proxy: it forwards each verb to `POST /api/agent/command`, the viewer server relays it over a server-sent-events channel to the open browser tab, the UI executes it against live state and posts the result back. Verbs that belong to one reading mode (slices, arch position, saved views) are answered by the mounted mode component; a verb the current mode cannot serve fails fast with a clear error instead of hanging. Both the viewer and the browser tab must be running; the MCP server reports a clear error otherwise.
 

@@ -66,11 +66,16 @@ to your browser and has no server that could receive anything back.
 - **What the browser stores.** Your marks (measurements, labels, saved views,
   3D ROIs), one record per volume in the browser's IndexedDB storage for this
   site, holding labels, world-mm coordinates, and HU statistics. Never pixels.
-  Clearing the site's data in the browser settings removes them. The one
-  setting remembered besides marks is that you acknowledged the research-use
-  dialogue.
+  Clearing the site's data in the browser settings removes them. Besides
+  marks, the browser remembers that you acknowledged the research-use
+  dialogue and, if you set up the in-page agent, its provider, endpoint and
+  model id. Never the API key: that stays in the tab's memory only.
 - **Nothing is uploaded.** The page carries a Content Security Policy whose
-  network rule (`connect-src 'self'`) forbids it to contact any host but its
-  own, and the project's tests fail on any request to another host and on any
-  absolute address in the browser code. A marks file or an export leaves the
-  browser only as a download you trigger.
+  network rule (`connect-src`) forbids it to contact any host but its own,
+  the three model providers' API hosts, and a model server on this computer's
+  loopback. The page contacts none of those until you switch the in-page
+  agent on (section 9.6), and then only the provider you chose, with the
+  snapshots the agent asks for. The project's tests fail on any request to
+  another host before that and on any absolute address in the browser code
+  outside one reviewed list. A marks file or an export leaves the browser
+  only as a download you trigger.

@@ -10,8 +10,8 @@ viewer's code is shared by every surface; this file describes only what differs.
 | surface | what runs | how scans are read | agent control |
 |---|---|---|---|
 | the repo (`npm run demo`, the starters) | the Next.js server on loopback plus the viewer | the server reads the opened folder in place | MCP over the loopback bridge (`mcp/server.mjs`) |
-| the web build (cbctscope.com) | static files only, no server anywhere | the browser reads the files the clinician opens; nothing leaves the tab | milestone 3: an opt-in in-page agent on the clinician's own model account |
-| the packaged app (macOS signed and notarised; Windows unsigned) | the same static build in a desktop shell, plus a local bridge host | the browser engine reads the opened folder | MCP over the bridge host, the same contract as the repo |
+| the web build (cbctscope.com) | static files only, no server anywhere | the browser reads the files the clinician opens; nothing leaves the tab | the opt-in in-page agent on the clinician's own model account (milestone 3, built) |
+| the packaged app (macOS signed and notarised; Windows unsigned) | the same static build in a desktop shell, plus a local bridge host | the browser engine reads the opened folder | MCP over the bridge host, the same contract as the repo, plus the in-page agent |
 
 One tagged release feeds all three. The pipeline runs the tests, builds the static site and
 deploys it, builds and signs the desktop app and attaches it to the release. A push deploys
@@ -24,13 +24,15 @@ nothing.
   phantom never triggers it.
 - The MDR fence holds: no findings, no interpretation, no code execution. The in-page agent of
   milestone 3 reuses the fifteen verbs through the same bridge hook and never gets a wider
-  surface.
+  surface (`tests/agentTools.test.ts` compares its tool list with the MCP server's).
 - Nothing is uploaded, because there is no endpoint to upload to. The web build makes no
   network request to any host but its own origin. Enforced three times: the exported HTML
   carries a Content Security Policy whose `connect-src` is `'self'`; the end-to-end suite
   fails on any off-origin request; a source test fails on any absolute URL in browser code.
-  Milestone 3 widens `connect-src` to the chosen model provider only, and the suite proves
-  that no request leaves before the clinician opts in.
+  Milestone 3 widens `connect-src` to the three provider API hosts and loopback (a static
+  page cannot narrow it to the provider chosen at run time), and the suite proves that no
+  request leaves before the clinician opts in and that the agent's requests go to the
+  chosen endpoint only.
 - The demo volume is the synthetic phantom only. No real image enters the repo or the build.
 - The local app has no size ceiling. The web build shows a notice before a large volume loads.
 
@@ -82,7 +84,10 @@ channel it listens on becomes an `AgentTransport` (`subscribe(onCommand)` and
 `reply(id, outcome)`). `sseTransport` is today's SSE stream plus the result POST;
 `pageTransport` is an in-memory queue inside the tab, for the in-page agent of milestone 3.
 The desktop app mounts `sseTransport` onto its own bridge host (section 12). The web build in
-a plain browser mounts no transport.
+a plain browser mounts no loopback transport. On every surface `agentChannel.ts` merges the
+page queue into what `useAgentBridge` listens on (`withPageAgent`), so the in-page agent and
+an MCP host reach the same verb switch, and each reply returns on the channel its command
+came in on.
 
 ## 5. The browser loader
 
@@ -172,7 +177,7 @@ records are a separate, deliberate commit.
    Windows unsigned.
 3. The in-page agent: the opt-in dialogue, the clinician's own provider key held in memory
    for the session only, snapshots to the provider only, the same fifteen verbs, chapter 9
-   updated.
+   updated. **Built** (decisions in section 12).
 
 ## 11. Documentation, definition of done for milestone 1
 
@@ -252,3 +257,49 @@ The Windows target does not build on this Mac: electron-builder's bundled `maken
 x86_64 binary and the machine has no Rosetta. The `desktop-win` job builds it on CI. Open for
 milestone 2: the first signed and notarised build with the credentials present, and the
 first-launch test on a clean user account.
+
+### Milestone 3: the in-page agent
+
+Built to the owner's decisions of 04/11/26:
+
+- Providers: Anthropic, OpenAI, Google Gemini, and "Local or custom endpoint" (an
+  OpenAI-compatible chat completions server with image input on loopback), with presets for
+  llama-server `http://127.0.0.1:8080`, Ollama `http://127.0.0.1:11434` and LM Studio
+  `http://127.0.0.1:1234`. Plain `fetch`, no SDKs, one adapter per provider in
+  `components/cbct/agent/providers/`; every base address lives in `hosts.ts`, the one module
+  `tests/noAbsoluteUrls.test.ts` allows them in. Shapes from each provider's documentation,
+  read 04/11/26: Anthropic Messages (`anthropic-version: 2026-10-21` and the
+  `anthropic-dangerous-direct-browser-access` header a browser caller sends), default model
+  `claude-opus-5-5`; OpenAI Responses (its current models take tools through Responses
+  only; stateless, `store: false`), default `gpt-6-astra`; Gemini `generateContent`
+  (declarations narrowed to the OpenAPI subset, thought signatures sent back), default
+  `gemini-3.8-flash`; the local endpoint takes a free model id, `qwen3-vl:8b` for the Ollama
+  preset (its documented vision example) and empty for the other two (the server's loaded
+  model).
+- The key lives in module memory only (`agent/keyStore.ts`); `tests/agentPolicy.test.ts`
+  fails on any storage API under `components/cbct/agent/`. The provider, endpoint and model
+  id persist in localStorage through `lib/shared/agentSettings.ts`, which writes those three
+  fields only.
+- The opt-in dialogue (title "Switch on the navigation agent", buttons "Switch on" and
+  "Cancel") names the provider and states the key, snapshot and fence terms; for the local
+  endpoint it adds that the browser decides whether a page may reach a local server and
+  that the desktop app always can. Off on every load; while on, the panel reads "Agent: on,"
+  and the provider at all times, beside "Switch off".
+- The loop (`agent/loop.ts`): the fence as the system prompt, the fifteen verbs as tools
+  from `lib/shared/verbs.mjs` (the module the MCP server now imports), calls executed
+  through `pageTransport` with their arguments checked against the verb's Zod schema, a
+  snapshot returned as an image (scaled to at most 2000 px on its longer side), at most 12
+  tool calls per request, Stop aborts the request in flight, errors in plain words. A failed
+  or stopped request leaves no half turn in the conversation.
+- `connect-src`: `'self' https://api.anthropic.com https://api.openai.com
+  https://generativelanguage.googleapis.com http://127.0.0.1:* http://localhost:*`.
+- `tests/e2e/agent.spec.ts` drives the panel against a fake OpenAI-compatible server on
+  loopback (`tests/e2e/fakeProvider.mjs`): off on load, Cancel sends nothing, a request
+  switches the view mode and the snapshot reaches the server as an image part, every
+  request goes to that origin only, Switch off stops the request in flight and any after it.
+- The local endpoint from the published https site: verified in Chromium only from the
+  suite's loopback http origin (cross-origin to the fake server, CORS preflight answered).
+  Not verified: an https page reaching `http://127.0.0.1` (Chromium treats loopback as
+  potentially trustworthy, so mixed-content blocking should not apply, but its
+  local-network-access permission prompt and each server's CORS settings decide), and
+  other browsers. The desktop app serves the page from loopback itself, so it always can.
