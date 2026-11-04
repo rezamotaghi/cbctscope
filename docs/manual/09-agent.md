@@ -171,8 +171,11 @@ The full technical contract, including the architecture and the live check
 ## 9.6 The in-page agent
 
 The web build and the desktop app carry a navigation agent inside the page,
-for when no MCP host is at hand. You type a request in the agent panel at the
-bottom right of the viewer ("show the left TMJ in sagittal, bone window"), and
+for when no MCP host is at hand. The **Agent** button in the header, next to
+the research-use line, opens the agent panel as a strip under the viewer; the
+viewer moves up to make room, so the panel never covers a control, and the
+same button or **Close panel** closes it. You type a request in the panel
+("show the left TMJ in sagittal, bone window"), and
 a model on your own account moves the viewer with the same fifteen verbs as
 the MCP server (section 9.3), through the same verb handling in the page. The
 surface stays those fifteen verbs; the agent gets nothing more.
@@ -185,18 +188,22 @@ and states what follows: the agent runs on your own model account; your key
 stays in this tab's memory and is forgotten when the tab closes; every
 snapshot the agent asks for is sent to that provider and nowhere else; the
 agent only moves the camera and is not asked for findings, and nothing it says
-is a finding. **Cancel** sends nothing. While the agent is on, the panel reads
-**Agent: on**, followed by the provider, at all times, and **Switch off**
-stops it at once and forgets the key.
+is a finding. **Cancel** sends nothing. While the agent is on, the header
+button reads **Agent: on**, followed by the provider, at all times, open panel
+or not, and **Switch off** (beside it and in the panel) stops it at once and
+forgets the key.
 
 **Providers.** Anthropic (default model `claude-opus-5-5`), OpenAI
 (`gpt-6-astra`), Google Gemini (`gemini-3.8-flash`), or **Local or custom
 endpoint**: a model server on this computer that speaks the OpenAI-compatible
 chat completions API with image input, with presets for llama-server
 (`http://127.0.0.1:8080`), Ollama (`http://127.0.0.1:11434`) and LM Studio
-(`http://127.0.0.1:1234`). You may type any model id the provider offers.
-The local endpoint must be a loopback address; the model must support tool
-calls and images.
+(`http://127.0.0.1:1234`). A preset only fills in the address; the endpoint
+field accepts any port on `127.0.0.1` or `localhost`. For llama-server, start
+it with `--port 8080` or type the port it listens on: its documented default
+has changed between releases (recent builds use 9931), and the MCP host
+example in docs/mcp.md runs it on 8089; any of these works if the field says so. You may type any model id the
+provider offers. The model must support tool calls and images.
 
 **The key.** Your API key is held in the page's memory only. It is never
 written to the browser's storage, a cookie, or a file, and it goes only to the

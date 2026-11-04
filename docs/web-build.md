@@ -265,7 +265,10 @@ Built to the owner's decisions of 04/11/26:
 - Providers: Anthropic, OpenAI, Google Gemini, and "Local or custom endpoint" (an
   OpenAI-compatible chat completions server with image input on loopback), with presets for
   llama-server `http://127.0.0.1:8080`, Ollama `http://127.0.0.1:11434` and LM Studio
-  `http://127.0.0.1:1234`. Plain `fetch`, no SDKs, one adapter per provider in
+  `http://127.0.0.1:1234`; the endpoint field accepts any loopback port (current llama-server
+  builds default to 9931, so the preset is a starting point, not a claim about the default).
+  The panel docks as a strip under the viewer, opened from the header's Agent button, and
+  pushes the viewer up rather than covering any control (hard rule 4). Plain `fetch`, no SDKs, one adapter per provider in
   `components/cbct/agent/providers/`; every base address lives in `hosts.ts`, the one module
   `tests/noAbsoluteUrls.test.ts` allows them in. Shapes from each provider's documentation,
   read 04/11/26: Anthropic Messages (`anthropic-version: 2026-10-21` and the

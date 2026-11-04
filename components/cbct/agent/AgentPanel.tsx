@@ -1,12 +1,14 @@
 'use client';
 // The in-page navigation agent (docs/web-build.md, section 10, item 3; manual section 9.6).
-// Off on every load. The clinician picks a provider, gives a key (memory only), and
+// AgentToggle sits in the header; AgentPanel is a strip docked under the viewer that pushes
+// the viewer up while open, so it never covers a control. Closed and off on every load. The clinician picks a provider, gives a key (memory only), and
 // switches the agent on through the opt-in dialogue; from then on the panel says so at all
 // times and offers Switch off. Requests run through loop.ts; nothing is sent to any provider
 // before the clinician confirms. Full contrast, nothing hidden or dimmed (hard rule 4).
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { PageTransport } from '../agentTransport';
 import { loadAgentSettings, saveAgentSettings } from '@/lib/shared/agentSettings';
+import { agentUi } from './agentUi';
 import { forgetKey, getKey, setKey } from './keyStore';
 import { MAX_TOOL_CALLS, runTurn, type AgentEvent } from './loop';
 import { PROVIDERS, provider as providerOf } from './providers';
@@ -22,19 +24,18 @@ interface LogLine {
 
 const LOCAL_NOTE = 'Your browser decides whether a page may reach a local server; the desktop app always can.';
 
-const panel: React.CSSProperties = {
-  position: 'fixed',
-  right: 12,
-  bottom: 12,
-  zIndex: 50,
-  width: 380,
-  maxWidth: 'calc(100vw - 24px)',
+/** the docked strip under the viewer: fixed height, never over a control (hard rule 4) */
+export const AGENT_STRIP_HEIGHT = 220;
+
+const strip: React.CSSProperties = {
+  flexShrink: 0,
+  height: AGENT_STRIP_HEIGHT,
+  boxSizing: 'border-box',
+  overflowY: 'auto',
   background: 'var(--panel)',
   color: 'var(--text)',
-  border: '1px solid var(--border)',
-  borderRadius: 8,
-  boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-  padding: '10px 12px',
+  borderTop: '1px solid var(--border)',
+  padding: '8px 12px',
   fontSize: 12,
   lineHeight: 1.5,
 };
@@ -257,29 +258,55 @@ export default function AgentPanel({ transport }: { transport: PageTransport }) 
     }
   };
 
+  const ui = useSyncExternalStore(agentUi.subscribe, agentUi.get, agentUi.server);
+  const closeButton = (
+    <button style={button(false)} onClick={() => agentUi.set({ open: false })}>
+      Close panel
+    </button>
+  );
+
+  // the header toggle shows the status and offers Switch off too
+  const switchOffRef = useRef(switchOff);
+  switchOffRef.current = switchOff;
+  useEffect(() => {
+    agentUi.set({ status: phase === 'on' ? `Agent: on, ${providerName}` : null });
+  }, [phase, providerName]);
+  useEffect(() => {
+    agentUi.onSwitchOff(() => switchOffRef.current());
+    return () => {
+      agentUi.onSwitchOff(null);
+      agentUi.set({ status: null, open: false });
+    };
+  }, []);
+
   if (phase === 'off') {
     return (
-      <div style={panel} data-testid="agent-panel">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ ...strip, display: ui.open ? 'block' : 'none' }} id="agent-panel" data-testid="agent-panel">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <strong>Agent: off</strong>
           <span style={{ flex: 1 }} />
-          <button style={button(false)} onClick={() => setPhase('setup')}>
-            Set up the navigation agent
-          </button>
+          {closeButton}
         </div>
+        <p style={{ margin: '0 0 8px' }}>
+          A navigation agent on your own model account: you ask for a view in words, it moves the camera, you read.
+          Nothing is sent anywhere until you switch it on.
+        </p>
+        <button style={button(true)} onClick={() => setPhase('setup')}>
+          Set up the navigation agent
+        </button>
       </div>
     );
   }
 
   if (phase === 'setup' || phase === 'confirm') {
     return (
-      <div style={panel} data-testid="agent-panel">
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
+      <div style={{ ...strip, display: ui.open ? 'block' : 'none' }} id="agent-panel" data-testid="agent-panel">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <strong>Agent: off</strong>
+          <span style={{ flex: 1 }}>A navigation agent on your own model account. It moves the camera; you read.</span>
+          {closeButton}
         </div>
-        <p style={{ margin: '0 0 8px' }}>
-          A navigation agent on your own model account. It moves the camera; you read.
-        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', columnGap: 12 }}>
         <label style={{ display: 'block', marginBottom: 6 }}>
           Provider
           <select
@@ -323,6 +350,10 @@ export default function AgentPanel({ transport }: { transport: PageTransport }) 
               Endpoint
               <input style={field} aria-label="Endpoint" value={endpoint} onChange={(e) => setEndpoint(e.target.value)} />
             </label>
+            <p style={{ margin: '0 0 6px' }}>
+              A preset only fills in the address: any port on 127.0.0.1 or localhost works. Start llama-server with
+              --port 8080, or type the port it listens on.
+            </p>
           </>
         )}
         <label style={{ display: 'block', marginBottom: 6 }}>
@@ -346,6 +377,7 @@ export default function AgentPanel({ transport }: { transport: PageTransport }) 
             onChange={(e) => setKeyInput(e.target.value)}
           />
         </label>
+        </div>
         <p style={{ margin: '0 0 8px' }}>The key stays in this tab&apos;s memory only and is never stored.</p>
         {local && <p style={{ margin: '0 0 8px' }}>{LOCAL_NOTE}</p>}
         {setupError && (
@@ -376,24 +408,26 @@ export default function AgentPanel({ transport }: { transport: PageTransport }) 
   }
 
   return (
-    <div style={panel} data-testid="agent-panel">
+    <div style={{ ...strip, display: ui.open ? 'flex' : 'none', flexDirection: 'column' }} id="agent-panel" data-testid="agent-panel">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-        <strong data-testid="agent-status">Agent: on, {providerName}</strong>
-        <span style={{ flex: 1 }} />
+        <strong>Agent: on, {providerName}</strong>
+        <span style={{ flex: 1 }}>Nothing the agent says is a finding. The read is yours.</span>
         <button style={button(false)} onClick={switchOff}>
           Switch off
         </button>
+        {closeButton}
       </div>
+      <div style={{ display: 'flex', gap: 12, flex: 1, minHeight: 0 }}>
       <div
         aria-live="polite"
         data-testid="agent-log"
         style={{
-          maxHeight: 220,
+          flex: 1,
+          minWidth: 0,
           overflowY: 'auto',
           border: '1px solid var(--border)',
           borderRadius: 6,
           padding: '6px 8px',
-          marginBottom: 6,
           background: 'var(--panel-2)',
         }}
       >
@@ -406,9 +440,9 @@ export default function AgentPanel({ transport }: { transport: PageTransport }) 
         {busy && <div>Working…</div>}
         <div ref={logEnd} />
       </div>
-      <p style={{ margin: '0 0 6px' }}>Nothing the agent says is a finding. The read is yours.</p>
+      <div style={{ width: 340, maxWidth: '45%', display: 'flex', flexDirection: 'column' }}>
       <textarea
-        style={{ ...field, minHeight: 48, resize: 'vertical' }}
+        style={{ ...field, flex: 1, minHeight: 48, resize: 'none' }}
         aria-label="Request to the agent"
         value={request}
         placeholder="show the left TMJ in sagittal, bone window"
@@ -428,6 +462,32 @@ export default function AgentPanel({ transport }: { transport: PageTransport }) 
           Send
         </button>
       </div>
+      </div>
+      </div>
     </div>
+  );
+}
+
+/** The header's Agent button: opens and closes the docked panel; shows the status while on. */
+export function AgentToggle() {
+  const ui = useSyncExternalStore(agentUi.subscribe, agentUi.get, agentUi.server);
+  return (
+    <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+      <button
+        style={{ ...button(ui.open), fontSize: 11, padding: '2px 8px' }}
+        aria-expanded={ui.open}
+        aria-controls="agent-panel"
+        data-testid="agent-status"
+        title="the opt-in navigation agent on your own model account: opens the panel under the viewer"
+        onClick={() => agentUi.toggle()}
+      >
+        {ui.status ?? 'Agent: off'}
+      </button>
+      {ui.status && (
+        <button style={{ ...button(false), fontSize: 11, padding: '2px 8px' }} onClick={() => agentUi.switchOff()}>
+          Switch off
+        </button>
+      )}
+    </span>
   );
 }

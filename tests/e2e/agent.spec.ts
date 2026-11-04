@@ -51,10 +51,20 @@ test.afterEach(() => {
 });
 
 const panel = (page: Page) => page.getByTestId('agent-panel');
+const toggle = (page: Page) => page.locator('header').getByTestId('agent-status');
+
+/** open the docked panel from the header's Agent button */
+async function openPanel(page: Page) {
+  await expect(toggle(page)).toHaveText('Agent: off');
+  await expect(panel(page)).toBeHidden();
+  await toggle(page).click();
+  await expect(panel(page)).toBeVisible();
+}
 const optIn = (page: Page) => page.getByRole('dialog', { name: 'Switch on the navigation agent' });
 
 /** open the setup and point the local endpoint at the fake server */
 async function setUpLocal(page: Page) {
+  await openPanel(page);
   await expect(panel(page).getByText('Agent: off')).toBeVisible();
   await panel(page).getByRole('button', { name: 'Set up the navigation agent' }).click();
   await panel(page).getByLabel('Provider').selectOption({ label: 'Local or custom endpoint' });
@@ -67,7 +77,7 @@ async function setUpLocal(page: Page) {
 async function switchOn(page: Page) {
   await setUpLocal(page);
   await optIn(page).getByRole('button', { name: 'Switch on', exact: true }).click();
-  await expect(page.getByTestId('agent-status')).toHaveText(`Agent: on, Local or custom endpoint (${fake.origin})`);
+  await expect(toggle(page)).toHaveText(`Agent: on, Local or custom endpoint (${fake.origin})`);
 }
 
 async function ask(page: Page, text: string) {
@@ -75,8 +85,9 @@ async function ask(page: Page, text: string) {
   await panel(page).getByRole('button', { name: 'Send', exact: true }).click();
 }
 
-test('the agent is off on load and nothing is sent', async ({ page }) => {
-  await expect(panel(page).getByText('Agent: off')).toBeVisible();
+test('the agent is off and its panel closed on load, and nothing is sent', async ({ page }) => {
+  await expect(toggle(page)).toHaveText('Agent: off');
+  await expect(panel(page)).toBeHidden();
   await page.waitForTimeout(1000);
   expect(fake.requests).toEqual([]);
   expect(offOrigin).toEqual([]);
@@ -141,10 +152,39 @@ test('Switch off stops the request in flight and anything after it', async ({ pa
   await switchOn(page);
   await ask(page, 'slow: show the TMJ');
   await expect.poll(() => fake.requests.length, { timeout: 10_000 }).toBe(1);
-  await panel(page).getByRole('button', { name: 'Switch off' }).click();
-  await expect(panel(page).getByText('Agent: off')).toBeVisible();
+  // the header's Switch off, beside the status, works with the panel open or closed
+  await toggle(page).click();
+  await expect(panel(page)).toBeHidden();
+  await page.locator('header').getByRole('button', { name: 'Switch off' }).click();
+  await expect(toggle(page)).toHaveText('Agent: off');
   // the slow answer would have asked for set_view_mode and a second request; neither happens
   await page.waitForTimeout(4000);
   expect(fake.requests.length).toBe(1);
-  await expect(page.getByTestId('agent-status')).toHaveCount(0);
+  await expect(page.locator('header').getByRole('button', { name: 'Switch off' })).toHaveCount(0);
+});
+
+test('the open panel docks under the viewer and covers no control', async ({ page }) => {
+  const viewer = page.locator('main');
+  const before = await viewer.boundingBox();
+  await openPanel(page);
+  const strip = await panel(page).boundingBox();
+  const after = await viewer.boundingBox();
+  expect(before && strip && after).toBeTruthy();
+  // the viewer moved up to make room: it ends where the strip begins
+  expect(after!.height).toBeLessThan(before!.height - 150);
+  expect(after!.y + after!.height).toBeLessThanOrEqual(strip!.y + 1);
+  const overlaps = (a: { x: number; y: number; width: number; height: number }) =>
+    a.x < strip!.x + strip!.width && strip!.x < a.x + a.width && a.y < strip!.y + strip!.height && strip!.y < a.y + a.height;
+  // two right-rail controls, a window preset and a 3D style: visible, uncovered and clickable
+  const rail = page.locator('aside');
+  for (const name of ['Bone', 'Shiny']) {
+    const b = rail.getByRole('button', { name, exact: true });
+    await b.scrollIntoViewIfNeeded();
+    await expect(b).toBeVisible();
+    expect(overlaps((await b.boundingBox())!), `${name} is under the agent panel`).toBe(false);
+    await b.click(); // fails if anything covers it
+  }
+  // the header's mode buttons stay clickable too
+  await page.locator('header').getByRole('button', { name: 'Grid', exact: true }).click();
+  await expect(panel(page)).toBeVisible();
 });

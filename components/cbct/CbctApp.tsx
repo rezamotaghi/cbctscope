@@ -28,7 +28,7 @@ import CbctStitch from './CbctStitch';
 import { useAgentBridge } from './useAgentBridge';
 import { agentTransport } from './agentChannel';
 import { pageTransport } from './agentTransport';
-import AgentPanel from './agent/AgentPanel';
+import AgentPanel, { AgentToggle } from './agent/AgentPanel';
 import { AGENT_AVAILABLE, IS_DESKTOP } from './shell';
 import { IS_WEB, isCanceled, source } from './source';
 import { EVIDENCE_SCHEMA, parseMarksFile, type EvidenceFile } from './evidence';
@@ -681,7 +681,7 @@ export default function CbctApp() {
       return null;
     },
     onEvicted: () => setAgentEvicted(true),
-  }, agentTransport); // the web build in a plain browser mounts no agent channel
+  }, agentTransport); // the in-page agent's queue on every surface, plus the loopback bridge in the repo and the desktop app
   // the desktop app, read after hydration (the exported HTML is rendered without a navigator)
   const inShell = useSyncExternalStore(noSubscribe, () => IS_DESKTOP, () => false);
 
@@ -696,8 +696,6 @@ export default function CbctApp() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      {/* the opt-in in-page navigation agent (off on every load; components/cbct/agent/) */}
-      <AgentPanel transport={pageTransport} />
       {IS_WEB && (
         <>
           {/* the web build's pickers: a folder (webkitdirectory, set on mount), one file, a marks file */}
@@ -823,6 +821,8 @@ export default function CbctApp() {
         >
           {IS_WEB ? 'Research use only. Not a medical device.' : 'Research use only. Not for diagnosis.'}
         </span>
+        {/* the opt-in in-page navigation agent: this toggle opens its panel under the viewer */}
+        <AgentToggle />
         {IS_WEB && (
           <a
             href={REPO_URL}
@@ -1189,8 +1189,10 @@ export default function CbctApp() {
       </header>
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+        {/* the viewer column: the agent panel, when open, docks under the viewer and pushes it up */}
+        <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <main
-          style={{ flex: 1, minWidth: 0, padding: 8, position: 'relative' }}
+          style={{ flex: 1, minWidth: 0, minHeight: 0, padding: 8, position: 'relative' }}
           {...(IS_WEB
             ? {
                 // the web build: a drop anywhere on the viewer opens it (folders walked recursively)
@@ -1352,6 +1354,8 @@ export default function CbctApp() {
             </div>
           )}
         </main>
+        <AgentPanel transport={pageTransport} />
+        </div>
 
         <aside
           style={{
