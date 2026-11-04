@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // npm run test:e2e: the web build's end-to-end suite (docs/web-build.md, section 8).
 // Expects out/ from `npm run build:web`. Builds the low-threshold variant (size notice at
-// 1 MiB, so the phantom trips it) into out-small/, then runs Playwright against both.
+// 1 MiB, so the phantom trips it) into out-small/ and the staging variant (base path
+// /cbctscope, as release.yml builds it for the GitHub Pages address) into out-base/, then runs
+// Playwright against all three.
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -23,6 +25,11 @@ const step = (label, args, env = process.env) => {
 step('low-threshold build into out-small/', [path.join(root, 'scripts/build-web.mjs'), '--out', 'out-small'], {
   ...process.env,
   NEXT_PUBLIC_CBCTSCOPE_SIZE_NOTICE_MIB: '1',
+  NEXT_PUBLIC_BASE_PATH: '',
+});
+step('base-path build into out-base/', [path.join(root, 'scripts/build-web.mjs'), '--out', 'out-base'], {
+  ...process.env,
+  NEXT_PUBLIC_BASE_PATH: '/cbctscope',
 });
 const playwright = createRequire(import.meta.url).resolve('@playwright/test/cli');
 step('playwright', [playwright, 'test', ...process.argv.slice(2)]);

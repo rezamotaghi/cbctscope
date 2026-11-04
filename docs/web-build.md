@@ -135,7 +135,9 @@ reopen; the size-notice decision; the CSP string; the absolute-URL scan of brows
 End-to-end (Playwright, Chromium, against `out/` on a static server): the phantom renders
 (the canvas is not blank); the fixture folder opens through the directory input; every view
 mode mounts; the research-use dialogue appears once; the size notice appears on a
-low-threshold test build; no off-origin request happens; the two sidecar actions round-trip.
+low-threshold test build; no off-origin request happens; the two sidecar actions round-trip;
+a build with the staging base path (`/cbctscope`, served under that prefix only) renders the
+phantom, starts the assembly worker and compiles a codec WASM from under the prefix.
 
 Budget: the first measured bundle size becomes the budget with ten percent headroom, recorded
 in the test.

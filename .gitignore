@@ -5,6 +5,7 @@
 /.next/
 /out/
 /out-small/
+/out-base/
 /test-results/
 /playwright-report/
 

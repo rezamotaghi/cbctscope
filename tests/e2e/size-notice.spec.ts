@@ -1,15 +1,13 @@
 // The size notice on the low-threshold build (out-small/, NEXT_PUBLIC_CBCTSCOPE_SIZE_NOTICE_MIB=1):
 // the phantom (25 MiB of voxels) trips it on landing.
 import { expect, test } from '@playwright/test';
-import { LOADER_PLACEHOLDER, guardPage, mainCanvasHasImage } from './helpers';
+import { guardPage, mainCanvasHasImage } from './helpers';
 
 test('the size notice holds a large volume back; Cancel leaves the previous state', async ({ page, baseURL }) => {
   const problems = guardPage(page, new URL(baseURL as string).origin);
   await page.goto('/');
   const notice = page.getByRole('dialog', { name: 'Large volume' });
-  const failed = page.getByText('volume catalog unavailable');
-  await expect(notice.or(failed)).toBeVisible({ timeout: 60_000 });
-  test.skip((await failed.isVisible()) && LOADER_PLACEHOLDER, 'needs the loader track (browserSource is the placeholder)');
+  await expect(notice).toBeVisible({ timeout: 60_000 });
 
   await expect(notice).toContainText('The local app has no such limit.');
   await notice.getByRole('button', { name: 'Cancel' }).click();

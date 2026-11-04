@@ -15,13 +15,6 @@ export function viewModeLabels(): string[] {
 }
 
 /**
- * True while lib/browser/browserSource.ts is still the placeholder that throws. Volume tests
- * skip only when that holds AND the catalog really failed, so after the loader track lands a
- * catalog failure fails the suite instead of skipping it.
- */
-export const LOADER_PLACEHOLDER = read('lib/browser/browserSource.ts').includes('PLACEHOLDER');
-
-/**
  * Fail the test on any request whose origin is not the served origin (blob: and data: are
  * allowed), and on any CSP violation the page reports. Returns the collected problems.
  */
@@ -41,12 +34,15 @@ export function guardPage(page: Page, origin: string): string[] {
   return problems;
 }
 
-/** wait until the phantom renders or the catalog fails; returns which */
-export async function waitForVolume(page: Page): Promise<'rendered' | 'no-catalog'> {
+/**
+ * Wait until a volume is on screen. A broken catalog fails the test, never skips it: the
+ * loader is real, so "volume catalog unavailable" is a defect.
+ */
+export async function waitForVolume(page: Page): Promise<void> {
   const canvas = page.locator('main canvas').first();
   const failed = page.getByText('volume catalog unavailable');
   await expect(canvas.or(failed)).toBeVisible({ timeout: 60_000 });
-  return (await failed.isVisible()) ? 'no-catalog' : 'rendered';
+  await expect(failed, 'the volume catalog loads').toHaveCount(0);
 }
 
 /** true when some visible canvas in <main> holds non-uniform pixels */

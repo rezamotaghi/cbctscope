@@ -2,13 +2,24 @@
 // A tiny static server for the web build's export, for the end-to-end suite only (no new
 // dependency). Loopback only.
 //
-//   node scripts/serve-out.mjs [dir=out] [port=4173]
+//   node scripts/serve-out.mjs [dir=out] [port=4173] [--prefix /cbctscope]
+//
+// --prefix serves the export under a path, the way GitHub Pages serves the staging address
+// (https://<owner>.github.io/cbctscope/): a build made with NEXT_PUBLIC_BASE_PATH=/cbctscope
+// answers at /cbctscope/..., and anything outside the prefix is a 404.
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import path from 'node:path';
 
-const dir = path.resolve(process.argv[2] ?? 'out');
-const port = Number(process.argv[3] ?? 4173);
+const argv = process.argv.slice(2);
+const prefixAt = argv.indexOf('--prefix');
+const prefix = prefixAt >= 0 ? (argv.splice(prefixAt, 2)[1] ?? '').replace(/\/+$/, '') : '';
+if (prefixAt >= 0 && !/^\/[\w.-]+(\/[\w.-]+)*$/.test(prefix)) {
+  console.error('serve-out: --prefix takes a path such as /cbctscope');
+  process.exit(2);
+}
+const dir = path.resolve(argv[0] ?? 'out');
+const port = Number(argv[1] ?? 4173);
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -47,8 +58,16 @@ function resolve(urlPath) {
   return null;
 }
 
+/** the request path with the prefix taken off, or null when it lies outside the prefix */
+function unprefix(urlPath) {
+  if (!prefix) return urlPath;
+  if (urlPath === prefix) return '/';
+  return urlPath.startsWith(`${prefix}/`) || urlPath.startsWith(`${prefix}?`) ? urlPath.slice(prefix.length) : null;
+}
+
 createServer((req, res) => {
-  const file = resolve(req.url ?? '/');
+  const rel = unprefix(req.url ?? '/');
+  const file = rel === null ? null : resolve(rel);
   const send = (p, status) => {
     res.writeHead(status, { 'content-type': TYPES[path.extname(p)] ?? 'application/octet-stream' });
     createReadStream(p).pipe(res);
@@ -57,4 +76,4 @@ createServer((req, res) => {
   const notFound = path.join(dir, '404.html');
   if (existsSync(notFound)) return send(notFound, 404);
   res.writeHead(404).end('not found');
-}).listen(port, '127.0.0.1', () => console.log(`serve-out: ${dir} on http://127.0.0.1:${port}`));
+}).listen(port, '127.0.0.1', () => console.log(`serve-out: ${dir} on http://127.0.0.1:${port}${prefix}/`));

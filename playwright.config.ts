@@ -1,10 +1,14 @@
 // The web build's end-to-end suite (docs/web-build.md, section 8): Chromium only, against the
 // static export on a loopback static server. Run through `npm run test:e2e`, which also builds
-// the low-threshold variant into out-small/ for the size-notice test.
+// the low-threshold variant into out-small/ for the size-notice test and the base-path
+// variant into out-base/ (served under /cbctscope) for the staging-address test.
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 4173;
 const SMALL_PORT = 4174;
+const BASE_PORT = 4175;
+/** the staging address's base path (release.yml builds the Pages site with it) */
+const BASE_PATH = '/cbctscope';
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -22,13 +26,18 @@ export default defineConfig({
   projects: [
     {
       name: 'web',
-      testIgnore: /size-notice/,
+      testIgnore: /size-notice|base-path/,
       use: { baseURL: `http://127.0.0.1:${PORT}` },
     },
     {
       name: 'low-threshold',
       testMatch: /size-notice/,
       use: { baseURL: `http://127.0.0.1:${SMALL_PORT}` },
+    },
+    {
+      name: 'base-path',
+      testMatch: /base-path/,
+      use: { baseURL: `http://127.0.0.1:${BASE_PORT}` },
     },
   ],
   webServer: [
@@ -40,6 +49,11 @@ export default defineConfig({
     {
       command: `node scripts/serve-out.mjs out-small ${SMALL_PORT}`,
       url: `http://127.0.0.1:${SMALL_PORT}/`,
+      reuseExistingServer: false,
+    },
+    {
+      command: `node scripts/serve-out.mjs out-base ${BASE_PORT} --prefix ${BASE_PATH}`,
+      url: `http://127.0.0.1:${BASE_PORT}${BASE_PATH}/`,
       reuseExistingServer: false,
     },
   ],

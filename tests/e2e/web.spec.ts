@@ -1,6 +1,9 @@
 // The web build end to end (docs/web-build.md, section 8), against out/ on a static server.
-import { expect, test } from '@playwright/test';
-import { LOADER_PLACEHOLDER, guardPage, mainCanvasHasImage, viewModeLabels, waitForVolume } from './helpers';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { expect, test, type Page } from '@playwright/test';
+import { N, SERIES_COUNT, makeTempDir, removeTempDir, writeFixtures } from '../fixtures/dicomWriter';
+import { guardPage, mainCanvasHasImage, viewModeLabels, waitForVolume } from './helpers';
 
 let problems: string[] = [];
 
@@ -32,22 +35,18 @@ test('the agent surface is absent from the web build', async ({ page }) => {
 });
 
 test('the phantom renders', async ({ page }) => {
-  const state = await waitForVolume(page);
-  test.skip(state === 'no-catalog' && LOADER_PLACEHOLDER, 'needs the loader track (browserSource is the placeholder)');
-  expect(state).toBe('rendered');
+  await waitForVolume(page);
   await expect.poll(() => mainCanvasHasImage(page), { timeout: 60_000 }).toBe(true);
 });
 
 test('the research-use dialogue stays away for the phantom', async ({ page }) => {
-  const state = await waitForVolume(page);
-  test.skip(state === 'no-catalog' && LOADER_PLACEHOLDER, 'needs the loader track (browserSource is the placeholder)');
+  await waitForVolume(page);
   await expect.poll(() => mainCanvasHasImage(page), { timeout: 60_000 }).toBe(true);
   await expect(page.getByRole('dialog', { name: 'Research use only' })).toHaveCount(0);
 });
 
 test('every view mode mounts', async ({ page }) => {
-  const state = await waitForVolume(page);
-  test.skip(state === 'no-catalog' && LOADER_PLACEHOLDER, 'needs the loader track (browserSource is the placeholder)');
+  await waitForVolume(page);
   const labels = viewModeLabels();
   expect(labels.length).toBeGreaterThanOrEqual(8);
   const header = page.locator('header');
@@ -58,10 +57,151 @@ test('every view mode mounts', async ({ page }) => {
   }
 });
 
-test.fixme('the fixture folder opens through the directory input', async () => {
-  // needs the loader track: browserSource and tests/fixtures/dicomWriter.ts land there
-});
+// ---------------------------------------------------------------------------
+// real files through the pickers: synthetic DICOM written from the phantom into a temp folder
+// under os.tmpdir() (never inside the checkout, AGENTS.md hard rule 3)
 
-test.fixme('the marks file round-trips through Save marks and Load marks', async () => {
-  // needs the loader track: the sidecar store in IndexedDB lands there
+test.describe('opening files', () => {
+  let tmp = '';
+
+  test.beforeAll(() => {
+    tmp = makeTempDir();
+    writeFixtures(tmp);
+  });
+
+  test.afterAll(() => {
+    if (tmp) removeTempDir(tmp);
+  });
+
+  const volumeSelect = (page: Page) => page.locator('header select');
+  const researchDialog = (page: Page) => page.getByRole('dialog', { name: 'Research use only' });
+
+  /** open a fixture folder through the webkitdirectory input (Playwright uploads the directory) */
+  async function openFolder(page: Page, folder: string) {
+    const input = page.getByTestId('open-folder-input');
+    await expect(input).toHaveAttribute('webkitdirectory', '');
+    await input.setInputFiles(path.join(tmp, folder));
+  }
+
+  /** the opened volume is current: the select points at a local_ id whose option names `geom` */
+  async function expectCurrentLocal(page: Page, folder: string, geom: string) {
+    const option = volumeSelect(page).locator('optgroup[label^="opened"] option');
+    await expect(option).toHaveCount(1, { timeout: 30_000 });
+    await expect(option).toContainText(folder);
+    await expect(option).toContainText(geom);
+    const id = await option.getAttribute('value');
+    expect(id).toMatch(/^local_[0-9a-f]{12}$/);
+    await expect(volumeSelect(page)).toHaveValue(id as string, { timeout: 30_000 });
+    return id as string;
+  }
+
+  test('the fixture folder opens through the directory input', async ({ page }) => {
+    await waitForVolume(page);
+
+    // the slice-per-file series: 64 x 64 x 40
+    await openFolder(page, 'series');
+    await expect(researchDialog(page)).toBeVisible({ timeout: 30_000 });
+    await expect(researchDialog(page)).toHaveCount(1);
+    await researchDialog(page).getByRole('button', { name: 'I understand' }).click();
+    await expect(researchDialog(page)).toHaveCount(0);
+    const seriesId = await expectCurrentLocal(page, 'series', `${N}²×${SERIES_COUNT}`);
+    await expect(page.locator('header')).toContainText('series');
+    await expect.poll(() => mainCanvasHasImage(page), { timeout: 60_000 }).toBe(true);
+
+    // the multiframe file in its folder: 64 x 64 x 64; the dialogue never returns
+    await openFolder(page, 'mf');
+    const mfId = await expectCurrentLocal(page, 'volume', `${N}²×${N}`);
+    expect(mfId).not.toBe(seriesId);
+    await expect.poll(() => mainCanvasHasImage(page), { timeout: 60_000 }).toBe(true);
+    await expect(researchDialog(page)).toHaveCount(0);
+
+    // reload and reopen: still acknowledged in this browser profile, and the id is stable
+    await page.reload();
+    await waitForVolume(page);
+    await openFolder(page, 'series');
+    expect(await expectCurrentLocal(page, 'series', `${N}²×${SERIES_COUNT}`)).toBe(seriesId);
+    await expect.poll(() => mainCanvasHasImage(page), { timeout: 60_000 }).toBe(true);
+    await page.waitForTimeout(500);
+    await expect(researchDialog(page)).toHaveCount(0);
+  });
+
+  test('the marks file round-trips through Save marks and Load marks', async ({ page }) => {
+    await waitForVolume(page);
+    await openFolder(page, 'series');
+    const dialog = researchDialog(page);
+    await expect(dialog).toBeVisible({ timeout: 30_000 });
+    await dialog.getByRole('button', { name: 'I understand' }).click();
+    const id = await expectCurrentLocal(page, 'series', `${N}²×${SERIES_COUNT}`);
+    await expect.poll(() => mainCanvasHasImage(page), { timeout: 60_000 }).toBe(true);
+
+    // one measurement, drawn the way a reader draws it: the Length tool, a drag on the first pane
+    const measureRows = page.locator('main').getByText(/^↔ \d+(\.\d+)? mm$/);
+    await page.getByRole('button', { name: 'Length', exact: true }).click();
+    const box = await page.locator('main canvas').first().boundingBox();
+    if (!box) throw new Error('the first pane has no box');
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    await page.mouse.move(cx - box.width * 0.15, cy);
+    await page.mouse.down();
+    await page.mouse.move(cx, cy + 4, { steps: 8 });
+    await page.mouse.move(cx + box.width * 0.15, cy + 8, { steps: 8 });
+    await page.mouse.up();
+    await expect(measureRows).toHaveCount(1, { timeout: 15_000 });
+    // the sidecar save is debounced (800 ms); let it land in IndexedDB
+    await page.waitForTimeout(1500);
+
+    // Save marks to file: capture the download
+    await page.locator('header').getByRole('button', { name: /series ▾/ }).click();
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: /Save marks to file/ }).click(),
+    ]);
+    expect(download.suggestedFilename()).toBe(`${id}_marks.json`);
+    const saved = path.join(tmp, 'saved-marks.json');
+    await download.saveAs(saved);
+    const file = JSON.parse(readFileSync(saved, 'utf8')) as { schema: string; anon: string; annotations: unknown[] };
+    expect(file.schema).toBe('cbctscope-evidence-v1');
+    expect(file.anon).toBe(id);
+    expect(file.annotations).toHaveLength(1);
+    // the length the saved handles describe, in world mm
+    const [p0, p1] = (file.annotations[0] as { data: { handles: { points: number[][] } } }).data.handles.points;
+    const mm = Math.hypot(p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]);
+
+    // reload, then empty this browser's sidecar store, so only the file can bring the mark back
+    await page.reload();
+    await waitForVolume(page);
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          const open = indexedDB.open('cbctscope', 1);
+          open.onupgradeneeded = () => open.result.createObjectStore('evidence');
+          open.onerror = () => reject(open.error);
+          open.onsuccess = () => {
+            const tx = open.result.transaction('evidence', 'readwrite');
+            tx.objectStore('evidence').clear();
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+          };
+        }),
+    );
+    await openFolder(page, 'series');
+    expect(await expectCurrentLocal(page, 'series', `${N}²×${SERIES_COUNT}`)).toBe(id);
+    await expect.poll(() => mainCanvasHasImage(page), { timeout: 60_000 }).toBe(true);
+    await page.waitForTimeout(1000);
+    await expect(measureRows).toHaveCount(0);
+
+    // Load marks from file: the mark is back, exactly once (the remount leaves Cornerstone's
+    // annotation state clean: the objects panel lists what that state holds)
+    await page.locator('header').getByRole('button', { name: /series ▾/ }).click();
+    const [chooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.getByRole('button', { name: /Load marks from file/ }).click(),
+    ]);
+    await chooser.setFiles(saved);
+    await expect(measureRows).toHaveCount(1, { timeout: 30_000 });
+    // the restored mark is the saved one: its recomputed length is the distance of the saved handles
+    await expect(measureRows.first()).toHaveText(`↔ ${mm.toFixed(1)} mm`);
+    await page.waitForTimeout(2000);
+    await expect(measureRows).toHaveCount(1);
+  });
 });
