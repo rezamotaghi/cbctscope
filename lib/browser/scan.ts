@@ -252,7 +252,6 @@ export async function scanFiles(
       const year = (ds.string(XTAG.studyDate) ?? '').slice(0, 4);
       const signed = (ds.uint16(XTAG.pixelRep) ?? 0) === 1;
       const uid = (ds.string(XTAG.sopInstanceUid) ?? '').trim();
-      const sopUid = uid || rel;
       if (uid) {
         const dupKey = `${uid}\0${file.size}`;
         if (seenFiles.has(dupKey)) {
