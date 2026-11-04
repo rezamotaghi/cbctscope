@@ -1,7 +1,10 @@
 name: Release
 
 # The web build ships from a published release only (docs/web-build.md, section 9); a push
-# deploys nothing. The desktop jobs attach the packaged app to the same release.
+# deploys nothing. Every build job waits for the full test job (typecheck, lint, unit, the web
+# build, the end-to-end suite). The desktop jobs build with a read-only token and upload their
+# packages as workflow artifacts; one publish job, the only one with contents: write, attaches
+# them to the release. Signing and notarisation secrets reach the packaging step only.
 on:
   release:
     types: [published]
@@ -15,7 +18,27 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # full history: tests/manual.test.ts reads git history to check CITATION.cff
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build:web
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
   build:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -69,6 +92,7 @@ jobs:
   # their presence into an output. Without CSC_LINK both desktop jobs are skipped and the
   # release still deploys the site.
   desktop-gate:
+    needs: test
     runs-on: ubuntu-latest
     outputs:
       signing: ${{ steps.check.outputs.signing }}
@@ -80,11 +104,11 @@ jobs:
           if [ -n "$CSC_LINK" ]; then echo "signing=true" >> "$GITHUB_OUTPUT"; else echo "signing=false" >> "$GITHUB_OUTPUT"; fi
 
   desktop-mac:
-    needs: desktop-gate
+    needs: [test, desktop-gate]
     if: ${{ needs.desktop-gate.outputs.signing == 'true' }}
     runs-on: macos-latest
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -106,18 +130,22 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-      - name: Attach the dmg and zip to the release
-        run: gh release upload "$TAG" dist-desktop/*.dmg dist-desktop/*.zip --clobber
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-mac
+          path: |
+            dist-desktop/*.dmg
+            dist-desktop/*.zip
+          if-no-files-found: error
+          retention-days: 7
 
   # Windows ships unsigned (docs/web-build.md, section 10), so this job needs no secret and
   # runs on every release.
   desktop-win:
+    needs: test
     runs-on: windows-latest
     permissions:
-      contents: write
+      contents: read
     defaults:
       run:
         shell: bash
@@ -136,8 +164,30 @@ jobs:
         run: npm run desktop:build -- --win --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-      - name: Attach the installer and the portable exe to the release
-        run: gh release upload "$TAG" dist-desktop/*.exe --clobber
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-win
+          path: dist-desktop/*.exe
+          if-no-files-found: error
+          retention-days: 7
+
+  # The one job that writes to the release: it downloads what the desktop jobs built and
+  # attaches it. The mac job is skipped without signing secrets; the release then carries the
+  # Windows packages only.
+  publish:
+    needs: [desktop-mac, desktop-win]
+    if: ${{ always() && needs.desktop-win.result == 'success' && (needs.desktop-mac.result == 'success' || needs.desktop-mac.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: desktop-*
+          path: packages
+          merge-multiple: true
+      - name: Attach the packages to the release
+        run: gh release upload "$TAG" packages/* --clobber --repo "$GITHUB_REPOSITORY"
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name }}

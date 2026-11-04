@@ -258,9 +258,14 @@ How it is built:
   `notary`), or `APPLE_API_KEY`, `APPLE_API_KEY_ID`, `APPLE_API_ISSUER` (the CI route), or
   `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`. Signing: `CSC_LINK` and
   `CSC_KEY_PASSWORD`, or a keychain identity.
-- Pipeline: `release.yml` jobs `desktop-mac` (macos-latest: sign, notarise, staple, upload the
-  dmg and zip) and `desktop-win` (windows-latest, unsigned), both behind a gate job that
-  checks for `CSC_LINK`, so a release without the secrets deploys the site only.
+- Pipeline: `release.yml` runs a `test` job first (typecheck, lint, unit, `build:web`, the
+  end-to-end suite) that every build job needs. `desktop-mac` (macos-latest: sign, notarise,
+  staple) and `desktop-win` (windows-latest, unsigned) build with `contents: read` and upload
+  their dmg, zip and exe as workflow artifacts; the mac job sits behind a gate job that checks
+  for `CSC_LINK`. One `publish` job, the only one with `contents: write`, downloads the
+  artifacts and runs `gh release upload`. Signing and notarisation secrets reach the
+  packaging step only. A release without the secrets deploys the site and the Windows
+  packages.
 
 Measured on the author's Mac (Apple silicon, macOS 27.2), 4 November 2026, unsigned build:
 
