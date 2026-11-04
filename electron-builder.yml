@@ -1,0 +1,49 @@
+# The desktop app (docs/web-build.md, sections 9, 10 and 12): the static web build (out/) in
+# Electron, plus the loopback bridge host (desktop/bridge.mjs). electron-builder 26.18.0.
+#   npm run desktop:build   package for this OS; signs and notarises only when the credentials
+#                           are present (scripts/desktop.mjs says which ones)
+appId: com.cbctscope.app
+productName: CBCTScope
+copyright: Copyright (c) Dr. Reza Motaghi. AGPL-3.0-or-later.
+directories:
+  output: dist-desktop
+files:
+  - desktop/**
+  - out/**
+  - package.json
+  # the viewer's npm dependencies are already bundled into out/; the main process needs none
+  - "!node_modules/**"
+npmRebuild: false
+asar: true
+mac:
+  category: public.app-category.utilities
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: desktop/entitlements.mac.plist
+  entitlementsInherit: desktop/entitlements.mac.plist
+  # 26.x: notarisation runs whenever credentials are in the environment (APPLE_KEYCHAIN_PROFILE,
+  # or APPLE_API_KEY + APPLE_API_KEY_ID + APPLE_API_ISSUER, or APPLE_ID +
+  # APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID) and is skipped with a warning otherwise.
+  # scripts/desktop.mjs points a local signed build at the keychain profile `notary`.
+  notarize: true
+  artifactName: ${productName}-${version}-${arch}-mac.${ext}
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+# unsigned (docs/web-build.md, section 10): SmartScreen warns on first run
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+nsis:
+  artifactName: ${productName}-${version}-setup.${ext}
+  oneClick: false
+  perMachine: false
+portable:
+  artifactName: ${productName}-${version}-portable.${ext}

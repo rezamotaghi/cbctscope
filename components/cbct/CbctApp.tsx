@@ -1,7 +1,7 @@
 'use client';
 // CBCT reading app — the client shell. Owns all control state and the volume picker;
 // CbctViewport (keyed by volume id, so switching = clean remount) does the rendering.
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { CONSTANTS } from '@cornerstonejs/core';
 import CbctViewport, {
   type CbctControls,
@@ -25,7 +25,8 @@ import CbctCeph from './CbctCeph';
 import CbctRegion from './CbctRegion';
 import CbctStitch from './CbctStitch';
 import { useAgentBridge } from './useAgentBridge';
-import { sseTransport } from './agentTransport';
+import { agentTransport } from './agentChannel';
+import { AGENT_AVAILABLE, IS_DESKTOP } from './shell';
 import { IS_WEB, isCanceled, source } from './source';
 import { EVIDENCE_SCHEMA, parseMarksFile, type EvidenceFile } from './evidence';
 import { SIZE_NOTICE_MIB, needsSizeNotice, voxelBytes } from './sizeNotice';
@@ -71,6 +72,8 @@ const DOCS_URL = 'https://github.com/rezamotaghi/cbctscope/blob/main/';
 // The web build's header links to the repository (docs/web-build.md, section 7). A link the
 // reader clicks, never a request the page makes; tests/noAbsoluteUrls.test.ts knows both.
 const REPO_URL = 'https://github.com/rezamotaghi/cbctscope';
+const RELEASES_URL = 'https://github.com/rezamotaghi/cbctscope/releases';
+const noSubscribe = () => () => {};
 const VIEW_MODES: [ViewMode, string, string][] = [
   ['mpr', 'MPR', 'orthogonal slices + 3D render'],
   ['grid', 'Grid', 'many parallel slices on one screen'],
@@ -635,7 +638,9 @@ export default function CbctApp() {
       return null;
     },
     onEvicted: () => setAgentEvicted(true),
-  }, IS_WEB ? null : sseTransport); // the web build of milestone 1 mounts no agent channel
+  }, agentTransport); // the web build in a plain browser mounts no agent channel
+  // the desktop app, read after hydration (the exported HTML is rendered without a navigator)
+  const inShell = useSyncExternalStore(noSubscribe, () => IS_DESKTOP, () => false);
 
   const btn = (active: boolean): React.CSSProperties => ({
     padding: '4px 10px',
@@ -705,7 +710,13 @@ export default function CbctApp() {
           )}
         </>
       )}
-      {!IS_WEB && agentEvicted && (
+      {inShell && window.location.port !== '3810' && (
+        <div style={{ padding: '8px 12px', background: 'var(--warn)', color: '#000', fontSize: 13 }}>
+          Port 3810 was taken, so the agent bridge answers at {window.location.origin}: set CBCTSCOPE_URL to that
+          address in the MCP server&apos;s settings.
+        </div>
+      )}
+      {AGENT_AVAILABLE && agentEvicted && (
         <div
           style={{
             display: 'flex',
@@ -771,6 +782,17 @@ export default function CbctApp() {
             style={{ fontSize: 12, color: 'var(--text)' }}
           >
             repository
+          </a>
+        )}
+        {IS_WEB && !inShell && (
+          <a
+            href={RELEASES_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="the desktop app for macOS and Windows, with agent control over MCP, on the releases page"
+            style={{ fontSize: 12, color: 'var(--text)' }}
+          >
+            desktop app
           </a>
         )}
         {isXray ? (

@@ -5,7 +5,7 @@ board-certified oral and maxillofacial radiologist. The first CBCT reading viewe
 
 [![DOI: 10.5281/zenodo.21431452](docs/media/doi-badge.svg)](https://doi.org/10.5281/zenodo.21431452)
 
-**[Run it](#run-it)** (three steps) · **[Open your own scan](#opening-your-own-scan)** ·
+**[Run it](#run-it)** (three steps) · **[Desktop app](https://github.com/rezamotaghi/cbctscope/releases)** (macOS, Windows) · **[Open your own scan](#opening-your-own-scan)** ·
 **[Reading guides](docs/reading-modes/)** · **[User manual](docs/manual/)** ·
 **[For AI agents](#ai-agent-control-mcp)** · **[Cite it](#author)**
 
@@ -157,8 +157,14 @@ page to contact any host but its own. Marks are kept in the browser's own
 storage and travel as a marks file (**Save marks to file** / **Load marks from
 file**). The browser must hold the whole volume in memory, so a large volume
 shows a notice first; the local app has no such limit. AI-agent control (MCP)
-needs the local app for now. Build it yourself with `npm run build:web`
+needs the local app or the desktop app. Build it yourself with `npm run build:web`
 (writes `out/`).
+
+**The desktop app** is the same web build in its own window with the agent
+bridge built in, so no Node.js and no browser tab: download the macOS dmg
+(signed and notarised) or the Windows installer from the
+[releases page](https://github.com/rezamotaghi/cbctscope/releases). The MCP
+setup below works with it unchanged (manual section 2.6).
 
 ## Opening your own scan
 

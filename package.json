@@ -5,6 +5,7 @@
   "description": "Local-first CBCT viewer with native AI-agent control (MCP). Research use only.",
   "license": "AGPL-3.0-or-later",
   "author": "Dr. Reza Motaghi (https://rezamotaghi.com)",
+  "main": "desktop/main.mjs",
   "engines": {
     "node": ">=22"
   },
@@ -20,7 +21,9 @@
     "mcp:smoke": "node scripts/mcp-smoke.mjs",
     "mcpb": "node scripts/mcpb.mjs",
     "build:web": "node scripts/build-web.mjs",
-    "test:e2e": "node scripts/e2e.mjs"
+    "test:e2e": "node scripts/e2e.mjs",
+    "desktop": "node scripts/desktop.mjs dev",
+    "desktop:build": "node scripts/desktop.mjs build"
   },
   "dependencies": {
     "@cornerstonejs/core": "5.13.1",
@@ -41,6 +44,8 @@
     "@types/node": "22.20.0",
     "@types/react": "18.3.31",
     "@types/react-dom": "18.3.7",
+    "electron": "45.2.2",
+    "electron-builder": "26.18.0",
     "eslint": "8.57.1",
     "eslint-config-next": "15.5.22",
     "typescript": "5.9.3",

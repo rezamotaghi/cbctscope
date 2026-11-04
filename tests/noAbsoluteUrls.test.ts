@@ -2,7 +2,7 @@
 // code names no absolute URL it could send a request to. Two rules over components/** and
 // lib/browser/**, comments stripped:
 //   1. no fetch( / EventSource( / new URL( call carries an absolute URL or a link constant;
-//   2. every absolute URL literal is on the list below: the two link constants of the header
+//   2. every absolute URL literal is on the list below: the link constants of the header
 //      (links the reader clicks, never requests the page makes) and the SVG namespace.
 // A new absolute URL fails until it is reviewed and listed here.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -14,9 +14,10 @@ const root = process.cwd();
 const ALLOWED = new Set([
   'https://github.com/rezamotaghi/cbctscope/blob/main/', // DOCS_URL in CbctApp.tsx
   'https://github.com/rezamotaghi/cbctscope', // REPO_URL in CbctApp.tsx
+  'https://github.com/rezamotaghi/cbctscope/releases', // RELEASES_URL in CbctApp.tsx (the desktop app)
   'http://www.w3.org/2000/svg', // the SVG namespace of a snapshot's annotation layer, not a request
 ]);
-const LINK_CONSTANTS = ['DOCS_URL', 'REPO_URL'];
+const LINK_CONSTANTS = ['DOCS_URL', 'REPO_URL', 'RELEASES_URL'];
 
 function sources(dir: string): string[] {
   const out: string[] = [];

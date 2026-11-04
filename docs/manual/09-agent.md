@@ -10,9 +10,14 @@ switch reading modes, set the window, step through slices, restore a saved
 view, take snapshots to look at. In practice you can tell an assistant "open
 the case in this folder, teeth window, pano mode" and watch the viewer follow.
 
-> **Note.** Agent control needs the local app (chapter 2). The web build
-> (section 2.5) has no MCP connection yet: it runs no server for an agent to
-> reach, so it shows no agent banner and accepts no agent commands.
+> **Note.** Agent control needs the local app or the desktop app (chapter 2).
+> The desktop app (section 2.6) carries the same bridge on the same port,
+> `http://127.0.0.1:3810`, so the setup below applies unchanged: start the
+> app instead of the viewer and browser tab. In the desktop app the agent
+> cannot open a scan by path (`open_scan`) or raise the dialog (`pick_scan`);
+> you open it with **Open folder**. The web build in a plain browser (section
+> 2.5) has no MCP connection yet: it runs no server for an agent to reach, so
+> it shows no agent banner and accepts no agent commands.
 
 The agent can only do what a hand on the mouse could do: open, look, move,
 bookmark, capture. This is a design constraint, not a disclaimer:

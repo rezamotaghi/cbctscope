@@ -4,9 +4,9 @@
 import type { OpenResult, VolumeSource } from '@/lib/browser/volumeSource';
 import { browserSource } from '@/lib/browser/browserSource';
 import { serverSource } from './serverSource';
+import { IS_WEB } from './shell';
 
-/** the web build (cbctscope.com and the packaged app): static files, no server */
-export const IS_WEB = process.env.NEXT_PUBLIC_CBCTSCOPE_TARGET === 'web';
+export { IS_WEB };
 
 export const source: VolumeSource = IS_WEB ? browserSource : serverSource;
 

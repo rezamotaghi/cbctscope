@@ -37,3 +37,6 @@ evidence/
 
 # agent-harness local config
 .claude/
+
+# desktop app packages (npm run desktop:build); binaries ship as release assets only
+/dist-desktop/

@@ -79,9 +79,9 @@ export interface VolumeSource {
 The agent channel gets the same treatment. `useAgentBridge` keeps executing the verbs; the
 channel it listens on becomes an `AgentTransport` (`subscribe(onCommand)` and
 `reply(id, outcome)`). `sseTransport` is today's SSE stream plus the result POST;
-`pageTransport` is an in-memory queue inside the tab, used by the in-page agent in milestone 3
-and by the desktop shell's bridge host in milestone 2. The web build of milestone 1 mounts no
-transport.
+`pageTransport` is an in-memory queue inside the tab, for the in-page agent of milestone 3.
+The desktop app mounts `sseTransport` onto its own bridge host (section 12). The web build in
+a plain browser mounts no transport.
 
 ## 5. The browser loader
 
@@ -174,7 +174,9 @@ chapter 9 (the web build has no MCP yet), chapter 10 (10.5 "The web build": what
 tab, IndexedDB, nothing uploaded), chapter 11 (browser memory, picker support). `AGENTS.md`
 gains one layout line for `lib/browser/` and `lib/shared/` inside its byte cap.
 
-## 12. Decisions taken for milestone 1, confirmed at review
+## 12. Decisions
+
+### Milestone 1, confirmed at review
 
 - Host: GitHub Pages, deployed from the release event, no new vendor. Cloudflare Pages is the
   alternative if real response headers are wanted later.
@@ -183,3 +185,62 @@ gains one layout line for `lib/browser/` and `lib/shared/` inside its byte cap.
   with a synthetic volume and records the number here.
 - Picker: the directory input and the drop everywhere; the File System Access API only as an
   enhancement.
+
+### Milestone 2: the desktop shell
+
+Shell: Electron. The packaged app must run the engine the web build is tested on: Chromium,
+with WebGL, the module worker, WASM and the directory picker, which is what the Playwright
+suite exercises. Electron's main process is Node, so the bridge host is plain JavaScript
+(`desktop/bridge.mjs`, no dependencies) and `mcp/server.mjs` and the MCPB bundle work
+unchanged. Tauri would put the bridge in Rust or a Node sidecar and render in WKWebView on
+macOS, an engine the suite never runs. Tauri's smaller bundle was not measured, because the
+engine argument decides before size does.
+
+How it is built:
+
+- `desktop/main.mjs` opens one window on `http://127.0.0.1:3810/` (context isolation, no Node
+  in the page, the renderer sandbox, web security on, no preload; every `window.open` and
+  off-origin navigation denied, `https:` links handed to the system browser). It appends
+  `CBCTScope/<version>` to the user agent; `components/cbct/shell.ts` reads it (`IS_DESKTOP`,
+  `AGENT_AVAILABLE`), so the same `out/` mounts the agent channel in the app and nothing in a
+  browser. Quit stops the bridge and releases the port.
+- `desktop/bridge.mjs` serves `out/` (MIME by extension, confined to `out/`, no listing) and
+  `/api/agent/command`, `/api/agent/events`, `/api/agent/result` with the agentBus contract,
+  behind the Host and Origin checks of `middleware.ts`. Port 3810, else a free port shown in
+  the window. `tests/desktopBridge.test.ts` covers it.
+- Measured fact the plan had missed: the MCP server also reads `/api/cbct` (the catalog, for
+  `list_volumes` and two resources) and `/api/cbct/<id>`. In the app the catalog lives in the
+  page, so the bridge relays both reads to the page as two internal verbs (`source.list`,
+  `source.meta`, answered by `components/cbct/agentChannel.ts` from the browser source):
+  geometry and labels only, as in the repo. `open_scan` and `pick_scan` answer 501 with a
+  pointer to **Open folder**: the app has no route that takes a path, by design.
+- Packaging: `electron-builder.yml` (appId `com.cbctscope.app`; mac dmg and zip, arm64 and
+  x64, hardened runtime, `desktop/entitlements.mac.plist` with allow-jit and
+  allow-unsigned-executable-memory only; Windows nsis and portable, x64, unsigned).
+  Notarisation in electron-builder 26.18.0 is driven by the environment: `mac.notarize: true`
+  notarises when credentials are present and skips with a warning otherwise. Credentials:
+  `APPLE_KEYCHAIN_PROFILE` (a local build without other credentials uses the profile
+  `notary`), or `APPLE_API_KEY`, `APPLE_API_KEY_ID`, `APPLE_API_ISSUER` (the CI route), or
+  `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`. Signing: `CSC_LINK` and
+  `CSC_KEY_PASSWORD`, or a keychain identity.
+- Pipeline: `release.yml` jobs `desktop-mac` (macos-latest: sign, notarise, staple, upload the
+  dmg and zip) and `desktop-win` (windows-latest, unsigned), both behind a gate job that
+  checks for `CSC_LINK`, so a release without the secrets deploys the site only.
+
+Measured on the author's Mac (Apple silicon, macOS 27.2), 4 November 2026, unsigned build:
+
+| measure | value |
+|---|---|
+| Electron / electron-builder | 45.2.2 / 26.18.0 |
+| `out/` (the web build inside) | 8.6 MB |
+| `.app` on disk | 266 MB arm64, 269 MB x64 |
+| dmg | 123.2 MB arm64, 127.1 MB x64 |
+| zip | 119.6 MB arm64, 123.5 MB x64 |
+| package build, both architectures | 49 s first run (downloads included), 39 s after |
+| launch to first frame | 0.25 s; to the viewer connected on the bridge 0.55 s (warm) |
+| `npm run mcp:smoke` against the packaged app | all checks passed, both protocol eras |
+
+The Windows target does not build on this Mac: electron-builder's bundled `makensis` is an
+x86_64 binary and the machine has no Rosetta. The `desktop-win` job builds it on CI. Open for
+milestone 2: the first signed and notarised build with the credentials present, and the
+first-launch test on a clean user account.
