@@ -15,7 +15,7 @@ the case in this folder, teeth window, pano mode" and watch the viewer follow.
 > `http://127.0.0.1:3810`, so the setup below applies unchanged: start the
 > app instead of the viewer and browser tab. In the desktop app the agent
 > cannot open a scan by path (`open_scan`) or raise the dialog (`pick_scan`);
-> you open it with **Open folder**. The web build in a plain browser (section
+> you open it with **Open DICOMDIR or DICOM folder**. The web build in a plain browser (section
 > 2.5) has no MCP connection yet: it runs no server for an agent to reach, so
 > it shows no agent banner and accepts no agent commands.
 

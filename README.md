@@ -147,8 +147,9 @@ first launch both modes show the phantom.
 
 The same viewer also runs as a static web build: no install, no Node.js, just
 a current desktop browser. Each published release deploys it to the project's
-GitHub Pages site. It opens on the synthetic phantom; **open → Open folder**
-or **Open file**, or a drop on the viewer, reads your own export.
+GitHub Pages site. It opens on the synthetic phantom; **open → Open DICOMDIR or DICOM
+folder** or **Open a single DICOM file**, or a drop on the viewer, reads your
+own export, with a progress panel until the volume is on screen.
 
 **The scan never leaves your computer: the browser reads the files you choose
 into the tab, and the page has nowhere to send them.** The site is static

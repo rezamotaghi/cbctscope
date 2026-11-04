@@ -14,7 +14,25 @@ export type SourceInput =
   | { kind: 'files'; files: File[]; label?: string }
   | { kind: 'native'; chooser: 'folder' | 'file' };
 
-export type OpenResult = { ok: true; label: string; count: number } | { ok: false; error: string };
+/**
+ * A refusal may carry what the scan saw: how many files it read and why none of them opened
+ * (the browser scanner fills these; the server's chooser gives the error alone).
+ */
+export type OpenResult =
+  | { ok: true; label: string; count: number }
+  | { ok: false; error: string; scanned?: number; reasons?: string[] };
+
+/**
+ * What an open is doing, from the moment the files are handed over until the volume is on
+ * screen: reading headers (done/total files), assembling the volume (done/total percent),
+ * preparing the display (from assembly done until the first frame).
+ */
+export interface OpenProgress {
+  phase: 'scan' | 'assemble' | 'display';
+  done: number;
+  total?: number;
+}
+export type OpenProgressFn = (p: OpenProgress) => void;
 
 /** the geometry a stitch bakes alongside its voxels (mirrors the fused route's header) */
 export interface FusedMeta {
@@ -34,7 +52,12 @@ export interface VolumeSource {
   data(anon: string, onProgress?: (fraction: number) => void): Promise<Int16Array>;
   /** the opened source: label and count, or null when nothing is open */
   opened(): Promise<{ label: string; count: number } | null>;
-  open(input: SourceInput): Promise<OpenResult>;
+  /**
+   * Open files or the native chooser. `onProgress` reports the header scan and, after the
+   * open resolves, the first assembly of an opened volume ('assemble', then 'display' when
+   * the voxels are in). The server's chooser ignores it.
+   */
+  open(input: SourceInput, onProgress?: OpenProgressFn): Promise<OpenResult>;
   close(): Promise<void>;
   registerFused(meta: FusedMeta, voxels: Int16Array): Promise<{ anon: string }>;
   getEvidence(anon: string): Promise<EvidenceFile | null>;

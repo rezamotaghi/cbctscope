@@ -33,6 +33,12 @@
 - **"found N compressed DICOM file(s), only uncompressed exports are
   supported"**: re-export from your CBCT unit's software with compression
   off, then open the new export.
+- **"No DICOM volume found in N files"** (the web build and the desktop app):
+  the panel lists what the scan saw. Compressed transfer syntax: re-export
+  with compression off. Too few slices: the folder holds a short series, not a
+  CBCT volume. No DICM magic bytes: those files are not DICOM. The scan stops
+  at 8,000 files: open the export folder itself, not a folder that holds it
+  among much else.
 - **"not a DICOM file (or a compressed/foreign format)"**: the picked file is
   not uncompressed DICOM. Pick a `.dcm` slice, a DICOMDIR, or a multiframe
   file from a fresh uncompressed export.
@@ -63,10 +69,10 @@
 - **The tab slows down, reloads, or shows "Aw, Snap" or "out of memory" on a
   large volume**: the browser ran out of memory for this tab. Use the local
   app (chapter 2) for that volume.
-- **Open folder offers no folder choice, or a drop opens nothing**: the
+- **Open DICOMDIR or DICOM folder offers no folder choice, or a drop opens nothing**: the
   browser lacks folder reading. Chrome and Edge support both the folder picker
   and dropped folders; Firefox and Safari support the folder picker, and their
-  support for dropped folders varies. Use **Open folder** in Chrome or Edge.
+  support for dropped folders varies. Use **Open DICOMDIR or DICOM folder** in Chrome or Edge.
 - **The browser asks whether to upload the folder**: that is the browser's
   standard wording for letting a page read files. The files are read into the
   tab; nothing is sent anywhere (section 10.5).

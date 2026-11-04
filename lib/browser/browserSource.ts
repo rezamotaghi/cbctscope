@@ -1,7 +1,9 @@
 // BROWSER. The VolumeSource of the web build and the packaged app (docs/web-build.md, sections
 // 4 and 5): the browser reads the files the clinician opens and nothing leaves the tab.
 //   - list: fused (newest first), then the opened volumes, then the synthetic phantom
-//   - open: scans File objects (scan.ts); the native chooser exists only on the server
+//   - open: scans File objects (scan.ts); the native chooser exists only on the server. Its
+//     progress callback hears the scan, then the first assembly of an opened volume, then
+//     'display' when those voxels are in (the viewer ends the display phase on its first frame)
 //   - meta/data: assembly runs in a module Web Worker (assemble.worker.ts) and the voxel buffer
 //     is transferred back; at most two assembled volumes stay resident, as in volumeData.ts;
 //     the phantom is generated in the same worker on first request and kept for the tab
@@ -14,7 +16,7 @@ import type { WorkerReply, WorkerRequest } from './assemble.worker';
 import { createEvidenceStore, type KeyValueAdapter } from './evidenceStore';
 import { createFusedStore, isFusedId } from './fusedStore';
 import { scanFiles, type BrowserVolume } from './scan';
-import type { ListEntry, VolumeSource } from './volumeSource';
+import type { ListEntry, OpenProgressFn, VolumeSource } from './volumeSource';
 
 /** runs one assembly job; the worker in the page, assemble() directly in tests */
 export type AssemblyRunner = (job: AssembleJob, onProgress?: Progress) => Promise<VoxelVolume>;
@@ -79,6 +81,12 @@ export interface BrowserSourceOptions {
   evidence?: KeyValueAdapter;
 }
 
+/** resolves after the next paint in a page; at once where there is no frame loop (tests) */
+const nextPaint = (): Promise<void> =>
+  typeof requestAnimationFrame === 'function'
+    ? new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)))
+    : Promise.resolve();
+
 const RESIDENT_MAX = 2; // as volumeData.ts: an ARA pair stays resident so the toggle is instant
 
 export function createBrowserSource(opts: BrowserSourceOptions = {}): VolumeSource {
@@ -91,11 +99,17 @@ export function createBrowserSource(opts: BrowserSourceOptions = {}): VolumeSour
   let phantom: Promise<VoxelVolume> | null = null;
   const resident = new Map<string, VoxelVolume>();
   const inflight = new Map<string, Promise<VoxelVolume>>();
+  /** progress listeners per in-flight assembly: meta() starts it, data() joins it later */
+  const listeners = new Map<string, Set<Progress>>();
+  /** the last open's reporter, for the first assembly it leads to; one-shot */
+  let reporter: { gen: number; fn: OpenProgressFn } | null = null;
 
   const dropLocal = () => {
     generation++;
     resident.clear();
     inflight.clear();
+    listeners.clear();
+    reporter = null;
   };
 
   function volume(anon: string, onProgress?: Progress): Promise<VoxelVolume> {
@@ -121,11 +135,32 @@ export function createBrowserSource(opts: BrowserSourceOptions = {}): VolumeSour
       return Promise.resolve(hit);
     }
     const pending = inflight.get(anon);
-    if (pending) return pending;
+    if (pending) {
+      if (onProgress) listeners.get(anon)?.add(onProgress);
+      return pending;
+    }
     const v = opened?.volumes.find((x) => x.id === anon);
     if (!v) return Promise.reject(new Error('unknown volume'));
     const gen = generation;
-    const p = runner({ kind: 'volume', volume: v }, onProgress).then((vol) => {
+    const fans = new Set<Progress>(onProgress ? [onProgress] : []);
+    listeners.set(anon, fans);
+    // the open that led here hears this assembly, once
+    const lead = reporter && reporter.gen === gen ? reporter.fn : null;
+    if (lead) {
+      reporter = null;
+      lead({ phase: 'assemble', done: 0, total: 100 });
+    }
+    const fanOut: Progress = (fraction) => {
+      for (const l of fans) l(fraction);
+      lead?.({ phase: 'assemble', done: Math.round(fraction * 100), total: 100 });
+    };
+    const p = runner({ kind: 'volume', volume: v }, fanOut).then(async (vol) => {
+      if (lead) {
+        lead({ phase: 'display', done: 0 });
+        // let the panel paint "Preparing the display" before the viewer's synchronous upload
+        // of the voxels to the renderer holds the main thread
+        await nextPaint();
+      }
       if (gen === generation) {
         resident.set(anon, vol);
         while (resident.size > RESIDENT_MAX) resident.delete(resident.keys().next().value as string);
@@ -135,6 +170,7 @@ export function createBrowserSource(opts: BrowserSourceOptions = {}): VolumeSour
     inflight.set(anon, p);
     const clear = () => {
       if (inflight.get(anon) === p) inflight.delete(anon);
+      if (listeners.get(anon) === fans) listeners.delete(anon);
     };
     p.then(clear, clear);
     return p;
@@ -175,17 +211,22 @@ export function createBrowserSource(opts: BrowserSourceOptions = {}): VolumeSour
       return opened ? { label: opened.label, count: opened.volumes.length } : null;
     },
 
-    async open(input) {
+    async open(input, onProgress) {
       if (input.kind === 'native') return { ok: false, error: 'native chooser is not available in the browser' };
       let scan;
       try {
-        scan = await scanFiles(input.files, input.label);
+        scan = await scanFiles(
+          input.files,
+          input.label,
+          onProgress && ((done, total) => onProgress({ phase: 'scan', done, total })),
+        );
       } catch {
         return { ok: false, error: 'scan failed' };
       }
       if (!scan.ok) return scan;
       opened = { label: scan.label, volumes: scan.volumes };
       dropLocal();
+      if (onProgress) reporter = { gen: generation, fn: onProgress };
       return { ok: true, label: scan.label, count: scan.volumes.length };
     },
 

@@ -97,7 +97,8 @@ What differs from the local app:
 - There is no AI-agent control in a plain browser (chapter 9); the desktop
   app (section 2.6) adds it.
 - The header reads **Research use only. Not a medical device.** at all times,
-  and links to the repository and to the desktop app.
+  and links to the repository and, as **Download the desktop app**, to the
+  releases page.
 
 To build it yourself: `npm run build:web` writes the site to `out/`. Serve
 that folder with any static file server. The threshold is set at build time
@@ -124,7 +125,7 @@ GitHub releases page:
   your PC**: choose **More info**, then **Run anyway** (once).
 
 **First launch.** The window opens on the synthetic phantom, as the web build
-does. **File → Open folder** (`Cmd-O` on macOS, `Ctrl-O` on Windows) or the
+does. **File → Open DICOMDIR or DICOM folder** (`Cmd-O` on macOS, `Ctrl-O` on Windows) or the
 **📂 open** menu opens your own export through the system's folder dialog; the
 dialog's button may read **Upload**, which is the browser engine's standard
 wording: the files are read into the app and nothing is sent anywhere. Closing
@@ -148,7 +149,7 @@ What differs from the repository starters (section 2.3):
 - The app accepts connections from this computer only, exactly as the
   repository's viewer does.
 - The agent verbs `open_scan` and `pick_scan` are not available in the app:
-  it has no route that takes a file path. Open the scan with **Open folder**,
+  it has no route that takes a file path. Open the scan with **Open DICOMDIR or DICOM folder**,
   then the agent reads the catalog with `list_volumes`.
 
 To build it yourself: `npm run desktop` starts it from the repository against

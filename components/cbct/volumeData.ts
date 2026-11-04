@@ -76,3 +76,19 @@ export async function loadVolumeData(
     inflight.delete(anon);
   }
 }
+
+// "this volume's first frame is on screen": the MPR viewport announces it after its first
+// render; the shell ends an open's progress panel on it (the other rooms draw on the CPU in
+// the same task that reports their meta, so the shell treats that report as the frame)
+const shownListeners = new Set<(anon: string) => void>();
+
+export function announceShown(anon: string): void {
+  for (const l of shownListeners) l(anon);
+}
+
+export function onVolumeShown(listener: (anon: string) => void): () => void {
+  shownListeners.add(listener);
+  return () => {
+    shownListeners.delete(listener);
+  };
+}

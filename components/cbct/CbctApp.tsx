@@ -16,7 +16,8 @@ import CbctPano from './CbctPano';
 import CbctGrid from './CbctGrid';
 import CbctRadiograph from './CbctRadiograph';
 import CbctHistogram from './CbctHistogram';
-import { loadVolumeData } from './volumeData';
+import { announceShown, loadVolumeData, onVolumeShown } from './volumeData';
+import OpenProgressPanel, { type OpenPanelState } from './OpenProgressPanel';
 import { computeHistogram } from './CbctViewport';
 import ExportMenu from './ExportMenu';
 import CbctTmj from './CbctTmj';
@@ -262,6 +263,26 @@ export default function CbctApp() {
   const [researchOpen, setResearchOpen] = useState(false);
   const [marksBusy, setMarksBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  /** web build: the open's progress panel, from the files handed over to the first frame */
+  const [openPanel, setOpenPanel] = useState<OpenPanelState | null>(null);
+  const openTokenRef = useRef(0); // reports from an earlier open are ignored
+  const finishOpen = useCallback(() => setOpenPanel((p) => (p?.kind === 'busy' ? null : p)), []);
+  /** start the panel for a files open; returns the token its reports must carry */
+  const beginOpen = useCallback((total?: number) => {
+    const token = ++openTokenRef.current;
+    setOpenPanel({ kind: 'busy', phase: 'scan', done: 0, total, startedAt: Date.now() });
+    return token;
+  }, []);
+  useEffect(() => onVolumeShown((shown) => isLocalVol(shown) && finishOpen()), [finishOpen]);
+  // the CPU rooms (and the radiograph) draw in the task that reports their meta: the next
+  // frame shows it. The MPR viewport announces its own first frame after the GPU render.
+  const onRoomMeta = useCallback((m: CbctMeta) => {
+    setMeta(m);
+    requestAnimationFrame(() => announceShown(m.anon));
+  }, []);
+  useEffect(() => {
+    if (error) finishOpen(); // a failed load ends the open; the error shows in its place
+  }, [error, finishOpen]);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const marksInputRef = useRef<HTMLInputElement | null>(null);
@@ -386,6 +407,8 @@ export default function CbctApp() {
           switchVolume(target);
         } else if (wantLocalRef.current && locals.length) {
           wantLocalRef.current = false;
+          // the same export opened again is already on screen: nothing loads, the open is done
+          if (locals[0].anon === anonRef.current) finishOpen();
           switchVolume(locals[0].anon);
         } else if (vols.length) {
           const preferred = locals[0] ?? vols[0];
@@ -401,29 +424,44 @@ export default function CbctApp() {
       .catch(() =>
         setError(IS_WEB ? 'volume catalog unavailable: reload the page' : 'volume catalog unavailable: is the server running?'),
       );
-  }, [srcNonce, switchVolume, sizeHeld]);
+  }, [srcNonce, switchVolume, sizeHeld, finishOpen]);
 
   // point the viewer at a local CBCT export. The local app: the native chooser (the server
   // opens it in place on this same machine). The web build: files from the picker or a drop,
   // read into this tab.
-  const openWith = useCallback(async (input: Parameters<typeof source.open>[0]) => {
+  const openWith = useCallback(async (input: Parameters<typeof source.open>[0], started?: number) => {
     setSrcMenu(false);
     setPicking(true);
+    // files (the web build) get the progress panel; the native chooser has its own dialog
+    const token = input.kind === 'files' ? (started ?? beginOpen(input.files.length)) : null;
+    const live = () => token !== null && openTokenRef.current === token;
     try {
-      const r = await source.open(input);
+      const r = await source.open(
+        input,
+        token === null
+          ? undefined
+          : (p) => live() && setOpenPanel((cur) => (cur?.kind === 'busy' ? { ...cur, ...p } : cur)),
+      );
       if (isCanceled(r)) return; // the reader dismissed the dialog: not an error
-      if (!r.ok) return setError(r.error);
+      if (!r.ok) {
+        if (live() && r.scanned !== undefined) {
+          return setOpenPanel({ kind: 'none', error: r.error, reasons: r.reasons ?? [] });
+        }
+        if (live()) setOpenPanel(null);
+        return setError(r.error);
+      }
       setError(null);
       setSrcLabel(r.label);
       wantLocalRef.current = true;
       setSrcNonce((n) => n + 1);
       if (IS_WEB && !researchAcknowledged()) setResearchOpen(true);
     } catch (e) {
+      if (live()) setOpenPanel(null);
       setError(String(e));
     } finally {
       setPicking(false);
     }
-  }, []);
+  }, [beginOpen]);
   const onPickSource = useCallback(
     (kind: 'folder' | 'file') => openWith({ kind: 'native', chooser: kind }),
     [openWith],
@@ -442,14 +480,17 @@ export default function CbctApp() {
     async (dt: DataTransfer) => {
       const entries = entriesOf(dt); // synchronous: the items die after the drop handler
       if (!entries.length) return;
+      const token = beginOpen(); // the panel shows while the drop is walked, before the count is known
       try {
         const files = await walkEntries(entries);
-        if (files.length) await openWith({ kind: 'files', files, label: dropLabel(entries) });
+        if (files.length) await openWith({ kind: 'files', files, label: dropLabel(entries) }, token);
+        else if (openTokenRef.current === token) setOpenPanel(null);
       } catch (e) {
+        if (openTokenRef.current === token) setOpenPanel(null);
         setError(`could not read the dropped files: ${String(e)}`);
       }
     },
-    [openWith],
+    [openWith, beginOpen],
   );
 
   const onCloseSource = useCallback(async () => {
@@ -692,10 +733,15 @@ export default function CbctApp() {
             <SizeNoticeDialog
               label={pendingSize.label}
               bytes={pendingSize.bytes}
-              onCancel={() => setPendingSize(null)}
+              onCancel={() => {
+                setPendingSize(null);
+                finishOpen(); // the reader declined the volume: nothing will load
+              }}
               onContinue={() => {
                 const next = pendingSize.anon;
                 setPendingSize(null);
+                // the clock restarts: the time spent reading the notice is not the open's
+                setOpenPanel((p) => (p?.kind === 'busy' ? { ...p, startedAt: Date.now() } : p));
                 switchVolume(next, true);
               }}
             />
@@ -792,7 +838,7 @@ export default function CbctApp() {
             title="the desktop app for macOS and Windows, with agent control over MCP, on the releases page"
             style={{ fontSize: 12, color: 'var(--text)' }}
           >
-            desktop app
+            Download the desktop app
           </a>
         )}
         {isXray ? (
@@ -941,17 +987,17 @@ export default function CbctApp() {
                       folderInputRef.current?.click();
                     }}
                   >
-                    📁 Open folder
+                    📁 Open DICOMDIR or DICOM folder
                   </button>
                   <button
                     className="menu-item"
-                    title="One multiframe volume or one radiograph"
+                    title="One multiframe volume or one 2D radiograph"
                     onClick={() => {
                       setSrcMenu(false);
                       fileInputRef.current?.click();
                     }}
                   >
-                    🗄 Open file
+                    🗄 Open a single DICOM file
                   </button>
                   {anon && (
                     <>
@@ -979,14 +1025,14 @@ export default function CbctApp() {
               ) : (
                 <>
                   <button className="menu-item" onClick={() => void onPickSource('folder')}>
-                    📁 Open folder / DICOMDIR…
+                    📁 Open DICOMDIR or DICOM folder…
                   </button>
                   <button
                     className="menu-item"
-                    title="One DICOMDIR, one multiframe volume, or one slice (opens its whole series)"
+                    title="One DICOMDIR, one multiframe volume, one 2D radiograph, or one slice (opens its whole series)"
                     onClick={() => void onPickSource('file')}
                   >
-                    🗄 Open DICOM file…
+                    🗄 Open a single DICOM file…
                   </button>
                 </>
               )}
@@ -1179,8 +1225,11 @@ export default function CbctApp() {
                 pointerEvents: 'none',
               }}
             >
-              Drop a CBCT folder or file to open it in this tab. Nothing is uploaded.
+              Drop a DICOM folder, a DICOMDIR or a single file here. Nothing is uploaded.
             </div>
+          )}
+          {IS_WEB && openPanel && !(openPanel.kind === 'busy' && pendingSize) && (
+            <OpenProgressPanel state={openPanel} onDismiss={() => setOpenPanel(null)} />
           )}
           {marksBusy ? (
             <div style={{ color: 'var(--text)', padding: 24 }}>loading marks…</div>
@@ -1205,7 +1254,7 @@ export default function CbctApp() {
                 gamma={controls.gamma}
                 resetNonce={controls.resetNonce}
                 fullResetNonce={controls.fullResetNonce}
-                onMeta={setMeta}
+                onMeta={onRoomMeta}
                 onHistogram={setHistogram}
                 onError={setError}
               />
@@ -1226,7 +1275,7 @@ export default function CbctApp() {
                 voi={controls.voi}
                 invert={controls.invert}
                 gamma={controls.gamma}
-                onMeta={setMeta}
+                onMeta={onRoomMeta}
                 onError={setError}
               />
             ) : viewMode === 'tmj' ? (
@@ -1236,7 +1285,7 @@ export default function CbctApp() {
                 snapRef={snapRef}
                 voi={controls.voi}
                 invert={controls.invert}
-                onMeta={setMeta}
+                onMeta={onRoomMeta}
                 onError={setError}
               />
             ) : viewMode === 'reslice' ? (
@@ -1246,7 +1295,7 @@ export default function CbctApp() {
                 snapRef={snapRef}
                 voi={controls.voi}
                 invert={controls.invert}
-                onMeta={setMeta}
+                onMeta={onRoomMeta}
                 onError={setError}
               />
             ) : viewMode === 'ceph' ? (
@@ -1257,7 +1306,7 @@ export default function CbctApp() {
                 onVoi={(v) => setControls((c) => ({ ...c, voi: v }))}
                 voi={controls.voi}
                 invert={controls.invert}
-                onMeta={setMeta}
+                onMeta={onRoomMeta}
                 onError={setError}
               />
             ) : viewMode === 'region' ? (
@@ -1267,7 +1316,7 @@ export default function CbctApp() {
                 snapRef={snapRef}
                 voi={controls.voi}
                 invert={controls.invert}
-                onMeta={setMeta}
+                onMeta={onRoomMeta}
                 onError={setError}
               />
             ) : viewMode === 'stitch' ? (
@@ -1279,7 +1328,7 @@ export default function CbctApp() {
                 invert={controls.invert}
                 volumes={volumes.filter((v) => v.kind !== 'xray')}
                 onFused={onFused}
-                onMeta={setMeta}
+                onMeta={onRoomMeta}
                 onError={setError}
               />
             ) : (
@@ -1289,7 +1338,7 @@ export default function CbctApp() {
                 snapRef={snapRef}
                 voi={controls.voi}
                 invert={controls.invert}
-                onMeta={setMeta}
+                onMeta={onRoomMeta}
                 onError={setError}
               />
             )

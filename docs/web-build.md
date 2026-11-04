@@ -64,8 +64,9 @@ export interface VolumeSource {
   data(anon: string, onProgress?: (fraction: number) => void): Promise<Int16Array>;
   /** the opened source: label and count, or null */
   opened(): Promise<{ label: string; count: number } | null>;
-  /** web: files from the picker or a drop; server: the native chooser round-trip */
-  open(input: SourceInput): Promise<{ ok: true; label: string; count: number } | { ok: false; error: string }>;
+  /** web: files from the picker or a drop; server: the native chooser round-trip.
+   * onProgress (web only): 'scan' (files), then 'assemble' (percent), then 'display' */
+  open(input: SourceInput, onProgress?: (p: OpenProgress) => void): Promise<OpenResult>;
   close(): Promise<void>;
   registerFused(meta: FusedMeta, voxels: Int16Array): Promise<{ anon: string }>;
   getEvidence(anon: string): Promise<EvidenceFile | null>;
@@ -90,7 +91,13 @@ file, a slice-per-file series, a DICOMDIR tree walked by DICM magic bytes, singl
 radiographs), the same contract out. Input is `File[]` with `webkitRelativePath` from
 `<input type="file" webkitdirectory>`, one file from `<input type="file">`, or a drop walked
 through `DataTransferItem.webkitGetAsEntry`. Detection by magic bytes, never by extension.
-Header parse with `dicom-parser` on the first 4 MB (retry 32 MB). Grouping, sorting and the
+Header parse with `dicom-parser` on the first 4 MB (retry 32 MB). Magic bytes are read 64
+files at a time (`Promise.all`) and headers eight at a time; classification stays in file
+order. The open reports progress to the shell's panel: the scan per file (at most one report
+per 50 ms), the assembly from the worker (at least every 2 % or 100 ms), and the display
+phase until the viewport announces its first frame. A refusal carries the number of files
+scanned and the reasons (compressed transfer syntax, too few slices, no DICM magic, and so
+on), shown as "No DICOM volume found in N files". Grouping, sorting and the
 limits (8000 files, depth 8, 30 slices minimum, 16 frames minimum, 1.5 GB) as in the server
 loader. Assembly runs in a Web Worker and transfers the `Int16Array`; the UI thread never
 blocks. Volume ids stay `local_<12 hex>`, derived from a hash of the series identity
@@ -121,9 +128,10 @@ Every dialogue follows hard rule 4: full contrast, nothing dimmed or hidden.
 ## 7. The landing
 
 The page opens on the phantom, as the repo's demo mode does. The source menu offers "Open
-folder" and "Open file"; a drop anywhere on the viewer opens too. The header carries
-"Research use only. Not a medical device." at all times, and links to the download
-(milestone 2) and the repository.
+DICOMDIR or DICOM folder" and "Open a single DICOM file" (a multiframe volume or a 2D
+radiograph); a drop anywhere on the viewer opens too ("Drop a DICOM folder, a DICOMDIR or a
+single file here"). The header carries "Research use only. Not a medical device." at all
+times, and links to the repository and, as "Download the desktop app", to the releases page.
 
 ## 8. Tests and gates
 
@@ -213,7 +221,7 @@ How it is built:
   page, so the bridge relays both reads to the page as two internal verbs (`source.list`,
   `source.meta`, answered by `components/cbct/agentChannel.ts` from the browser source):
   geometry and labels only, as in the repo. `open_scan` and `pick_scan` answer 501 with a
-  pointer to **Open folder**: the app has no route that takes a path, by design.
+  pointer to **Open DICOMDIR or DICOM folder**: the app has no route that takes a path, by design.
 - Packaging: `electron-builder.yml` (appId `com.cbctscope.app`; mac dmg and zip, arm64 and
   x64, hardened runtime, `desktop/entitlements.mac.plist` with allow-jit and
   allow-unsigned-executable-memory only; Windows nsis and portable, x64, unsigned).

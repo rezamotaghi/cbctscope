@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createBrowserSource, directRunner } from '../lib/browser/browserSource';
 import { createEvidenceStore, type KeyValueAdapter } from '../lib/browser/evidenceStore';
 import { MAX_WALK_FILES } from '../lib/browser/scan';
+import type { OpenProgress } from '../lib/browser/volumeSource';
 import { VOLUME_ID_RE } from '../lib/shared/dicom';
 import { XRAY_MAX } from '../lib/shared/radiograph';
 import { getPhantomVolume, PHANTOM_ID } from '../lib/server/phantom';
@@ -146,12 +147,44 @@ describe('browserSource: the four export shapes', () => {
   });
 });
 
+describe('browserSource: open progress', () => {
+  it('reports the scan, then the first assembly, then the display phase', async () => {
+    const src = source();
+    const seen: OpenProgress[] = [];
+    const res = await src.open({ kind: 'files', files: pick(fx.series) }, (p) => seen.push(p));
+    expect(res.ok).toBe(true);
+    const scans = seen.filter((p) => p.phase === 'scan');
+    expect(scans[0]).toEqual({ phase: 'scan', done: 0, total: SERIES_COUNT });
+    expect(scans.at(-1)).toEqual({ phase: 'scan', done: SERIES_COUNT, total: SERIES_COUNT });
+    expect(seen.some((p) => p.phase !== 'scan')).toBe(false); // nothing assembles before it is asked
+
+    // meta() starts the assembly without a listener; data() joins it and still hears it
+    const id = (await src.list())[0].anon;
+    const fractions: number[] = [];
+    const [, voxels] = await Promise.all([src.meta(id), src.data(id, (f) => fractions.push(f))]);
+    expect(voxels.length).toBe(N * N * SERIES_COUNT);
+    expect(fractions.at(-1)).toBe(1);
+    const after = seen.slice(scans.length);
+    expect(after[0]).toEqual({ phase: 'assemble', done: 0, total: 100 });
+    expect(after.at(-2)).toEqual({ phase: 'assemble', done: 100, total: 100 });
+    expect(after.at(-1)).toEqual({ phase: 'display', done: 0 });
+
+    // one-shot: a second assembly (after a reopen) is not the first open's
+    const n = seen.length;
+    await src.open({ kind: 'files', files: pick(fx.mf) });
+    await src.data((await src.list())[0].anon);
+    expect(seen.length).toBe(n);
+  });
+});
+
 describe('browserSource: refusals and guards', () => {
   it('a folder of non-DICOM files is refused with a clear error', async () => {
     const src = source();
     expect(await src.open({ kind: 'files', files: pick(fx.junk) })).toEqual({
       ok: false,
-      error: 'no DICOM files found there',
+      error: 'No DICOM volume found in 2 files',
+      scanned: 2,
+      reasons: ['no DICM magic bytes, not DICOM: 2 files'],
     });
     expect(await src.opened()).toBeNull();
   });
@@ -174,7 +207,8 @@ describe('browserSource: refusals and guards', () => {
     Object.defineProperty(xray, 'webkitRelativePath', { value: 'big/pano.dcm' });
 
     const over = await source().open({ kind: 'files', files: [...junk(MAX_WALK_FILES), xray] });
-    expect(over).toEqual({ ok: false, error: 'no DICOM files found there' });
+    expect(over).toMatchObject({ ok: false, error: `No DICOM volume found in 8,000 files`, scanned: MAX_WALK_FILES });
+    if (!over.ok) expect(over.reasons?.at(-1)).toBe('the scan stops at 8,000 files: open the export folder itself');
     const under = await source().open({ kind: 'files', files: [...junk(MAX_WALK_FILES - 1), xray] });
     expect(under.ok).toBe(true);
   });
@@ -184,7 +218,7 @@ describe('browserSource: refusals and guards', () => {
     const big = new File([multiframeBytes({ rows: 4096, cols: 4096, frames: 50, pixelBytes: new Uint8Array(2) })], 'big.dcm');
     const res = await source().open({ kind: 'files', files: [big] });
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.error).toMatch(/^DICOM files found, but no CBCT volume/);
+    if (!res.ok) expect(res.reasons).toEqual(['over the 1.5 GB size guard: 1 volume']);
   });
 
   it('a failed open keeps the previous source; close clears it', async () => {

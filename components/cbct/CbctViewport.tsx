@@ -48,6 +48,7 @@ import {
   keepOnly,
   clearVolumeCache,
   reinsert,
+  announceShown,
   type CbctMeta,
   type VolumeEntry,
 } from './volumeData';
@@ -2086,6 +2087,8 @@ export default function CbctViewport({
         }
         prevAnonRef.current = anon;
         setProgress(null);
+        // the render above lands on the next frame: announce after it (ends an open's panel)
+        requestAnimationFrame(() => requestAnimationFrame(() => !stale && announceShown(anon)));
 
         // evidence sidecar: bring this volume's annotations / views / 3D ROIs back
         try {

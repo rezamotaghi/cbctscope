@@ -21,9 +21,9 @@ it finds compressed files (chapter 11).
 
 Click **📂 open** in the header:
 
-- **📁 Open folder / DICOMDIR…** for an export folder.
-- **🗄 Open DICOM file…** for a single file (a DICOMDIR, a multiframe volume,
-  one slice of a series, or a 2D radiograph).
+- **📁 Open DICOMDIR or DICOM folder…** for an export folder.
+- **🗄 Open a single DICOM file…** for a single file (a DICOMDIR, a multiframe
+  volume, one slice of a series, or a 2D radiograph).
 
 The system file dialog appears; pick the export. Every volume found in it is
 listed in the volume picker, and the first one displays. The scan is read in
@@ -70,15 +70,39 @@ selected.
 
 In the web build (section 2.5) the **📂 open** menu offers:
 
-- **📁 Open folder** for an export folder (a DICOMDIR tree, a slice series,
-  or multiframe files). The browser asks you to confirm that the site may read
-  the folder; that confirmation is the browser's, and nothing is uploaded.
-- **🗄 Open file** for one multiframe volume or one radiograph.
+- **📁 Open DICOMDIR or DICOM folder** for an export folder (a DICOMDIR tree,
+  a slice series, or multiframe files). The browser asks you to confirm that
+  the site may read the folder; that confirmation is the browser's, and
+  nothing is uploaded.
+- **🗄 Open a single DICOM file** for one multiframe volume or one 2D
+  radiograph.
 
 A **drop** anywhere on the viewer opens too: drag an export folder or a file
-from your file manager onto the image area, and folders are read with all
-their subfolders. The same accepted formats apply as in section 4.1, and the
-files are recognized by their content, never by their names.
+from your file manager onto the image area, which then reads
+**Drop a DICOM folder, a DICOMDIR or a single file here**. Folders are read
+with all their subfolders. The same accepted formats apply as in section 4.1, and the files
+are recognized by their content, never by their names. In the desktop app,
+**File → Open DICOMDIR or DICOM folder** does the same as the first entry.
+
+From the moment the files are handed over until the volume is on screen, a
+progress panel covers the image area with the step it is on and the seconds
+elapsed:
+
+1. **Reading headers: 312 of 801 files**: every file's first bytes are read to
+   find the DICOM ones and their geometry. Pixels are not read yet.
+2. **Assembling the volume: 43 %**: the slices are read and stacked into one
+   volume, off the page's main thread.
+3. **Preparing the display**: the volume is handed to the renderer, until the
+   first frame shows.
+
+When nothing in the files opens, the panel says so and stays until you
+dismiss it: **No DICOM volume found in 3,412 files**, followed by what the
+scan saw, for example files with a compressed transfer syntax (re-export with
+compression off), a CT series with too few slices to be a CBCT volume (at
+least 30), or files without the DICM magic bytes (not DICOM at all). The scan
+reads at most 8,000 files, skipping hidden folders and anything deeper than
+eight folders; pick the export folder itself rather than a folder that holds
+much else.
 
 The first time a real scan is opened in a browser profile, the
 **Research use only** dialogue explains that this is not a medical device,

@@ -21,6 +21,12 @@ test('the posture line is in the header', async ({ page }) => {
   await expect(page.getByText('Research use only. Not a medical device.')).toBeVisible();
 });
 
+test('the header links the desktop app as a download', async ({ page }) => {
+  const link = page.locator('header').getByRole('link', { name: 'Download the desktop app', exact: true });
+  await expect(link).toBeVisible();
+  await expect(link).toHaveAttribute('href', 'https://github.com/rezamotaghi/cbctscope/releases');
+});
+
 test('no request leaves the served origin and the CSP blocks nothing', async ({ page }) => {
   await waitForVolume(page);
   // let workers, codecs and late chunks settle
@@ -123,6 +129,52 @@ test.describe('opening files', () => {
     await expect.poll(() => mainCanvasHasImage(page), { timeout: 60_000 }).toBe(true);
     await page.waitForTimeout(500);
     await expect(researchDialog(page)).toHaveCount(0);
+  });
+
+  test('the progress panel shows during an open and leaves when the volume is on screen', async ({ page }) => {
+    // hold every assembly result back 1.5 s, so the panel is caught on screen deterministically
+    await page.addInitScript(() => {
+      const W = window.Worker;
+      window.Worker = class extends W {
+        set onmessage(fn: ((e: MessageEvent) => void) | null) {
+          super.onmessage = fn
+            ? (e: MessageEvent) => {
+                const d = e.data as { type?: string };
+                if (d?.type === 'done') setTimeout(() => fn.call(this, e), 1500);
+                else fn.call(this, e);
+              }
+            : null;
+        }
+      };
+    });
+    await page.reload();
+    await waitForVolume(page);
+    await expect.poll(() => mainCanvasHasImage(page), { timeout: 60_000 }).toBe(true);
+
+    await openFolder(page, 'series');
+    const panel = page.getByTestId('open-progress');
+    await expect(panel).toBeVisible({ timeout: 10_000 });
+    await expect(panel).toContainText(/Reading headers|Assembling the volume|Preparing the display/);
+    await expect(panel).toContainText(/\d+ s/);
+    await expect(panel).toContainText(/Assembling the volume: \d+ %/);
+    await researchDialog(page).getByRole('button', { name: 'I understand' }).click();
+    await expect(panel).toHaveCount(0, { timeout: 30_000 });
+    await expectCurrentLocal(page, 'series', `${N}²×${SERIES_COUNT}`);
+    await expect.poll(() => mainCanvasHasImage(page), { timeout: 60_000 }).toBe(true);
+  });
+
+  test('a folder with no DICOM volume says so, with the count and the reason', async ({ page }) => {
+    await waitForVolume(page);
+    await openFolder(page, 'junk');
+    const none = page.getByTestId('open-none');
+    await expect(none).toBeVisible({ timeout: 30_000 });
+    await expect(none).toContainText('No DICOM volume found in 2 files');
+    await expect(none).toContainText('no DICM magic bytes, not DICOM: 2 files');
+    await expect(page.getByTestId('open-progress')).toHaveCount(0);
+    await expect(researchDialog(page)).toHaveCount(0);
+    await none.getByRole('button', { name: 'Dismiss' }).click();
+    await expect(none).toHaveCount(0);
+    await expect.poll(() => mainCanvasHasImage(page), { timeout: 60_000 }).toBe(true);
   });
 
   test('the marks file round-trips through Save marks and Load marks', async ({ page }) => {

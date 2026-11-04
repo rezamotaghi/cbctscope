@@ -7,6 +7,7 @@
 //   in:  { id, job: AssembleJob }
 //   out: { id, type: 'progress', fraction } | { id, type: 'done', meta, voxels } | { id, type: 'error', message }
 import { assemble, type AssembleJob } from './assemble';
+import { createProgressGate } from './progress';
 
 export type WorkerRequest = { id: number; job: AssembleJob };
 export type WorkerReply =
@@ -23,12 +24,11 @@ const scope = self as unknown as WorkerScope;
 
 scope.onmessage = (e) => {
   const { id, job } = e.data;
-  let last = -1;
+  // at least every 2 % or 100 ms, whichever comes first, so a big series neither floods the
+  // channel nor goes quiet on a slow disk
+  const gate = createProgressGate(0.02, 100);
   assemble(job, (fraction) => {
-    // throttle to whole percents so a big series does not flood the channel
-    const pct = Math.floor(fraction * 100);
-    if (pct === last) return;
-    last = pct;
+    if (!gate(fraction, performance.now())) return;
     scope.postMessage({ id, type: 'progress', fraction });
   }).then(
     ({ meta, voxels }) => scope.postMessage({ id, type: 'done', meta, voxels }, [voxels.buffer]),

@@ -274,7 +274,7 @@ async function catalog(bus, req, res, anon) {
 }
 
 const NO_PATH_ROUTE =
-  'the desktop app opens scans through its own picker only: ask the human to choose Open folder in the CBCTScope window, then call list_volumes';
+  'the desktop app opens scans through its own picker only: ask the human to choose Open DICOMDIR or DICOM folder in the CBCTScope window, then call list_volumes';
 
 /**
  * Start the bridge. Binds 127.0.0.1 on `port` (3810, the MCP server's default); when that is

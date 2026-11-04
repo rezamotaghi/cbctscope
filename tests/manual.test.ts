@@ -124,9 +124,18 @@ describe('user manual tracks the app (docs/manual/)', () => {
 
   it('the web build menu entries, dialogues, and posture line are documented', () => {
     const dialogs = read('components/cbct/WebDialogs.tsx');
+    const panel = read('components/cbct/OpenProgressPanel.tsx');
+    const scan = read('lib/browser/scan.ts');
     const surface: [string, string, string][] = [
-      [appSrc, 'Open folder', 'docs/manual/04-opening-scans.md'],
-      [appSrc, 'Open file', 'docs/manual/04-opening-scans.md'],
+      [appSrc, 'Open DICOMDIR or DICOM folder', 'docs/manual/04-opening-scans.md'],
+      [appSrc, 'Open a single DICOM file', 'docs/manual/04-opening-scans.md'],
+      [appSrc, 'Drop a DICOM folder, a DICOMDIR or a single file here', 'docs/manual/04-opening-scans.md'],
+      [read('desktop/main.mjs'), 'Open DICOMDIR or DICOM folder', 'docs/manual/02-installation.md'],
+      [appSrc, 'Download the desktop app', 'docs/manual/02-installation.md'],
+      [panel, 'Reading headers', 'docs/manual/04-opening-scans.md'],
+      [panel, 'Assembling the volume', 'docs/manual/04-opening-scans.md'],
+      [panel, 'Preparing the display', 'docs/manual/04-opening-scans.md'],
+      [scan, 'No DICOM volume found in', 'docs/manual/04-opening-scans.md'],
       [appSrc, 'Save marks to file', 'docs/manual/07-exporting.md'],
       [appSrc, 'Load marks from file', 'docs/manual/07-exporting.md'],
       [appSrc, 'Research use only. Not a medical device.', 'docs/manual/02-installation.md'],

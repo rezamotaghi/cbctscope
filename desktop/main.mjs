@@ -52,7 +52,7 @@ function buildMenu() {
     {
       label: 'File',
       submenu: [
-        { label: 'Open folder', accelerator: 'CmdOrCtrl+O', click: openFolder },
+        { label: 'Open DICOMDIR or DICOM folder', accelerator: 'CmdOrCtrl+O', click: openFolder },
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' },
       ],
