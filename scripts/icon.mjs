@@ -11,11 +11,13 @@
 //   desktop/icon/icon.ico    Windows, PNG-compressed entries at 16, 32, 48 and 256 px
 //   app/icon.svg             the web favicon (Next file convention), the tile cropped full bleed
 //   app/apple-icon.png       180 px touch icon (Next file convention), opaque, full bleed
+//   public/og.png            the 1200 x 630 share card (scripts/og.mjs)
 //
 // Rendering is Playwright's Chromium (already a dev dependency for the end-to-end suite).
 // Rerun after any change to the SVG and commit the outputs; electron-builder.yml points at the
 // icns and the ico.
 import { chromium } from '@playwright/test';
+import { renderOg } from './og.mjs';
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -103,6 +105,10 @@ write(path.join(root, 'app', 'icon.svg'), tile);
 // the touch icon is opaque: the tile's corners take the first solid fill in the source (its ground)
 const ground = source.match(/fill="(#[0-9a-fA-F]{3,8})"/)?.[1] ?? '#000000';
 write(path.join(root, 'app', 'apple-icon.png'), await render(tile, 180, ground));
+
+// 6. the share card (scripts/og.mjs), from the same SVG
+const og = await renderOg(browser);
+written.push(og.out);
 
 await browser.close();
 for (const f of written) console.log(`icon: ${path.relative(root, f)} ${statSync(f).size} bytes`);

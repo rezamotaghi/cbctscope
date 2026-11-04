@@ -1,9 +1,16 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { OG_IMAGE, SITE_CLAIM, SITE_NAME, SITE_URL } from '@/components/site';
 import './globals.css';
+
+const ogImage = { url: OG_IMAGE.path, width: OG_IMAGE.width, height: OG_IMAGE.height, alt: SITE_NAME };
 
 export const metadata: Metadata = {
   title: 'CBCTScope',
+  metadataBase: new URL(SITE_URL),
+  // the share card: one site URL constant, the README's claim, the rendered public/og.png
+  openGraph: { type: 'website', title: SITE_NAME, description: SITE_CLAIM, url: SITE_URL, siteName: SITE_NAME, images: [ogImage] },
+  twitter: { card: 'summary_large_image', title: SITE_NAME, description: SITE_CLAIM, images: [ogImage] },
   description:
     process.env.NEXT_PUBLIC_CBCTSCOPE_TARGET === 'web'
       ? 'CBCT viewer in the browser: the scan is read into this tab and never uploaded. Research use only; not a medical device.'

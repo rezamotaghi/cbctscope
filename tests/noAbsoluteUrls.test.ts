@@ -15,6 +15,7 @@ const ALLOWED = new Set([
   'https://github.com/rezamotaghi/cbctscope', // REPO_URL in CbctApp.tsx
   'https://github.com/rezamotaghi/cbctscope/releases', // RELEASES_URL in CbctApp.tsx (the desktop app)
   'http://www.w3.org/2000/svg', // the SVG namespace of a snapshot's annotation layer, not a request
+  'https://cbctscope.com', // SITE_URL in components/site.ts: the share card's address, never requested
 ]);
 const LINK_CONSTANTS = ['REPO_URL', 'RELEASES_URL'];
 
