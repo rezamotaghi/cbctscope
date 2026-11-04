@@ -828,26 +828,6 @@ export default function CbctApp() {
             repository
           </a>
         )}
-        {IS_WEB &&
-          (manualInTab ? (
-            <a
-              href={manualHref('index.html')}
-              target="_blank"
-              rel="noopener"
-              title="the user manual, served by this site, in a new tab"
-              style={{ fontSize: 12, color: 'var(--text)' }}
-            >
-              Manual
-            </a>
-          ) : (
-            <button
-              style={btn(manualPage !== null)}
-              onClick={() => setManualPage((p) => (p === null ? 'index.html' : null))}
-              title="the user manual, in a drawer beside the viewer"
-            >
-              Manual
-            </button>
-          ))}
         {IS_WEB && !inShell && (
           <a
             href={RELEASES_URL}

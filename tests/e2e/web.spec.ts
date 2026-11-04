@@ -312,12 +312,6 @@ test.describe('the manual', () => {
     chapters: { file: string; title: string }[];
   };
 
-  test('the header links the manual, relative and same origin', async ({ page }) => {
-    const link = page.locator('header').getByRole('link', { name: 'Manual', exact: true });
-    await expect(link).toBeVisible();
-    await expect(link).toHaveAttribute('href', 'manual/index.html');
-  });
-
   test('manual/ loads under the CSP, its contents list every manifest title', async ({ page }) => {
     await page.goto('/manual/');
     await expect(page.getByRole('heading', { level: 1, name: 'CBCTScope User Manual' })).toBeVisible();

@@ -375,10 +375,10 @@ pages like every other, holds; every address is relative, so the `/cbctscope` ba
 
 Two forms:
 
-1. **The pages on the site**: `manual/` beside the viewer. The header's "Manual" link and the
-   help menu open them in a new tab.
-2. **The help drawer in the app**: in the local app and the desktop app, the help menu (and,
-   in the desktop app, the header's "Manual") opens the same pages in an iframe in a column
+1. **The pages on the site**: `manual/` beside the viewer. The help menu opens them in a
+   new tab.
+2. **The help drawer in the app**: in the local app and the desktop app, the help menu
+   opens the same pages in an iframe in a column
    at the right of the viewer's row, which narrows the viewer and covers no control, with a
    "Close manual" button. The drawer adds `?theme=dark`, so its pages stay dark beside the
    viewer; the pages in a tab follow the system setting.

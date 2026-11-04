@@ -160,8 +160,8 @@ storage and travel as a marks file (**Save marks to file** / **Load marks from
 file**). The browser must hold the whole volume in memory, so a large volume
 shows a notice first; the local app has no such limit. AI-agent control (MCP)
 needs the local app or the desktop app. Build it yourself with `npm run build:web`
-(writes `out/`). The user manual is on the site (**Manual** in the header) and in the
-app (**help ▾**), served by the viewer itself.
+(writes `out/`). The user manual is served by the viewer itself, on the site and in the
+app, from **help ▾**.
 
 **The in-page agent** is the browser's answer to MCP, and it is off until you
 switch it on. Type a request ("show the left TMJ in sagittal, bone window") in
