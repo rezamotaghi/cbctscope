@@ -11,7 +11,7 @@ export type ListEntry = CbctListEntry & { label: string };
 
 /** what "open" receives: files from the browser's picker or a drop, or the server's native chooser */
 export type SourceInput =
-  | { kind: 'files'; files: File[]; label?: string }
+  | { kind: 'files'; files: File[]; label?: string; /** a drop walk that stopped early says why */ walkStopped?: string }
   | { kind: 'native'; chooser: 'folder' | 'file' };
 
 /**

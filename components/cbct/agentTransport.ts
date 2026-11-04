@@ -1,9 +1,11 @@
 // The agent channel (docs/web-build.md, section 4). useAgentBridge executes the verbs; the
 // transport only carries commands in and outcomes back.
-//   - sseTransport: the repo's loopback bridge (the SSE command stream plus the result POST).
-//   - createPageTransport: an in-memory queue inside the tab, for callers in the same page
-//     (the in-page agent of milestone 3, the desktop shell's bridge host of milestone 2).
+//   - sseTransport: the loopback bridge of the repo and the desktop app (the SSE command
+//     stream plus the result POST).
+//   - createPageTransport: an in-memory queue inside the tab for the in-page agent; a
+//     dispatch times out like the bus (AGENT_TIMEOUT_MS) and honours the panel's Stop.
 // agentChannel.ts merges the page transport with the surface's loopback channel (if any).
+import { AGENT_TIMEOUT_MS } from '@/lib/shared/agentTimeout';
 
 export interface AgentCommand {
   id: string;
@@ -63,9 +65,16 @@ export const sseTransport: AgentTransport = {
   },
 };
 
+export interface DispatchOptions {
+  /** the panel's Stop: an aborted dispatch resolves at once with a 'stopped' error */
+  signal?: AbortSignal;
+  /** default AGENT_TIMEOUT_MS, the bus's own timeout */
+  timeoutMs?: number;
+}
+
 export interface PageTransport extends AgentTransport {
-  /** send one verb to the subscribed viewer and wait for its outcome */
-  dispatch(verb: string, args?: Record<string, unknown>): Promise<AgentOutcome>;
+  /** send one verb to the subscribed viewer and wait for its outcome (or the timeout, or Stop) */
+  dispatch(verb: string, args?: Record<string, unknown>, opts?: DispatchOptions): Promise<AgentOutcome>;
 }
 
 /**
@@ -100,10 +109,23 @@ export function createPageTransport(): PageTransport {
       pending.delete(id);
       resolve(outcome);
     },
-    dispatch(verb, args = {}) {
+    dispatch(verb, args = {}, opts = {}) {
       const id = `page-${++seq}`;
+      const timeoutMs = opts.timeoutMs ?? AGENT_TIMEOUT_MS;
       return new Promise<AgentOutcome>((resolve) => {
-        pending.set(id, resolve);
+        if (opts.signal?.aborted) return resolve({ ok: false, error: 'stopped' });
+        const finish = (o: AgentOutcome) => {
+          clearTimeout(timer);
+          opts.signal?.removeEventListener('abort', onAbort);
+          pending.delete(id);
+          const q = queue.findIndex((c) => c.id === id);
+          if (q >= 0) queue.splice(q, 1);
+          resolve(o);
+        };
+        const onAbort = () => finish({ ok: false, error: 'stopped' });
+        const timer = setTimeout(() => finish({ ok: false, error: `viewer did not answer within ${timeoutMs / 1000}s` }), timeoutMs);
+        opts.signal?.addEventListener('abort', onAbort, { once: true });
+        pending.set(id, finish);
         queue.push({ id, verb, args });
         drain();
       });

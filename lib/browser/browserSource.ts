@@ -227,7 +227,10 @@ export function createBrowserSource(opts: BrowserSourceOptions = {}): VolumeSour
         // the scanner's own words, never a generic "scan failed"
         return { ok: false, error: err instanceof Error && err.message ? err.message : String(err) || 'the scan stopped' };
       }
-      if (!scan.ok) return scan;
+      if (!scan.ok) {
+        if (input.walkStopped) return { ...scan, reasons: [...(scan.reasons ?? []), input.walkStopped] };
+        return scan;
+      }
       opened = { label: scan.label, volumes: scan.volumes };
       dropLocal();
       if (onProgress) reporter = { gen: generation, fn: onProgress };

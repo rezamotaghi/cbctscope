@@ -115,17 +115,13 @@ async function captureSnapshot(): Promise<{ ok: boolean; result?: unknown; error
   }
 }
 
-/**
- * Execute agent verbs arriving on `transport`. `null` mounts no channel at all (the web build
- * of milestone 1 has no agent).
- */
-export function useAgentBridge(handlers: AgentHandlers, transport: AgentTransport | null) {
+/** Execute agent verbs arriving on `transport` (agentChannel.ts: the page queue plus this surface's loopback channel). */
+export function useAgentBridge(handlers: AgentHandlers, transport: AgentTransport) {
   // latest-handlers ref so the subscription is set up exactly once
   const ref = useRef(handlers);
   ref.current = handlers;
 
   useEffect(() => {
-    if (!transport) return;
     // the App's summary plus whatever the mounted mode answers (slices, grid, pano, views)
     const fullState = async () => {
       const q = await ask('query', {}, '');

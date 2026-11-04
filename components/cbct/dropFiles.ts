@@ -13,8 +13,15 @@ export interface DropEntry {
   createReader?: () => { readEntries: (ok: (entries: DropEntry[]) => void, fail?: (e: unknown) => void) => void };
 }
 
-/** limits that keep a stray drop of a home folder from walking forever (the loader re-checks) */
-export const DROP_LIMITS = { maxFiles: 8000, maxDepth: 8 };
+/**
+ * Limits that keep a stray drop of a home folder from walking forever (the loader re-checks).
+ * maxDepth matches the picker and the server walk (lib/shared/dicomScan.ts MAX_WALK_DEPTH):
+ * files up to eight folders below the dropped folder. maxDirs bounds the folders visited.
+ */
+export const DROP_LIMITS = { maxFiles: 8000, maxDepth: 8, maxDirs: 2000 };
+
+/** the reason the walk gives when it stopped early (shown with the scan's other reasons) */
+export const DIRS_STOP_REASON = `the scan stops at ${DROP_LIMITS.maxDirs.toLocaleString('en-US')} folders: open the export folder itself`;
 
 function withRelativePath(file: File, rel: string): File {
   // webkitRelativePath is a read-only getter on File.prototype; an own property shadows it.
@@ -48,21 +55,34 @@ function fileOf(entry: DropEntry): Promise<File> {
 
 /**
  * Walk dropped entries into files. Files inside a dropped folder get the folder-relative path
- * ("export/DICOM/I0001"); a top-level file keeps an empty relative path.
+ * ("export/DICOM/I0001"); a top-level file keeps an empty relative path. A dropped folder is
+ * depth 0; folders down to depth maxDepth are read, so the deepest files sit eight folders
+ * below it, as with the picker. After maxDirs folders the walk stops and says so.
  */
-export async function walkEntries(entries: DropEntry[]): Promise<File[]> {
+export async function walkDrop(entries: DropEntry[]): Promise<{ files: File[]; stopped: string | null }> {
   const files: File[] = [];
+  let dirs = 0;
+  let stopped: string | null = null;
   const visit = async (entry: DropEntry, depth: number, inFolder: boolean): Promise<void> => {
-    if (files.length >= DROP_LIMITS.maxFiles) return;
+    if (files.length >= DROP_LIMITS.maxFiles || stopped) return;
     if (entry.isFile) {
       const f = await fileOf(entry);
       files.push(withRelativePath(f, inFolder ? entry.fullPath.replace(/^\/+/, '') : ''));
-    } else if (entry.isDirectory && depth < DROP_LIMITS.maxDepth) {
+    } else if (entry.isDirectory && depth <= DROP_LIMITS.maxDepth) {
+      if (++dirs > DROP_LIMITS.maxDirs) {
+        stopped = DIRS_STOP_REASON;
+        return;
+      }
       for (const child of await readAll(entry)) await visit(child, depth + 1, true);
     }
   };
   for (const e of entries) await visit(e, 0, false);
-  return files;
+  return { files, stopped };
+}
+
+/** the files of a drop (walkDrop without the stop reason) */
+export async function walkEntries(entries: DropEntry[]): Promise<File[]> {
+  return (await walkDrop(entries)).files;
 }
 
 /** the label of a drop: the first folder's name, else the single file's name */

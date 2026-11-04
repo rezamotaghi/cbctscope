@@ -34,7 +34,9 @@ import { AGENT_AVAILABLE, IS_DESKTOP } from './shell';
 import { IS_WEB, isCanceled, source } from './source';
 import { EVIDENCE_SCHEMA, parseMarksFile, type EvidenceFile } from './evidence';
 import { SIZE_NOTICE_MIB, needsSizeNotice, voxelBytes } from './sizeNotice';
-import { dropLabel, entriesOf, walkEntries } from './dropFiles';
+import { dropLabel, entriesOf, walkDrop } from './dropFiles';
+import { selectVolumeVerb, type SwitchOutcome } from './agentSelect';
+import { downloadBlob } from './exporters';
 import {
   ResearchUseDialog,
   SizeNoticeDialog,
@@ -382,14 +384,15 @@ export default function CbctApp() {
     setPendingSize({ anon: next, label: v.label || (isDemoVol(next) ? 'Synthetic phantom' : next), bytes });
     return true;
   }, []);
-  const switchVolume = useCallback((next: string | null, confirmed = false) => {
-    if (!next || next === anonRef.current) return;
-    if (!confirmed && sizeHeld(next)) return;
+  const switchVolume = useCallback((next: string | null, confirmed = false): SwitchOutcome => {
+    if (!next || next === anonRef.current) return 'same';
+    if (!confirmed && sizeHeld(next)) return 'held';
     setError(null);
     setMeta(null);
     setHistogram(null);
     setControls((c) => ({ ...defaultControls, render3d: c.render3d })); // fresh state per volume
     setAnon(next);
+    return 'switched';
   }, [sizeHeld]);
 
   // volume list: fused volumes, then the opened source, then the built-in demo phantom, in
@@ -482,8 +485,8 @@ export default function CbctApp() {
       if (!entries.length) return;
       const token = beginOpen(); // the panel shows while the drop is walked, before the count is known
       try {
-        const files = await walkEntries(entries);
-        if (files.length) await openWith({ kind: 'files', files, label: dropLabel(entries) }, token);
+        const { files, stopped } = await walkDrop(entries);
+        if (files.length) await openWith({ kind: 'files', files, label: dropLabel(entries), ...(stopped ? { walkStopped: stopped } : {}) }, token);
         else if (openTokenRef.current === token) setOpenPanel(null);
       } catch (e) {
         if (openTokenRef.current === token) setOpenPanel(null);
@@ -512,12 +515,7 @@ export default function CbctApp() {
       views: [],
       rois3d: [],
     };
-    const url = URL.createObjectURL(new Blob([JSON.stringify(ev, null, 2)], { type: 'application/json' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${anon}_marks.json`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    downloadBlob(new Blob([JSON.stringify(ev, null, 2)], { type: 'application/json' }), `${anon}_marks.json`);
   }, [anon]);
   const onLoadMarks = useCallback(
     async (list: FileList | null) => {
@@ -640,11 +638,7 @@ export default function CbctApp() {
       style3d: controls.render3d.style,
       gamma: controls.gamma,
     }),
-    selectVolume: (id) => {
-      if (!volumes.some((v) => v.anon === id)) return `unknown volume id: ${id}`;
-      switchVolume(id);
-      return null;
-    },
+    selectVolume: (id) => selectVolumeVerb(id, volumes, (v) => switchVolume(v)),
     setViewMode: (mode) => {
       if (!VIEW_MODES.some(([m]) => m === mode)) {
         return `unknown view mode: ${mode} (valid: ${VIEW_MODES.map(([m]) => m).join(', ')})`;

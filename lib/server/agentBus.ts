@@ -8,6 +8,7 @@
 // (open, select, window, view mode, slice, snapshot). Nothing here computes, stores, or
 // returns findings or diagnoses, and nothing executes agent-supplied code.
 import crypto from 'node:crypto';
+import { AGENT_TIMEOUT_MS } from '../shared/agentTimeout';
 
 export interface AgentCommand {
   id: string;
@@ -58,7 +59,7 @@ export function hasViewer(): boolean {
 export function dispatchCommand(
   verb: string,
   args: Record<string, unknown>,
-  timeoutMs = 15_000,
+  timeoutMs = AGENT_TIMEOUT_MS,
 ): Promise<{ ok: boolean; result?: unknown; error?: string }> {
   if (!subscribers.size) {
     return Promise.resolve({ ok: false, error: 'no viewer connected — open the app in a browser first' });

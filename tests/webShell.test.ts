@@ -11,8 +11,11 @@ import {
   sizeNoticeMiB,
   voxelBytes,
 } from '../components/cbct/sizeNotice';
-import { dropLabel, walkEntries, type DropEntry } from '../components/cbct/dropFiles';
+import { DIRS_STOP_REASON, DROP_LIMITS, dropLabel, walkDrop, walkEntries, type DropEntry } from '../components/cbct/dropFiles';
+import { MAX_WALK_DEPTH } from '../lib/shared/dicomScan';
 import { createPageTransport, type AgentCommand } from '../components/cbct/agentTransport';
+import { HELD_BY_SIZE_NOTICE, selectVolumeVerb } from '../components/cbct/agentSelect';
+import { AGENT_TIMEOUT_MS } from '../lib/shared/agentTimeout';
 import { EVIDENCE_SCHEMA, parseMarksFile } from '../components/cbct/evidence';
 
 describe('the web CSP', () => {
@@ -128,6 +131,28 @@ describe('the drop walker', () => {
     expect(dropLabel([tree])).toBe('export');
   });
 
+  it('reaches as deep as the picker: files eight folders below the dropped folder, not nine', async () => {
+    expect(DROP_LIMITS.maxDepth).toBe(MAX_WALK_DEPTH);
+    // root/d1/.../d8/deep8.dcm is kept; root/d1/.../d9/deep9.dcm is beyond the picker too
+    const chain = (n: number, leaf: DropEntry): DropEntry => {
+      let node = leaf;
+      for (let i = n; i >= 1; i--) node = dir(`/root/${Array.from({ length: i }, (_, k) => `d${k + 1}`).join('/')}`, [node]);
+      return node;
+    };
+    const p8 = `/root/${Array.from({ length: 8 }, (_, k) => `d${k + 1}`).join('/')}`;
+    const p9 = `/root/${Array.from({ length: 9 }, (_, k) => `d${k + 1}`).join('/')}`;
+    const root = dir('/root', [chain(8, file(`${p8}/deep8.dcm`)), chain(9, file(`${p9}/deep9.dcm`))]);
+    const files = await walkEntries([root]);
+    expect(files.map((f) => f.webkitRelativePath)).toEqual([`${p8.slice(1)}/deep8.dcm`]);
+  });
+
+  it(`stops after ${DROP_LIMITS.maxDirs} folders and says why`, async () => {
+    const many = dir('/big', Array.from({ length: DROP_LIMITS.maxDirs + 5 }, (_, i) => dir(`/big/f${i}`, [file(`/big/f${i}/x.dcm`)])));
+    const out = await walkDrop([many]);
+    expect(out.stopped).toBe(DIRS_STOP_REASON);
+    expect(out.files.length).toBe(DROP_LIMITS.maxDirs - 1); // the dropped folder counts as one
+  });
+
   it('keeps an empty relative path for a file dropped on its own', async () => {
     const files = await walkEntries([file('/volume.dcm')]);
     expect(files).toHaveLength(1);
@@ -233,7 +258,30 @@ describe('the marks file', () => {
   });
 });
 
+describe('the agent select_volume', () => {
+  it('answers an error when the size notice holds the volume, never ok', () => {
+    const known = [{ anon: 'local_aaaaaaaaaaaa' }];
+    expect(selectVolumeVerb('local_aaaaaaaaaaaa', known, () => 'held')).toBe(HELD_BY_SIZE_NOTICE);
+    expect(selectVolumeVerb('local_aaaaaaaaaaaa', known, () => 'switched')).toBeNull();
+    expect(selectVolumeVerb('local_bbbbbbbbbbbb', known, () => 'switched')).toMatch(/unknown volume id/);
+  });
+});
+
 describe('the page transport', () => {
+  it('a dispatch times out like the bus and honours Stop', async () => {
+    const t = createPageTransport();
+    t.subscribe(() => {}, () => {}); // a viewer that never answers
+    await expect(t.dispatch('get_state', {}, { timeoutMs: 30 })).resolves.toEqual({ ok: false, error: 'viewer did not answer within 0.03s' });
+    const stop = new AbortController();
+    const p = t.dispatch('get_state', {}, { signal: stop.signal });
+    stop.abort();
+    await expect(p).resolves.toEqual({ ok: false, error: 'stopped' });
+    const pre = new AbortController();
+    pre.abort();
+    await expect(t.dispatch('get_state', {}, { signal: pre.signal })).resolves.toEqual({ ok: false, error: 'stopped' });
+    expect(AGENT_TIMEOUT_MS).toBe(15_000);
+  });
+
   it('queues until a subscriber, then round-trips the outcome', async () => {
     const t = createPageTransport();
     const pending = t.dispatch('get_state');
