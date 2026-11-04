@@ -759,12 +759,6 @@ export default function CbctApp() {
           )}
         </>
       )}
-      {inShell && window.location.port !== '3810' && (
-        <div style={{ padding: '8px 12px', background: 'var(--warn)', color: '#000', fontSize: 13 }}>
-          Port 3810 was taken, so the agent bridge answers at {window.location.origin}: set CBCTSCOPE_URL to that
-          address in the MCP server&apos;s settings.
-        </div>
-      )}
       {AGENT_AVAILABLE && agentEvicted && (
         <div
           style={{

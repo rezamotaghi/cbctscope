@@ -220,8 +220,11 @@ How it is built:
   browser. Quit stops the bridge and releases the port.
 - `desktop/bridge.mjs` serves `out/` (MIME by extension, confined to `out/`, no listing) and
   `/api/agent/command`, `/api/agent/events`, `/api/agent/result` with the agentBus contract,
-  behind the Host and Origin checks of `middleware.ts`. Port 3810, else a free port shown in
-  the window. `tests/desktopBridge.test.ts` covers it.
+  behind the Host, Sec-Fetch-Site and Origin checks of `middleware.ts`. Port 3810 and no
+  other: the origin holds the marks, the research acknowledgement and the agent settings, so a
+  taken port shows a native dialog and the app quits (no random port since the hardening pass
+  of 04/11/26). Static files are confined to `out/` by real path, symlinks resolved.
+  `tests/desktopBridge.test.ts` covers it.
 - Measured fact the plan had missed: the MCP server also reads `/api/cbct` (the catalog, for
   `list_volumes` and two resources) and `/api/cbct/<id>`. In the app the catalog lives in the
   page, so the bridge relays both reads to the page as two internal verbs (`source.list`,

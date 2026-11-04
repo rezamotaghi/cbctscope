@@ -86,8 +86,12 @@ another tab.
 
 - **In place.** [middleware.ts](middleware.ts) runs on every path (matcher `/:path*`). It
   rejects any request whose `Host` is not `127.0.0.1`, `localhost`, or `[::1]`, which
-  defeats DNS rebinding. It rejects any request that carries a non-loopback or malformed
-  `Origin`, which defeats cross-origin POSTs. The server binds `127.0.0.1` (`-H 127.0.0.1`
+  defeats DNS rebinding. It rejects any request whose `Sec-Fetch-Site` is present and not
+  `same-origin` or `none`, GETs included, and any request whose `Origin`, when present, is
+  not the server's own origin exactly; that defeats cross-site requests, from a hostile page
+  or from another web server on this machine. The agent stream additionally requires
+  `Sec-Fetch-Site: same-origin`, so a cross-site GET cannot evict the viewer. The desktop
+  app's bridge (`desktop/bridge.mjs`) applies the same rules. The server binds `127.0.0.1` (`-H 127.0.0.1`
   in the `dev` and `start` scripts of `package.json`), so no other device can connect. The
   MCP server speaks stdio and opens no port. This Host and Origin check is the protection
   the official MCP SDKs switched on for their HTTP transports after these DNS-rebinding
@@ -121,8 +125,8 @@ instruction.
 CBCTScope is a single-user local tool. The assumption is that the browser, the server
 process, and the scans are all on one machine controlled by one person.
 
-- The server binds to `127.0.0.1` and rejects any request whose `Host` or `Origin` is not
-  loopback. That covers DNS rebinding, where a hostile domain re-resolves to `127.0.0.1` so a
+- The server binds to `127.0.0.1` and rejects any request whose `Host` is not loopback,
+  whose `Origin` is not its own origin, or whose `Sec-Fetch-Site` says another site. That covers DNS rebinding, where a hostile domain re-resolves to `127.0.0.1` so a
   victim's browser issues same-origin readable requests, and cross-site POSTs from a hostile
   page in another tab. Both the bind and the header checks are load-bearing. See
   [middleware.ts](middleware.ts).

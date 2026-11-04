@@ -143,12 +143,13 @@ What differs from the repository starters (section 2.3):
   downloading the newer release.
 - AI-agent control works with the same setup as the repository (chapter 9):
   the app listens on `http://127.0.0.1:3810`, the address the MCP server and
-  the one-click bundle use by default. If another program already holds port
-  3810 (the repository's viewer, for example), the app takes a free port and
-  shows its address in a yellow line at the top of the window; set
-  `CBCTSCOPE_URL` to that address in the MCP server's settings. Marks are kept
-  per address, so a session on a fallback port does not see the marks of one
-  on 3810.
+  the one-click bundle use by default. The app always uses that port: the
+  address is where its marks, the research-use acknowledgement and the agent
+  settings are kept, so another port would silently lose them. If another
+  program already holds port 3810 (often the repository's viewer), the app
+  says "CBCTScope needs port 3810 and another program is using it (often a
+  CBCTScope dev server). Quit that program and open CBCTScope again." and
+  quits (section 11).
 - The app accepts connections from this computer only, exactly as the
   repository's viewer does.
 - The agent verbs `open_scan` and `pick_scan` are not available in the app:

@@ -14,7 +14,7 @@
 //
 // Plain Node, no dependencies, so the Electron main process loads it as is.
 import crypto from 'node:crypto';
-import { createReadStream, statSync } from 'node:fs';
+import { createReadStream, realpathSync, statSync } from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 
@@ -22,9 +22,20 @@ export const DEFAULT_PORT = 3810;
 const MAX_BODY = 64 * 1024 * 1024; // a snapshot result is a PNG data URL of a few MB
 
 // ---------------------------------------------------------------- the loopback check
-// middleware.ts, line for line: a strict Host allowlist (DNS rebinding) and any Origin, when
-// present, must be loopback too (cross-site POSTs).
+// middleware.ts, line for line:
+//   - a strict Host allowlist (DNS rebinding);
+//   - a browser's Sec-Fetch-Site, when sent, must be same-origin or none (a typed address or
+//     the app's own window): a request from any other site, or from another server on this
+//     machine, is refused, GETs included;
+//   - an Origin, when sent, must be this server's own origin exactly (scheme, loopback host and
+//     port), not merely any loopback origin;
+//   - /api/agent/events additionally requires Sec-Fetch-Site: same-origin, which the page's
+//     EventSource sends; no Node client ever needs the stream, and a cross-site GET to it would
+//     subscribe and evict the window's own stream.
+// mcp/server.mjs and scripts/mcp-smoke.mjs use Node's fetch, which sends neither header, so
+// /api/agent/command and /api/agent/result keep accepting header-less requests.
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]']);
+const EVENTS_PATH = '/api/agent/events';
 
 export function isLoopback(hostHeader) {
   if (!hostHeader) return false;
@@ -32,17 +43,19 @@ export function isLoopback(hostHeader) {
   return LOOPBACK_HOSTS.has(host);
 }
 
-/** null when the request may pass, else the 403 text middleware.ts answers with */
-export function loopbackRefusal(headers) {
-  if (!isLoopback(headers.host ?? null)) return 'CBCTScope only answers to localhost.';
+/**
+ * null when the request may pass, else the 403 text middleware.ts answers with.
+ * @param {Record<string, string | string[] | undefined>} headers Node's lower-cased request headers
+ * @param {string} [pathname] the request path, for the stream's stricter rule
+ */
+export function loopbackRefusal(headers, pathname = '/') {
+  const host = typeof headers.host === 'string' ? headers.host : null;
+  if (!isLoopback(host)) return 'CBCTScope only answers to localhost.';
+  const site = headers['sec-fetch-site'];
+  if (site !== undefined && site !== 'same-origin' && site !== 'none') return 'Cross-site requests are not allowed.';
   const origin = headers.origin;
-  if (origin) {
-    try {
-      if (!isLoopback(new URL(origin).host)) return 'Cross-origin requests are not allowed.';
-    } catch {
-      return 'Malformed Origin.';
-    }
-  }
+  if (origin !== undefined && origin !== `http://${host}`) return 'Cross-origin requests are not allowed.';
+  if (pathname === EVENTS_PATH && site !== 'same-origin') return 'The agent stream is for the viewer page only.';
   return null;
 }
 
@@ -140,8 +153,24 @@ const isFile = (p) => {
   }
 };
 
-/** the file a URL path names inside root, or null; never a directory, never outside root */
+/** the real path of p (symlinks resolved), or null when it does not exist */
+const real = (p) => {
+  try {
+    return realpathSync(p);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * The file a URL path names inside root, or null; never a directory, never outside root. The
+ * check runs twice: on the normalised path, and on the real path with every symlink resolved,
+ * so a link inside out/ that points elsewhere serves nothing.
+ */
 export function resolveStatic(root, urlPath) {
+  const realRoot = real(root);
+  if (!realRoot) return null;
+  const inside = (p) => p !== null && (p === realRoot || p.startsWith(realRoot + path.sep));
   let rel;
   try {
     rel = decodeURIComponent(urlPath);
@@ -153,7 +182,9 @@ export function resolveStatic(root, urlPath) {
   if (full !== root && !full.startsWith(root + path.sep)) return null;
   // a directory serves its index.html; an extensionless page its .html (Next's export layout)
   for (const candidate of [full, path.join(full, 'index.html'), full + '.html']) {
-    if ((candidate === root || candidate.startsWith(root + path.sep)) && isFile(candidate)) return candidate;
+    if (!(candidate === root || candidate.startsWith(root + path.sep)) || !isFile(candidate)) continue;
+    const resolved = real(candidate);
+    return inside(resolved) ? resolved : null;
   }
   return null;
 }
@@ -276,21 +307,41 @@ async function catalog(bus, req, res, anon) {
 const NO_PATH_ROUTE =
   'the desktop app opens scans through its own picker only: ask the human to choose Open DICOMDIR or DICOM folder in the CBCTScope window, then call list_volumes';
 
+/** what the app says, in a native dialog, before it quits on a taken port (desktop/main.mjs) */
+export const PORT_IN_USE =
+  'CBCTScope needs port 3810 and another program is using it (often a CBCTScope dev server). Quit that program and open CBCTScope again.';
+
+/** the port is taken: the app refuses to start rather than change its origin (desktop/main.mjs) */
+export class PortInUseError extends Error {
+  constructor(port) {
+    super(`port ${port} is in use`);
+    this.code = 'EADDRINUSE';
+    this.port = port;
+  }
+}
+
 /**
- * Start the bridge. Binds 127.0.0.1 on `port` (3810, the MCP server's default); when that is
- * taken, on a free port, and `fallback` is true in the result.
+ * Start the bridge. Binds 127.0.0.1 on `port` (3810, the MCP server's default) and nothing
+ * else: the page's origin carries its marks, the research acknowledgement and the agent
+ * settings, so a different port would silently lose them. When the port is taken the start
+ * rejects with PortInUseError.
  * @param {{ root: string, port?: number, log?: (line: string) => void }} opts
  */
 export async function startBridge({ root, port = DEFAULT_PORT, log = () => {} }) {
   root = path.resolve(root);
   const bus = createBus();
   const server = http.createServer((req, res) => {
-    const refusal = loopbackRefusal(req.headers);
+    let pathname;
+    try {
+      pathname = new URL(req.url, 'http://127.0.0.1').pathname;
+    } catch {
+      return send(res, 400, 'text/plain; charset=utf-8', 'Bad request.');
+    }
+    const refusal = loopbackRefusal(req.headers, pathname);
     if (refusal) {
-      log(`403 ${req.method} ${req.url} (${refusal})`);
+      log(`403 ${req.method} ${pathname} (${refusal})`);
       return send(res, 403, 'text/plain; charset=utf-8', refusal);
     }
-    const pathname = new URL(req.url, 'http://127.0.0.1').pathname;
     if (pathname.startsWith('/api/')) log(`${req.method} ${pathname}`);
     const route = async () => {
       if (pathname === '/api/agent/events') return events(bus, req, res, log);
@@ -328,22 +379,19 @@ export async function startBridge({ root, port = DEFAULT_PORT, log = () => {} })
       server.listen(p, '127.0.0.1');
     });
 
-  let fallback = false;
   try {
     await listen(port);
   } catch (err) {
-    if (err?.code !== 'EADDRINUSE') throw err;
-    fallback = true;
-    await listen(0);
+    if (err?.code === 'EADDRINUSE') throw new PortInUseError(port);
+    throw err;
   }
   const bound = server.address().port;
   const url = `http://127.0.0.1:${bound}`;
-  log(`bridge on ${url}${fallback ? ` (port ${port} was taken)` : ''}, serving ${root}`);
+  log(`bridge on ${url}, serving ${root}`);
 
   return {
     port: bound,
     url,
-    fallback,
     close: () =>
       new Promise((resolve) => {
         bus.close();

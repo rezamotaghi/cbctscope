@@ -2,11 +2,11 @@
 // the static server's confinement and MIME types, and the agentBus contract (single viewer,
 // eviction, the pending map, the round trip) over real HTTP on an ephemeral port.
 import http from 'node:http';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { isLoopback, resolveStatic, startBridge } from '../desktop/bridge.mjs';
+import { isLoopback, loopbackRefusal, PORT_IN_USE, PortInUseError, resolveStatic, startBridge } from '../desktop/bridge.mjs';
 
 let dir: string;
 let root: string;
@@ -18,10 +18,14 @@ interface Res {
   body: string;
 }
 
-function req(p: string, opts: { method?: string; host?: string; origin?: string; body?: unknown } = {}): Promise<Res> {
+function req(
+  p: string,
+  opts: { method?: string; host?: string; origin?: string; site?: string; body?: unknown } = {},
+): Promise<Res> {
   return new Promise((resolve, reject) => {
     const headers: Record<string, string> = { Host: opts.host ?? `127.0.0.1:${bridge.port}` };
     if (opts.origin) headers.Origin = opts.origin;
+    if (opts.site) headers['Sec-Fetch-Site'] = opts.site;
     const payload = opts.body === undefined ? undefined : JSON.stringify(opts.body);
     if (payload) headers['Content-Type'] = 'application/json';
     const r = http.request({ host: '127.0.0.1', port: bridge.port, path: p, method: opts.method ?? 'GET', headers }, (res) => {
@@ -41,7 +45,13 @@ function subscribe(): Promise<{ commands: { id: string; verb: string; args: unkn
     const commands: { id: string; verb: string; args: unknown }[] = [];
     let evicted = false;
     const r = http.get(
-      { host: '127.0.0.1', port: bridge.port, path: '/api/agent/events', headers: { Host: `localhost:${bridge.port}` } },
+      {
+        host: '127.0.0.1',
+        port: bridge.port,
+        path: '/api/agent/events',
+        // what the page's EventSource sends
+        headers: { Host: `localhost:${bridge.port}`, 'Sec-Fetch-Site': 'same-origin' },
+      },
       (res) => {
         let buf = '';
         res.on('data', (c) => {
@@ -74,6 +84,11 @@ beforeAll(async () => {
   writeFileSync(path.join(root, '_next', 'codec.wasm'), Buffer.from([0, 97, 115, 109]));
   writeFileSync(path.join(root, 'sub', 'index.html'), 'sub');
   writeFileSync(path.join(dir, 'secret.txt'), 'outside');
+  // links inside out/ that point outside it: a file and a directory
+  symlinkSync(path.join(dir, 'secret.txt'), path.join(root, 'linked.txt'));
+  mkdirSync(path.join(dir, 'elsewhere'));
+  writeFileSync(path.join(dir, 'elsewhere', 'index.html'), 'outside dir');
+  symlinkSync(path.join(dir, 'elsewhere'), path.join(root, 'linkdir'));
   bridge = await startBridge({ root, port: 0 });
 });
 
@@ -94,7 +109,53 @@ describe('loopback checks (middleware.ts)', () => {
     const cross = await req('/api/agent/command', { method: 'POST', origin: 'https://attacker.example', body: { verb: 'get_state' } });
     expect(cross.status).toBe(403);
     expect((await req('/', { origin: 'not a url' })).status).toBe(403);
-    expect((await req('/', { origin: `http://localhost:${bridge.port}` })).status).toBe(200);
+    expect((await req('/', { host: `localhost:${bridge.port}`, origin: `http://localhost:${bridge.port}` })).status).toBe(200);
+  });
+
+  it('refuses a cross-site GET to the agent stream before it can evict the viewer (the reproduction)', async () => {
+    const viewer = await subscribe();
+    // the security review's probe: sec-fetch-site cross-site and no Origin
+    const probe = await req('/api/agent/events', { site: 'cross-site' });
+    expect(probe.status).toBe(403);
+    // a page on another local web server is same-site at best: refused too
+    expect((await req('/api/agent/events', { site: 'same-site' })).status).toBe(403);
+    // a header-less client (no browser) never gets the stream either
+    expect((await req('/api/agent/events')).status).toBe(403);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(viewer.evicted()).toBe(false);
+    viewer.close();
+  });
+
+  it('refuses any cross-site request, GETs and static files included', async () => {
+    expect((await req('/', { site: 'cross-site' })).status).toBe(403);
+    expect((await req('/', { site: 'same-site' })).status).toBe(403);
+    expect((await req('/api/agent/command', { method: 'POST', site: 'cross-site', body: { verb: 'get_state' } })).status).toBe(403);
+    // a typed address and the page itself pass
+    expect((await req('/', { site: 'none' })).status).toBe(200);
+    expect((await req('/', { site: 'same-origin' })).status).toBe(200);
+  });
+
+  it('accepts a header-less POST (the MCP server and the smoke check use Node fetch)', async () => {
+    const r = await req('/api/agent/command', { method: 'POST', body: { verb: 'get_state', timeoutMs: 1000 } });
+    expect(r.status).toBe(502); // passed the checks; no viewer is connected
+    expect(JSON.parse(r.body).error).toMatch(/no viewer/);
+  });
+
+  it('wants the exact own origin, not any loopback origin', async () => {
+    const other = `http://127.0.0.1:${bridge.port + 1}`;
+    expect((await req('/api/agent/command', { method: 'POST', origin: other, body: { verb: 'get_state' } })).status).toBe(403);
+    expect((await req('/', { origin: `https://127.0.0.1:${bridge.port}` })).status).toBe(403);
+    expect((await req('/', { origin: `http://localhost:${bridge.port}` })).status).toBe(403); // Host says 127.0.0.1
+    expect((await req('/', { origin: 'null' })).status).toBe(403);
+    expect((await req('/', { origin: `http://127.0.0.1:${bridge.port}` })).status).toBe(200);
+  });
+
+  it('applies the same rules as a pure function', () => {
+    const host = '127.0.0.1:3810';
+    expect(loopbackRefusal({ host }, '/api/agent/command')).toBeNull();
+    expect(loopbackRefusal({ host, 'sec-fetch-site': 'cross-site' }, '/api/agent/events')).not.toBeNull();
+    expect(loopbackRefusal({ host, 'sec-fetch-site': 'same-origin' }, '/api/agent/events')).toBeNull();
+    expect(loopbackRefusal({ host, origin: 'http://127.0.0.1:3811' }, '/')).not.toBeNull();
   });
 });
 
@@ -116,6 +177,29 @@ describe('static files', () => {
     expect(up.status).toBe(404);
     expect(up.body).not.toContain('outside');
     expect((await req('/_next/')).status).toBe(404);
+  });
+
+  it('resolves symlinks and refuses anything whose real path is outside out/', async () => {
+    expect(resolveStatic(root, '/linked.txt')).toBeNull();
+    expect(resolveStatic(root, '/linkdir/index.html')).toBeNull();
+    expect(resolveStatic(root, '/linkdir')).toBeNull();
+    const r = await req('/linked.txt');
+    expect(r.status).toBe(404);
+    expect(r.body).not.toContain('outside');
+    expect((await req('/linkdir/')).body).not.toContain('outside dir');
+  });
+});
+
+describe('the port', () => {
+  it('never falls back to another port: a taken port rejects with the dialog text ready', async () => {
+    const blocker = http.createServer();
+    await new Promise<void>((r) => blocker.listen(0, '127.0.0.1', () => r()));
+    const taken = (blocker.address() as { port: number }).port;
+    await expect(startBridge({ root, port: taken })).rejects.toBeInstanceOf(PortInUseError);
+    await new Promise((r) => blocker.close(r));
+    expect(PORT_IN_USE).toBe(
+      'CBCTScope needs port 3810 and another program is using it (often a CBCTScope dev server). Quit that program and open CBCTScope again.',
+    );
   });
 });
 

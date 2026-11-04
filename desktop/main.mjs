@@ -6,9 +6,9 @@
 // Hardening: context isolation, no Node in the page, the renderer sandbox, web security on,
 // no preload. Every window.open and every off-origin navigation is denied; an https: link is
 // handed to the system browser, anything else is dropped.
-import { app, BrowserWindow, Menu, session, shell } from 'electron';
+import { app, BrowserWindow, dialog, Menu, session, shell } from 'electron';
 import path from 'node:path';
-import { startBridge } from './bridge.mjs';
+import { PORT_IN_USE, PortInUseError, startBridge } from './bridge.mjs';
 
 // seconds since the process started, so the log shows launch to first frame directly
 const log = (line) => console.log(`[cbctscope ${process.uptime().toFixed(2)}s] ${line}`);
@@ -73,7 +73,17 @@ const isHttps = (url) => {
 
 async function boot() {
   const root = path.join(app.getAppPath(), 'out');
-  bridge = await startBridge({ root, log });
+  try {
+    bridge = await startBridge({ root, log });
+  } catch (err) {
+    if (!(err instanceof PortInUseError)) throw err;
+    // no other port: the origin holds the marks, the research acknowledgement and the agent
+    // settings, and a different port would silently lose them (manual sections 2.6 and 11)
+    log(`port ${err.port} is in use; quitting`);
+    dialog.showMessageBoxSync({ type: 'error', title: 'CBCTScope', message: PORT_IN_USE, buttons: ['Quit'] });
+    app.exit(1);
+    return;
+  }
 
   // nothing in the page needs a device or a notification; files come through the picker
   const allowed = new Set(['clipboard-sanitized-write', 'fullscreen', 'fileSystem']);
