@@ -94,11 +94,63 @@ What differs from the local app:
 - A volume above the size threshold (512 MiB of voxels by default) shows a
   notice first, because the browser must hold it in memory. The local app has
   no such limit.
-- There is no AI-agent control yet (chapter 9).
+- There is no AI-agent control in a plain browser (chapter 9); the desktop
+  app (section 2.6) adds it.
 - The header reads **Research use only. Not a medical device.** at all times,
-  and links to the repository.
+  and links to the repository and to the desktop app.
 
 To build it yourself: `npm run build:web` writes the site to `out/`. Serve
 that folder with any static file server. The threshold is set at build time
 with `NEXT_PUBLIC_CBCTSCOPE_SIZE_NOTICE_MIB`; a site under a sub-path (such as
 `/cbctscope`) needs `NEXT_PUBLIC_BASE_PATH`.
+
+## 2.6 The desktop app
+
+The **desktop app** is the web build in its own window, with the AI-agent
+bridge built in: no Node.js, no terminal, no browser tab to keep open. It runs
+the same browser engine the web build is tested on (Chromium, through
+Electron), so every reading mode behaves the same.
+
+**Download.** Every release that carries it lists the files on the project's
+GitHub releases page:
+
+- macOS: `CBCTScope-<version>-arm64.dmg` for Apple silicon,
+  `CBCTScope-<version>-x64.dmg` for an Intel Mac (a `.zip` of each is there
+  too). Open the dmg and drag **CBCTScope** into **Applications**. The macOS
+  build is signed and notarised by Apple.
+- Windows: `CBCTScope-<version>-setup.exe` installs for the current user;
+  `CBCTScope-<version>-portable.exe` runs without installing. Both are
+  unsigned, so on first launch Windows SmartScreen shows **Windows protected
+  your PC**: choose **More info**, then **Run anyway** (once).
+
+**First launch.** The window opens on the synthetic phantom, as the web build
+does. **File → Open folder** (`Cmd-O` on macOS, `Ctrl-O` on Windows) or the
+**📂 open** menu opens your own export through the system's folder dialog; the
+dialog's button may read **Upload**, which is the browser engine's standard
+wording: the files are read into the app and nothing is sent anywhere. Closing
+the window quits the app.
+
+What differs from the repository starters (section 2.3):
+
+- Scans are read the web build's way (section 2.5): through the dialog or a
+  drop, into the app's memory, with marks in the app's own storage and the
+  marks file to carry them. The large-volume notice applies.
+- The app opens no browser and asks for no install step; updating is
+  downloading the newer release.
+- AI-agent control works with the same setup as the repository (chapter 9):
+  the app listens on `http://127.0.0.1:3810`, the address the MCP server and
+  the one-click bundle use by default. If another program already holds port
+  3810 (the repository's viewer, for example), the app takes a free port and
+  shows its address in a yellow line at the top of the window; set
+  `CBCTSCOPE_URL` to that address in the MCP server's settings. Marks are kept
+  per address, so a session on a fallback port does not see the marks of one
+  on 3810.
+- The app accepts connections from this computer only, exactly as the
+  repository's viewer does.
+- The agent verbs `open_scan` and `pick_scan` are not available in the app:
+  it has no route that takes a file path. Open the scan with **Open folder**,
+  then the agent reads the catalog with `list_volumes`.
+
+To build it yourself: `npm run desktop` starts it from the repository against
+`out/` (building the web target first if `out/` is missing), and
+`npm run desktop:build` packages it into `dist-desktop/`.

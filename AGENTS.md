@@ -17,12 +17,13 @@ CBCTScope: a complete, local-first CBCT and 2D radiograph viewer (Next.js + Corn
 ## Layout
 
 - `app/` Next.js app router: the single reading screen plus `/api/cbct/*` (volume sources) and `/api/agent/*` (the MCP bridge).
-- `components/cbct/` the viewer: `CbctApp` (shell/state), `CbctViewport` (MPR + 3D), one component per reading mode, and pure math modules (`curvedReformat`, `stitch`, `regionGrow`, `oblique`, `render3d`, ...).
-- `lib/server/` volume sources: `localSource` (user-opened exports, read in place), `fused` (session stitches, memory only), `phantom` (synthetic demo), `dicom` (shared contract), `agentBus` (command bus), `config` (app-data paths).
+- `components/cbct/` the viewer: `CbctApp` (shell/state), `CbctViewport` (MPR + 3D), one component per reading mode, and pure math modules (`curvedReformat`, `stitch`, ...).
+- `lib/server/` volume sources: `localSource` (exports, read in place), `fused` (stitches, memory only), `phantom`, `dicom`, `agentBus` (command bus), `config`.
 - `lib/browser/` the web build's `browserSource` behind the `VolumeSource` seam (client code imports `components/cbct/source.ts`); `lib/shared/` DICOM helpers and the phantom for both sides. Contract: `docs/web-build.md`.
-- `mcp/` the stdio MCP server (`server.mjs`, a thin proxy onto `/api/agent/command`) plus the MCPB bundle (`npm run mcpb`); `skills/cbctscope-reading/` the Agent Skill that teaches a host the verbs.
+- `mcp/` the stdio MCP server (`server.mjs`, a thin proxy onto the bridge) plus the MCPB bundle (`npm run mcpb`); `skills/cbctscope-reading/` the Agent Skill that teaches a host the verbs.
+- `desktop/` the Electron app (`npm run desktop`): `main.mjs` the window; `bridge.mjs` serves `out/` and `/api/agent/*` on port 3810.
 - `scripts/demo.mjs` the cross-platform `npm run demo` launcher; `scripts/mcp-smoke.mjs` the live MCP check; `scripts/manual-shots.mjs` recaptures the manual's stills; the root `Start CBCTScope.*` files are the double-click starters.
-- `tests/` vitest (pure math, manual drift), `tests/e2e/` Playwright on `out/`; `docs/` MCP contract, reading guides, the manual (`docs/manual/`, see below).
+- `tests/` vitest (pure math, manual drift), `tests/e2e/` Playwright on `out/`; `docs/` MCP contract, reading guides, the manual (below).
 
 ## The user manual
 

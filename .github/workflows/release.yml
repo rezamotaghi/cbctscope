@@ -1,7 +1,7 @@
 name: Release
 
 # The web build ships from a published release only (docs/web-build.md, section 9); a push
-# deploys nothing. Milestone 2 adds the macOS job here.
+# deploys nothing. The desktop jobs attach the packaged app to the same release.
 on:
   release:
     types: [published]
@@ -55,3 +55,91 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  # ---------------------------------------------------------------- the desktop app
+  # Signing and notarisation credentials, added by the owner as repository secrets (names
+  # only; electron-builder 26.18.0 reads them from the environment):
+  #   CSC_LINK            the Developer ID Application certificate, a .p12 exported from the
+  #                       keychain, base64-encoded on one line
+  #   CSC_KEY_PASSWORD    the password of that .p12
+  #   APPLE_API_KEY       the App Store Connect API key (.p8), base64-encoded on one line
+  #   APPLE_API_KEY_ID    that key's Key ID
+  #   APPLE_API_ISSUER    the Issuer ID of the App Store Connect team
+  # Secrets cannot appear in a job's `if:` (GitHub's documented limit), so this job turns
+  # their presence into an output. Without CSC_LINK both desktop jobs are skipped and the
+  # release still deploys the site.
+  desktop-gate:
+    runs-on: ubuntu-latest
+    outputs:
+      signing: ${{ steps.check.outputs.signing }}
+    steps:
+      - id: check
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+        run: |
+          if [ -n "$CSC_LINK" ]; then echo "signing=true" >> "$GITHUB_OUTPUT"; else echo "signing=false" >> "$GITHUB_OUTPUT"; fi
+
+  desktop-mac:
+    needs: desktop-gate
+    if: ${{ needs.desktop-gate.outputs.signing == 'true' }}
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # the app serves the build from the root of its own loopback origin: no base path
+      - name: Build the web target
+        run: npm run build:web
+        env:
+          NEXT_PUBLIC_BASE_PATH: ''
+      # signs with hardened runtime and a timestamp, notarises, staples (electron-builder.yml)
+      - name: Package, sign and notarise
+        run: npm run desktop:build -- --mac --publish never
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+      - name: Attach the dmg and zip to the release
+        run: gh release upload "$TAG" dist-desktop/*.dmg dist-desktop/*.zip --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+
+  # Windows ships unsigned (docs/web-build.md, section 10); it rides the same gate so a
+  # release cut without the credentials publishes the site only.
+  desktop-win:
+    needs: desktop-gate
+    if: ${{ needs.desktop-gate.outputs.signing == 'true' }}
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build the web target
+        run: npm run build:web
+        env:
+          NEXT_PUBLIC_BASE_PATH: ''
+      - name: Package (unsigned)
+        run: npm run desktop:build -- --win --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Attach the installer and the portable exe to the release
+        run: gh release upload "$TAG" dist-desktop/*.exe --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
