@@ -69,4 +69,9 @@ carry them to another browser or computer, the **📂 open** menu offers:
   for the same export, so a file saved by one loads in the other. The loaded
   marks are bound to the volume on screen. Marks are world-mm coordinates of
   one scan, so load a file only onto the scan it was saved from: on another
-  scan the marks land in the wrong places.
+  scan the marks land in the wrong places. Each mark is checked before it is
+  stored: a measurement of an unknown tool, a point that is not three numbers,
+  or a malformed saved view or ROI is left out, and the viewer says how many
+  entries it left out; the rest loads. A file that is not a marks file, or is
+  too deeply nested to read, is refused with a plain message and nothing is
+  stored.

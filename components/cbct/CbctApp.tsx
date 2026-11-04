@@ -525,6 +525,11 @@ export default function CbctApp() {
       if (!f || !anon) return;
       const parsed = parseMarksFile(await f.text(), anon);
       if ('error' in parsed) return setError(parsed.error);
+      if (parsed.dropped) {
+        setError(
+          `${parsed.dropped} ${parsed.dropped === 1 ? 'entry' : 'entries'} of that marks file failed validation and ${parsed.dropped === 1 ? 'was' : 'were'} left out; the rest loaded.`,
+        );
+      }
       // unmount the room first so its own autosave cannot write the old marks back
       setMarksBusy(true);
       try {

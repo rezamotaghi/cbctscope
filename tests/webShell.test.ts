@@ -139,11 +139,60 @@ describe('the drop walker', () => {
 
 describe('the marks file', () => {
   const anon = 'local_0123456789ab';
-  const good = { schema: EVIDENCE_SCHEMA, anon, saved_at: 'x', annotations: [{ a: 1 }], views: [], rois3d: [] };
+  const length = {
+    annotationUID: 'u0',
+    metadata: { toolName: 'Length', FrameOfReferenceUID: `cbctscope.${anon}`, viewPlaneNormal: [0, 0, 1] },
+    data: { handles: { points: [[0, 0, 0], [10, 0, 0]] }, label: '' },
+  };
+  const roi = {
+    id: 'r1',
+    center: [1, 2, 3],
+    axes: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+    half: [2, 2, 2],
+    stats: { nVoxels: 8, meanHu: 100, sdHu: 5, minHu: 90, maxHu: 110, volumeCm3: 0.01 },
+    visible: true,
+  };
+  const view = { id: 'v1', name: 'apex', cameras: { a: { position: [0, 0, 1], focalPoint: [0, 0, 0], viewUp: [0, 1, 0] } }, patch: { invert: false } };
+  const good = { schema: EVIDENCE_SCHEMA, anon, saved_at: 'x', annotations: [length], views: [view], rois3d: [roi] };
 
-  it('accepts a marks file of the volume on screen', () => {
+  it('accepts a valid marks file of the volume on screen, nothing dropped', () => {
     const r = parseMarksFile(JSON.stringify(good), anon);
-    expect('file' in r && r.file.annotations).toEqual([{ a: 1 }]);
+    if (!('file' in r)) throw new Error(r.error);
+    expect(r.dropped).toBe(0);
+    expect(r.file.annotations).toEqual([length]);
+    expect(r.file.views).toEqual([view]);
+    expect(r.file.rois3d).toEqual([roi]);
+  });
+
+  it('drops a bad annotation, view or ROI and counts it; the rest loads', () => {
+    const bad = {
+      ...good,
+      annotations: [
+        length,
+        { ...length, metadata: { toolName: 'RunScript' } }, // not a known tool
+        { ...length, data: { handles: { points: [[1, 2]] } } }, // a 2-number point
+        { ...length, data: { handles: { points: 'x' } } },
+        { ...length, metadata: { ...length.metadata, viewUp: ['a', 'b', 'c'] } }, // a typed field, mistyped
+      ],
+      views: [view, { id: 'v2', name: 3, cameras: {}, patch: {} }],
+      rois3d: [roi, { ...roi, center: [1, 2] }],
+    };
+    const r = parseMarksFile(JSON.stringify(bad), anon);
+    if (!('file' in r)) throw new Error(r.error);
+    expect(r.dropped).toBe(6);
+    expect(r.file.annotations).toEqual([length]);
+    expect(r.file.views).toEqual([view]);
+    expect(r.file.rois3d).toEqual([roi]);
+  });
+
+  it('turns a deeply nested file into a plain message, never a thrown RangeError', () => {
+    const depth = 200_000;
+    const nested = `{"schema":"${EVIDENCE_SCHEMA}","anon":"local_ffffffffffff","annotations":[${'['.repeat(depth)}${']'.repeat(depth)}]}`;
+    let r: ReturnType<typeof parseMarksFile> | undefined;
+    expect(() => (r = parseMarksFile(nested, anon))).not.toThrow();
+    expect(r).toBeDefined();
+    if (r && 'error' in r) expect(r.error).toMatch(/nested too deeply|could not be read|not a CBCTScope/);
+    else expect(r?.file.annotations).toEqual([]); // parsed, re-keyed safely, and dropped
   });
 
   it('refuses another schema and non-JSON', () => {
@@ -168,6 +217,7 @@ describe('the marks file', () => {
       ],
       views: [{ id: 'v1', name: 'apex', cameras: {}, patch: {} }],
       traces: [{ id: 't1' }],
+      rois3d: [],
     };
     const r = parseMarksFile(JSON.stringify(saved), anon);
     if (!('file' in r)) throw new Error(r.error);

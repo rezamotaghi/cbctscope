@@ -7,6 +7,7 @@
 //    volume source (./source) as one JSON record per volume, so marks survive close/reopen.
 //    World coordinates only — the volume's FrameOfReference is deterministic per anon id,
 //    so a restored annotation lands exactly where it was drawn.
+import { z } from 'zod';
 import type { CbctControls } from './CbctViewport';
 import type { Roi3d } from './evidence3d';
 import { source } from './source';
@@ -90,7 +91,11 @@ export function serializeAnnotations(annotations: unknown[]): unknown[] {
 
 export async function fetchEvidence(anon: string): Promise<EvidenceFile | null> {
   try {
-    return await source.getEvidence(anon);
+    const raw = await source.getEvidence(anon);
+    if (!raw) return null;
+    // a stored record passes the same validation as a loaded file before anything restores it
+    const checked = validateEvidence(raw, anon);
+    return 'file' in checked ? checked.file : null;
   } catch {
     return null;
   }
@@ -114,37 +119,133 @@ function rekeyStrings(v: unknown, from: string, to: string): unknown {
   return v;
 }
 
+// ---------------- the marks-file schema ----------------
+// Zod schemas for what a marks file (or a stored sidecar) may carry. An entry that fails is
+// dropped and counted, never restored; the rest loads. Fields the viewer does not read pass
+// through (loose objects), the ones it does are typed.
+
+/** the annotation tools whose marks the viewer restores (Cornerstone toolName values) */
+export const MARK_TOOLS = ['Length', 'Angle', 'ArrowAnnotate', 'Label', 'RectangleROI', 'EllipticalROI', 'PlanarFreehandROI'] as const;
+
+const finite = z.number().finite();
+const vec3 = z.tuple([finite, finite, finite]);
+
+export const AnnotationSchema = z.looseObject({
+  annotationUID: z.string().max(200).optional(),
+  metadata: z.looseObject({
+    toolName: z.enum(MARK_TOOLS),
+    FrameOfReferenceUID: z.string().max(200).optional(),
+    referencedImageId: z.string().max(2000).optional(),
+    volumeId: z.string().max(2000).optional(),
+    viewPlaneNormal: vec3.optional(),
+    viewUp: vec3.optional(),
+    cameraPosition: vec3.optional(),
+    cameraFocalPoint: vec3.optional(),
+  }),
+  data: z.looseObject({
+    handles: z.looseObject({ points: z.array(vec3).max(10_000) }),
+    label: z.string().max(10_000).optional(),
+    text: z.string().max(10_000).optional(),
+  }),
+});
+
+const CamSchema = z.object({
+  position: vec3,
+  focalPoint: vec3,
+  viewUp: vec3,
+  parallelScale: finite.optional(),
+});
+
+export const SavedViewSchema = z.object({
+  id: z.string().max(200),
+  name: z.string().max(500),
+  cameras: z.record(z.string().max(100), CamSchema),
+  patch: z.record(z.string().max(100), z.unknown()),
+  by: z.literal('agent').optional(),
+});
+
+export const RoiSchema = z.object({
+  id: z.string().max(200),
+  center: vec3,
+  axes: z.tuple([vec3, vec3, vec3]),
+  half: vec3,
+  stats: z.object({ nVoxels: finite, meanHu: finite, sdHu: finite, minHu: finite, maxHu: finite, volumeCm3: finite }),
+  visible: z.boolean().optional().default(true),
+});
+
+const EvidenceShape = z.object({
+  schema: z.literal(EVIDENCE_SCHEMA),
+  anon: z.string().max(200).optional(),
+  saved_at: z.string().max(100).optional(),
+  annotations: z.array(z.unknown()).max(100_000).optional(),
+  views: z.array(z.unknown()).max(10_000).optional(),
+  rois3d: z.array(z.unknown()).max(10_000).optional(),
+  traces: z.array(z.unknown()).max(10_000).optional(),
+});
+
+/** each entry that passes `schema`, and how many did not */
+function keep<T>(items: unknown[] | undefined, schema: z.ZodType<T>): { ok: T[]; dropped: number } {
+  const ok: T[] = [];
+  let dropped = 0;
+  for (const it of items ?? []) {
+    const r = schema.safeParse(it);
+    if (r.success) ok.push(r.data);
+    else dropped++;
+  }
+  return { ok, dropped };
+}
+
 /**
- * Parse a marks file the reader loads ("Load marks from file") for the volume on screen.
- * The schema is checked; the volume id is not: the local app and the web build derive
- * different ids for the same export, so a file saved by one must load in the other. The
- * file is re-keyed to `anon`, including the old id inside the annotations' own metadata (the
+ * Validate a parsed marks file or stored sidecar for the volume `anon` and re-key it there.
+ * The volume id is not required to match: the local app and the web build derive different
+ * ids for the same export, so a file saved by one must load in the other. The file is
+ * re-keyed to `anon`, including the old id inside the annotations' own metadata (the
  * FrameOfReference `cbctscope.<id>` and the volume references), so a restored mark is bound
- * to the volume on screen and nothing else. Returns the file, or a sentence for the reader.
+ * to the volume on screen and nothing else. Entries that fail their schema are dropped and
+ * counted. Never throws: a hostile file (deep nesting that overflows the stack) becomes a
+ * plain sentence.
  */
-export function parseMarksFile(text: string, anon: string): { file: EvidenceFile } | { error: string } {
-  let j: Partial<EvidenceFile>;
+export function validateEvidence(j: unknown, anon: string): { file: EvidenceFile; dropped: number } | { error: string } {
   try {
-    j = JSON.parse(text) as Partial<EvidenceFile>;
-  } catch {
-    return { error: 'That file is not a CBCTScope marks file (it is not JSON).' };
-  }
-  if (!j || typeof j !== 'object' || j.schema !== EVIDENCE_SCHEMA) {
-    return { error: 'That file is not a CBCTScope marks file.' };
-  }
-  const from = typeof j.anon === 'string' && j.anon && j.anon !== anon ? j.anon : null;
-  const rekey = <T>(v: T): T => (from ? (rekeyStrings(v, from, anon) as T) : v);
-  return {
-    file: {
+    const top = EvidenceShape.safeParse(j);
+    if (!top.success) return { error: 'That file is not a CBCTScope marks file.' };
+    const t = top.data;
+    const from = t.anon && t.anon !== anon ? t.anon : null;
+    const rekey = (v: unknown[] | undefined): unknown[] | undefined => (v && from ? (rekeyStrings(v, from, anon) as unknown[]) : v);
+    const annotations = keep(rekey(t.annotations), AnnotationSchema);
+    const views = keep(rekey(t.views), SavedViewSchema);
+    const rois = keep(rekey(t.rois3d), RoiSchema);
+    const file: EvidenceFile = {
       schema: EVIDENCE_SCHEMA,
       anon,
-      saved_at: typeof j.saved_at === 'string' ? j.saved_at : new Date().toISOString(),
-      annotations: Array.isArray(j.annotations) ? rekey(j.annotations) : [],
-      views: Array.isArray(j.views) ? rekey(j.views) : [],
-      rois3d: Array.isArray(j.rois3d) ? rekey(j.rois3d) : [],
-      ...(Array.isArray(j.traces) ? { traces: rekey(j.traces) } : {}),
-    },
-  };
+      saved_at: t.saved_at ?? new Date().toISOString(),
+      annotations: annotations.ok,
+      views: views.ok as SavedView[],
+      rois3d: rois.ok as Roi3d[],
+      // pano traces have their own sanitiser (traces.ts sanitizeTraces) on restore
+      ...(t.traces ? { traces: rekey(t.traces) } : {}),
+    };
+    return { file, dropped: annotations.dropped + views.dropped + rois.dropped };
+  } catch (err) {
+    if (err instanceof RangeError) return { error: 'That marks file is nested too deeply to read.' };
+    return { error: 'That marks file could not be read.' };
+  }
+}
+
+/**
+ * Parse a marks file the reader loads ("Load marks from file") for the volume on screen:
+ * JSON, then validateEvidence. Returns the file and the number of entries dropped, or a
+ * sentence for the reader. Nothing is stored here; the caller stores only a valid file.
+ */
+export function parseMarksFile(text: string, anon: string): { file: EvidenceFile; dropped: number } | { error: string } {
+  let j: unknown;
+  try {
+    j = JSON.parse(text);
+  } catch (err) {
+    if (err instanceof RangeError) return { error: 'That marks file is nested too deeply to read.' };
+    return { error: 'That file is not a CBCTScope marks file (it is not JSON).' };
+  }
+  return validateEvidence(j, anon);
 }
 
 // ---------------- snapshot composition ----------------
