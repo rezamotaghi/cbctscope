@@ -104,10 +104,23 @@ export async function putEvidence(file: EvidenceFile): Promise<boolean> {
   }
 }
 
+/** every string inside `v` with `from` replaced by `to` (plain JSON in, plain JSON out) */
+function rekeyStrings(v: unknown, from: string, to: string): unknown {
+  if (typeof v === 'string') return v.split(from).join(to);
+  if (Array.isArray(v)) return v.map((x) => rekeyStrings(x, from, to));
+  if (v && typeof v === 'object') {
+    return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, rekeyStrings(x, from, to)]));
+  }
+  return v;
+}
+
 /**
- * Parse a marks file the reader loads ("Load marks from file"). It must be an evidence file
- * for the volume on screen: marks are world coordinates of one volume and mean nothing on
- * another. Returns the file, or a sentence for the reader.
+ * Parse a marks file the reader loads ("Load marks from file") for the volume on screen.
+ * The schema is checked; the volume id is not: the local app and the web build derive
+ * different ids for the same export, so a file saved by one must load in the other. The
+ * file is re-keyed to `anon`, including the old id inside the annotations' own metadata (the
+ * FrameOfReference `cbctscope.<id>` and the volume references), so a restored mark is bound
+ * to the volume on screen and nothing else. Returns the file, or a sentence for the reader.
  */
 export function parseMarksFile(text: string, anon: string): { file: EvidenceFile } | { error: string } {
   let j: Partial<EvidenceFile>;
@@ -116,17 +129,20 @@ export function parseMarksFile(text: string, anon: string): { file: EvidenceFile
   } catch {
     return { error: 'That file is not a CBCTScope marks file (it is not JSON).' };
   }
-  if (!j || j.schema !== EVIDENCE_SCHEMA) return { error: 'That file is not a CBCTScope marks file.' };
-  if (j.anon !== anon) return { error: `Those marks belong to volume ${String(j.anon)}, not to the one on screen.` };
+  if (!j || typeof j !== 'object' || j.schema !== EVIDENCE_SCHEMA) {
+    return { error: 'That file is not a CBCTScope marks file.' };
+  }
+  const from = typeof j.anon === 'string' && j.anon && j.anon !== anon ? j.anon : null;
+  const rekey = <T>(v: T): T => (from ? (rekeyStrings(v, from, anon) as T) : v);
   return {
     file: {
       schema: EVIDENCE_SCHEMA,
       anon,
       saved_at: typeof j.saved_at === 'string' ? j.saved_at : new Date().toISOString(),
-      annotations: Array.isArray(j.annotations) ? j.annotations : [],
-      views: Array.isArray(j.views) ? j.views : [],
-      rois3d: Array.isArray(j.rois3d) ? j.rois3d : [],
-      ...(Array.isArray(j.traces) ? { traces: j.traces } : {}),
+      annotations: Array.isArray(j.annotations) ? rekey(j.annotations) : [],
+      views: Array.isArray(j.views) ? rekey(j.views) : [],
+      rois3d: Array.isArray(j.rois3d) ? rekey(j.rois3d) : [],
+      ...(Array.isArray(j.traces) ? { traces: rekey(j.traces) } : {}),
     },
   };
 }

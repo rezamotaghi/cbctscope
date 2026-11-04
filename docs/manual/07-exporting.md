@@ -64,6 +64,9 @@ carry them to another browser or computer, the **📂 open** menu offers:
   `<volume id>_marks.json`. It holds labels, world-mm coordinates, and HU
   statistics, the same content as the local app's sidecar. Never pixels.
 - **⬆ Load marks from file** replaces the marks of the volume on screen with
-  a marks file saved earlier. The file must belong to that same volume: the
-  volume id is derived from the scan itself, so reopening the same export
-  gives the same id, and a file saved for another volume is refused.
+  a marks file saved earlier for that same scan. The viewer does not refuse a
+  file by its volume id: the local app and the web build derive different ids
+  for the same export, so a file saved by one loads in the other. The loaded
+  marks are bound to the volume on screen. Marks are world-mm coordinates of
+  one scan, so load a file only onto the scan it was saved from: on another
+  scan the marks land in the wrong places.

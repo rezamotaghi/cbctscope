@@ -3,7 +3,7 @@
 // to /api/... directly. Two implementations: serverSource (the repo: today's fetches to the
 // loopback server) and browserSource (the web build and the packaged app: the browser reads
 // the files the clinician opens; nothing leaves the tab).
-import type { CbctListEntry, CbctVolumeMeta } from '@/lib/server/dicom';
+import type { CbctListEntry, CbctVolumeMeta } from '@/lib/shared/dicom';
 import type { EvidenceFile } from '@/components/cbct/evidence';
 
 /** a catalog row: geometry plus the display label (opened volumes and the phantom carry one) */

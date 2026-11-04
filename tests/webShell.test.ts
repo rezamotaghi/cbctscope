@@ -123,10 +123,40 @@ describe('the marks file', () => {
     expect('file' in r && r.file.annotations).toEqual([{ a: 1 }]);
   });
 
-  it('refuses another volume, another schema, and non-JSON', () => {
-    expect('error' in parseMarksFile(JSON.stringify(good), 'local_ffffffffffff')).toBe(true);
+  it('refuses another schema and non-JSON', () => {
     expect('error' in parseMarksFile(JSON.stringify({ ...good, schema: 'other' }), anon)).toBe(true);
+    expect('error' in parseMarksFile(JSON.stringify({ ...good, anon: 'x', schema: 'other' }), anon)).toBe(true);
     expect('error' in parseMarksFile('not json', anon)).toBe(true);
+    expect('error' in parseMarksFile('null', anon)).toBe(true);
+  });
+
+  it('re-keys a file saved under another id to the volume on screen', () => {
+    // the local app and the web build derive different ids for the same export
+    const other = 'local_ffffffffffff';
+    const saved = {
+      ...good,
+      anon: other,
+      annotations: [
+        {
+          annotationUID: 'u1',
+          metadata: { toolName: 'Length', FrameOfReferenceUID: `cbctscope.${other}`, volumeId: `cbctlocal:${other}` },
+          data: { label: 'keep me', handles: { points: [[1, 2, 3], [4, 5, 6]] } },
+        },
+      ],
+      views: [{ id: 'v1', name: 'apex', cameras: {}, patch: {} }],
+      traces: [{ id: 't1' }],
+    };
+    const r = parseMarksFile(JSON.stringify(saved), anon);
+    if (!('file' in r)) throw new Error(r.error);
+    expect(r.file.anon).toBe(anon);
+    expect(JSON.stringify(r.file)).not.toContain(other);
+    const a = r.file.annotations[0] as { metadata: Record<string, string>; data: { label: string; handles: unknown } };
+    expect(a.metadata.FrameOfReferenceUID).toBe(`cbctscope.${anon}`);
+    expect(a.metadata.volumeId).toBe(`cbctlocal:${anon}`);
+    expect(a.data.label).toBe('keep me');
+    expect(a.data.handles).toEqual({ points: [[1, 2, 3], [4, 5, 6]] });
+    expect(r.file.views).toEqual(saved.views);
+    expect(r.file.traces).toEqual(saved.traces);
   });
 });
 
