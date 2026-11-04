@@ -1,9 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="7" fill="#0c0e12"/>
-  <circle cx="16" cy="16" r="7.5" fill="none" stroke="#4c8dff" stroke-width="1.9"/>
-  <line x1="16" y1="4.6" x2="16" y2="9.6" stroke="#4c8dff" stroke-width="1.9" stroke-linecap="round"/>
-  <line x1="16" y1="22.4" x2="16" y2="27.4" stroke="#4c8dff" stroke-width="1.9" stroke-linecap="round"/>
-  <line x1="4.6" y1="16" x2="9.6" y2="16" stroke="#4c8dff" stroke-width="1.9" stroke-linecap="round"/>
-  <line x1="22.4" y1="16" x2="27.4" y2="16" stroke="#4c8dff" stroke-width="1.9" stroke-linecap="round"/>
-  <circle cx="16" cy="16" r="2" fill="#e0b341"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="100 100 824 824">
+  <!-- CBCTScope: a ring with one cut, the point in the cut. macOS grid: the 824 tile centred on
+       a 1024 canvas. `npm run icon` renders every app and web icon from this file. -->
+  <path d="M924 512C924 919.2 919.2 924 512 924C104.8 924 100 919.2 100 512C100 104.8 104.8 100 512 100C919.2 100 924 104.8 924 512Z" fill="#141518"/>
+  <path d="M924 512C924 919.2 919.2 924 512 924C104.8 924 100 919.2 100 512C100 104.8 104.8 100 512 100C919.2 100 924 104.8 924 512Z" fill="none" stroke="#fff" stroke-opacity="0.08" stroke-width="4"/>
+  <path d="M436.8 305.3A220 220 0 1 1 305.3 436.8" fill="none" stroke="#f0b43a" stroke-width="76"/>
+  <circle cx="356.4" cy="356.4" r="40" fill="#f0b43a"/>
 </svg>

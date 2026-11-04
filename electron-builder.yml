@@ -9,6 +9,8 @@ directories:
   output: dist-desktop
 files:
   - desktop/**
+  # the icon sources stay out of the package; the icns and ico are read from mac.icon / win.icon
+  - "!desktop/icon/**"
   - out/**
   - package.json
   # the viewer's npm dependencies are already bundled into out/; the main process needs none
@@ -17,6 +19,8 @@ npmRebuild: false
 asar: true
 mac:
   category: public.app-category.utilities
+  # desktop/icon/: one SVG source, rendered by `npm run icon` (scripts/icon.mjs)
+  icon: desktop/icon/icon.icns
   target:
     - target: dmg
       arch: [arm64, x64]
@@ -36,6 +40,7 @@ dmg:
   artifactName: ${productName}-${version}-${arch}.${ext}
 # unsigned (docs/web-build.md, section 10): SmartScreen warns on first run
 win:
+  icon: desktop/icon/icon.ico
   target:
     - target: nsis
       arch: [x64]

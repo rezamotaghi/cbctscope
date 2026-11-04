@@ -23,7 +23,8 @@
     "build:web": "node scripts/build-web.mjs",
     "test:e2e": "node scripts/e2e.mjs",
     "desktop": "node scripts/desktop.mjs dev",
-    "desktop:build": "node scripts/desktop.mjs build"
+    "desktop:build": "node scripts/desktop.mjs build",
+    "icon": "node scripts/icon.mjs"
   },
   "dependencies": {
     "@cornerstonejs/core": "5.13.1",

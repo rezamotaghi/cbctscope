@@ -230,6 +230,9 @@ How it is built:
 - Packaging: `electron-builder.yml` (appId `com.cbctscope.app`; mac dmg and zip, arm64 and
   x64, hardened runtime, `desktop/entitlements.mac.plist` with allow-jit and
   allow-unsigned-executable-memory only; Windows nsis and portable, x64, unsigned).
+  The app icon has one source, `desktop/icon/cbctscope.svg`; `npm run icon` (`scripts/icon.mjs`)
+  renders the committed `icon.icns` and `icon.ico` (`mac.icon`, `win.icon`) and the web build's
+  `app/icon.svg` and `app/apple-icon.png`.
   Notarisation in electron-builder 26.18.0 is driven by the environment: `mac.notarize: true`
   notarises when credentials are present and skips with a warning otherwise. Credentials:
   `APPLE_KEYCHAIN_PROFILE` (a local build without other credentials uses the profile
