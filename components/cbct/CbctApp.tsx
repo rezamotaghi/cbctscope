@@ -683,7 +683,7 @@ export default function CbctApp() {
               e.target.value = '';
             }}
           />
-          {pendingSize && (
+          {pendingSize && !researchOpen && (
             <SizeNoticeDialog
               label={pendingSize.label}
               bytes={pendingSize.bytes}
