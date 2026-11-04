@@ -31,40 +31,30 @@ import {
   type CbctListEntry,
   type CbctVolumeMeta,
 } from './dicom';
+import {
+  assertPixelRange,
+  HEAD_BYTES,
+  HEAD_RETRY_BYTES,
+  labelOf as sharedLabelOf,
+  MAX_VOLUME_BYTES,
+  MAX_WALK_DEPTH,
+  MAX_WALK_FILES,
+  MIN_MF_FRAMES,
+  MIN_SLICES,
+  positiveIntTag,
+  RADIOGRAPH_MODALITIES,
+  round1,
+  UNCOMPRESSED_TS,
+  XTAG,
+  xySpacingOf,
+  zSpacingOf,
+} from '../shared/dicomScan';
 
 /** Where the opened source persists across dev-server restarts. */
 const STORE_PATH = SOURCE_STORE;
 
-const MAX_WALK_FILES = 8000;
-const MAX_WALK_DEPTH = 8;
-const HEAD_BYTES = 4 * 1024 * 1024; // first read: covers virtually every header
-const HEAD_RETRY_BYTES = 32 * 1024 * 1024; // retry: giant per-frame functional groups
-const MIN_SLICES = 30; // fewer single-frame files than this is not a CBCT series
-const MIN_MF_FRAMES = 16;
-const MAX_VOLUME_BYTES = 1.5e9; // runaway guard (≈ 900² × 900 slices)
-
-// extra tags the scanner needs beyond the shared TAG set
-const XTAG = {
-  tsUid: 'x00020010',
-  modality: 'x00080060',
-  studyDate: 'x00080020',
-  seriesUid: 'x0020000e',
-  pixelSpacing: 'x00280030',
-  bitsAllocated: 'x00280100',
-  pixelRep: 'x00280103',
-  spacingBetween: 'x00180088',
-  sliceThickness: 'x00180050',
-  sharedFG: 'x52009229',
-  pixelMeasures: 'x00289110',
-  photometric: 'x00280004',
-  imagerPixelSpacing: 'x00181164',
-} as const;
-
-const UNCOMPRESSED_TS = new Set(['1.2.840.10008.1.2', '1.2.840.10008.1.2.1']);
-
-/** Single-frame 2D radiograph modalities the scanner accepts (panoramic, digital and
- * computed radiography, intraoral). Same uncompressed-16-bit constraint as volumes. */
-const RADIOGRAPH_MODALITIES = new Set(['PX', 'DX', 'CR', 'IO']);
+// the walk and size limits, the extra tags and the spacing readers: lib/shared/dicomScan.ts,
+// shared with the browser loader (lib/browser/scan.ts)
 
 export interface LocalCbctVolume {
   id: string; // local_<12 hex> — stable per (root, first file) so annotation sidecars survive reopen
@@ -159,53 +149,6 @@ function parseHead(full: string): dicomParser.DataSet | null {
   return null;
 }
 
-/** PixelSpacing "row\col" → mm; multiframe keeps it inside the functional groups. */
-function xySpacingOf(ds: dicomParser.DataSet): number | null {
-  const direct = ds.string(XTAG.pixelSpacing);
-  if (direct) {
-    const v = Number(direct.split('\\')[0]);
-    if (v > 0) return v;
-  }
-  for (const fgTag of [XTAG.sharedFG, TAG.perFrameFG]) {
-    const fg = ds.elements[fgTag]?.items?.[0]?.dataSet;
-    const pm = fg?.elements[XTAG.pixelMeasures]?.items?.[0]?.dataSet;
-    const s = pm?.string(XTAG.pixelSpacing);
-    if (s) {
-      const v = Number(s.split('\\')[0]);
-      if (v > 0) return v;
-    }
-  }
-  return null;
-}
-
-function zSpacingOf(ds: dicomParser.DataSet, xy: number): number {
-  // explicit spacing tags first (top level, then shared functional group)…
-  for (const src of [
-    () => ds.string(XTAG.spacingBetween),
-    () =>
-      ds.elements[XTAG.sharedFG]?.items?.[0]?.dataSet?.elements[XTAG.pixelMeasures]?.items?.[0]?.dataSet?.string(
-        XTAG.spacingBetween,
-      ),
-    () => ds.string(XTAG.sliceThickness),
-  ]) {
-    const v = Number(src() ?? NaN);
-    if (v > 0) return v;
-  }
-  // …then the per-frame plane positions; CBCT is isotropic as the last resort
-  const pf = ds.elements[TAG.perFrameFG];
-  if (pf?.items && pf.items.length >= 2) {
-    const posOf = (i: number) =>
-      pf.items![i].dataSet?.elements[TAG.planePosSeq]?.items?.[0]?.dataSet ?? null;
-    const a = posOf(0);
-    const b = posOf(1);
-    if (a && b) {
-      const d = Math.abs(ippZ(b) - ippZ(a));
-      if (d > 0) return d;
-    }
-  }
-  return xy;
-}
-
 function volumeId(root: string, firstRel: string): string {
   return `local_${crypto.createHash('md5').update(`${root}\0${firstRel}`).digest('hex').slice(0, 12)}`;
 }
@@ -261,7 +204,8 @@ function scanTree(root: string, only?: string): ScanOut {
       const rows = ds.uint16(TAG.rows) ?? 0;
       const cols = ds.uint16(TAG.cols) ?? 0;
       const bits = ds.uint16(XTAG.bitsAllocated) ?? 16;
-      const frames = Number(ds.string(TAG.frames) ?? 1) || 1;
+      const frames = positiveIntTag(ds.string(TAG.frames));
+      if (frames === null) continue; // NumberOfFrames "16.5", "0": refused, never rounded
       if (rows < 64 || cols < 64 || bits !== 16) continue; // thumbnails / 8-bit secondaries
       if (!UNCOMPRESSED_TS.has(ts)) {
         const m = ds.string(XTAG.modality) ?? 'CT';
@@ -360,13 +304,10 @@ function scanTree(root: string, only?: string): ScanOut {
   return { volumes, dicomFiles, skippedCompressed };
 }
 
+/** the display label, from the shared rule on a '/'-separated relative path */
 function labelOf(root: string, rel: string, useDir = false): string {
-  const p = useDir ? path.dirname(rel) : rel;
-  const base = p === '.' || p === '' ? path.basename(root) : p.split(path.sep).slice(-2).join('/');
-  return base.replace(/\.dcm$/i, '');
+  return sharedLabelOf(path.basename(root), rel.split(path.sep).join('/'), useDir);
 }
-
-const round1 = (v: number) => Math.round(v * 10) / 10;
 
 /**
  * Point the CBCT viewer at a folder, a DICOMDIR (file or its folder), a single multiframe
@@ -396,7 +337,7 @@ export function setLocalSource(
     if (path.basename(p).toUpperCase() !== 'DICOMDIR') {
       if (!isDicomFile(p)) return { ok: false, error: 'not a DICOM file (or a compressed/foreign format)' };
       const ds = parseHead(p);
-      const frames = Number(ds?.string(TAG.frames) ?? 1) || 1;
+      const frames = positiveIntTag(ds?.string(TAG.frames)) ?? 1;
       // a picked multiframe or radiograph = open just that file; a picked slice = open its
       // whole series
       const m = ds?.string(XTAG.modality) ?? 'CT';
@@ -492,7 +433,8 @@ function assembleLocalMultiframe(src: LocalCbctSource, v: LocalCbctVolume): Asse
   const ds = dicomParser.parseDicom(buf);
   const rows = ds.uint16(TAG.rows) ?? v.dims[1];
   const cols = ds.uint16(TAG.cols) ?? v.dims[0];
-  const frames = Number(ds.string(TAG.frames) ?? v.dims[2]) || v.dims[2];
+  const frames = positiveIntTag(ds.string(TAG.frames), v.dims[2]);
+  if (frames === null) throw new Error('NumberOfFrames is not a positive whole number');
   const slope = Number(ds.string(TAG.slope) ?? 1) || 1;
   const intercept = Number(ds.string(TAG.intercept) ?? 0);
   const signed = (ds.uint16(XTAG.pixelRep) ?? 0) === 1;
@@ -522,6 +464,7 @@ function assembleLocalMultiframe(src: LocalCbctSource, v: LocalCbctVolume): Asse
   const pixelEl = ds.elements[TAG.pixelData];
   if (!pixelEl) throw new Error('no pixel data');
   const frameLen = rows * cols;
+  assertPixelRange(pixelEl.dataOffset, frameLen * frames * 2, buf.byteLength);
   const out = new Int16Array(frameLen * frames);
   for (let f = 0; f < frames; f++) {
     const srcF = ascending ? f : frames - 1 - f;
@@ -554,6 +497,7 @@ function assembleLocalSlices(src: LocalCbctSource, v: LocalCbctVolume): Assemble
   parsed.forEach(({ buf, ds }, f) => {
     const el = ds.elements[TAG.pixelData];
     if (!el) throw new Error(`slice ${f}: no pixel data`);
+    assertPixelRange(el.dataOffset, frameLen * 2, buf.byteLength, `slice ${f}: pixel data`);
     const px = pxToInt16(buf, el.dataOffset, frameLen * 2, signed);
     const base = f * frameLen;
     for (let i = 0; i < frameLen; i++) out[base + i] = px[i] * slope + intercept;
@@ -579,6 +523,7 @@ function assembleLocalRadiograph(src: LocalCbctSource, v: LocalCbctVolume): Asse
   const signed = (ds.uint16(XTAG.pixelRep) ?? 0) === 1;
   const pixelEl = ds.elements[TAG.pixelData];
   if (!pixelEl) throw new Error('no pixel data');
+  assertPixelRange(pixelEl.dataOffset, rows * cols * 2, buf.byteLength);
   const px = pxToInt16(buf, pixelEl.dataOffset, rows * cols * 2, signed);
   const out = normalizeRadiographFrame(px, { slope, intercept, monochrome1: !!v.mono1 });
   return {

@@ -4,14 +4,19 @@
 //   - open: scans File objects (scan.ts); the native chooser exists only on the server. Its
 //     progress callback hears the scan, then the first assembly of an opened volume, then
 //     'display' when those voxels are in (the viewer ends the display phase on its first frame)
-//   - meta/data: assembly runs in a module Web Worker (assemble.worker.ts) and the voxel buffer
-//     is transferred back; at most two assembled volumes stay resident, as in volumeData.ts;
-//     the phantom is generated in the same worker on first request and kept for the tab
+//   - meta: cheap for an opened volume (assemble.ts volumeMeta: the scan's geometry, the
+//     header's origin, the window from one middle slice), never an assembly
+//   - data: assembly runs in a module Web Worker (assemble.worker.ts) and the voxel buffer is
+//     transferred back, with progress. Nothing assembled stays here: volumeData.ts's cache is
+//     the only cache, so its keepOnly() really frees memory. What is kept: the in-flight
+//     promise (a second request during an assembly joins it) and the open's one-shot progress
+//     reporter for the first assembly it leads to. The phantom is generated in the same worker
+//     on first request and kept for the tab
 //   - registerFused: the in-tab registry (fusedStore.ts)
 //   - evidence: IndexedDB (evidenceStore.ts), degrading to "no sidecar"
 import type { CbctVolumeMeta, VoxelVolume } from '../shared/dicom';
 import { PHANTOM_ENTRY, PHANTOM_LABEL, isPhantomId } from '../shared/phantom';
-import { assemble, type AssembleJob, type Progress } from './assemble';
+import { assemble, volumeMeta, type AssembleJob, type Progress } from './assemble';
 import type { WorkerReply, WorkerRequest } from './assemble.worker';
 import { createEvidenceStore, type KeyValueAdapter } from './evidenceStore';
 import { createFusedStore, isFusedId } from './fusedStore';
@@ -87,8 +92,6 @@ const nextPaint = (): Promise<void> =>
     ? new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)))
     : Promise.resolve();
 
-const RESIDENT_MAX = 2; // as volumeData.ts: an ARA pair stays resident so the toggle is instant
-
 export function createBrowserSource(opts: BrowserSourceOptions = {}): VolumeSource {
   const runner = opts.runner ?? workerRunner();
   const fused = createFusedStore();
@@ -97,7 +100,8 @@ export function createBrowserSource(opts: BrowserSourceOptions = {}): VolumeSour
   let opened: { label: string; volumes: BrowserVolume[] } | null = null;
   let generation = 0; // bumps on every open/close so a stale assembly is not cached
   let phantom: Promise<VoxelVolume> | null = null;
-  const resident = new Map<string, VoxelVolume>();
+  /** cheap metadata of opened volumes, per generation (no voxels) */
+  const metas = new Map<string, Promise<CbctVolumeMeta>>();
   const inflight = new Map<string, Promise<VoxelVolume>>();
   /** progress listeners per in-flight assembly: meta() starts it, data() joins it later */
   const listeners = new Map<string, Set<Progress>>();
@@ -106,7 +110,7 @@ export function createBrowserSource(opts: BrowserSourceOptions = {}): VolumeSour
 
   const dropLocal = () => {
     generation++;
-    resident.clear();
+    metas.clear();
     inflight.clear();
     listeners.clear();
     reporter = null;
@@ -127,12 +131,6 @@ export function createBrowserSource(opts: BrowserSourceOptions = {}): VolumeSour
         });
       }
       return phantom;
-    }
-    const hit = resident.get(anon);
-    if (hit) {
-      resident.delete(anon); // refresh its LRU position
-      resident.set(anon, hit);
-      return Promise.resolve(hit);
     }
     const pending = inflight.get(anon);
     if (pending) {
@@ -160,10 +158,6 @@ export function createBrowserSource(opts: BrowserSourceOptions = {}): VolumeSour
         // let the panel paint "Preparing the display" before the viewer's synchronous upload
         // of the voxels to the renderer holds the main thread
         await nextPaint();
-      }
-      if (gen === generation) {
-        resident.set(anon, vol);
-        while (resident.size > RESIDENT_MAX) resident.delete(resident.keys().next().value as string);
       }
       return vol;
     });
@@ -200,7 +194,16 @@ export function createBrowserSource(opts: BrowserSourceOptions = {}): VolumeSour
     },
 
     async meta(anon: string): Promise<CbctVolumeMeta> {
-      return (await volume(anon)).meta;
+      if (isFusedId(anon) || isPhantomId(anon)) return (await volume(anon)).meta;
+      const v = opened?.volumes.find((x) => x.id === anon);
+      if (!v) throw new Error('unknown volume');
+      let m = metas.get(anon);
+      if (!m) {
+        m = volumeMeta(v);
+        metas.set(anon, m);
+        m.catch(() => metas.get(anon) === m && metas.delete(anon));
+      }
+      return m;
     },
 
     async data(anon: string, onProgress?: (fraction: number) => void): Promise<Int16Array> {
@@ -220,8 +223,9 @@ export function createBrowserSource(opts: BrowserSourceOptions = {}): VolumeSour
           input.label,
           onProgress && ((done, total) => onProgress({ phase: 'scan', done, total })),
         );
-      } catch {
-        return { ok: false, error: 'scan failed' };
+      } catch (err) {
+        // the scanner's own words, never a generic "scan failed"
+        return { ok: false, error: err instanceof Error && err.message ? err.message : String(err) || 'the scan stopped' };
       }
       if (!scan.ok) return scan;
       opened = { label: scan.label, volumes: scan.volumes };

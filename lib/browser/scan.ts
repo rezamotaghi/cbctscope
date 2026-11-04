@@ -15,36 +15,39 @@
 // empty webkitRelativePath is a loose file and its name is its path.
 import dicomParser from 'dicom-parser';
 import { TAG, ippZ } from '../shared/dicom';
+import {
+  HEAD_BYTES,
+  HEAD_RETRY_BYTES,
+  labelOf,
+  MAX_VOLUME_BYTES,
+  MAX_WALK_DEPTH,
+  MAX_WALK_FILES,
+  MIN_MF_FRAMES,
+  MIN_SLICES,
+  positiveIntTag,
+  RADIOGRAPH_MODALITIES,
+  round1,
+  UNCOMPRESSED_TS,
+  XTAG,
+  xySpacingOf,
+  zSpacingOf,
+} from '../shared/dicomScan';
+import { sha256Hex } from '../shared/sha256';
 import { createThrottle } from './progress';
 
-export const MAX_WALK_FILES = 8000;
-export const MAX_WALK_DEPTH = 8;
-export const HEAD_BYTES = 4 * 1024 * 1024; // first read: covers virtually every header
-export const HEAD_RETRY_BYTES = 32 * 1024 * 1024; // retry: giant per-frame functional groups
-export const MIN_SLICES = 30; // fewer single-frame files than this is not a CBCT series
-export const MIN_MF_FRAMES = 16;
-export const MAX_VOLUME_BYTES = 1.5e9; // runaway guard (about 900^2 x 900 slices)
-
-// extra tags the scanner needs beyond the shared TAG set (as in localSource.ts)
-export const XTAG = {
-  tsUid: 'x00020010',
-  sopInstanceUid: 'x00080018',
-  modality: 'x00080060',
-  studyDate: 'x00080020',
-  seriesUid: 'x0020000e',
-  pixelSpacing: 'x00280030',
-  bitsAllocated: 'x00280100',
-  pixelRep: 'x00280103',
-  spacingBetween: 'x00180088',
-  sliceThickness: 'x00180050',
-  sharedFG: 'x52009229',
-  pixelMeasures: 'x00289110',
-  photometric: 'x00280004',
-  imagerPixelSpacing: 'x00181164',
-} as const;
-
-const UNCOMPRESSED_TS = new Set(['1.2.840.10008.1.2', '1.2.840.10008.1.2.1']);
-const RADIOGRAPH_MODALITIES = new Set(['PX', 'DX', 'CR', 'IO']);
+// the scan rules live in lib/shared/dicomScan.ts, shared with lib/server/localSource.ts
+export {
+  HEAD_BYTES,
+  HEAD_RETRY_BYTES,
+  MAX_VOLUME_BYTES,
+  MAX_WALK_DEPTH,
+  MAX_WALK_FILES,
+  MIN_MF_FRAMES,
+  MIN_SLICES,
+  XTAG,
+  xySpacingOf,
+  zSpacingOf,
+};
 
 /** an openable volume found by the scan; `files` are the File objects, never paths */
 export interface BrowserVolume {
@@ -71,14 +74,6 @@ export type ScanResult =
 
 const relPathOf = (f: File) => (f.webkitRelativePath || f.name).replace(/^\/+/, '');
 const dirname = (p: string) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
-
-function labelOf(rootLabel: string, rel: string, useDir = false): string {
-  const p = useDir ? dirname(rel) : rel;
-  const base = p === '' ? rootLabel : p.split('/').slice(-2).join('/');
-  return base.replace(/\.dcm$/i, '');
-}
-
-const round1 = (v: number) => Math.round(v * 10) / 10;
 
 // ---------------------------------------------------------------------------
 // header reads
@@ -111,61 +106,23 @@ export async function parseHead(file: File): Promise<dicomParser.DataSet | null>
   return null;
 }
 
-/** PixelSpacing "row\col" in mm; multiframe keeps it inside the functional groups. */
-export function xySpacingOf(ds: dicomParser.DataSet): number | null {
-  const direct = ds.string(XTAG.pixelSpacing);
-  if (direct) {
-    const v = Number(direct.split('\\')[0]);
-    if (v > 0) return v;
-  }
-  for (const fgTag of [XTAG.sharedFG, TAG.perFrameFG]) {
-    const fg = ds.elements[fgTag]?.items?.[0]?.dataSet;
-    const pm = fg?.elements[XTAG.pixelMeasures]?.items?.[0]?.dataSet;
-    const s = pm?.string(XTAG.pixelSpacing);
-    if (s) {
-      const v = Number(s.split('\\')[0]);
-      if (v > 0) return v;
-    }
-  }
-  return null;
+/**
+ * local_<12 hex>: SHA-256 (lib/shared/sha256.ts, pure, so no crypto.subtle is needed) of the
+ * series identity plus the file count. With a UID (SeriesInstanceUID, or the single file's
+ * SOP Instance UID) that is all, path-free, so the same export opened from another folder or
+ * another machine keeps its id and its sidecar. Without one, `extra` carries what tells two
+ * exports apart: the total byte size and the sorted first and last file names.
+ */
+export async function volumeId(identity: string, fileCount: number, extra?: string): Promise<string> {
+  return `local_${sha256Hex(`${identity}\0${fileCount}${extra === undefined ? '' : `\0${extra}`}`, 6)}`;
 }
 
-export function zSpacingOf(ds: dicomParser.DataSet, xy: number): number {
-  // explicit spacing tags first (top level, then shared functional group)...
-  for (const src of [
-    () => ds.string(XTAG.spacingBetween),
-    () =>
-      ds.elements[XTAG.sharedFG]?.items?.[0]?.dataSet?.elements[XTAG.pixelMeasures]?.items?.[0]?.dataSet?.string(
-        XTAG.spacingBetween,
-      ),
-    () => ds.string(XTAG.sliceThickness),
-  ]) {
-    const v = Number(src() ?? NaN);
-    if (v > 0) return v;
-  }
-  // ...then the per-frame plane positions; CBCT is isotropic as the last resort
-  const pf = ds.elements[TAG.perFrameFG];
-  if (pf?.items && pf.items.length >= 2) {
-    const posOf = (i: number) => pf.items![i].dataSet?.elements[TAG.planePosSeq]?.items?.[0]?.dataSet ?? null;
-    const a = posOf(0);
-    const b = posOf(1);
-    if (a && b) {
-      const d = Math.abs(ippZ(b) - ippZ(a));
-      if (d > 0) return d;
-    }
-  }
-  return xy;
-}
-
-/** local_<12 hex>: SHA-256 of the series identity (SeriesInstanceUID, or the single file's
- * SOP Instance UID) plus the file count. Path-free, so the same export opened from another
- * folder or another machine keeps its id and its sidecar. */
-export async function volumeId(identity: string, fileCount: number): Promise<string> {
-  const bytes = new TextEncoder().encode(`${identity}\0${fileCount}`);
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
-  let hex = '';
-  for (let i = 0; i < 6; i++) hex += digest[i].toString(16).padStart(2, '0');
-  return `local_${hex}`;
+/** the disambiguator of a UID-less export: total bytes, then the sorted first and last names
+ * (a slice series adds its first and last z position, so two exports named alike still differ) */
+export function uidlessExtra(files: File[]): string {
+  const bytes = files.reduce((a, f) => a + f.size, 0);
+  const names = files.map((f) => f.name).sort();
+  return `${bytes}\0${names[0] ?? ''}\0${names[names.length - 1] ?? ''}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -233,7 +190,9 @@ export async function scanFiles(
 
   const volumes: BrowserVolume[] = [];
   const series = new Map<string, SliceRec[]>();
-  const why = { noMagic: 0, unreadable: 0, small: 0, compressed: 0, oversize: 0 };
+  const why = { noMagic: 0, unreadable: 0, small: 0, compressed: 0, oversize: 0, badGeometry: 0, duplicate: 0 };
+  /** SOP Instance UID plus size of every file kept: an exact duplicate inside one export is skipped */
+  const seenFiles = new Set<string>();
   const otherModality = new Map<string, number>();
 
   const throttle = createThrottle(SCAN_REPORT_MS);
@@ -276,7 +235,11 @@ export async function scanFiles(
       const rows = ds.uint16(TAG.rows) ?? 0;
       const cols = ds.uint16(TAG.cols) ?? 0;
       const bits = ds.uint16(XTAG.bitsAllocated) ?? 16;
-      const frames = Number(ds.string(TAG.frames) ?? 1) || 1;
+      const frames = positiveIntTag(ds.string(TAG.frames));
+      if (frames === null) {
+        why.badGeometry++; // NumberOfFrames "16.5", "0", "-3": refused, never rounded
+        continue;
+      }
       if (rows < 64 || cols < 64 || bits !== 16) {
         why.small++; // thumbnails / 8-bit secondaries
         continue;
@@ -288,7 +251,16 @@ export async function scanFiles(
       }
       const year = (ds.string(XTAG.studyDate) ?? '').slice(0, 4);
       const signed = (ds.uint16(XTAG.pixelRep) ?? 0) === 1;
-      const sopUid = (ds.string(XTAG.sopInstanceUid) ?? '').trim() || rel;
+      const uid = (ds.string(XTAG.sopInstanceUid) ?? '').trim();
+      const sopUid = uid || rel;
+      if (uid) {
+        const dupKey = `${uid}\0${file.size}`;
+        if (seenFiles.has(dupKey)) {
+          why.duplicate++;
+          continue;
+        }
+        seenFiles.add(dupKey);
+      }
 
       if (frames >= MIN_MF_FRAMES) {
         const xy = xySpacingOf(ds) ?? 0.3;
@@ -299,7 +271,7 @@ export async function scanFiles(
           continue;
         }
         volumes.push({
-          id: await volumeId(sopUid, 1),
+          id: uid ? await volumeId(uid, 1) : await volumeId(`file:${rel}`, 1, uidlessExtra([file])),
           kind: 'mf',
           files: [file],
           dims: [cols, rows, frames],
@@ -325,7 +297,7 @@ export async function scanFiles(
           continue;
         }
         volumes.push({
-          id: await volumeId(sopUid, 1),
+          id: uid ? await volumeId(uid, 1) : await volumeId(`file:${rel}`, 1, uidlessExtra([file])),
           kind: 'xray',
           files: [file],
           dims: [cols, rows, 1],
@@ -343,7 +315,8 @@ export async function scanFiles(
         otherModality.set(m, (otherModality.get(m) ?? 0) + 1);
         continue;
       }
-      const key = (ds.string(XTAG.seriesUid) ?? '').trim() || `dir:${dirname(rel)}`;
+      const seriesUid = (ds.string(XTAG.seriesUid) ?? '').trim();
+      const key = seriesUid ? `uid:${seriesUid}` : `dir:${dirname(rel)}`;
       const list = series.get(key) ?? [];
       list.push({ file, rel, z: ippZ(ds), rows, cols, xy: xySpacingOf(ds), year });
       series.set(key, list);
@@ -381,10 +354,14 @@ export async function scanFiles(
       why.oversize++;
       continue;
     }
+    const useFiles = use.map((r) => r.file);
     volumes.push({
-      id: await volumeId(key, use.length),
+      // a UID keeps the id stable across reopen; a UID-less series adds what tells exports apart
+      id: key.startsWith('uid:')
+        ? await volumeId(key.slice(4), use.length)
+        : await volumeId(key, use.length, `${uidlessExtra(useFiles)}\0${use[0].z}\0${use[use.length - 1].z}`),
       kind: 'slices',
-      files: use.map((r) => r.file),
+      files: useFiles,
       dims: [cols, rows, use.length],
       spacing: [xy, xy, zsp],
       fov: [round1((cols * xy) / 10), round1((use.length * zsp) / 10)],
@@ -408,6 +385,8 @@ export async function scanFiles(
     }
     if (why.noMagic) reasons.push(`no DICM magic bytes, not DICOM: ${filesN(why.noMagic)}`);
     if (why.unreadable) reasons.push(`DICOM header unreadable: ${filesN(why.unreadable)}`);
+    if (why.badGeometry) reasons.push(`Rows, Columns or NumberOfFrames not a positive whole number: ${filesN(why.badGeometry)}`);
+    if (why.duplicate) reasons.push(`exact duplicate files (same SOP Instance UID and size), skipped: ${filesN(why.duplicate)}`);
     if (why.small) reasons.push(`thumbnails or 8-bit images: ${filesN(why.small)}`);
     if (otherModality.size) {
       const count = [...otherModality.values()].reduce((a, c) => a + c, 0);
@@ -419,5 +398,7 @@ export async function scanFiles(
     return { ok: false, error: `No DICOM volume found in ${filesN(total)}`, scanned: total, reasons };
   }
   volumes.sort((a, b) => a.label.localeCompare(b.label));
-  return { ok: true, label: sourceLabel, volumes };
+  // no two catalog rows may share an id (CbctApp treats a known id as already open)
+  const unique = volumes.filter((v, i) => volumes.findIndex((w) => w.id === v.id) === i);
+  return { ok: true, label: sourceLabel, volumes: unique };
 }

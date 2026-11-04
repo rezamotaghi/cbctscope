@@ -174,7 +174,9 @@ const DX_PRESENTATION = '1.2.840.10008.5.1.4.1.1.1.1';
 // the four shapes
 
 /** One Enhanced-CT multiframe file holding all 64 slices, frames stored z-DESCENDING. */
-export function multiframeBytes(o: { rows?: number; cols?: number; frames?: number; pixelBytes?: Uint8Array } = {}): Uint8Array<ArrayBuffer> {
+export function multiframeBytes(
+  o: { rows?: number; cols?: number; frames?: number; pixelBytes?: Uint8Array; framesTag?: string; sopUid?: string } = {},
+): Uint8Array<ArrayBuffer> {
   const rows = o.rows ?? N;
   const cols = o.cols ?? N;
   const frames = o.frames ?? N;
@@ -184,11 +186,11 @@ export function multiframeBytes(o: { rows?: number; cols?: number; frames?: numb
   const perFrame = Array.from({ length: frames }, (_, f) => [
     sq(0x0020, 0x9113, [[str(0x0020, 0x0032, 'DS', ipp(frames - 1 - f))]]),
   ]);
-  return part10(ENHANCED_CT, '2.25.1001.1', [
+  return part10(ENHANCED_CT, o.sopUid ?? '2.25.1001.1', [
     str(0x0008, 0x0020, 'DA', '20240102'),
     str(0x0008, 0x0060, 'CS', 'CT'),
     str(0x0020, 0x000e, 'UI', '2.25.1001'),
-    str(0x0028, 0x0008, 'IS', String(frames)),
+    str(0x0028, 0x0008, 'IS', o.framesTag ?? String(frames)),
     ...imageTags({ rows, cols, signed: false, intercept: -1024 }),
     sq(0x5200, 0x9229, [
       [
@@ -206,9 +208,9 @@ export function multiframeBytes(o: { rows?: number; cols?: number; frames?: numb
   ]);
 }
 
-/** One classic-CT slice file of the sample (slice index c). */
-function sliceBytes(c: number, series: string, signed: boolean): Uint8Array {
-  return part10(CT_IMAGE, `${series}.${c + 1}`, [
+/** One classic-CT slice file of the sample (slice index c); `sopUid` '' writes a blank UID. */
+export function sliceBytes(c: number, series: string, signed: boolean, sopUid?: string): Uint8Array {
+  return part10(CT_IMAGE, sopUid ?? `${series}.${c + 1}`, [
     str(0x0008, 0x0020, 'DA', '20230405'),
     str(0x0008, 0x0060, 'CS', 'CT'),
     str(0x0018, 0x0050, 'DS', String(SPACING[2])),
