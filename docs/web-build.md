@@ -249,6 +249,10 @@ How it is built:
 - Packaging: `electron-builder.yml` (appId `com.cbctscope.app`; mac dmg and zip, arm64 and
   x64, hardened runtime, `desktop/entitlements.mac.plist` with allow-jit and
   allow-unsigned-executable-memory only; Windows nsis and portable, x64, unsigned).
+  Electron fuses (`electronFuses`): run-as-node, NODE_OPTIONS and the inspect arguments off,
+  embedded asar integrity validation and only-load-app-from-asar on, plus
+  `resetAdHocDarwinSignature` so the unsigned local build still launches on Apple silicon (the
+  fuse patch breaks the ad-hoc signature otherwise); a signed build is signed after the fuses.
   The app icon has one source, `desktop/icon/cbctscope.svg`; `npm run icon` (`scripts/icon.mjs`)
   renders the committed `icon.icns` and `icon.ico` (`mac.icon`, `win.icon`) and the web build's
   `app/icon.svg` and `app/apple-icon.png`.

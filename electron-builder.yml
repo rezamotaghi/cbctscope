@@ -21,12 +21,17 @@ asar: true
 # `electronFuses`, docs: website/docs/tutorials/adding-electron-fuses.md). The app never runs as
 # plain Node, ignores NODE_OPTIONS and the inspect flags, and loads only its own integrity-checked
 # app.asar.
+# resetAdHocDarwinSignature re-signs the patched binary ad hoc, so an unsigned build
+# (CSC_IDENTITY_AUTO_DISCOVERY=false) still launches on Apple silicon (measured 04/11/26: without
+# it the kernel kills the app, Code Signature Invalid, in IsRunAsNodeEnabled); a signed build is
+# signed by electron-builder after the fuses anyway.
 electronFuses:
   runAsNode: false
   enableNodeOptionsEnvironmentVariable: false
   enableNodeCliInspectArguments: false
   enableEmbeddedAsarIntegrityValidation: true
   onlyLoadAppFromAsar: true
+  resetAdHocDarwinSignature: true
 mac:
   category: public.app-category.utilities
   # desktop/icon/: one SVG source, rendered by `npm run icon` (scripts/icon.mjs)
