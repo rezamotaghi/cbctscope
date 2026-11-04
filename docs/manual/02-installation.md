@@ -78,3 +78,27 @@ start, which is the convenient behavior for daily reading.
 Both commands behave the same on every OS.
 
 On first launch both modes show the synthetic phantom.
+
+## 2.5 The web build
+
+The viewer also runs in a browser with nothing installed: the **web build**,
+deployed to the project's GitHub Pages site by every published release. It is
+static files only, with no server behind it. It needs only a current desktop
+browser with WebGL2; Chrome or Edge read folders most reliably (chapter 11).
+
+What differs from the local app:
+
+- Scans are opened with the browser's own picker or by a drop on the viewer
+  (section 4.6), and read into the tab. Nothing is uploaded.
+- Marks live in the browser's storage and travel as a marks file (section 7.3).
+- A volume above the size threshold (512 MiB of voxels by default) shows a
+  notice first, because the browser must hold it in memory. The local app has
+  no such limit.
+- There is no AI-agent control yet (chapter 9).
+- The header reads **Research use only. Not a medical device.** at all times,
+  and links to the repository.
+
+To build it yourself: `npm run build:web` writes the site to `out/`. Serve
+that folder with any static file server. The threshold is set at build time
+with `NEXT_PUBLIC_CBCTSCOPE_SIZE_NOTICE_MIB`; a site under a sub-path (such as
+`/cbctscope`) needs `NEXT_PUBLIC_BASE_PATH`.

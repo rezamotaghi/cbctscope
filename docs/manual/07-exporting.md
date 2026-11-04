@@ -52,3 +52,18 @@ itself rather than running its buttons off the bottom of the screen.
 > written by your browser to your Downloads folder and nowhere else. What you
 > do with an exported file is then outside the program's control; the
 > patient-data responsibility travels with the file.
+
+## 7.3 The marks file (web build)
+
+In the web build (section 2.5) marks are kept in the browser's own storage,
+one record per volume, so they survive closing the tab in that browser. To
+carry them to another browser or computer, the **📂 open** menu offers:
+
+- **⬇ Save marks to file** downloads the marks of the volume on screen
+  (measurements, labels, saved views, 3D ROIs, pano traces) as
+  `<volume id>_marks.json`. It holds labels, world-mm coordinates, and HU
+  statistics, the same content as the local app's sidecar. Never pixels.
+- **⬆ Load marks from file** replaces the marks of the volume on screen with
+  a marks file saved earlier. The file must belong to that same volume: the
+  volume id is derived from the scan itself, so reopening the same export
+  gives the same id, and a file saved for another volume is refused.

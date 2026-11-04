@@ -143,6 +143,23 @@ first launch both modes show the phantom.
   uncompressed DICOM only. Re-export from your scanner software with
   compression off.
 
+## Use it in the browser
+
+The same viewer also runs as a static web build: no install, no Node.js, just
+a current desktop browser. Each published release deploys it to the project's
+GitHub Pages site. It opens on the synthetic phantom; **open → Open folder**
+or **Open file**, or a drop on the viewer, reads your own export.
+
+**The scan never leaves your computer: the browser reads the files you choose
+into the tab, and the page has nowhere to send them.** The site is static
+files with no server behind it, and its Content Security Policy forbids the
+page to contact any host but its own. Marks are kept in the browser's own
+storage and travel as a marks file (**Save marks to file** / **Load marks from
+file**). The browser must hold the whole volume in memory, so a large volume
+shows a notice first; the local app has no such limit. AI-agent control (MCP)
+needs the local app for now. Build it yourself with `npm run build:web`
+(writes `out/`).
+
 ## Opening your own scan
 
 Click **open** in the viewer header and pick a CBCT export: a folder of DICOM
@@ -206,7 +223,8 @@ The safe behavior is the only behavior the software has:
 
 - Scans are read **in place** from the folder you pick. Nothing is copied or
   uploaded anywhere; there is no account, no telemetry, no hosted instance,
-  and there never will be one.
+  and there never will be one. The web build is static files only: the
+  browser reads the scan into the tab, and nothing leaves it.
 - Everything, including the AI-agent connection, stays on this machine. In
   technical terms: the server binds to 127.0.0.1 and rejects any request whose
   Host or Origin is not loopback, so neither another device on your network

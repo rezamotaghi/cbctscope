@@ -3,12 +3,13 @@
 //    region's exact presentation can be returned to with one click;
 //  - snapshots: compose the visible pane canvases + their annotation SVG layers into one PNG
 //    (stills for teaching files / figures);
-//  - the persistence sidecar client: annotations, views, and 3D ROIs round-trip through
-//    /api/cbct/[anon]/evidence as one JSON file per volume, so marks survive close/reopen.
+//  - the persistence sidecar client: annotations, views, and 3D ROIs round-trip through the
+//    volume source (./source) as one JSON record per volume, so marks survive close/reopen.
 //    World coordinates only — the volume's FrameOfReference is deterministic per anon id,
 //    so a restored annotation lands exactly where it was drawn.
 import type { CbctControls } from './CbctViewport';
 import type { Roi3d } from './evidence3d';
+import { source } from './source';
 
 export interface SavedCam {
   position: number[];
@@ -89,11 +90,7 @@ export function serializeAnnotations(annotations: unknown[]): unknown[] {
 
 export async function fetchEvidence(anon: string): Promise<EvidenceFile | null> {
   try {
-    const r = await fetch(`/api/cbct/${anon}/evidence`);
-    if (!r.ok) return null;
-    const j = (await r.json()) as EvidenceFile & { exists?: boolean };
-    if (j.exists === false || j.schema !== EVIDENCE_SCHEMA) return null;
-    return j;
+    return await source.getEvidence(anon);
   } catch {
     return null;
   }
@@ -101,15 +98,37 @@ export async function fetchEvidence(anon: string): Promise<EvidenceFile | null> 
 
 export async function putEvidence(file: EvidenceFile): Promise<boolean> {
   try {
-    const r = await fetch(`/api/cbct/${file.anon}/evidence`, {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(file),
-    });
-    return r.ok;
+    return await source.putEvidence(file);
   } catch {
     return false;
   }
+}
+
+/**
+ * Parse a marks file the reader loads ("Load marks from file"). It must be an evidence file
+ * for the volume on screen: marks are world coordinates of one volume and mean nothing on
+ * another. Returns the file, or a sentence for the reader.
+ */
+export function parseMarksFile(text: string, anon: string): { file: EvidenceFile } | { error: string } {
+  let j: Partial<EvidenceFile>;
+  try {
+    j = JSON.parse(text) as Partial<EvidenceFile>;
+  } catch {
+    return { error: 'That file is not a CBCTScope marks file (it is not JSON).' };
+  }
+  if (!j || j.schema !== EVIDENCE_SCHEMA) return { error: 'That file is not a CBCTScope marks file.' };
+  if (j.anon !== anon) return { error: `Those marks belong to volume ${String(j.anon)}, not to the one on screen.` };
+  return {
+    file: {
+      schema: EVIDENCE_SCHEMA,
+      anon,
+      saved_at: typeof j.saved_at === 'string' ? j.saved_at : new Date().toISOString(),
+      annotations: Array.isArray(j.annotations) ? j.annotations : [],
+      views: Array.isArray(j.views) ? j.views : [],
+      rois3d: Array.isArray(j.rois3d) ? j.rois3d : [],
+      ...(Array.isArray(j.traces) ? { traces: j.traces } : {}),
+    },
+  };
 }
 
 // ---------------- snapshot composition ----------------

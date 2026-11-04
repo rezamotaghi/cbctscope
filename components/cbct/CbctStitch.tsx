@@ -4,10 +4,12 @@
 // current volume; pick B from the catalog. Nudge B with translate/rotate sliders, or let
 // auto-registration find the rigid transform (NCC hill-climb; "+ tilt" also searches rotation).
 // The tri-plane preview overlays A (green) and B (magenta) so misalignment shows as colour
-// fringes — perfect overlap reads neutral. "Bake & load" resamples both onto one grid, POSTs it
-// to the server (a `fused_` id held in memory), and switches the viewer to it. Math: stitch.ts.
+// fringes — perfect overlap reads neutral. "Bake & load" resamples both onto one grid, registers
+// it with the volume source (a `fused_` id held in memory), and switches the viewer to it.
+// Math: stitch.ts.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadVolumeData, type CbctMeta, type VolumeEntry } from './volumeData';
+import { source } from './source';
 import { snapshotPaneCanvases, type SnapRef } from './SnapshotButton';
 import { Merge } from 'lucide-react';
 import {
@@ -262,16 +264,9 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
           label: `stitch ${aLabel}+${bLabel}`,
           year: entryA.meta.year,
         };
-        setBusy('uploading fusion…');
-        const bytes = new Uint8Array(baked.data.buffer as ArrayBuffer, baked.data.byteOffset, baked.data.byteLength);
-        const res = await fetch('/api/cbct/fused', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/octet-stream', 'x-omfr-fused-meta': JSON.stringify(meta) },
-          body: new Blob([bytes]), // raw Int16 LE voxel bytes
-        });
-        const j = await res.json();
-        if (!res.ok || !j.anon) throw new Error(j.error ?? `bake upload failed (${res.status})`);
-        onFused(j.anon);
+        setBusy('registering fusion…');
+        const { anon: fusedAnon } = await source.registerFused(meta, baked.data);
+        onFused(fusedAnon);
       } catch (e) {
         console.error('[cbct-stitch] bake failed', e);
         setHint(`bake failed: ${String(e)} — the transform is untouched, try again`);

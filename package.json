@@ -18,14 +18,16 @@
     "test": "vitest run",
     "mcp": "node mcp/server.mjs",
     "mcp:smoke": "node scripts/mcp-smoke.mjs",
-    "mcpb": "node scripts/mcpb.mjs"
+    "mcpb": "node scripts/mcpb.mjs",
+    "build:web": "node scripts/build-web.mjs",
+    "test:e2e": "node scripts/e2e.mjs"
   },
   "dependencies": {
-    "@modelcontextprotocol/client": "^2.4.0",
-    "@modelcontextprotocol/server": "^2.4.0",
     "@cornerstonejs/core": "5.13.1",
     "@cornerstonejs/dicom-image-loader": "5.13.1",
     "@cornerstonejs/tools": "5.13.1",
+    "@modelcontextprotocol/client": "^2.4.0",
+    "@modelcontextprotocol/server": "^2.4.0",
     "dicom-parser": "1.8.21",
     "lucide-react": "^1.59.0",
     "next": "15.5.22",
@@ -35,6 +37,7 @@
   },
   "devDependencies": {
     "@anthropic-ai/mcpb": "2.1.2",
+    "@playwright/test": "1.64.1",
     "@types/node": "22.20.0",
     "@types/react": "18.3.31",
     "@types/react-dom": "18.3.7",

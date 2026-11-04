@@ -10,6 +10,10 @@ switch reading modes, set the window, step through slices, restore a saved
 view, take snapshots to look at. In practice you can tell an assistant "open
 the case in this folder, teeth window, pano mode" and watch the viewer follow.
 
+> **Note.** Agent control needs the local app (chapter 2). The web build
+> (section 2.5) has no MCP connection yet: it runs no server for an agent to
+> reach, so it shows no agent banner and accepts no agent commands.
+
 The agent can only do what a hand on the mouse could do: open, look, move,
 bookmark, capture. This is a design constraint, not a disclaimer:
 

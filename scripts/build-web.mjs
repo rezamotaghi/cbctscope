@@ -1,0 +1,105 @@
+#!/usr/bin/env node
+// npm run build:web: the static web build (docs/web-build.md, section 3), cross-platform.
+//
+//   node scripts/build-web.mjs [--out <dir>]
+//
+// 1. Sets CBCTSCOPE_TARGET=web and NEXT_PUBLIC_CBCTSCOPE_TARGET=web and runs `next build`;
+//    next.config.mjs turns that into a static export in out/ (or <dir> with --out, used by the
+//    end-to-end suite's low-threshold build so out/ stays intact).
+// 2. Checks that middleware.ts stayed out of the target (pageExtensions excludes .ts files;
+//    verified on Next 15.5, so no sidelining of app/api or middleware.ts is needed).
+// 3. Writes the CSP meta tag (components/webCsp.mjs) into every exported HTML page, right
+//    after the charset so it precedes every script, with one 'sha256-...' source per inline
+//    script of that page. No 'unsafe-inline' for scripts.
+import { spawn } from 'node:child_process';
+import { webCsp } from '../components/webCsp.mjs';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const args = process.argv.slice(2);
+const outFlag = args.indexOf('--out');
+const outDir = outFlag >= 0 ? args[outFlag + 1] : 'out';
+if (!outDir || outDir.startsWith('-')) {
+  console.error('usage: node scripts/build-web.mjs [--out <dir>]');
+  process.exit(2);
+}
+
+const env = { ...process.env, CBCTSCOPE_TARGET: 'web', NEXT_PUBLIC_CBCTSCOPE_TARGET: 'web' };
+if (outDir !== 'out') env.CBCTSCOPE_OUT_DIR = outDir;
+else delete env.CBCTSCOPE_OUT_DIR;
+
+const nextBin = createRequire(import.meta.url).resolve('next/dist/bin/next');
+
+function run() {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [nextBin, 'build'], { cwd: root, env, stdio: 'inherit' });
+    const forward = (sig) => child.kill(sig);
+    process.on('SIGINT', forward);
+    process.on('SIGTERM', forward);
+    child.on('exit', (code, signal) => {
+      process.off('SIGINT', forward);
+      process.off('SIGTERM', forward);
+      resolve(signal ? 1 : (code ?? 1));
+    });
+  });
+}
+
+function htmlFiles(dir) {
+  const out = [];
+  for (const name of readdirSync(dir)) {
+    const p = path.join(dir, name);
+    if (statSync(p).isDirectory()) out.push(...htmlFiles(p));
+    else if (name.endsWith('.html')) out.push(p);
+  }
+  return out;
+}
+
+const encode = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
+
+const INLINE_SCRIPT_RE = /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi;
+const CHARSET_RE = /<meta charSet="utf-8"\s*\/?>/i;
+
+/** write the CSP meta tag, with this page's inline-script hashes, first in <head> */
+function addCsp(html) {
+  if (/http-equiv="Content-Security-Policy"/i.test(html)) throw new Error('the page already carries a CSP meta tag');
+  const hashes = new Set();
+  for (const m of html.matchAll(INLINE_SCRIPT_RE)) {
+    if (!m[1]) continue;
+    hashes.add(`'sha256-${createHash('sha256').update(m[1], 'utf8').digest('base64')}'`);
+  }
+  const tag = `<meta http-equiv="Content-Security-Policy" content="${encode(webCsp([...hashes]))}"/>`;
+  const charset = CHARSET_RE.exec(html);
+  if (!charset) throw new Error('the exported page has no charset meta tag to anchor the CSP');
+  return { html: html.replace(charset[0], `${charset[0]}${tag}`), count: hashes.size };
+}
+
+const code = await run();
+if (code !== 0) process.exit(code);
+
+const manifest = path.join(root, '.next', 'server', 'middleware-manifest.json');
+if (existsSync(manifest)) {
+  const m = JSON.parse(readFileSync(manifest, 'utf8'));
+  if (Object.keys(m.middleware ?? {}).length) {
+    console.error('build:web: middleware.ts entered the web target; pageExtensions no longer excludes it');
+    process.exit(1);
+  }
+}
+
+const outPath = path.join(root, outDir);
+let pages = 0;
+let total = 0;
+for (const file of htmlFiles(outPath)) {
+  const { html, count } = addCsp(readFileSync(file, 'utf8'));
+  writeFileSync(file, html);
+  pages += 1;
+  total += count;
+}
+if (!existsSync(path.join(outPath, '.nojekyll'))) {
+  console.error('build:web: out/.nojekyll is missing (public/.nojekyll lets GitHub Pages serve _next/)');
+  process.exit(1);
+}
+console.log(`build:web: ${outDir}/ ready, CSP hashes for ${total} inline scripts across ${pages} pages`);

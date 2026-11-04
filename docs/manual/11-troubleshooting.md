@@ -54,6 +54,26 @@
 - **A huge volume is slow**: close other volumes, read in demo mode with
   nothing else open, and prefer the draft or standard quality for STL export.
 
+## The web build
+
+- **The Large volume notice appears**: the volume's voxels exceed the size
+  threshold (section 4.6). The browser must hold the whole volume in memory,
+  and a tab has less room than the local app. Close other tabs and continue,
+  or read it in the local app, which has no such limit.
+- **The tab slows down, reloads, or shows "Aw, Snap" or "out of memory" on a
+  large volume**: the browser ran out of memory for this tab. Use the local
+  app (chapter 2) for that volume.
+- **Open folder offers no folder choice, or a drop opens nothing**: the
+  browser lacks folder reading. Chrome and Edge support both the folder picker
+  and dropped folders; Firefox and Safari support the folder picker, and their
+  support for dropped folders varies. Use **Open folder** in Chrome or Edge.
+- **The browser asks whether to upload the folder**: that is the browser's
+  standard wording for letting a page read files. The files are read into the
+  tab; nothing is sent anywhere (section 10.5).
+- **Marks are missing in another browser**: marks live in each browser's own
+  storage. Carry them with **Save marks to file** and **Load marks from file**
+  (section 7.3).
+
 ## Agent connection
 
 - **The agent reports the viewer is not reachable**: both the viewer process

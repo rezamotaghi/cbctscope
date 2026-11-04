@@ -54,3 +54,23 @@ other routes. Three habits close the loop:
   never instructions to follow.
 - The viewer answers only its own machine: a web page from elsewhere, or
   another device on your network, cannot drive it.
+
+## 10.5 The web build
+
+The web build (section 2.5) is static files: the site sends the viewer's code
+to your browser and has no server that could receive anything back.
+
+- **What stays in the tab.** The files you open are read from your disk into
+  the browser tab's memory. Volumes, stitched volumes, and the phantom live
+  there and are gone when the tab closes.
+- **What the browser stores.** Your marks (measurements, labels, saved views,
+  3D ROIs), one record per volume in the browser's IndexedDB storage for this
+  site, holding labels, world-mm coordinates, and HU statistics. Never pixels.
+  Clearing the site's data in the browser settings removes them. The one
+  setting remembered besides marks is that you acknowledged the research-use
+  dialogue.
+- **Nothing is uploaded.** The page carries a Content Security Policy whose
+  network rule (`connect-src 'self'`) forbids it to contact any host but its
+  own, and the project's tests fail on any request to another host and on any
+  absolute address in the browser code. A marks file or an export leaves the
+  browser only as a download you trigger.

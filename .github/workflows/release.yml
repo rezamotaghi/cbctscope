@@ -1,0 +1,57 @@
+name: Release
+
+# The web build ships from a published release only (docs/web-build.md, section 9); a push
+# deploys nothing. Milestone 2 adds the macOS job here.
+on:
+  release:
+    types: [published]
+
+# Least privilege: read the repo. Only the deploy job may write to Pages.
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The base path switch. Until the domain is switched on, the site answers at the
+      # repository's GitHub Pages address (https://<owner>.github.io/cbctscope/), which needs
+      # the /cbctscope base path. The custom domain serves from the root. The domain switch is
+      # a separate, deliberate commit that adds public/CNAME; its presence flips the base path
+      # to empty here, with no other edit to this workflow.
+      - name: Build the web target
+        run: |
+          if [ -f public/CNAME ]; then
+            export NEXT_PUBLIC_BASE_PATH=""
+          else
+            export NEXT_PUBLIC_BASE_PATH="/cbctscope"
+          fi
+          echo "base path: '${NEXT_PUBLIC_BASE_PATH}'"
+          npm run build:web
+      # public/.nojekyll rides into out/: without it Pages runs Jekyll, which drops _next/
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
