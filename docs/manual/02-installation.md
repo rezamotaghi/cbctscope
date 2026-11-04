@@ -98,8 +98,10 @@ What differs from the local app:
   (section 2.6) adds it. The opt-in in-page navigation agent, on your own
   model account, works in both (section 9.6).
 - The header reads **Research use only. Not a medical device.** at all times,
-  and links to the repository and, as **Download the desktop app**, to the
-  releases page.
+  and links to the repository, to this manual as **Manual** (a new tab, served
+  by the site itself), and, as **Download the desktop app**, to the releases
+  page. In the desktop app, **Manual** opens the manual drawer instead
+  (section 3.1).
 
 To build it yourself: `npm run build:web` writes the site to `out/`. Serve
 that folder with any static file server. The threshold is set at build time

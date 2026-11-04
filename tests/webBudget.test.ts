@@ -6,11 +6,12 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
- * Measured 2026-11-04 with the real browser loader (integration pass, Next 15.5.22):
- * 7_791_978 bytes. The shell track's first figure, 7_733_430, was taken on the placeholder
- * source and is superseded.
+ * Measured 2026-11-04 after the manual's pages joined the export (docs/web-build.md, section
+ * 13): 10_360_704 bytes, of which manual/ is 2_422_018 (its nine WebP stills about 2 MB). The
+ * integration pass's figure, 7_791_978 with the real browser loader, is superseded; the pages
+ * are a deliberate addition, so the budget moves with them.
  */
-const MEASURED = 7_791_978;
+const MEASURED = 10_360_704;
 const BUDGET = Math.round(MEASURED * 1.1);
 
 const out = path.join(process.cwd(), 'out');

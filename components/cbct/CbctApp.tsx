@@ -29,6 +29,7 @@ import { useAgentBridge } from './useAgentBridge';
 import { agentTransport } from './agentChannel';
 import { pageTransport } from './agentTransport';
 import AgentPanel, { AgentToggle } from './agent/AgentPanel';
+import ManualDrawer, { guidePage, manualHref } from './ManualDrawer';
 import { AGENT_AVAILABLE, IS_DESKTOP } from './shell';
 import { IS_WEB, isCanceled, source } from './source';
 import { EVIDENCE_SCHEMA, parseMarksFile, type EvidenceFile } from './evidence';
@@ -67,11 +68,6 @@ const isDemoVol = (id: string) => id.startsWith('demo_');
 
 type ViewMode = 'mpr' | 'grid' | 'pano' | 'tmj' | 'reslice' | 'ceph' | 'region' | 'stitch';
 
-// Where the header's "help" entry and the about panel point: the docs on the project page.
-// The main branch, because the README's install path is the main-branch ZIP, so the running
-// code and the linked page match. The viewer itself never fetches anything: the link opens
-// in a new tab only when the reader clicks it.
-const DOCS_URL = 'https://github.com/rezamotaghi/cbctscope/blob/main/';
 // The web build's header links to the repository (docs/web-build.md, section 7). A link the
 // reader clicks, never a request the page makes; tests/noAbsoluteUrls.test.ts knows both.
 const REPO_URL = 'https://github.com/rezamotaghi/cbctscope';
@@ -253,6 +249,8 @@ export default function CbctApp() {
   const [srcMenu, setSrcMenu] = useState(false);
   /** the header's help menu: this mode's reading guide and the user manual */
   const [helpMenu, setHelpMenu] = useState(false);
+  /** the manual page the help drawer shows, or null when it is closed (repo build and desktop app) */
+  const [manualPage, setManualPage] = useState<string | null>(null);
   const helpMenuRef = useRef<HTMLDivElement | null>(null);
   const [picking, setPicking] = useState(false);
   const srcMenuRef = useRef<HTMLDivElement | null>(null);
@@ -684,6 +682,9 @@ export default function CbctApp() {
   }, agentTransport); // the in-page agent's queue on every surface, plus the loopback bridge in the repo and the desktop app
   // the desktop app, read after hydration (the exported HTML is rendered without a navigator)
   const inShell = useSyncExternalStore(noSubscribe, () => IS_DESKTOP, () => false);
+  // the manual (docs/web-build.md, section 13): the website opens its pages in a new tab; the
+  // repo build and the desktop app show them in the help drawer beside the viewer
+  const manualInTab = IS_WEB && !inShell;
 
   const btn = (active: boolean): React.CSSProperties => ({
     padding: '4px 10px',
@@ -834,6 +835,26 @@ export default function CbctApp() {
             repository
           </a>
         )}
+        {IS_WEB &&
+          (manualInTab ? (
+            <a
+              href={manualHref('index.html')}
+              target="_blank"
+              rel="noopener"
+              title="the user manual, served by this site, in a new tab"
+              style={{ fontSize: 12, color: 'var(--text)' }}
+            >
+              Manual
+            </a>
+          ) : (
+            <button
+              style={btn(manualPage !== null)}
+              onClick={() => setManualPage((p) => (p === null ? 'index.html' : null))}
+              title="the user manual, in a drawer beside the viewer"
+            >
+              Manual
+            </button>
+          ))}
         {IS_WEB && !inShell && (
           <a
             href={RELEASES_URL}
@@ -1131,14 +1152,19 @@ export default function CbctApp() {
             </div>
           )}
         </div>
-        {/* help: this mode's reading guide (manual chapter 8) and the user manual, on the
-            project page. Plain links the reader clicks; the viewer never contacts the network
-            itself. A menu like "open", so the manual is one click away in every mode. */}
+        {/* help: this mode's reading guide (manual chapter 8) and the user manual, as pages
+            this viewer's own origin serves (manual/, rendered from docs/ at build time). The
+            website opens them in a new tab; the repo build and the desktop app in the drawer
+            beside the viewer. Nothing is fetched from anywhere else. */}
         <div ref={helpMenuRef} style={{ position: 'relative' }}>
           <button
             style={btn(helpMenu)}
             onClick={() => setHelpMenu((v) => !v)}
-            title="help: the reading guide for this mode and the user manual, on the project page. They open in a new tab when you click them; the viewer itself sends nothing."
+            title={
+              manualInTab
+                ? 'help: the reading guide for this mode and the user manual, served by this site, in a new tab'
+                : 'help: the reading guide for this mode and the user manual, in a drawer beside the viewer'
+            }
           >
             <BookOpen size={13} strokeWidth={2} style={{ marginRight: 5, verticalAlign: '-2px' }} />
             help ▾
@@ -1159,30 +1185,41 @@ export default function CbctApp() {
                 padding: 4,
               }}
             >
-              <a
-                className="menu-item"
-                style={{ textDecoration: 'none', color: 'var(--text)', boxSizing: 'border-box' }}
-                href={
-                  isXray
-                    ? `${DOCS_URL}docs/manual/04-opening-scans.md#45-2d-radiographs`
-                    : `${DOCS_URL}docs/reading-modes/${viewMode}.md`
-                }
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setHelpMenu(false)}
-              >
-                📖 {isXray ? '2D radiographs, in the manual' : `${VIEW_MODES.find(([m]) => m === viewMode)?.[1] ?? viewMode} reading guide`}
-              </a>
-              <a
-                className="menu-item"
-                style={{ textDecoration: 'none', color: 'var(--text)', boxSizing: 'border-box' }}
-                href={`${DOCS_URL}docs/manual/`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setHelpMenu(false)}
-              >
-                📘 User manual
-              </a>
+              {(
+                [
+                  [
+                    guidePage(viewMode, isXray),
+                    `📖 ${isXray ? '2D radiographs, in the manual' : `${VIEW_MODES.find(([m]) => m === viewMode)?.[1] ?? viewMode} reading guide`}`,
+                  ],
+                  ['index.html', '📘 User manual'],
+                ] as const
+              ).map(([page, label]) =>
+                manualInTab ? (
+                  <a
+                    key={page}
+                    className="menu-item"
+                    style={{ textDecoration: 'none', color: 'var(--text)', boxSizing: 'border-box' }}
+                    href={manualHref(page)}
+                    target="_blank"
+                    rel="noopener"
+                    onClick={() => setHelpMenu(false)}
+                  >
+                    {label}
+                  </a>
+                ) : (
+                  <button
+                    key={page}
+                    className="menu-item"
+                    style={{ color: 'var(--text)', boxSizing: 'border-box' }}
+                    onClick={() => {
+                      setManualPage(page);
+                      setHelpMenu(false);
+                    }}
+                  >
+                    {label}
+                  </button>
+                ),
+              )}
             </div>
           )}
         </div>
@@ -2029,6 +2066,8 @@ export default function CbctApp() {
               : 'Measurements are true anatomical mm (isotropic voxels) — unlike pano mm, no projection magnification. Crosshairs: drag the lines to re-slice; wheel scrolls the hovered pane.'}
           </div>
         </aside>
+        {/* the user manual's drawer: a column of this row, so it narrows the viewer and covers nothing */}
+        {manualPage !== null && <ManualDrawer page={manualPage} onClose={() => setManualPage(null)} />}
       </div>
     </div>
   );

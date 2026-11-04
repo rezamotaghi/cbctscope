@@ -67,3 +67,28 @@ test('the phantom renders under the /cbctscope base path', async ({ page, baseUR
   expect(failed).toEqual([]);
   expect(problems).toEqual([]);
 });
+
+test('the manual loads under the /cbctscope base path', async ({ page, baseURL }) => {
+  const origin = new URL(baseURL as string).origin;
+  const problems = guardPage(page, origin);
+  const failed: string[] = [];
+  const outside: string[] = [];
+  page.on('response', (res) => {
+    if (res.status() >= 400) failed.push(`${res.status()} ${res.url()}`);
+  });
+  page.on('request', (req) => {
+    const u = new URL(req.url());
+    if (u.origin === origin && !u.pathname.startsWith(`${BASE_PATH}/`)) outside.push(u.pathname);
+  });
+  await page.goto(`${BASE_PATH}/manual/`);
+  await expect(page.getByRole('heading', { level: 1, name: 'CBCTScope User Manual' })).toBeVisible();
+  await page.getByRole('navigation', { name: 'Table of contents' }).getByRole('link', { name: '8.1 · MPR' }).click();
+  await expect(page).toHaveURL(new RegExp(`${BASE_PATH}/manual/mpr\\.html$`));
+  const still = page.locator('article img').first();
+  await expect.poll(() => still.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(0);
+  await page.getByRole('searchbox', { name: 'Search' }).fill('window');
+  await expect(page.locator('#results li').first()).toBeVisible();
+  expect(outside).toEqual([]);
+  expect(failed).toEqual([]);
+  expect(problems).toEqual([]);
+});

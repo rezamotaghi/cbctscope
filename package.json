@@ -10,9 +10,10 @@
     "node": ">=22"
   },
   "scripts": {
+    "predev": "node scripts/manual-html.mjs",
     "dev": "next dev -H 127.0.0.1 --port 3810",
     "demo": "node scripts/demo.mjs",
-    "build": "next build",
+    "build": "node scripts/manual-html.mjs && next build",
     "start": "next start -H 127.0.0.1 --port 3810",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
@@ -49,6 +50,7 @@
     "electron-builder": "26.18.0",
     "eslint": "8.57.1",
     "eslint-config-next": "15.5.22",
+    "marked": "18.1.1",
     "typescript": "5.9.3",
     "vitest": "^5.0.5"
   }

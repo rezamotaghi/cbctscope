@@ -1,0 +1,332 @@
+/* The manual's pages (scripts/manual-html.mjs): the viewer's typography and colours
+   (app/globals.css), dark by default like the viewer, light when the system asks for it.
+   Every colour pair is full contrast; nothing is dimmed or revealed on hover. */
+:root {
+  --bg: #0c0e12;
+  --panel: #14171d;
+  --panel-2: #1b1f27;
+  --border: #2a2f3a;
+  --text: #e6e9ef;
+  --text-2: #c3cad6;
+  --accent: #79a9ff;
+  --warn: #e0b341;
+  --mark: #2b4d8a;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #ffffff;
+    --panel: #f3f5f8;
+    --panel-2: #e8ecf2;
+    --border: #c3cad6;
+    --text: #12151b;
+    --text-2: #2f3642;
+    --accent: #1d56c2;
+    --warn: #7a5600;
+    --mark: #cfe0ff;
+    color-scheme: light;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+a {
+  color: var(--accent);
+}
+code,
+pre {
+  font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.88em;
+}
+code {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+pre {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  overflow-x: auto;
+}
+pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+/* the bar: name, version, posture, search */
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 10px 24px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.brand {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+.chip {
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1px 7px;
+}
+.posture {
+  font-size: 12px;
+  color: var(--warn);
+  border: 1px solid var(--warn);
+  border-radius: 6px;
+  padding: 1px 7px;
+}
+.search {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.search label {
+  font-size: 14px;
+}
+.search input {
+  width: 260px;
+  max-width: 100%;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 9px;
+}
+
+/* the layout: contents on the left on wide screens, on top on phones */
+.layout {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+.toc {
+  position: sticky;
+  top: 64px;
+  align-self: start;
+  max-height: calc(100vh - 88px);
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.toc-title {
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+.toc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.toc-list li {
+  margin: 0;
+}
+.toc-list a {
+  display: block;
+  padding: 4px 8px;
+  border-radius: 5px;
+  color: var(--text);
+  text-decoration: none;
+}
+.toc-list li.sub a {
+  padding-left: 22px;
+}
+.toc-list a[aria-current='page'] {
+  background: var(--panel-2);
+  border-left: 3px solid var(--accent);
+  font-weight: 600;
+}
+main {
+  min-width: 0;
+}
+.doc {
+  max-width: 76ch;
+  overflow-wrap: anywhere;
+}
+.doc h1 {
+  font-size: 1.9em;
+  line-height: 1.25;
+  margin: 0 0 0.6em;
+}
+.doc h2 {
+  font-size: 1.35em;
+  margin: 1.8em 0 0.5em;
+  padding-bottom: 0.2em;
+  border-bottom: 1px solid var(--border);
+}
+.doc h3 {
+  font-size: 1.1em;
+  margin: 1.5em 0 0.4em;
+}
+.doc img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin: 1em 0;
+}
+.doc blockquote {
+  margin: 1em 0;
+  padding: 8px 16px;
+  background: var(--panel);
+  border-left: 4px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+}
+.doc blockquote p {
+  margin: 0.4em 0;
+}
+.table-wrap {
+  overflow-x: auto;
+  margin: 1em 0;
+}
+.doc table {
+  border-collapse: collapse;
+  /* whole words in cells: the wrapper scrolls a wide table, the page never does */
+  overflow-wrap: normal;
+  font-size: 0.94em;
+}
+.doc th,
+.doc td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.doc th {
+  background: var(--panel-2);
+}
+.meta {
+  font-size: 1.05em;
+}
+
+/* previous and next */
+.pager {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 76ch;
+  margin: 48px 0 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.pager a {
+  display: block;
+  max-width: 48%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  text-decoration: none;
+}
+.pager a span {
+  display: block;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.pager .next {
+  margin-left: auto;
+  text-align: right;
+}
+
+/* search results */
+.results {
+  max-width: 76ch;
+  margin: 0 0 32px;
+  padding: 12px 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.results ol {
+  margin: 0;
+  padding-left: 20px;
+}
+.results li {
+  margin: 0 0 10px;
+}
+.results .where {
+  font-weight: 600;
+}
+.results p {
+  margin: 2px 0 0;
+  font-size: 14px;
+  color: var(--text-2);
+}
+.results mark {
+  background: var(--mark);
+  color: var(--text);
+}
+
+@media (max-width: 860px) {
+  .bar {
+    position: static;
+    padding: 10px 16px;
+  }
+  .search {
+    margin-left: 0;
+    width: 100%;
+  }
+  .search input {
+    flex: 1;
+    width: auto;
+  }
+  .layout {
+    display: block;
+    padding: 16px;
+  }
+  .toc {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    margin-bottom: 24px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .toc-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .toc-list a,
+  .toc-list li.sub a {
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+  }
+  .toc-list a[aria-current='page'] {
+    border-left-width: 3px;
+  }
+  .pager a {
+    max-width: 50%;
+  }
+}

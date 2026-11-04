@@ -12,12 +12,11 @@ import { describe, expect, it } from 'vitest';
 const root = process.cwd();
 
 const ALLOWED = new Set([
-  'https://github.com/rezamotaghi/cbctscope/blob/main/', // DOCS_URL in CbctApp.tsx
   'https://github.com/rezamotaghi/cbctscope', // REPO_URL in CbctApp.tsx
   'https://github.com/rezamotaghi/cbctscope/releases', // RELEASES_URL in CbctApp.tsx (the desktop app)
   'http://www.w3.org/2000/svg', // the SVG namespace of a snapshot's annotation layer, not a request
 ]);
-const LINK_CONSTANTS = ['DOCS_URL', 'REPO_URL', 'RELEASES_URL'];
+const LINK_CONSTANTS = ['REPO_URL', 'RELEASES_URL'];
 
 /** the agent's provider bases and local presets: allowed in this one constants module only */
 const AGENT_HOSTS_FILE = path.join('components', 'cbct', 'agent', 'providers', 'hosts.ts');

@@ -3,6 +3,8 @@
 //
 //   node scripts/build-web.mjs [--out <dir>]
 //
+// 0. Renders the user manual into public/manual/ (scripts/manual-html.mjs), so the export
+//    carries it as manual/ and step 3 gives its pages the CSP like every other page.
 // 1. Sets CBCTSCOPE_TARGET=web and NEXT_PUBLIC_CBCTSCOPE_TARGET=web and runs `next build`;
 //    next.config.mjs turns that into a static export in out/ (or <dir> with --out, used by the
 //    end-to-end suite's low-threshold build so out/ stays intact).
@@ -13,6 +15,7 @@
 //    script of that page. No 'unsafe-inline' for scripts.
 import { spawn } from 'node:child_process';
 import { webCsp } from '../components/webCsp.mjs';
+import { writeManual } from './manual-html.mjs';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -77,6 +80,7 @@ function addCsp(html) {
   return { html: html.replace(charset[0], `${charset[0]}${tag}`), count: hashes.size };
 }
 
+writeManual();
 const code = await run();
 if (code !== 0) process.exit(code);
 

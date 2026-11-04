@@ -34,11 +34,14 @@ From left to right (the numbers match the callouts in the picture):
 7. **📂 open**: the source menu for opening and closing your own exports
    (chapter 4).
 8. **keys**: the keyboard reference, every hotkey in words (chapter 12).
-9. **help ▾**: two links, the reading guide for the current mode (chapter 8)
-   and this manual, both on the project's GitHub page, opening in a new
-   browser tab. They are the only way out of the viewer, and they open only
-   when you click them; the viewer itself never contacts the network
-   (chapter 10).
+9. **help ▾**: two entries, the reading guide for the current mode (chapter 8)
+   and this manual. The viewer serves the manual itself, so it needs no
+   network. In the local app and the desktop app it opens in a drawer at the
+   right edge that narrows the viewer and covers no control, with the
+   manual's contents and search; **Close manual** gives the width back. On
+   the website it opens in a new browser tab. The links inside the manual to
+   other pages of the project open only when you click them; the viewer
+   itself never contacts the network (chapter 10).
 10. **Image line**: the current image's name, field of view in cm, matrix,
    source kind (slices, multiframe, or radiograph), and voxel or pixel size in
    µm. The built-in phantom is named **Synthetic phantom** here, and while

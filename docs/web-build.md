@@ -136,7 +136,8 @@ The page opens on the phantom, as the repo's demo mode does. The source menu off
 DICOMDIR or DICOM folder" and "Open a single DICOM file" (a multiframe volume or a 2D
 radiograph); a drop anywhere on the viewer opens too ("Drop a DICOM folder, a DICOMDIR or a
 single file here"). The header carries "Research use only. Not a medical device." at all
-times, and links to the repository and, as "Download the desktop app", to the releases page.
+times, and links to the repository, to the manual as "Manual" (section 13), and, as
+"Download the desktop app", to the releases page.
 
 ## 8. Tests and gates
 
@@ -309,3 +310,36 @@ Built to the owner's decisions of 04/11/26:
   potentially trustworthy, so mixed-content blocking should not apply, but its
   local-network-access permission prompt and each server's CORS settings decide), and
   other browsers. The desktop app serves the page from loopback itself, so it always can.
+
+## 13. The manual
+
+One source: the markdown under `docs/manual/` and `docs/reading-modes/`, in the order of
+`docs/manual/manifest.json`, readable on GitHub as before and drift-checked by
+`tests/manual.test.ts`. `scripts/manual-html.mjs` renders it at build time into static pages
+under `public/manual/` (ignored by version control, never committed); `npm run build`,
+`npm run dev` (its predev step), `npm run demo` and `scripts/build-web.mjs` run it, so every
+surface serves the manual from its own origin. Rendering is `marked` (exact version, no
+dependencies of its own).
+
+Each manifest entry is one page, plus `index.html` with the manifest as the table of contents
+and the version and manual revision. Headings carry GitHub's anchors, links between chapters
+point at the generated pages, links to other repo files at the project page in a new tab, and
+the stills are copied into `manual/media/`. The search box filters `search-index.json` in the
+page. No inline script and no remote asset, so the export's CSP meta tag, written into these
+pages like every other, holds; every address is relative, so the `/cbctscope` base path holds.
+
+Two forms:
+
+1. **The pages on the site**: `manual/` beside the viewer. The header's "Manual" link and the
+   help menu open them in a new tab.
+2. **The help drawer in the app**: in the local app and the desktop app, the help menu (and,
+   in the desktop app, the header's "Manual") opens the same pages in an iframe in a column
+   at the right of the viewer's row, which narrows the viewer and covers no control, with a
+   "Close manual" button.
+
+A printed form can be generated later from the same pages.
+
+Tests: `tests/manualHtml.test.ts` (one page per entry, every internal link and anchor
+resolves, every still exists, no em dash, the search index covers every heading, the drawer's
+addresses); `tests/e2e/web.spec.ts` and `tests/e2e/base-path.spec.ts` load `manual/` from the
+export with no off-origin request.

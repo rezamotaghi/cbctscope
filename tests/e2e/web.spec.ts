@@ -261,3 +261,57 @@ test.describe('opening files', () => {
     await expect(measureRows).toHaveCount(1);
   });
 });
+
+// The manual (docs/web-build.md, section 13): pages rendered from docs/ into the export.
+test.describe('the manual', () => {
+  const manifest = JSON.parse(readFileSync(path.join(process.cwd(), 'docs/manual/manifest.json'), 'utf8')) as {
+    chapters: { file: string; title: string }[];
+  };
+
+  test('the header links the manual, relative and same origin', async ({ page }) => {
+    const link = page.locator('header').getByRole('link', { name: 'Manual', exact: true });
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute('href', 'manual/index.html');
+  });
+
+  test('manual/ loads under the CSP, its contents list every manifest title', async ({ page }) => {
+    await page.goto('/manual/');
+    await expect(page.getByRole('heading', { level: 1, name: 'CBCTScope User Manual' })).toBeVisible();
+    await expect(page.locator('meta[http-equiv="Content-Security-Policy"]')).toHaveCount(1);
+    const toc = page.getByRole('navigation', { name: 'Table of contents' }).getByRole('link');
+    await expect(toc).toHaveText(manifest.chapters.map((c) => c.title));
+    // the stylesheet applied (same origin, allowed by the CSP)
+    const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    expect(bg).not.toBe('rgba(0, 0, 0, 0)');
+  });
+
+  test('the interface chapter shows its still', async ({ page }) => {
+    await page.goto('/manual/03-interface.html');
+    const still = page.locator('article img').first();
+    await expect(still).toBeVisible();
+    await expect.poll(() => still.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(0);
+  });
+
+  test('a search for "window" finds the display chapter', async ({ page }) => {
+    await page.goto('/manual/index.html');
+    await page.getByRole('searchbox', { name: 'Search' }).fill('window');
+    const results = page.locator('#results');
+    await expect(results).toBeVisible();
+    await expect(results.getByRole('link', { name: /^5 · Display and windowing/ }).first()).toBeVisible();
+  });
+
+  test('the help menu opens the manual in a new tab', async ({ page, context, baseURL }) => {
+    await waitForVolume(page);
+    const tabProblems: string[] = [];
+    context.on('page', (p) => tabProblems.push(...guardPage(p, new URL(baseURL as string).origin)));
+    await page.getByRole('button', { name: /help ▾/ }).click();
+    const [tab] = await Promise.all([context.waitForEvent('page'), page.getByRole('link', { name: '📘 User manual' }).click()]);
+    await tab.waitForLoadState();
+    expect(new URL(tab.url()).pathname).toBe('/manual/index.html');
+    await expect(tab.getByRole('heading', { level: 1, name: 'CBCTScope User Manual' })).toBeVisible();
+    // the guide entry points at this mode's guide page
+    await page.getByRole('button', { name: /help ▾/ }).click();
+    await expect(page.getByRole('link', { name: /reading guide$/ })).toHaveAttribute('href', 'manual/mpr.html');
+    expect(tabProblems).toEqual([]);
+  });
+});
