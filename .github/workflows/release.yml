@@ -112,11 +112,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name }}
 
-  # Windows ships unsigned (docs/web-build.md, section 10); it rides the same gate so a
-  # release cut without the credentials publishes the site only.
+  # Windows ships unsigned (docs/web-build.md, section 10), so this job needs no secret and
+  # runs on every release.
   desktop-win:
-    needs: desktop-gate
-    if: ${{ needs.desktop-gate.outputs.signing == 'true' }}
     runs-on: windows-latest
     permissions:
       contents: write
