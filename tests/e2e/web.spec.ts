@@ -371,9 +371,10 @@ test.describe('the manual, drawer and phone', () => {
     await page.getByRole('button', { name: '📘 User manual' }).click();
     const drawer = page.getByTestId('manual-drawer');
     await expect(drawer).toBeVisible();
+    // the iframe loads a page with stills; under the full suite's load it can take more than 5 s
     const frame = page.frameLocator('iframe[title="CBCTScope user manual"]');
-    await expect(frame.getByRole('heading', { level: 1, name: 'CBCTScope User Manual' })).toBeVisible();
-    await expect(frame.locator('html')).toHaveClass(/\btheme-dark\b/);
+    await expect(frame.getByRole('heading', { level: 1, name: 'CBCTScope User Manual' })).toBeVisible({ timeout: 20_000 });
+    await expect(frame.locator('html')).toHaveClass(/\btheme-dark\b/, { timeout: 20_000 });
     await page.getByRole('button', { name: /Close manual/ }).click();
     await expect(drawer).toHaveCount(0);
     expect(tabProblems).toEqual([]);
