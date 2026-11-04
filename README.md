@@ -151,14 +151,25 @@ GitHub Pages site. It opens on the synthetic phantom; **open → Open folder**
 or **Open file**, or a drop on the viewer, reads your own export.
 
 **The scan never leaves your computer: the browser reads the files you choose
-into the tab, and the page has nowhere to send them.** The site is static
-files with no server behind it, and its Content Security Policy forbids the
-page to contact any host but its own. Marks are kept in the browser's own
+into the tab, and the page sends them nowhere.** The site is static files with
+no server behind it, and its Content Security Policy forbids the page to
+contact any host but its own and the model providers of the in-page agent
+below, which receive nothing unless you switch the agent on. Marks are kept in the browser's own
 storage and travel as a marks file (**Save marks to file** / **Load marks from
 file**). The browser must hold the whole volume in memory, so a large volume
 shows a notice first; the local app has no such limit. AI-agent control (MCP)
 needs the local app or the desktop app. Build it yourself with `npm run build:web`
 (writes `out/`).
+
+**The in-page agent** is the browser's answer to MCP, and it is off until you
+switch it on. Type a request ("show the left TMJ in sagittal, bone window") in
+the agent panel, and a model on your own account (Anthropic, OpenAI, Google
+Gemini, or a model server on your own computer such as llama-server, Ollama or
+LM Studio) moves the viewer with the same fifteen navigation verbs. Your API
+key stays in the tab's memory and is forgotten when the tab closes; the
+snapshots the agent asks for go to the provider you chose and nowhere else;
+the agent only moves the camera and nothing it says is a finding. The desktop
+app has the same panel next to its MCP bridge (manual section 9.6).
 
 **The desktop app** is the same web build in its own window with the agent
 bridge built in, so no Node.js and no browser tab: download the macOS dmg
@@ -230,7 +241,9 @@ The safe behavior is the only behavior the software has:
 - Scans are read **in place** from the folder you pick. Nothing is copied or
   uploaded anywhere; there is no account, no telemetry, no hosted instance,
   and there never will be one. The web build is static files only: the
-  browser reads the scan into the tab, and nothing leaves it.
+  browser reads the scan into the tab, and nothing leaves it unless you switch
+  on the in-page agent, which sends the snapshots it asks for to the model
+  provider you chose.
 - Everything, including the AI-agent connection, stays on this machine. In
   technical terms: the server binds to 127.0.0.1 and rejects any request whose
   Host or Origin is not loopback, so neither another device on your network

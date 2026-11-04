@@ -3,7 +3,7 @@
 //   - sseTransport: the repo's loopback bridge (the SSE command stream plus the result POST).
 //   - createPageTransport: an in-memory queue inside the tab, for callers in the same page
 //     (the in-page agent of milestone 3, the desktop shell's bridge host of milestone 2).
-// The web build of milestone 1 mounts no transport at all.
+// agentChannel.ts merges the page transport with the surface's loopback channel (if any).
 
 export interface AgentCommand {
   id: string;
@@ -111,5 +111,5 @@ export function createPageTransport(): PageTransport {
   };
 }
 
-/** the tab's shared page transport (mounted by nothing in milestone 1) */
+/** the tab's shared page transport: the in-page agent dispatches here (components/cbct/agent/) */
 export const pageTransport = createPageTransport();

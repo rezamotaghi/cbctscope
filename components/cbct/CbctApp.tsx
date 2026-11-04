@@ -26,6 +26,8 @@ import CbctRegion from './CbctRegion';
 import CbctStitch from './CbctStitch';
 import { useAgentBridge } from './useAgentBridge';
 import { agentTransport } from './agentChannel';
+import { pageTransport } from './agentTransport';
+import AgentPanel from './agent/AgentPanel';
 import { AGENT_AVAILABLE, IS_DESKTOP } from './shell';
 import { IS_WEB, isCanceled, source } from './source';
 import { EVIDENCE_SCHEMA, parseMarksFile, type EvidenceFile } from './evidence';
@@ -653,6 +655,8 @@ export default function CbctApp() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      {/* the opt-in in-page navigation agent (off on every load; components/cbct/agent/) */}
+      <AgentPanel transport={pageTransport} />
       {IS_WEB && (
         <>
           {/* the web build's pickers: a folder (webkitdirectory, set on mount), one file, a marks file */}

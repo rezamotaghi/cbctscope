@@ -1,23 +1,26 @@
-// Agent-surface drift test. The MCP server (mcp/server.mjs) hardcodes the enumerable
-// surface it exposes (view modes, window presets, 3D styles) so hosts get real enums; this
-// test pins those lists to the viewer source, pins the MCPB manifest (tool list, version)
-// and the Agent Skill (name, verbs) to the server, so a verb or style added on one side
-// cannot go stale on the other with green gates.
+// Agent-surface drift test. The shared verb module (lib/shared/verbs.mjs, imported by the
+// MCP server mcp/server.mjs and by the in-page agent) hardcodes the enumerable surface it
+// exposes (view modes, window presets, 3D styles) so hosts get real enums; this test pins
+// those lists to the viewer source, pins the server's registrations to the module, and pins
+// the MCPB manifest (tool list, version) and the Agent Skill (name, verbs) to the server, so
+// a verb or style added on one side cannot go stale on the other with green gates.
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { VERBS } from '../lib/shared/verbs.mjs';
 
 const root = process.cwd();
 const read = (p: string) => readFileSync(path.join(root, p), 'utf8');
 
 const server = read('mcp/server.mjs');
+const verbsSrc = read('lib/shared/verbs.mjs');
 const appSrc = read('components/cbct/CbctApp.tsx');
 const r3dSrc = read('components/cbct/render3d.ts');
 
-/** A `const NAME = [ 'a', 'b', ... ];` string-array literal in the server source. */
+/** A `const NAME = [ 'a', 'b', ... ];` string-array literal in the shared verb module. */
 function serverList(name: string): string[] {
-  const m = new RegExp(`const ${name} = \\[([^\\]]+)\\];`).exec(server);
-  expect(m, `mcp/server.mjs must declare const ${name} = [...]`).toBeTruthy();
+  const m = new RegExp(`const ${name} = \\[([^\\]]+)\\];`).exec(verbsSrc);
+  expect(m, `lib/shared/verbs.mjs must declare const ${name} = [...]`).toBeTruthy();
   return [...m![1].matchAll(/'([^']+)'/g)].map((x) => x[1]);
 }
 
@@ -43,16 +46,27 @@ describe('MCP server tracks the viewer source', () => {
     expect(serverList('STYLES_3D')).toEqual(keys);
   });
 
-  it('every tool declares annotations and an output schema', () => {
+  it('the server registers exactly the shared verbs, each with its own config and a handler', () => {
+    expect(tools).toEqual(VERBS.map((v) => v.name));
+    expect(tools.length).toBe(15);
     const blocks = server.split(/registerTool\(/).slice(1);
     expect(blocks.length).toBe(tools.length);
     for (const [i, b] of blocks.entries()) {
-      // the config object ends where the handler starts (registrations sit inside buildServer)
+      // the config is the shared module's for the same name; the handler follows it
       const end = b.search(/\n\s+async\b/);
       expect(end, `tool ${tools[i]} has no async handler`).toBeGreaterThan(0);
-      const head = b.slice(0, end);
-      expect(head, `tool ${tools[i]} lacks annotations`).toMatch(/annotations:/);
-      expect(head, `tool ${tools[i]} lacks outputSchema`).toMatch(/outputSchema:/);
+      expect(b.slice(0, end), `tool ${tools[i]} must use toolConfig('${tools[i]}')`).toContain(`toolConfig('${tools[i]}')`);
+    }
+  });
+
+  it('every tool declares annotations and an output schema', () => {
+    for (const v of VERBS) {
+      expect(v.annotations, `tool ${v.name} lacks annotations`).toBeTruthy();
+      expect(v.annotations.destructiveHint, `tool ${v.name} must not be destructive`).toBe(false);
+      expect(v.annotations.openWorldHint, `tool ${v.name} must be closed-world`).toBe(false);
+      expect(v.outputSchema, `tool ${v.name} lacks outputSchema`).toBeTruthy();
+      expect(v.inputSchema, `tool ${v.name} lacks inputSchema`).toBeTruthy();
+      expect(v.description.length, `tool ${v.name} description`).toBeGreaterThan(20);
     }
   });
 

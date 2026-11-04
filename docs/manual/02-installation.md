@@ -94,8 +94,9 @@ What differs from the local app:
 - A volume above the size threshold (512 MiB of voxels by default) shows a
   notice first, because the browser must hold it in memory. The local app has
   no such limit.
-- There is no AI-agent control in a plain browser (chapter 9); the desktop
-  app (section 2.6) adds it.
+- There is no MCP connection in a plain browser (chapter 9); the desktop app
+  (section 2.6) adds it. The opt-in in-page navigation agent, on your own
+  model account, works in both (section 9.6).
 - The header reads **Research use only. Not a medical device.** at all times,
   and links to the repository and to the desktop app.
 

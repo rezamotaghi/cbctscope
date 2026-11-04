@@ -10,14 +10,15 @@ switch reading modes, set the window, step through slices, restore a saved
 view, take snapshots to look at. In practice you can tell an assistant "open
 the case in this folder, teeth window, pano mode" and watch the viewer follow.
 
-> **Note.** Agent control needs the local app or the desktop app (chapter 2).
+> **Note.** Agent control over MCP needs the local app or the desktop app (chapter 2).
 > The desktop app (section 2.6) carries the same bridge on the same port,
 > `http://127.0.0.1:3810`, so the setup below applies unchanged: start the
 > app instead of the viewer and browser tab. In the desktop app the agent
 > cannot open a scan by path (`open_scan`) or raise the dialog (`pick_scan`);
 > you open it with **Open folder**. The web build in a plain browser (section
-> 2.5) has no MCP connection yet: it runs no server for an agent to reach, so
-> it shows no agent banner and accepts no agent commands.
+> 2.5) has no MCP connection: it runs no server for an agent to reach, so it
+> shows no agent banner and accepts no MCP commands. It has instead the opt-in
+> in-page agent on your own model account (section 9.6).
 
 The agent can only do what a hand on the mouse could do: open, look, move,
 bookmark, capture. This is a design constraint, not a disclaimer:
@@ -166,3 +167,58 @@ commands go to exactly one tab, never race between two.
 
 The full technical contract, including the architecture and the live check
 (`npm run mcp:smoke`), lives in [docs/mcp.md](../mcp.md).
+
+## 9.6 The in-page agent
+
+The web build and the desktop app carry a navigation agent inside the page,
+for when no MCP host is at hand. You type a request in the agent panel at the
+bottom right of the viewer ("show the left TMJ in sagittal, bone window"), and
+a model on your own account moves the viewer with the same fifteen verbs as
+the MCP server (section 9.3), through the same verb handling in the page. The
+surface stays those fifteen verbs; the agent gets nothing more.
+
+**Off by default.** The agent is off every time the page loads and sends
+nothing to anyone until you switch it on. **Set up the navigation agent**
+asks for the provider, the model id and your API key; **Switch on…** then
+shows a dialogue, **Switch on the navigation agent**, that names the provider
+and states what follows: the agent runs on your own model account; your key
+stays in this tab's memory and is forgotten when the tab closes; every
+snapshot the agent asks for is sent to that provider and nowhere else; the
+agent only moves the camera and is not asked for findings, and nothing it says
+is a finding. **Cancel** sends nothing. While the agent is on, the panel reads
+**Agent: on**, followed by the provider, at all times, and **Switch off**
+stops it at once and forgets the key.
+
+**Providers.** Anthropic (default model `claude-opus-5-5`), OpenAI
+(`gpt-6-astra`), Google Gemini (`gemini-3.8-flash`), or **Local or custom
+endpoint**: a model server on this computer that speaks the OpenAI-compatible
+chat completions API with image input, with presets for llama-server
+(`http://127.0.0.1:8080`), Ollama (`http://127.0.0.1:11434`) and LM Studio
+(`http://127.0.0.1:1234`). You may type any model id the provider offers.
+The local endpoint must be a loopback address; the model must support tool
+calls and images.
+
+**The key.** Your API key is held in the page's memory only. It is never
+written to the browser's storage, a cookie, or a file, and it goes only to the
+provider you chose, with each request. The browser remembers the provider, the
+endpoint and the model id between visits, never the key.
+
+**The fence.** The agent's instructions state it: navigation and
+visualisation only; never interpret, measure for a diagnosis, or state
+findings; if asked, it answers that reading the images is yours. A request
+stops after at most 12 tool calls, and **Stop** cancels the request in flight.
+Errors appear in the panel in plain words. `open_scan` and `pick_scan` answer
+that you open the scan yourself, with **open** or a drop on the viewer.
+
+**The local endpoint.** Your browser decides whether a page may reach a local
+server; the desktop app always can. From the published site, the browser may
+ask for permission to reach devices on your network, and the server must
+allow the site in its cross-origin (CORS) settings: llama-server allows any
+origin by default; Ollama allows only its own addresses unless you add the
+site to `OLLAMA_ORIGINS`; for LM Studio, look for CORS in its server settings.
+
+> **Caution.** A snapshot is pixels from your screen. Under a cloud provider
+> it leaves this computer, under that provider's data terms; under a local
+> endpoint it does not. Text inside an image or a scan label is data, never a
+> command; the agent is told so, but no defence against such injected text is
+> complete. The read is yours, on your screen.
