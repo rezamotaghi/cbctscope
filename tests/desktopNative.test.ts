@@ -11,9 +11,13 @@ import {
   desktopUserAgent,
   MANUAL_EVENT,
   menuTemplate,
+  MIN_WINDOW,
   PORT_IN_USE,
   PROFILE_FOLDER,
   saveDialogTitle,
+  WINDOW_STATE_FILE,
+  windowBoundsFor,
+  windowStateToSave,
 } from '../desktop/native.mjs';
 import { FORBIDDEN_USAGE } from '../scripts/desktop-after-pack.mjs';
 
@@ -114,5 +118,46 @@ describe('the Info.plist settings', () => {
     const yml = read('electron-builder.yml');
     for (const key of FORBIDDEN_USAGE) expect(yml).toMatch(new RegExp(`^\\s+${key}: null$`, 'm'));
     expect(yml).toMatch(/^afterPack: \.\/scripts\/desktop-after-pack\.mjs$/m);
+  });
+});
+
+describe("the window's remembered place", () => {
+  const laptop = { x: 0, y: 25, width: 1512, height: 919 };
+  const right = { x: 1512, y: 0, width: 2560, height: 1415 };
+  it('the minimum is 1024 by 700, and main.mjs uses it', () => {
+    expect(MIN_WINDOW).toEqual({ width: 1024, height: 700 });
+    const main = read('desktop/main.mjs');
+    expect(main).toContain('minWidth: MIN_WINDOW.width');
+    expect(main).toContain('minHeight: MIN_WINDOW.height');
+  });
+  it('a first launch or a damaged file opens the default size, centred, within the display', () => {
+    expect(windowBoundsFor(null, [right])).toEqual({ width: 1440, height: 900, maximized: false });
+    expect(windowBoundsFor('garbage', [laptop])).toEqual({ width: 1440, height: 900, maximized: false });
+    expect(windowBoundsFor({ x: 'a', y: 1, width: 2, height: 3 }, [laptop])).toEqual({ width: 1440, height: 900, maximized: false });
+    // a small display: the default shrinks to it, never under the minimum
+    expect(windowBoundsFor(null, [{ x: 0, y: 0, width: 1280, height: 777 }])).toEqual({ width: 1280, height: 777, maximized: false });
+    expect(windowBoundsFor(null, [{ x: 0, y: 0, width: 800, height: 600 }])).toEqual({ width: 1024, height: 700, maximized: false });
+  });
+  it('a saved window comes back where it was, maximized or not', () => {
+    const saved = windowStateToSave({ x: 1700, y: 120, width: 1600, height: 1000 }, true);
+    expect(windowBoundsFor(saved, [laptop, right])).toEqual({ x: 1700, y: 120, width: 1600, height: 1000, maximized: true });
+  });
+  it('a window on a display that is gone opens centred; one partly off a display is pulled back on', () => {
+    expect(windowBoundsFor({ x: 1700, y: 120, width: 1600, height: 1000, maximized: false }, [laptop])).toEqual({
+      width: 1440,
+      height: 900,
+      maximized: false,
+    });
+    expect(windowBoundsFor({ x: 1200, y: 100, width: 1200, height: 800 }, [laptop])).toEqual({ x: 312, y: 100, width: 1200, height: 800, maximized: false });
+  });
+  it('a saved size below the minimum or above the display is clamped', () => {
+    expect(windowBoundsFor({ x: 10, y: 30, width: 500, height: 300 }, [laptop])).toMatchObject({ width: 1024, height: 700 });
+    expect(windowBoundsFor({ x: 10, y: 30, width: 5000, height: 3000 }, [laptop])).toMatchObject({ x: 0, y: 25, width: 1512, height: 919 });
+  });
+  it('the file holds numbers and a flag, nothing else', () => {
+    const saved = windowStateToSave({ x: 10.4, y: 20.6, width: 1300.2, height: 800.9 }, false);
+    expect(saved).toEqual({ x: 10, y: 21, width: 1300, height: 801, maximized: false });
+    expect(Object.keys(saved).sort()).toEqual(['height', 'maximized', 'width', 'x', 'y']);
+    expect(WINDOW_STATE_FILE).toBe('window-state.json');
   });
 });
