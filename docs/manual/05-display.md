@@ -25,6 +25,9 @@ For a 2D radiograph the HU presets do not apply (the gray scale is
 display-normalized, not HU); center, width, gamma, and invert work the same
 way on its 0 to 4095 scale.
 
+The desktop app opens every CT volume on the preset you last picked
+(section 2.6); the website opens each volume on Auto.
+
 ## 5.3 Manual control
 
 - **Histogram**: the current volume's value distribution, with the black and

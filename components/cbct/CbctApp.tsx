@@ -45,7 +45,7 @@ import {
 } from './WebDialogs';
 import AboutBadge from '@/components/AboutBadge';
 import SnapshotButton, { type SnapRef } from './SnapshotButton';
-import { pageStorage, rememberWindow, rememberedWindow } from './windowPreset';
+import { pageStorage, rememberPreset, windowOnOpen } from './windowPreset';
 import { PANE_BUTTONS } from './paneButtons';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { REPO_URL, RELEASES_URL, STILLS_URL } from '@/components/links';
@@ -196,12 +196,6 @@ export default function CbctApp() {
   const [anon, setAnon] = useState<string | null>(null);
   const [meta, setMeta] = useState<CbctMeta | null>(null);
   const [controls, setControls] = useState<CbctControls>(defaultControls);
-  // the desktop app reopens on the last window preset (./windowPreset); the website remembers nothing new
-  useEffect(() => {
-    const voi = rememberedWindow(pageStorage(), IS_DESKTOP, WL_PRESETS);
-    if (voi !== undefined) setControls((c) => ({ ...c, voi }));
-  }, []);
-  useEffect(() => rememberWindow(pageStorage(), IS_DESKTOP, controls.voi, WL_PRESETS), [controls.voi]);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('mpr');
   const [keysOpen, setKeysOpen] = useState(false);
@@ -296,6 +290,14 @@ export default function CbctApp() {
   const current = useMemo(() => volumes.find((v) => v.anon === anon) ?? null, [volumes, anon]);
   /** the open image is a single 2D radiograph — the volumetric modes don't apply */
   const isXray = current?.kind === 'xray';
+  // the desktop app opens every CT volume on the window preset the reader last picked
+  // (./windowPreset); a radiograph opens on Auto; the website remembers nothing new
+  const currentKind = current?.kind ?? null;
+  useEffect(() => {
+    if (!anon || !currentKind) return;
+    const voi = windowOnOpen(pageStorage(), IS_DESKTOP, currentKind === 'xray', WL_PRESETS);
+    setControls((c) => ({ ...c, voi }));
+  }, [anon, currentKind]);
 
   const r3d = controls.render3d;
   const styleDef = RENDER_STYLES[r3d.style]; // undefined means the Air preset: the sliders don't apply
@@ -576,8 +578,10 @@ export default function CbctApp() {
     return () => window.removeEventListener('keydown', onKey);
   }, [step, viewMode, isXray]);
 
+  /** a preset picked by the reader: applied, and on the desktop app remembered for a CT volume */
   const setVoiPreset = (name: string) => {
     setControls((c) => ({ ...c, voi: WL_PRESETS[name] ?? null }));
+    if (!isXray) rememberPreset(pageStorage(), IS_DESKTOP, name, WL_PRESETS);
   };
   const voiShown = controls.voi ?? meta?.defaultVoi ?? { center: 0, width: 1 };
   /** a window is known (set by hand, or the volume's own): until then the rail shows no number */
@@ -633,7 +637,7 @@ export default function CbctApp() {
         if (isXray && preset !== 'Auto') {
           return `preset ${preset} is HU-based: a radiograph has no HU scale (use Auto, or center/width on the 0-4095 gray scale)`;
         }
-        setControls((c) => ({ ...c, voi: WL_PRESETS[preset] ?? null }));
+        setVoiPreset(preset);
       } else if (center !== undefined || width !== undefined) {
         const cNum = Number(center ?? voiShown.center);
         const wNum = Number(width ?? voiShown.width);

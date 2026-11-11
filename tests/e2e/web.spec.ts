@@ -270,6 +270,34 @@ test.describe('opening files', () => {
     await expect(researchDialog(page)).toHaveCount(0);
   });
 
+  test('the desktop app keeps the picked window preset through relaunch, open and relaunch', async ({ browser, baseURL }) => {
+    const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 }, userAgent: 'Mozilla/5.0 Chrome CBCTScope/0.0.0' });
+    const app = await ctx.newPage();
+    const appProblems = guardPage(app, new URL(baseURL as string).origin);
+    const bone = app.locator('aside').getByRole('button', { name: 'Bone', exact: true });
+    await app.goto('/');
+    await waitForVolume(app);
+    await bone.click();
+    await expect(bone).toHaveAttribute('aria-pressed', 'true');
+    // relaunch: the phantom opens on Bone
+    await app.reload();
+    await waitForVolume(app);
+    await expect(bone).toHaveAttribute('aria-pressed', 'true');
+    // open a CT export: it opens on Bone too, and the open does not overwrite the name
+    await openFolder(app, 'series');
+    await researchDialog(app).getByRole('button', { name: 'I understand' }).click();
+    await expectCurrentLocal(app, 'series', `${N}²×${SERIES_COUNT}`);
+    await expect.poll(() => mainCanvasHasImage(app), { timeout: 60_000 }).toBe(true);
+    await expect(bone).toHaveAttribute('aria-pressed', 'true');
+    // relaunch again: still Bone
+    await app.reload();
+    await waitForVolume(app);
+    await expect(bone).toHaveAttribute('aria-pressed', 'true');
+    expect(await app.evaluate(() => localStorage.getItem('cbctscope-window-preset'))).toBe('Bone');
+    expect(appProblems).toEqual([]);
+    await ctx.close();
+  });
+
   test('the progress panel shows during an open and leaves when the volume is on screen', async ({ page }) => {
     // hold every assembly result back 1.5 s, so the panel is caught on screen deterministically
     await page.addInitScript(() => {

@@ -153,8 +153,11 @@ the window quits the app. **CBCTScope Help** in the app's Help menu opens this m
 the viewer, and **View** holds Actual Size, Zoom In, Zoom Out and full screen.
 
 **What the app remembers.** Between launches the app remembers the window's
-size and position (and whether it was maximized) and the window preset
-(Auto, Bone, Teeth or Soft), in its own profile: a small file
+size and position (and whether it was maximized) and the window preset you
+last picked (Auto, Bone, Teeth or Soft, with a preset button or the agent's
+window verb), in its own profile, and opens every CT volume on that preset;
+a 2D radiograph always opens on Auto. Opening or switching a volume never
+changes the remembered preset, nor does a hand-set window. The profile holds a small file
 `window-state.json` holding those four numbers and the flag, and the preset's
 name in the app's storage. It keeps no folder name, file name or anything
 from a scan, and a window whose screen is gone opens centred again. The
