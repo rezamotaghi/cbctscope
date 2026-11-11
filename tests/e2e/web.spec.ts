@@ -270,6 +270,26 @@ test.describe('opening files', () => {
     await expect(researchDialog(page)).toHaveCount(0);
   });
 
+  test('the reading place stays with its volume across a volume switch', async ({ page }) => {
+    await waitForVolume(page);
+    await openFolder(page, 'series');
+    await researchDialog(page).getByRole('button', { name: 'I understand' }).click();
+    await expectCurrentLocal(page, 'series', `${N}²×${SERIES_COUNT}`);
+    const axialLabel = page.locator('main [data-pane]').filter({ has: page.locator('[data-overlay="label"]', { hasText: /^AXIAL\b/ }) }).locator('[data-overlay="label"]');
+    await expect(axialLabel).toHaveText(new RegExp(`^AXIAL \\d+/${SERIES_COUNT}\\b`), { timeout: 60_000 });
+    const fresh = (await axialLabel.textContent()) ?? '';
+    // to the phantom, move its level far from the series' default, then back to the series
+    await page.locator('header').getByRole('button', { name: 'Next volume' }).click();
+    await expect(axialLabel).toHaveText(/^AXIAL \d+\/200\b/, { timeout: 60_000 });
+    await page.getByRole('slider', { name: 'AXIAL slice' }).focus();
+    for (let i = 0; i < 30; i++) await page.keyboard.press('ArrowUp');
+    await page.locator('header').getByRole('button', { name: 'Previous volume' }).click();
+    await expect(axialLabel).toHaveText(new RegExp(`^AXIAL \\d+/${SERIES_COUNT}\\b`), { timeout: 60_000 });
+    // the series opens on its own default: nothing of the phantom's place carried over
+    await page.waitForTimeout(500);
+    await expect(axialLabel).toHaveText(fresh);
+  });
+
   test('the desktop app keeps the picked window preset through relaunch, open and relaunch', async ({ browser, baseURL }) => {
     const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 }, userAgent: 'Mozilla/5.0 Chrome CBCTScope/0.0.0' });
     const app = await ctx.newPage();

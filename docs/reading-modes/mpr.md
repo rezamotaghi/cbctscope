@@ -63,7 +63,7 @@ yellow scale bar at the bottom centre; a live HU readout under the cursor, botto
 The pane that takes the wheel carries a thin blue frame. The 3D pane's top-right buttons
 orbit the render left, right, up and down (hold to keep turning) and reset its camera.
 The crosshair and the axial level are the reading place the other modes share (section
-3.2): leave for Pano and come back, and they are where you left them.
+3.3): leave for Pano and come back, and they are where you left them.
 
 **Tool palette** ("Tool (1-9, 0)"): Crosshairs, Pan, Length, Angle, Arrow, Text, Rect
 ROI, Ellipse ROI, Freehand, 3D ROI, on hotkeys 1 through 9 and 0; W/L on `W`. Arrow and

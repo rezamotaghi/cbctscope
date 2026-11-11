@@ -64,7 +64,7 @@ import { Bookmark, Eraser as EraserIcon, Eye, EyeOff, Scissors, X } from 'lucide
 import { ActiveFrame, PaneButton, PaneCluster, PaneLabel, PaneTextButton, ScaleBar, WlReadout, overlayText, useActivePane } from './PaneOverlay';
 import { PANE_BUTTON } from './paneButtons';
 import { PLANE_COLOR, scaleBar, wlText } from './overlayGrammar';
-import { getReadingPlace, planesIntersection, setReadingPlace } from './readingPlace';
+import { armedPlace, getReadingPlace, planesIntersection, setReadingPlace } from './readingPlace';
 import type { AgentReply } from './useAgentBridge';
 import {
   VP,
@@ -548,8 +548,9 @@ export default function CbctViewport({
   // which pane takes the wheel (the 1 px accent frame); the pointer decides
   const { active: activePane, bind: bindPane } = useActivePane<string>(VP.axial);
   // the reading place (./readingPlace): written from the crosshair centre once this volume's
-  // stored place has been applied, so the reset cameras of a fresh attach never overwrite it
-  const placeArmedRef = useRef(false);
+  // stored place has been applied, so the reset cameras of a fresh attach never overwrite it.
+  // It holds the id of the volume it is armed for: a volume change disarms it in that render.
+  const placeArmedRef = useRef<string | null>(null);
   const anonRef = useRef(anon);
   anonRef.current = anon;
   const [measures, setMeasures] = useState<MeasureRow[]>([]);
@@ -1187,14 +1188,14 @@ export default function CbctViewport({
   // the crosshair centre (where the three slice planes meet) becomes the tab's reading place
   const writePlace = () => {
     const engine = engineRef.current;
-    if (!placeArmedRef.current || !engine) return;
+    if (placeArmedRef.current !== anonRef.current || !engine) return;
     try {
       const planes = MPR_IDS.map((id) => {
         const cam = engine.getViewport(id).getCamera();
         return { normal: (cam.viewPlaneNormal ?? [0, 0, 0]) as number[], point: (cam.focalPoint ?? [0, 0, 0]) as number[] };
       });
-      const world = planesIntersection(planes);
-      if (world) setReadingPlace({ anon: anonRef.current, world });
+      const place = armedPlace(placeArmedRef.current, anonRef.current, planesIntersection(planes));
+      if (place) setReadingPlace(place);
     } catch {
       /* pane mid-init */
     }
@@ -2033,7 +2034,7 @@ export default function CbctViewport({
     (async () => {
       try {
         setProgress(0);
-        placeArmedRef.current = false;
+        placeArmedRef.current = null;
         const entry = await loadVolumeData(anon, (f) => !stale && setProgress(Math.min(0.94, f)));
         if (stale || !engineRef.current) return;
         metaRef.current = entry.meta;
@@ -2159,9 +2160,9 @@ export default function CbctViewport({
         }
         // the reading place another mode left for this volume: the crosshair and the axial
         // level come back where they were (a pair swap kept its cameras already)
-        const place = getReadingPlace(anon);
+        const place = getReadingPlace(anon, entry.meta.pair);
         if (place && !isPairSwap) jumpPanesToWorld(place.world);
-        placeArmedRef.current = true;
+        placeArmedRef.current = anon;
         writePlaceRef.current();
         prevAnonRef.current = anon;
         setProgress(null);

@@ -116,8 +116,10 @@ gestures. Conventions that hold across modes:
 - **The reading place carries between modes.** The axial level and the MPR
   crosshair are shared: MPR at axial slice 120 opens Pano, TMJ, Reslice and
   Region on slice 120, and MPR comes back at 120 with the crosshair where it
-  was. The place belongs to the open volume and lives in this tab or window
-  only; it is not kept across a relaunch.
+  was, at the same x and y. The place belongs to the open volume (the paired
+  series of one acquisition count as one volume) and lives in this tab or
+  window only; another volume starts at its own default, and the place is not
+  kept across a relaunch.
 - **Disabled controls stay fully readable** and their tooltip says why they
   are unavailable; nothing dims, hides, or unmounts. The one dimming in the
   program is the backdrop behind an open dialogue, whose controls are the only
