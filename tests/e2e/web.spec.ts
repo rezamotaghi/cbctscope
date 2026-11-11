@@ -379,7 +379,7 @@ test.describe('opening files', () => {
     await expect.poll(() => mainCanvasHasImage(page), { timeout: 60_000 }).toBe(true);
 
     // one measurement, drawn the way a reader draws it: the Length tool, a drag on the first pane
-    const measureRows = page.locator('main').getByText(/^↔ \d+(\.\d+)? mm$/);
+    const measureRows = page.locator('main').getByText(/^Length \d+(\.\d+)? mm$/);
     await page.getByRole('button', { name: 'Length', exact: true }).click();
     const box = await page.locator('main canvas').first().boundingBox();
     if (!box) throw new Error('the first pane has no box');
@@ -444,7 +444,7 @@ test.describe('opening files', () => {
     await chooser.setFiles(saved);
     await expect(measureRows).toHaveCount(1, { timeout: 30_000 });
     // the restored mark is the saved one: its recomputed length is the distance of the saved handles
-    await expect(measureRows.first()).toHaveText(`↔ ${mm.toFixed(1)} mm`);
+    await expect(measureRows.first()).toHaveText(`Length ${mm.toFixed(1)} mm`);
     await page.waitForTimeout(2000);
     await expect(measureRows).toHaveCount(1);
   });

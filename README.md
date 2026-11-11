@@ -97,9 +97,9 @@ deleting the folder.
    downloads the viewer's components once (about 130 MB downloaded, 600 MB on
    disk: ten to fifteen seconds on the author's Mac and connection in
    September 2026, longer on a slow one); then your browser opens the viewer by itself. A built-in
-   **geometric test phantom** loads immediately: jaws, dental arches, teeth with
-   enamel and pulp, a metal crown, airway, sinuses, and TMJ condyles, all
-   procedurally generated. The full viewer works with zero patient data, and
+   **geometric test phantom** loads immediately: simple geometric shapes with
+   an arch of tooth-like cylinders, a test object for trying the controls, not
+   anatomy. The full viewer works with zero patient data, and
    the status line says so until you open a scan of your own. **Help** in the
    header opens the reading guide for the mode you are in.
 

@@ -18,7 +18,7 @@ export const PLANE_COLOR: Record<Plane, string> = {
 /** the dark halo under every line of overlay text: legible on bright bone and on air alike */
 export const OVERLAY_HALO = '0 0 2px #000, 0 0 3px #000, 0 1px 2px #000';
 
-/** "W 4000 L 1000": the window shown in a pane, whole numbers, width first as on the comparables */
+/** "W 4000 L 1000": the window shown in a pane, whole numbers, width first, then level */
 export function wlText(voi: { center: number; width: number }): string {
   return `W ${Math.round(voi.width)} L ${Math.round(voi.center)}`;
 }

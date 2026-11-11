@@ -411,8 +411,8 @@ const MEASURE_TOOLS = new Set<string>([
   PlanarFreehandROITool.toolName,
 ]);
 
-// One-line object-browser label per annotation: kind glyph + the value that matters
-// (mm / ° / HU stats / the typed text).
+// One-line object-browser label per annotation: its kind in words, as the tool palette names
+// it, then the value that matters (mm, degrees, HU stats, the typed text). No glyphs.
 function annotationLabel(a: {
   metadata?: { toolName?: string };
   data?: {
@@ -428,16 +428,16 @@ function annotationLabel(a: {
   const txt = (a.data?.label || a.data?.text || '').trim();
   switch (tn) {
     case LengthTool.toolName:
-      return stats?.length != null ? `↔ ${stats.length.toFixed(1)} mm` : '↔ …';
+      return stats?.length != null ? `Length ${stats.length.toFixed(1)} mm` : 'Length …';
     case AngleTool.toolName:
-      return stats?.angle != null ? `∠ ${stats.angle.toFixed(1)}°` : '∠ …';
+      return stats?.angle != null ? `Angle ${stats.angle.toFixed(1)}°` : 'Angle …';
     case ArrowAnnotateTool.toolName:
-      return `➤ ${txt || 'arrow'}`;
+      return txt ? `Arrow: ${txt}` : 'Arrow';
     case LabelTool.toolName:
-      return `T ${txt || 'text'}`;
+      return txt ? `Text: ${txt}` : 'Text';
     case RectangleROITool.toolName:
     case EllipticalROITool.toolName: {
-      const glyph = tn === RectangleROITool.toolName ? '▭' : '⬭';
+      const glyph = tn === RectangleROITool.toolName ? 'Rect ROI' : 'Ellipse ROI';
       if (stats?.mean == null) return `${glyph} …`;
       const sd = stats.stdDev != null ? `±${Math.round(stats.stdDev)}` : '';
       const area = stats.area != null ? ` · ${stats.area.toFixed(0)} mm²` : '';
@@ -448,18 +448,18 @@ function annotationLabel(a: {
       if (a.data?.contour?.closed) {
         if (stats?.mean != null) {
           const area = stats.area != null ? ` · ${stats.area.toFixed(0)} mm²` : '';
-          return `⬯ ${Math.round(stats.mean)}±${Math.round(stats.stdDev ?? 0)} HU${area}`;
+          return `Freehand ${Math.round(stats.mean)}±${Math.round(stats.stdDev ?? 0)} HU${area}`;
         }
-        return '⬯ region';
+        return 'Freehand region';
       }
       if (poly && poly.length > 1) {
         let len = 0;
         for (let i = 1; i < poly.length; i++) {
           len += Math.hypot(poly[i][0] - poly[i - 1][0], poly[i][1] - poly[i - 1][1], poly[i][2] - poly[i - 1][2]);
         }
-        return `〰 ${len.toFixed(1)} mm`;
+        return `Freehand ${len.toFixed(1)} mm`;
       }
-      return '〰 …';
+      return 'Freehand …';
     }
     default:
       return tn ?? '?';
@@ -3476,7 +3476,7 @@ export default function CbctViewport({
                   title={`3D box ROI ${dims} mm, ${s.nVoxels.toLocaleString()} voxels, min ${Math.round(s.minHu)} and max ${Math.round(s.maxHu)} HU. Click to move the slices to it.`}
                   style={{ ...objLabelBtn, color: '#ffb45e' }}
                 >
-                  ⧈ {s.volumeCm3 >= 1 ? s.volumeCm3.toFixed(1) : s.volumeCm3.toFixed(2)} cm³ ·{' '}
+                  3D ROI {s.volumeCm3 >= 1 ? s.volumeCm3.toFixed(1) : s.volumeCm3.toFixed(2)} cm³ ·{' '}
                   {Math.round(s.meanHu)}±{Math.round(s.sdHu)} HU
                 </button>
                 <button

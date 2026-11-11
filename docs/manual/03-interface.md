@@ -32,8 +32,9 @@ right:
    serves, grouped as Stitched (session stitches from the Stitch mode),
    Opened (your export, under its folder name), and Built in (the phantom).
    Each entry shows its field of view, matrix, and acquisition details where
-   present. The built-in phantom is the **Geometric test phantom**: a
-   procedural head of simple shapes for trying the controls, not a jaw. The
+   present. The built-in phantom is the **Geometric test phantom**: simple
+   geometric shapes with an arch of tooth-like cylinders, for trying the
+   controls; it is not anatomy. The
    previous and next buttons on either side of the list, or the `N` and `P`
    keys, cycle through it.
 5. **Open**: the source menu for opening and closing your own exports
