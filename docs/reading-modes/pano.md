@@ -46,10 +46,10 @@ the course of the mandibular canal traced in three dimensions.
 
 **The arch editor** (left) shows an axial slice with its own slice slider. The arch has
 two phases, PLACING and FINISHED, and the status chip under the editor always names the
-phase; once FINISHED, clicks on the slice are inert. "Auto arch" proposes the arch from
-the anatomy of the current slice, to be adjusted by dragging the dots. "Delete arch"
+phase; once FINISHED, clicks on the slice are inert. **Auto arch** proposes the arch from
+the anatomy of the current slice, to be adjusted by dragging the dots. **Delete arch**
 removes the whole line (clearing the pano and cross-sections) and returns to placing;
-"Reset arch" puts the arch back to its position as of the last finish, undoing dot and
+**Reset arch** puts the arch back to its position as of the last finish, undoing dot and
 whole-arch drags. The arch persists per volume across sessions.
 
 The editor also draws the slab envelope: two green curves flanking the band of anatomy
@@ -59,31 +59,35 @@ what sits outside is not.
 
 **Panes.** The axial editor shows `AXIAL n/N` top left and the window bottom right. The
 pano's caption sits in a strip above it; its window readout, bottom right, follows
-auto-adjust. The cross-sections carry the window bottom right of the last one.
+Auto adjust. The cross-sections carry the window bottom right of the last one.
 Measurement labels stay inside the image on a dark halo. The pane that takes the wheel carries a thin blue frame, and the axial level is the reading place shared with the other modes (section 3.3).
 
-**The pano canvas** carries a ruler marking arc-length in mm. Its controls:
+**The pano canvas** carries a ruler marking arc-length in mm. Its controls, in the rows
+under it (a selected chip or toggle is solid blue):
 
 | Control | Range or options | What it does |
 |---|---|---|
-| section position along arch | mm | The same movement as a click on the pano, as a slider |
-| slab | 2 to 40 mm | The depth sampled around the arch layer; MIP switches the slab from average to brightest-voxel |
-| layers | 1, 3, or 5 | A stack of parallel pano layers to flip through the focal trough |
-| layer spacing | 0.5 to 6 mm | The distance between those layers |
-| radius shift | -8 to +8 mm | Slides the whole sampling layer buccal or lingual without redrawing the arch; double-click resets |
-| adaptive layer | toggle | The layer bends buccal or lingual to follow the sharpest anatomy; click again to return to the flat drawn layer |
-| pano enhance | toggle | A one-click contrast window computed from the pano's own pixels plus light sharpening; click again to undo. It overrides the shared window for the pano until toggled off |
-| vertical crop | two handles on the pano's right edge | Drag the top handle down or the bottom handle up to cut skull base or hyoid level out of the pano and sections; the kept band scales into the fixed pane, and double-click on a handle resets it. This is a real cut of the sampled range, not a mask |
+| Section position along arch | mm | The same movement as a click on the pano, as a slider |
+| Slab | 2 to 40 mm | The depth sampled around the arch layer; MIP switches the slab from average to brightest-voxel |
+| Layers | 1, 3, or 5 | A stack of parallel pano layers to flip through the focal trough |
+| Layer spacing | 0.5 to 6 mm | The distance between those layers |
+| Radius shift | -8 to +8 mm | Slides the whole sampling layer buccal or lingual without redrawing the arch; double-click resets |
+| Auto focus | toggle | The layer bends buccal or lingual to follow the sharpest anatomy; click again to return to the flat drawn layer |
+| Auto adjust | toggle | A one-click contrast window computed from the pano's own pixels plus light sharpening; click again to undo. It overrides the shared window for the pano until toggled off |
+| Vertical range | two handles on the pano's right edge | Drag the top handle down or the bottom handle up to cut skull base or hyoid level out of the pano and sections; the kept band scales into the fixed pane, and double-click on a handle resets it. This is a real cut of the sampled range, not a mask |
+| Reset position | button | Returns the reading position, as described under Section rotation below |
+| Measure, Clear (n) | toggle, button | Measuring on the pano and the cross-sections, and removing every measurement (n counts them) |
 
 **Cross-sections:**
 
 | Control | Range or options | What it does |
 |---|---|---|
-| sections | 1 to 9 | How many cross-sections |
-| section width | 10 to 50 mm | The width of each section |
-| spacing | 1 to 10 mm | The distance between sections |
-| thickness | 0 to 10 mm | Averaged along the arch |
-| mirror | toggle | Flips which side of the arch faces left in every section |
+| Sections | 1 to 9 | How many cross-sections |
+| Tilt, Upright | readout, button | The fan's tilt in degrees, and the button that sets it back to 0° |
+| Spacing | 1 to 10 mm | The distance between sections |
+| Width | 10 to 50 mm | The width of each section |
+| Thickness | 0 to 10 mm | Averaged along the arch |
+| Mirror | toggle | Flips which side of the arch faces left in every section |
 
 Each section is numbered to match its line on the axial editor and on the pano; its
 caption, in a strip above the image, gives its arc position in mm, the centre section's
@@ -93,30 +97,31 @@ in bold yellow.
 sweep gesture as the MPR and grid rotations, with a live degree chip. The tilt drives the
 whole frame rigidly: the pano re-cuts with the same leaning vertical, the axial editor
 goes oblique to match, and the arch and canal traces stay visible on it as dashed true
-projections. "reset position" returns the reading position (sections to mid-arch, tilt
+projections. **Reset position** returns the reading position (sections to mid-arch, tilt
 upright, full vertical crop, radius shift zero) while leaving the arch, slab settings,
 and pane layout untouched. The pane dividers between editor, pano, and sections drag to
 resize and double-click to reset.
 
-**Canal traces.** "+ nerve" or "+ root canal" starts a trace. Click along the canal on
+**Canal traces.** **Add nerve** or **Add root canal** starts a trace. Click along the canal on
 the pano to add points; click on a cross-section to set the exact buccolingual position
-and height at that arc position; right-click a point on the pano deletes it. "done
-tracing" stops adding points. Each trace is a 3D polyline in volume space, projected live
+and height at that arc position; right-click a point on the pano deletes it. **Done
+tracing** stops adding points. Each trace is a 3D polyline in volume space, projected live
 onto the pano as a colored line, onto every cross-section as a crossing dot, and onto the
-axial editor as dots. Traces can be hidden or deleted per trace and persist in the
-evidence sidecar.
+axial editor as dots. Each trace has its row: the trace button (solid blue while it is the
+one being traced; click it to resume or stop), **Shown** or **Hidden**, and **Delete**.
+Traces persist in the evidence sidecar.
 
-**Measure.** The measure button turns dragging on the pano or a cross-section into a mm
-measurement on that reformat surface; right-click a line deletes it, and "clear" removes
+**Measure.** The **Measure** button turns dragging on the pano or a cross-section into a mm
+measurement on that reformat surface; right-click a line deletes it, and **Clear (n)** removes
 all of them. Measurements persist with the traces.
 
-**Window.** The shared Window (HU) presets, center, width, and invert apply (pano enhance
+**Window.** The shared Window (HU) presets, center, width, and invert apply (Auto adjust
 overrides them for the pano until toggled off).
 
 ## A reading workflow
 
 1. Scroll the axial editor to a slice through the tooth-bearing arch and draw the arch in
-   one stroke through the middle of it, or start from "auto arch" and adjust the dots.
+   one stroke through the middle of it, or start from **Auto arch** and adjust the dots.
 2. Draw the arch through the roots and alveolar process rather than the crowns, so the
    pano layer carries the structures the read is about.
 3. Set slab thickness to cover the buccolingual spread of the arch; widen it, or add

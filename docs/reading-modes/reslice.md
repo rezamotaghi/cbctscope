@@ -5,7 +5,7 @@
 >   at any angle or a curved arc, where the fixed planes do not reach.
 > - **Start:** scroll the scout to the slice where the structure is best defined, draw the
 >   path (drag a stroke, or click points: two make a line, three or more an arc),
->   double-click to finish, then choose the **cross** or **parallel** output shape.
+>   double-click to finish, then choose the **Cross** or **Parallel** output shape.
 > - **Three gestures:** on the scout, drag or click draws the path and the wheel scrolls;
 >   right-drag on an output tile tilts the stack. The Keys card lists every gesture of the mode.
 > - **Leave it for:** measurements, which live in MPR; the dental arch (Pano) and the
@@ -45,19 +45,20 @@ The path and the scout slice persist per volume.
 | Control | Options or range | What it does |
 |---|---|---|
 | Panes | scout, stack | The scout shows `AXIAL n/N` top left and the window bottom right; each slice's number and offset sit in a strip above it, and the window is bottom right of the last slice. The pane that takes the wheel carries a thin blue frame, and the axial level is the reading place shared with the other modes (section 3.3). |
-| clear path | button | Removes the whole path and returns to placing. |
+| Clear path | button | Removes the whole path and returns to placing. |
 | Reset path | button | Returns the path to its position as of the last finish. |
-| Output shape | cross | Planes perpendicular to the path, marched along it. On a line this walks the line cutting across it; on a curve it steps along the arc cutting perpendicular cross-sections, as in the Pano cross-sections. |
-| | parallel | Planes containing the path direction, offset sideways. On a line this is a stack of parallel oblique reformats; on a curve it is the arc swept at a series of sideways shifts, a stack of curved reformats. |
-| slices | 3 to 16 | How many slices the stack holds. |
-| distance | 0.5 to 10 mm | The distance between slices. |
-| width | 10 to 60 mm | The width of each slice. |
-| thickness | 0 to 10 mm | Averaged into each slice. |
+| Output shape | Cross | Planes perpendicular to the path, marched along it. On a line this walks the line cutting across it; on a curve it steps along the arc cutting perpendicular cross-sections, as in the Pano cross-sections. |
+| | Parallel | Planes containing the path direction, offset sideways. On a line this is a stack of parallel oblique reformats; on a curve it is the arc swept at a series of sideways shifts, a stack of curved reformats. The selected shape is solid blue. |
+| Slices | 3 to 16 | How many slices the stack holds. |
+| Tilt, Upright | readout, button | The stack's tilt in degrees, and the button that sets it back to 0°. |
+| Spacing | 0.5 to 10 mm | The distance between slices. |
+| Width | 10 to 60 mm | The width of each slice. |
+| Thickness | 0 to 10 mm | Averaged into each slice. |
 | MIP | checkbox | Brightest voxel instead of the average, for straight-line stacks and parallel curved reformats. |
-| vertical crop | two handles on the right edge of the stack | Trim its top and bottom; the kept band scales into the pane, and double-click on a handle resets it. |
+| Vertical range | two handles on the right edge of the stack | Trim its top and bottom; the kept band scales into the pane, and double-click on a handle resets it. |
 | Stack rotation | right-drag on any output tile | The same sweep gesture as the MPR and grid rotations. The frame is rigid: the scout goes oblique to match and the drawn path projects onto it dashed while tilted. |
-| reset position | button | Returns the tilt upright and the vertical crop to full, leaving the path, stack parameters, and the divider untouched. |
-| save stack | button | Saves the whole stack as one PNG, tiled, with a caption line carrying the volume id, stack geometry, and date. |
+| Reset position | button | Returns the tilt upright and the vertical crop to full, leaving the path, stack parameters, and the divider untouched. |
+| Snapshot | header button | In this mode it saves the whole stack as one PNG, tiled, with a caption line carrying the volume id, stack geometry, and date. |
 | Scout markers and tiles | scout, tiles | The scout draws the path plus numbered markers showing where each output slice cuts, and outlines the sampled band in green, showing exactly the anatomy the stack cuts through; the output tiles carry the matching number and the offset in mm from the path midpoint. The middle slice of the stack is highlighted on both sides. |
 | Window | shared sidebar | The shared Window (HU) presets, center, width, and invert apply. |
 
@@ -68,11 +69,11 @@ The path and the scout slice persist per volume.
 2. Choose the output shape from the question: cross-sections to examine a structure's
    short axis repeatedly along its length, parallel to view it in its own long-axis
    plane at several depths.
-3. Set distance so the stack spans the structure with the sampling you need; the slice
-   count times the distance is the total coverage, centered on the path midpoint.
-4. Set width generously at first, then tighten it once the stack is centered where it
+3. Set Spacing so the stack spans the structure with the sampling you need; the slice
+   count times the spacing is the total coverage, centered on the path midpoint.
+4. Set Width generously at first, then tighten it once the stack is centered where it
    should be.
-5. Keep thickness near zero for fine detail, and add thickness or MIP when continuity
+5. Keep Thickness near zero for fine detail, and add thickness or MIP when continuity
    through noise matters more than edge sharpness.
 6. Use the numbered markers on the scout to keep every output tile anchored to its
    position in the anatomy.

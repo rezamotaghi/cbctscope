@@ -167,23 +167,23 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
         const box = growBox();
         if (seed[2] < box.z0 || seed[2] > box.z1) {
           setResult(null);
-          setHint('the seed is outside the vertical range. Pull the range handles to include it.');
+          setHint('The seed is outside the vertical range. Pull the range handles to include it.');
           return;
         }
         if (seed[0] < box.x0 || seed[0] > box.x1 || seed[1] < box.y0 || seed[1] > box.y1) {
           setResult(null);
-          setHint('the seed is outside the box. Click inside it, or clear the box.');
+          setHint('The seed is outside the box. Click inside it, or clear the box.');
           return;
         }
         const res = growRegion(entry, seed, Math.min(lo, hi), Math.max(lo, hi), box, smooth);
         setResult(res);
-        setHint(res ? null : 'the seed voxel is outside the HU range. Click on the target tissue, or widen the range.');
+        setHint(res ? null : 'The seed voxel is outside the HU range. Click on the target tissue, or widen the range.');
       } catch (err) {
         // a grow-time crash is recoverable — the volume, box, and handles are intact;
         // a different seed/range typically works, so this must never nuke the pane
         console.error('[cbct-region] grow failed', err);
         setResult(null);
-        setHint('region grow failed. Try a different seed, a smaller box, or a narrower range.');
+        setHint('Region grow failed. Try a different seed, a smaller box, or a narrower range.');
       } finally {
         setBusy(false);
       }
@@ -562,18 +562,9 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
     };
   }, [snapRef]);
 
-  const chip = (active: boolean): React.CSSProperties => ({
-    padding: '3px 8px',
-    borderRadius: 6,
-    border: '1px solid var(--border)',
-    background: active ? 'var(--accent-dim)' : 'var(--panel-2)',
-    color: 'var(--text)',
-    cursor: 'pointer',
-    fontSize: 11,
-  });
-  const small: React.CSSProperties = { fontSize: 'var(--fs-meta)', color: 'var(--text-dim)' };
+  const small: React.CSSProperties = { fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', fontVariantNumeric: 'tabular-nums' };
   const stat = (label: string, value: string) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12 }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 'var(--fs-meta)' }}>
       <span style={{ color: 'var(--text-dim)' }}>{label}</span>
       <span style={{ fontVariantNumeric: 'tabular-nums' }}>{value}</span>
     </div>
@@ -637,38 +628,44 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
             }}
           />
         </div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '2px' }}>
+        <div className="mode-row">
           {Object.keys(HU_PRESETS).map((k) => (
-            <button key={k} style={chip(presetKey === k)} title={`${HU_PRESETS[k].lo}…${HU_PRESETS[k].hi} HU`} onClick={() => applyPreset(k)}>
+            <button
+              key={k}
+              type="button"
+              className="ctl"
+              aria-pressed={presetKey === k}
+              title={`${HU_PRESETS[k].lo} to ${HU_PRESETS[k].hi} HU`}
+              onClick={() => applyPreset(k)}
+            >
               {HU_PRESETS[k].label}
             </button>
           ))}
-          <label
-            style={{ ...small, display: 'flex', gap: 4, alignItems: 'center' }}
-            title="morphological closing on the grown mask: fills pinholes and hairline gaps (slower)"
-          >
-            <input type="checkbox" checked={smooth} onChange={(e) => setSmooth(e.target.checked)} /> smooth
+          <label className="mode-check" title="Morphological closing on the grown mask: fills pinholes and hairline gaps (slower)">
+            <input type="checkbox" checked={smooth} onChange={(e) => setSmooth(e.target.checked)} /> Smooth
           </label>
           <button
-            style={chip(false)}
+            type="button"
+            className="ctl"
             disabled={!box2d}
-            title="delete the bounding box. The seed and mask stay, regrown against the whole slice footprint"
+            title={box2d ? 'Delete the bounding box. The seed and mask stay, regrown against the whole slice footprint' : 'No box to clear yet: drag one on the axial scout'}
             onClick={() => setBox2d(null)}
           >
-            clear box
+            Clear box
           </button>
           <button
-            style={chip(false)}
+            type="button"
+            className="ctl"
             disabled={!seed}
-            title="clear the seed and mask. The box stays for the next seed."
+            title={seed ? 'Clear the seed and mask. The box stays for the next seed.' : 'No seed to clear yet: click one on the axial scout'}
             onClick={() => setSeed(null)}
           >
-            clear seed
+            Clear seed
           </button>
         </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', padding: '2px', alignItems: 'center' }}>
-          <label style={{ ...small, display: 'flex', gap: 6, alignItems: 'center' }}>
-            HU {lo}
+        <div className="mode-row">
+          <label className="mode-label">
+            HU from {lo}
             <input
               type="range"
               min={-1024}
@@ -677,12 +674,12 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
               value={lo}
               onChange={(e) => { setLo(Number(e.target.value)); setPresetKey(''); }}
               onDoubleClick={() => { setLo(HU_PRESETS[lastPreset.current].lo); setPresetKey(lastPreset.current); setHi(HU_PRESETS[lastPreset.current].hi); }}
-              title="lower HU bound of the grow · double-click = back to the last preset"
+              title="Lower HU bound of the grow. Double-click: back to the last preset."
               style={{ width: 90 }}
             />
           </label>
-          <label style={{ ...small, display: 'flex', gap: 6, alignItems: 'center' }}>
-            – {hi}
+          <label className="mode-label">
+            To {hi}
             <input
               type="range"
               min={-1024}
@@ -691,23 +688,23 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
               value={hi}
               onChange={(e) => { setHi(Number(e.target.value)); setPresetKey(''); }}
               onDoubleClick={() => { setLo(HU_PRESETS[lastPreset.current].lo); setPresetKey(lastPreset.current); setHi(HU_PRESETS[lastPreset.current].hi); }}
-              title="upper HU bound of the grow · double-click = back to the last preset"
+              title="Upper HU bound of the grow. Double-click: back to the last preset."
               style={{ width: 90 }}
             />
           </label>
           <span
-            style={small}
-            title="the grow's vertical bounds: set them with the two handles right of the planes; the dashed green lines on sagittal/coronal show where they sit"
+            className="mode-label"
+            title="The grow's vertical bounds: set them with the two handles right of the planes; the dashed green lines on sagittal and coronal show where they sit"
           >
-            vertical range {Math.round(zFrac[0] * 100)}–{Math.round(zFrac[1] * 100)}%
+            Vertical range {Math.round(zFrac[0] * 100)} to {Math.round(zFrac[1] * 100)}%
           </span>
         </div>
       </div>
 
-      {/* draggable divider: scout ↔ planes */}
+      {/* draggable divider: scout and planes */}
       <DragDivider
         cursor="col-resize"
-        title="drag to resize the scout vs the planes · double-click resets"
+        title="Drag to resize the scout against the planes. Double-click resets."
         style={{ borderRadius: 3, alignSelf: 'stretch' }}
         onMove={(clientX) => {
           const r = rootRef.current?.getBoundingClientRect();
@@ -736,11 +733,11 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
               <canvas ref={sagCv} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
               <PaneLabel name="SAGITTAL" color={PLANE_COLOR.sagittal} slice="at the seed" />
               {seed && <WlReadout voi={effVoi} />}
-              {!seed && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', fontSize: 12 }}>set a seed →</div>}
+              {!seed && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', fontSize: 'var(--fs-meta)' }}>Click a seed on the axial scout</div>}
             </div>
             <DragDivider
               cursor="col-resize"
-              title="drag to resize sagittal vs coronal · double-click resets"
+              title="Drag to resize sagittal against coronal. Double-click resets."
               style={{ borderRadius: 3 }}
               onMove={(clientX) => {
                 const r = planesRef.current?.getBoundingClientRect();
@@ -760,37 +757,37 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <div style={{ minWidth: 210, display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {busy && <div style={small}>growing…</div>}
-            {hint && <div style={{ ...small, color: 'var(--warn)', whiteSpace: 'normal', lineHeight: 1.4 }}>⚠ {hint}</div>}
+            {busy && <div style={small}>Growing…</div>}
+            {hint && <div className="mode-warn">{hint}</div>}
             {result ? (
               <>
-                {stat('volume', `${result.volumeCm3.toFixed(2)} cm³`)}
-                {stat('voxels', result.voxelCount.toLocaleString())}
-                {stat('mean HU', `${result.meanHU.toFixed(0)} ± ${result.sdHU.toFixed(0)}`)}
-                {stat('range HU', `${result.minHU.toFixed(0)} … ${result.maxHU.toFixed(0)}`)}
-                {stat('narrowest', `${result.narrowestAreaMm2.toFixed(1)} mm²`)}
-                {result.capped && <div style={{ ...small, color: 'var(--warn)' }}>⚠ hit the 4M-voxel cap: tighten the box or range</div>}
+                {stat('Volume', `${result.volumeCm3.toFixed(2)} cm³`)}
+                {stat('Voxels', result.voxelCount.toLocaleString())}
+                {stat('Mean HU', `${result.meanHU.toFixed(0)} ± ${result.sdHU.toFixed(0)}`)}
+                {stat('Range HU', `${result.minHU.toFixed(0)} to ${result.maxHU.toFixed(0)}`)}
+                {stat('Narrowest', `${result.narrowestAreaMm2.toFixed(1)} mm²`)}
+                {result.capped && <div className="mode-warn">Hit the 4M-voxel cap: tighten the box or range</div>}
               </>
             ) : (
-              <div style={{ ...small, whiteSpace: 'normal', lineHeight: 1.5 }}>
+              <div className="mode-note">
                 Pick a density preset, draw a box around the target, then click a seed inside it.
                 Corners resize the box, its inside drags it, right-click deletes it; the two
                 handles right of the planes bound the grow vertically (dashed lines show them).
-                For an airway: air preset, a box around the pharynx, seed in the black column. The
+                For an airway: the Air / airway preset, a box around the pharynx, seed in the black column. The
                 graph below is its area at each height, narrowest slice flagged.
               </div>
             )}
           </div>
           <div>
-            <div style={small}>cross-sectional area vs height</div>
+            <div style={small}>Cross-sectional area against height</div>
             <canvas ref={areaCv} style={{ width: 220, height: 90, borderRadius: 4, border: '1px solid var(--border)' }} />
           </div>
         </div>
       </div>
 
       {progress !== null && (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(12,14,18,0.82)', zIndex: 5, color: 'var(--text-dim)' }}>
-          loading volume… {Math.round((progress ?? 0) * 100)}%
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(12,14,18,0.82)', zIndex: 5, color: 'var(--text-dim)', fontVariantNumeric: 'tabular-nums' }}>
+          Loading volume… {Math.round((progress ?? 0) * 100)}%
         </div>
       )}
     </div>

@@ -180,7 +180,7 @@ figures so they do not jitter while they change:
   card and the status line.
 - **Bottom right**: the window the pane shows, width then level, for example
   `W 4000 L 1000`. It follows the presets, the sliders and a window drag. In
-  Pano the pano's own readout follows auto-adjust.
+  Pano the pano's own readout follows Auto adjust.
 - **Edge midpoints** (MPR): the patient-orientation letters, computed from the
   live camera.
 - **Bottom centre** (MPR): the scale bar, a yellow bar of a round length (1,

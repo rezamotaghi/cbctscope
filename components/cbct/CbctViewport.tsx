@@ -2937,7 +2937,7 @@ export default function CbctViewport({
         <>
           <DragDivider
             cursor="col-resize"
-            title="drag: resize panes · double-click: even split"
+            title="Drag: resize panes. Double-click: even split."
             style={{
               position: 'absolute',
               top: 0,
@@ -2965,7 +2965,7 @@ export default function CbctViewport({
           />
           <DragDivider
             cursor="row-resize"
-            title="drag: resize panes · double-click: even split"
+            title="Drag: resize panes. Double-click: even split."
             style={{
               position: 'absolute',
               left: 0,
@@ -2993,7 +2993,7 @@ export default function CbctViewport({
           />
           <DragDivider
             cursor="move"
-            title="drag: resize all four panes · double-click: even split"
+            title="Drag: resize all four panes. Double-click: even split."
             style={{
               position: 'absolute',
               width: 16,
@@ -3037,7 +3037,7 @@ export default function CbctViewport({
             key={c.id}
             {...bindPane(c.id)}
             onDoubleClick={() => setMaximized((m) => (m === c.id ? null : c.id))}
-            title="double-click: maximize or restore"
+            title="Double-click: maximize or restore"
             style={{
               position: isMax ? 'absolute' : 'relative',
               inset: isMax ? 0 : undefined,
@@ -3255,7 +3255,7 @@ export default function CbctViewport({
                   whiteSpace: 'nowrap',
                 }}
               >
-                rotating {rotDrag.deg >= 0 ? '+' : ''}
+                Rotating {rotDrag.deg >= 0 ? '+' : ''}
                 {rotDrag.deg.toFixed(0)}°. R resets.
               </span>
             )}
@@ -3362,7 +3362,7 @@ export default function CbctViewport({
                   whiteSpace: 'nowrap',
                 }}
               >
-                slicing {cutDrag.toFixed(0)} mm deep
+                Slicing {cutDrag.toFixed(0)} mm deep
               </span>
             )}
             {is3d && cutCount > 0 && (
@@ -3398,7 +3398,7 @@ export default function CbctViewport({
             borderRadius: 4,
           }}
         >
-          <div style={{ color: 'var(--text-dim)' }}>loading volume… {Math.round(progress * 100)}%</div>
+          <div style={{ color: 'var(--text-dim)', fontVariantNumeric: 'tabular-nums' }}>Loading volume… {Math.round(progress * 100)}%</div>
           <div style={{ width: 260, height: 6, background: 'var(--panel-2)', borderRadius: 3 }}>
             <div
               style={{
@@ -3438,7 +3438,7 @@ export default function CbctViewport({
             Objects. Click one to show it on the slices; Del deletes the selected one.
           </div>
           {measures.map((m) => (
-            <div key={m.uid} style={{ ...objRow, background: selectedUid === m.uid ? 'var(--accent-dim)' : 'transparent' }}>
+            <div key={m.uid} style={objRow}>
               <button
                 onClick={() => toggleMeasureVisible(m.uid, !m.visible)}
                 aria-label={m.visible ? 'Hide this object' : 'Show this object'}
@@ -3447,7 +3447,12 @@ export default function CbctViewport({
               >
                 {m.visible ? <Eye size={14} strokeWidth={2} aria-hidden /> : <EyeOff size={14} strokeWidth={2} aria-hidden />}
               </button>
-              <button onClick={() => pickMeasure(m)} title="Select it and move the slices to it" style={objLabelBtn}>
+              <button
+                onClick={() => pickMeasure(m)}
+                aria-pressed={selectedUid === m.uid}
+                title="Select it and move the slices to it"
+                style={selectedUid === m.uid ? { ...objLabelBtn, ...objLabelSelected } : objLabelBtn}
+              >
                 {m.label}
               </button>
               <button onClick={() => deleteMeasure(m.uid)} aria-label="Delete this object" title="Delete this object" style={objIconBtn}>
@@ -3460,7 +3465,7 @@ export default function CbctViewport({
             const s = roi.stats;
             const dims = roi.half.map((h) => (h * 2).toFixed(0)).join('×');
             return (
-              <div key={uid} style={{ ...objRow, background: selectedUid === uid ? 'var(--accent-dim)' : 'transparent' }}>
+              <div key={uid} style={objRow}>
                 <button
                   onClick={() => {
                     setRois3d((rs) => rs.map((r) => (r.id === roi.id ? { ...r, visible: !r.visible } : r)));
@@ -3476,8 +3481,9 @@ export default function CbctViewport({
                     setSelectedUid((cur) => (cur === uid ? null : uid));
                     jumpPanesToWorld(roi.center);
                   }}
+                  aria-pressed={selectedUid === uid}
                   title={`3D box ROI ${dims} mm, ${s.nVoxels.toLocaleString()} voxels, min ${Math.round(s.minHu)} and max ${Math.round(s.maxHu)} HU. Click to move the slices to it.`}
-                  style={{ ...objLabelBtn, color: '#ffb45e' }}
+                  style={selectedUid === uid ? { ...objLabelBtn, ...objLabelSelected } : { ...objLabelBtn, color: '#ffb45e' }}
                 >
                   3D ROI {s.volumeCm3 >= 1 ? s.volumeCm3.toFixed(1) : s.volumeCm3.toFixed(2)} cm³ ·{' '}
                   {Math.round(s.meanHu)}±{Math.round(s.sdHu)} HU
@@ -3509,7 +3515,7 @@ export default function CbctViewport({
               </button>
               {v.by === 'agent' && (
                 <span
-                  title="saved by an AI agent over the agent bridge, not by you"
+                  title="Saved by an AI agent over the agent bridge, not by you"
                   style={{
                     fontSize: 'var(--fs-meta)',
                     lineHeight: '16px',
@@ -3519,7 +3525,7 @@ export default function CbctViewport({
                     color: 'var(--text)',
                   }}
                 >
-                  agent
+                  Agent
                 </span>
               )}
               <button
@@ -3574,6 +3580,13 @@ const objLabelBtn: React.CSSProperties = {
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
+};
+/** the selected object: solid accent, dark text, the app's one selection signal */
+const objLabelSelected: React.CSSProperties = {
+  background: 'var(--accent)',
+  color: '#0c0e12',
+  borderRadius: 'var(--ctl-radius)',
+  padding: '0 4px',
 };
 
 function applyVoi(

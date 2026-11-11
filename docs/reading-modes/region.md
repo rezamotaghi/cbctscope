@@ -4,7 +4,7 @@
 > - **What the view shows:** how large is this connected low-density or high-density region, and
 >   where is it narrowest? The upper airway is the canonical case.
 > - **Start:** scroll the scout to the middle of the target, pick a density preset
->   (**air / airway**, **soft tissue**, **bone**, or **tooth / root**), drag a bounding box
+>   (**Air / airway**, **Soft tissue**, **Bone**, or **Tooth / root**), drag a bounding box
 >   just around the target, then click a seed well inside it.
 > - **Three gestures:** on the scout, drag draws the box, a click drops the seed, and the
 >   wheel scrolls the slice. The Keys card lists every gesture of the mode.
@@ -37,13 +37,14 @@ case.
 | Control | Options or range | What it does |
 |---|---|---|
 | Panes | axial, sagittal, coronal | Each shows its plane top left (`AXIAL n/N`, or "at the seed" for the two planes cut through the seed) and the window bottom right. The pane that takes the wheel carries a thin blue frame, and the axial level is the reading place shared with the other modes (section 3.3). |
-| Density presets | air / airway (-1024 to -400 HU), soft tissue (-200 to 300 HU), bone (400 to 3200 HU), tooth / root (900 to 2600 HU) | The density range the fill may include. |
-| HU sliders | two sliders | Set the range manually; touching them clears the preset highlight. |
-| smooth | checkbox | One pass of morphological closing that fills pinholes in the mask. |
-| depth | plus or minus 5 to 200 slices | How many slices above and below the seed the grow may reach, the vertical extent of the bounding box. |
-| clear | button | Removes the box, seed, mask, and statistics. |
+| Density presets | Air / airway (-1024 to -400 HU), Soft tissue (-200 to 300 HU), Bone (400 to 3000 HU), Tooth / root (900 to 2600 HU) | The density range the fill may include; the selected preset is solid blue. |
+| HU from, To | two sliders | Set the range manually; touching them clears the preset selection. Double-click returns to the last preset. |
+| Smooth | checkbox | One pass of morphological closing that fills pinholes in the mask. |
+| Vertical range | two handles right of the planes | How far up and down the grow may reach; dashed green lines on the sagittal and coronal panes show where the bounds sit, and double-click on a handle resets it. |
+| Clear box | button | Removes the bounding box; the seed and mask stay, regrown against the whole slice footprint. |
+| Clear seed | button | Removes the seed, the mask, and the statistics; the box stays for the next seed. |
 | Results panel | read-only | Volume in cm3, voxel count, mean HU with standard deviation, HU range, and the narrowest cross-sectional area in mm2. A warning appears if the grow hits the 4-million-voxel cap, meaning the box or range should be tightened. |
-| Cross-sectional area vs height | graph | The masked area at each height, inferior to superior, with the narrowest non-empty slice flagged; the same level is marked with a dashed line on the sagittal and coronal panes, which are cut through the seed and show the mask as a green overlay. |
+| Cross-sectional area against height | graph | The masked area at each height, inferior to superior, with the narrowest non-empty slice flagged; the same level is marked with a dashed line on the sagittal and coronal panes, which are cut through the seed and show the mask as a green overlay. |
 | Window | shared sidebar | The shared Window (HU) presets, center, width, and invert control the underlying grayscale; the mask overlay is independent of the window. |
 
 ## A reading workflow
@@ -57,9 +58,9 @@ case.
 4. Check the mask on all three planes before trusting any number: the statistics
    describe the mask, and the mask is only right if it covers the target and nothing
    else.
-5. If the mask leaks, tighten the box, narrow the range, or reduce the depth; if it
-   under-fills, widen the range or enable smooth to close pinholes.
-6. For an airway view: air preset, a box around the pharynx, seed in the air column; the
+5. If the mask leaks, tighten the box, narrow the range, or pull in the vertical range; if it
+   under-fills, widen the range or enable Smooth to close pinholes.
+6. For an airway view: the Air / airway preset, a box around the pharynx, seed in the air column; the
    graph then gives the area at each height with the narrowest slice flagged.
 7. Read the narrowest level on the sagittal and coronal panes at the dashed line, not
    only on the graph.
