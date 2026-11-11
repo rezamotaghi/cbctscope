@@ -41,7 +41,7 @@ volume is A; you pick B from the catalog.
 | Manual sliders | translation X, Y, Z (-60 to 60 mm); rotation rX, rY, rZ (-20 to 20 degrees) | In the toolbar above the previews; double-click a slider to zero that axis. |
 | Overlay mode | color, blend, checker, A, B | color: A green, B magenta, so overlap reads neutral grey and misalignment shows as colored fringes; blend: the average of the two; checker: alternating tiles of A and B; A or B: that volume only. |
 | Preview | axial, sagittal, coronal | Rendered at A's center. An overlap NCC readout updates whenever the transform settles; higher is better, and it turns green above a threshold. |
-| bake & load | button | Resamples both volumes onto one shared grid, averaging the overlap, registers the fused volume, uploads it to the server (the viewer process on this machine), and switches the viewer to it in MPR. The fused volume gets a `fused_` id and lives in server memory for this session only. |
+| bake & load | button | Resamples both volumes onto one shared grid, averaging the overlap, registers the fused volume, and switches the viewer to it in MPR. The fused volume gets a `fused_` id and lives in memory for this session only: in this tab on the website, in this app in the desktop app, and in the local server process when the viewer runs from the repository. Nothing is uploaded. |
 | Window | shared sidebar | The shared Window (HU) presets, center, width, and invert control the preview. |
 
 ## A reading workflow
@@ -80,6 +80,6 @@ differ by a rigid body transform and cannot correct for distortion, growth, or
 differences in acquisition geometry between them. It is meant for two scans of the same
 subject; aligning unrelated volumes is meaningless. The NCC score measures overlap
 similarity, not anatomical correctness, and the reader's eyes on the fringes are the real
-check. The fused volume is held in server memory for the session and is not persisted.
+check. The fused volume is held in memory (the tab's, the desktop app's, or the local server's) for the session and is not persisted.
 CBCTScope is navigation and visualization only: no findings, no diagnoses. Research use
 only; not a medical device.

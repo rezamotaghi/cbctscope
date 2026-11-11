@@ -919,8 +919,12 @@ export default function CbctApp() {
             title={
               IS_WEB
                 ? picking
-                  ? 'reading the files you chose into this tab'
-                  : 'Open a CBCT export (folder, DICOMDIR, or DICOM file), or drop it on the viewer. The browser reads it into this tab; nothing is uploaded.'
+                  ? inShell
+                    ? 'reading the files you chose into this app'
+                    : 'reading the files you chose into this tab'
+                  : inShell
+                    ? 'Open a CBCT export (folder, DICOMDIR, or DICOM file), or drop it on the viewer. This app reads it on this computer; nothing is uploaded.'
+                    : 'Open a CBCT export (folder, DICOMDIR, or DICOM file), or drop it on the viewer. The browser reads it into this tab; nothing is uploaded.'
                 : picking
                   ? 'the native file chooser is open: finish or cancel it first'
                   : 'Open a local CBCT export (folder, DICOMDIR, or DICOM file). Scans are read in place and never leave this computer.'
@@ -957,6 +961,12 @@ export default function CbctApp() {
                   >
                     📁 Open DICOMDIR or DICOM folder
                   </button>
+                  {/* the picker's own button may read "Upload": say what it means before it appears */}
+                  <div style={{ padding: '2px 10px 6px', fontSize: 12, color: 'var(--text)', lineHeight: 1.45, maxWidth: 300 }}>
+                    {inShell
+                      ? "The Open sheet may say 'Upload': that is its word for letting this app read the files. They stay on this computer."
+                      : "Your browser may say 'upload': that is its word for letting this page read the files. They stay in this tab."}
+                  </div>
                   <button
                     className="menu-item"
                     title="One multiframe volume or one 2D radiograph"

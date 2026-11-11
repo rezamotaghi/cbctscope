@@ -73,7 +73,11 @@ In the web build (section 2.5) the **📂 open** menu offers:
 - **📁 Open DICOMDIR or DICOM folder** for an export folder (a DICOMDIR tree,
   a slice series, or multiframe files). The browser asks you to confirm that
   the site may read the folder; that confirmation is the browser's, and
-  nothing is uploaded.
+  nothing is uploaded. A line under this entry says so before the picker
+  opens: the browser's button may read "upload", which is its word for letting
+  the page read the files, and they stay in the tab. In the desktop app the
+  line says the same of its Open sheet, and that the files stay on the
+  computer.
 - **🗄 Open a single DICOM file** for one multiframe volume or one 2D
   radiograph.
 
@@ -86,7 +90,8 @@ are recognized by their content, never by their names. In the desktop app,
 
 From the moment the files are handed over until the volume is on screen, a
 progress panel covers the image area with the step it is on and the seconds
-elapsed:
+elapsed, and says where the files are read: in this tab on the website, in
+this app on this computer in the desktop app:
 
 1. **Reading headers: 312 of 801 files**: every file's first bytes are read to
    find the DICOM ones and their geometry. Pixels are not read yet.
@@ -106,12 +111,13 @@ much else.
 
 The first time a real scan is opened in a browser profile, the
 **Research use only** dialogue explains that this is not a medical device,
-that the viewer moves the camera and you read, and that nothing leaves the
-browser. **I understand** dismisses it for good in that profile. The phantom
+that the agent moves the camera and the human reads, and that nothing leaves
+the tab (on the website) or this computer (in the desktop app). **I understand** dismisses it for good in that profile. The phantom
 never shows it.
 
 A volume above the size threshold (512 MiB of voxels by default) shows the
 **Large volume** notice before it loads: its size, and that the browser must
-hold it in memory. **Continue** loads it; **Cancel** leaves the viewer as it
+hold it in memory (the tab's on the website, the app's in the desktop app),
+and that the viewer run from the repository has no such limit. **Continue** loads it; **Cancel** leaves the viewer as it
 was. **✕ Close** works as in section 4.3, without any memory of the source
 between visits.

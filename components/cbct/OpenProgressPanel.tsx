@@ -4,6 +4,7 @@
 // Three phases with elapsed seconds; a clear end state when nothing opens.
 import { useEffect, useState } from 'react';
 import type { OpenProgress } from '@/lib/browser/volumeSource';
+import { IS_DESKTOP } from './shell';
 
 export type OpenPanelState =
   | ({ kind: 'busy'; startedAt: number } & OpenProgress)
@@ -118,7 +119,10 @@ export default function OpenProgressPanel({ state, onDismiss }: { state: OpenPan
           <div style={{ width: `${pct}%`, height: '100%', background: 'var(--accent)', borderRadius: 4 }} />
         </div>
         <div style={{ fontSize: 13 }}>
-          Step {step} of 3. The files are read in this tab; nothing is uploaded.
+          Step {step} of 3.{' '}
+          {IS_DESKTOP
+            ? 'The files are read in this app on this computer; nothing is uploaded.'
+            : 'The files are read in this tab; nothing is uploaded.'}
         </div>
       </div>
     </div>

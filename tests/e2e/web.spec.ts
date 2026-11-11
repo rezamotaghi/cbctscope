@@ -205,6 +205,38 @@ test.describe('opening files', () => {
     return id as string;
   }
 
+  test('the privacy sentences name the target they run on: this tab on the website, this computer in the desktop app', async ({ page, browser, baseURL }) => {
+    // the website: the open menu prepares for the browser's "upload" wording, the dialogue says tab
+    await waitForVolume(page);
+    await page.locator('header').getByRole('button', { name: /open/ }).click();
+    await expect(page.getByText("Your browser may say 'upload': that is its word for letting this page read the files. They stay in this tab.")).toBeVisible();
+    await page.keyboard.press('Escape');
+    await openFolder(page, 'series');
+    const web = researchDialog(page);
+    await expect(web).toBeVisible({ timeout: 30_000 });
+    await expect(web).toContainText('The agent moves the camera; the human reads.');
+    await expect(web).toContainText('Nothing leaves this tab.');
+    await expect(web).not.toContainText('this computer');
+
+    // the desktop app: the same build under the shell's user-agent token
+    const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 }, userAgent: 'Mozilla/5.0 Chrome CBCTScope/0.0.0' });
+    const app = await ctx.newPage();
+    const appProblems = guardPage(app, new URL(baseURL as string).origin);
+    await app.goto('/');
+    await waitForVolume(app);
+    await app.locator('header').getByRole('button', { name: /open/ }).click();
+    await expect(app.getByText("The Open sheet may say 'Upload': that is its word for letting this app read the files. They stay on this computer.")).toBeVisible();
+    await app.locator('header').getByRole('button', { name: /open/ }).click();
+    await openFolder(app, 'series');
+    const desk = researchDialog(app);
+    await expect(desk).toBeVisible({ timeout: 30_000 });
+    await expect(desk).toContainText('The agent moves the camera; the human reads.');
+    await expect(desk).toContainText('Nothing leaves this computer. The scan is read from your disk into this app.');
+    await expect(desk).not.toContainText('this tab');
+    expect(appProblems).toEqual([]);
+    await ctx.close();
+  });
+
   test('the fixture folder opens through the directory input', async ({ page }) => {
     await waitForVolume(page);
 

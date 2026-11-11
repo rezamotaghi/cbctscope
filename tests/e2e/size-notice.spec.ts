@@ -12,7 +12,7 @@ test('the size notice holds a large volume back; Cancel leaves the previous stat
   const notice = page.getByRole('dialog', { name: 'Large volume' });
   await expect(notice).toBeVisible({ timeout: 60_000 });
 
-  await expect(notice).toContainText('The local app has no such limit.');
+  await expect(notice).toContainText('The viewer run from the repository has no such limit.');
   await notice.getByRole('button', { name: 'Cancel' }).click();
   await expect(notice).toHaveCount(0);
   // nothing was loaded: no volume on screen, no canvas

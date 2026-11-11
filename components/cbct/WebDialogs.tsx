@@ -4,6 +4,7 @@
 // never the dialogue's own text or buttons.
 import React from 'react';
 import { formatBytes } from './sizeNotice';
+import { IS_DESKTOP } from './shell';
 
 /** localStorage key: the reader acknowledged the research-use dialogue in this browser profile */
 export const RESEARCH_ACK_KEY = 'cbctscope-research-ack-v1';
@@ -67,10 +68,12 @@ export function ResearchUseDialog({ onAcknowledge }: { onAcknowledge: () => void
         </h2>
         <p style={{ margin: '0 0 8px' }}>CBCTScope is research software. It is not a medical device.</p>
         <p style={{ margin: '0 0 8px' }}>
-          The viewer moves the camera; the human reads. It never produces findings or a diagnosis.
+          The agent moves the camera; the human reads. CBCTScope never produces findings or a diagnosis.
         </p>
         <p style={{ margin: '0 0 14px' }}>
-          Nothing leaves this browser. The scan is read from your disk into this tab and is not uploaded anywhere.
+          {IS_DESKTOP
+            ? 'Nothing leaves this computer. The scan is read from your disk into this app.'
+            : 'Nothing leaves this tab. The scan is read from your disk into this tab and is not uploaded anywhere.'}
         </p>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <button style={button(true)} onClick={onAcknowledge} autoFocus>
@@ -103,10 +106,11 @@ export function SizeNoticeDialog({
           {label} holds {formatBytes(bytes)} of voxels.
         </p>
         <p style={{ margin: '0 0 8px' }}>
-          The browser must hold the whole volume in memory. On a machine with little free memory the tab may slow
-          down or stop.
+          {IS_DESKTOP
+            ? 'This app must hold the whole volume in memory. On a computer with little free memory it may slow down or stop.'
+            : 'The browser must hold the whole volume in memory. On a computer with little free memory the tab may slow down or stop.'}
         </p>
-        <p style={{ margin: '0 0 14px' }}>The local app has no such limit.</p>
+        <p style={{ margin: '0 0 14px' }}>The viewer run from the repository has no such limit.</p>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button style={button(false)} onClick={onCancel}>
             Cancel

@@ -136,11 +136,12 @@ can travel. Pixels never enter a sidecar.
 ## 6. Dialogues
 
 - Research use. Opens the first time a real volume is opened in a browser profile. Title
-  "Research use only". Body: not a medical device; the viewer moves the camera, the human
-  reads; nothing leaves this browser. One button, "I understand". Remembered in localStorage.
+  "Research use only". Body: not a medical device; the agent moves the camera, the human
+  reads; nothing leaves this tab (in the desktop app: this computer, read into this app). One
+  button, "I understand". Remembered in localStorage.
 - Size notice. Before a volume whose voxel bytes exceed `NEXT_PUBLIC_CBCTSCOPE_SIZE_NOTICE_MIB`
   (build-time, default 512) is loaded: the size, the fact that the browser must hold it in
-  memory, the line that the local app has no such limit, "Continue" and "Cancel".
+  memory, the line that the viewer run from the repository has no such limit, "Continue" and "Cancel".
 - Agent opt-in: milestone 3.
 
 Every dialogue follows hard rule 4: full contrast, nothing dimmed or hidden.

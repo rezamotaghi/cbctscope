@@ -9,7 +9,8 @@
 // Math: stitch.ts.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadVolumeData, type CbctMeta, type VolumeEntry } from './volumeData';
-import { source } from './source';
+import { IS_WEB, source } from './source';
+import { IS_DESKTOP } from './shell';
 import { snapshotPaneCanvases, type SnapRef } from './SnapshotButton';
 import { Merge } from 'lucide-react';
 import {
@@ -444,7 +445,8 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
         Rigid registration (translation + rotation) of two same-patient scans into one volume.
         Auto-align maximizes density cross-correlation over the overlap; drag the sliders to
         correct it. Bake resamples both onto a shared grid (averaging the overlap) and opens the
-        result in every view. The fused volume lives in server memory for this session.
+        result in every view. The fused volume lives in{' '}
+        {IS_DESKTOP ? "this app's memory" : IS_WEB ? "this tab's memory" : 'the local server\'s memory'} for this session.
       </div>
 
       {progress !== null && (
