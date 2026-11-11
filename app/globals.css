@@ -9,6 +9,23 @@
   --accent-dim: #2b4d8a;
   --warn: #e0b341;
   --viewport-bg: #000;
+  /* the interface grammar's tokens: one place for control shape, type and spacing */
+  --ctl-border: #6b7384; /* a control's border: at least 3:1 against every ground */
+  --mark: #ffd54a; /* measurements and scale marks */
+  --fs-meta: 12px; /* controls, labels, overlays, status */
+  --fs-body: 13px;
+  --fs-title: 15px;
+  --fw-regular: 400;
+  --fw-strong: 600;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --ctl-h: 28px; /* a button, a tab, a menu row */
+  --ctl-h-pane: 24px; /* a button inside an image pane */
+  --ctl-radius: 4px;
+  --header-h: 44px;
+  --status-h: 24px;
 }
 
 * {
