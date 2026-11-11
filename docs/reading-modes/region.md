@@ -36,6 +36,7 @@ case.
 
 | Control | Options or range | What it does |
 |---|---|---|
+| Panes | axial, sagittal, coronal | Each shows its plane top left (`AXIAL n/N`, or "at the seed" for the two planes cut through the seed) and the window bottom right. The pane that takes the wheel carries a thin blue frame, and the axial level is the reading place shared with the other modes (section 3.2). |
 | Density presets | air / airway (-1024 to -400 HU), soft tissue (-200 to 300 HU), bone (400 to 3200 HU), tooth / root (900 to 2600 HU) | The density range the fill may include. |
 | HU sliders | two sliders | Set the range manually; touching them clears the preset highlight. |
 | smooth | checkbox | One pass of morphological closing that fills pinholes in the mask. |

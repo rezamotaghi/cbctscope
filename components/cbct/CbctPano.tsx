@@ -44,6 +44,8 @@ import { fetchEvidence, mergeEvidence } from './evidence';
 import DragDivider from './DragDivider';
 import { snapshotPaneCanvases, type SnapRef } from './SnapshotButton';
 import { Ruler } from 'lucide-react';
+import { ActiveFrame, PaneLabel, WlReadout, useActivePane } from './PaneOverlay';
+import { PLANE_COLOR, drawHaloLabel } from './overlayGrammar';
 import { initialAxialIndex, setAxialLevel } from './readingPlace';
 import { sweepDeg } from './CbctGrid';
 import { renderOblique, type V3 } from './oblique';
@@ -67,6 +69,8 @@ const ARCH_KEY = (anon: string) => `cbctscope-arch:v1:${anon}`;
 const ACCENT = 'rgba(85,150,255,0.95)';
 const MARKER = 'rgba(235,205,45,0.95)';
 const MARKER_DIM = 'rgba(235,205,45,0.5)';
+/** a side section's number and caption: the marker hue at full strength, at least 4.5:1 on the dark ground */
+const SECTION_DIM_TEXT = '#c9b24a';
 const ZLINE = 'rgba(90,200,255,0.9)';
 const MEASURE = 'rgba(120,255,170,0.95)';
 const SLAB_GUIDE = 'rgba(70,220,95,0.95)'; // pano slab envelope — MPR-green, distinct from the yellow markers
@@ -244,6 +248,7 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
   useEffect(() => {
     if (entry && loadedAnonRef.current === anon) setAxialLevel(anon, entry.meta, archZ);
   }, [entry, archZ, anon]);
+  const { active: activePane, bind: bindPane } = useActivePane<'axial' | 'pano' | 'sections'>('axial');
   const [sPos, setSPos] = useState(0); // mm along the curve (cross-section center)
   const [panoSlab, setPanoSlab] = useState(15);
   const [mip, setMip] = useState(false);
@@ -668,9 +673,7 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
         ctx.moveTo(cx - nx, cy - ny);
         ctx.lineTo(cx + nx, cy + ny);
         ctx.stroke();
-        ctx.fillStyle = off === 0 ? MARKER : MARKER_DIM;
-        ctx.font = '10px sans-serif';
-        ctx.fillText(String(k + 1), cx + nx + 3, cy + ny + 3);
+        drawHaloLabel(ctx, String(k + 1), cx + nx + 3, cy + ny + 3, off === 0 ? MARKER : SECTION_DIM_TEXT);
       }
     }
     // traces: (x, y) dots, solid within ±2 mm of this slice, dim elsewhere
@@ -699,14 +702,7 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
         ctx.lineWidth = 1.5;
         ctx.stroke();
       }
-      ctx.fillStyle = '#fff';
-      ctx.font = '10px sans-serif';
-      ctx.fillText(String(i + 1), x + 8, y - 5);
-      if (hovered) {
-        ctx.fillStyle = 'rgba(230,233,239,0.9)';
-        ctx.font = '9px sans-serif';
-        ctx.fillText('drag = move · dbl/right-click = delete', x + 8, y + 12);
-      }
+      drawHaloLabel(ctx, String(i + 1), x + 8, y - 5, '#fff');
     }
   }, [entry, archZ, effVoi, invert, gamma, curve, points, stroke, sPos, sectionSpacing, sectionWidth, hoverIdx, nSections, traces, spz, panoSlab, radiusShift, nLayers, layerSpacing, focusOffsets, tilted, sectionTilt]);
 
@@ -752,9 +748,7 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
           ctx.lineTo(x, top + bandH);
           ctx.stroke();
           if (b === 0) {
-            ctx.fillStyle = soff === 0 ? MARKER : MARKER_DIM;
-            ctx.font = '10px sans-serif';
-            ctx.fillText(String(k + 1), x + 2, top + 12);
+            drawHaloLabel(ctx, String(k + 1), x + 2, top + 14, soff === 0 ? MARKER : SECTION_DIM_TEXT);
           }
         }
       }
@@ -769,9 +763,7 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
         ctx.stroke();
         ctx.setLineDash([]);
         if (b === 0) {
-          ctx.fillStyle = ZLINE;
-          ctx.font = '9px sans-serif';
-          ctx.fillText('axial', 4, top + zr - 3);
+          drawHaloLabel(ctx, 'axial', 4, top + zr - 3, ZLINE);
         }
       }
       // traces: projected polyline (s → x; the row is the TRUE projection onto this band's
@@ -810,8 +802,7 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
             ctx.fill();
           }
           if (b === 0 && proj.length > 0) {
-            ctx.font = '10px sans-serif';
-            ctx.fillText(t.name, proj[0].s / img.pxW + 5, yOf(proj[0]) - 5);
+            drawHaloLabel(ctx, t.name, proj[0].s / img.pxW + 5, yOf(proj[0]) - 5, t.color);
           }
         }
       }
@@ -829,16 +820,13 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
         ctx.lineTo(x2, y2);
         ctx.stroke();
         const mm = Math.hypot(m.b[0] - m.a[0], m.b[1] - m.a[1]);
-        ctx.font = '11px sans-serif';
-        ctx.fillText(`${mm.toFixed(1)} mm`, (x1 + x2) / 2 + 4, (y1 + y2) / 2 - 4);
+        drawHaloLabel(ctx, `${mm.toFixed(1)} mm`, (x1 + x2) / 2 + 4, (y1 + y2) / 2 - 4, MEASURE);
       };
       for (const m of tilted ? [] : measures) if (m.surface === 'pano') drawMeasure(m, false);
       if (!tilted && draft?.surface === 'pano') drawMeasure(draft, true);
       // band label (layer offset)
       if (panoLayers.length > 1) {
-        ctx.fillStyle = 'rgba(230,233,239,0.85)';
-        ctx.font = '10px sans-serif';
-        ctx.fillText(off === 0 ? 'layer 0' : `${off > 0 ? '+' : ''}${off.toFixed(1)} mm`, cv.width - 62, top + 12);
+        drawHaloLabel(ctx, off === 0 ? 'layer 0' : `${off > 0 ? '+' : ''}${off.toFixed(1)} mm`, cv.width, top + 14, '#e6e9ef');
       }
     });
 
@@ -853,7 +841,7 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
       ctx.moveTo(x, top + bandH);
       ctx.lineTo(x, top + bandH - (mm % 50 === 0 ? 10 : 5));
       ctx.stroke();
-      if (mm % 50 === 0) ctx.fillText(`${mm}`, x + 2, top + bandH - 12);
+      if (mm % 50 === 0) drawHaloLabel(ctx, `${mm}`, x + 2, top + bandH - 12, '#e6e9ef');
     }
   }, [panoLayers, panoEffVoi, invert, gamma, sPos, sectionSpacing, nSections, curve, archZ, zRowOf, zRange, traces, projected, activeTraceId, measures, draft, spz, tilted, sectionTilt, radiusShift, focusOffsets]);
 
@@ -936,8 +924,7 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
         ctx.lineTo(x2, y2);
         ctx.stroke();
         const mm = Math.hypot(m.b[0] - m.a[0], m.b[1] - m.a[1]);
-        ctx.font = '11px sans-serif';
-        ctx.fillText(`${mm.toFixed(1)} mm`, (x1 + x2) / 2 + 4, (y1 + y2) / 2 - 4);
+        drawHaloLabel(ctx, `${mm.toFixed(1)} mm`, (x1 + x2) / 2 + 4, (y1 + y2) / 2 - 4, MEASURE);
       };
       for (const m of tilted ? [] : measures) {
         if (m.surface === 'section' && m.s !== undefined && Math.abs(m.s - s) <= 1) drawMeasure(m, false);
@@ -945,9 +932,6 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
       if (!tilted && draft?.surface === 'section' && draft.s !== undefined && Math.abs(draft.s - s) <= 1) {
         drawMeasure(draft, true);
       }
-      ctx.fillStyle = k === (nSections - 1) / 2 ? MARKER : '#9aa3b2';
-      ctx.font = '11px sans-serif';
-      ctx.fillText(`${k + 1} · ${s.toFixed(0)} mm${mirror ? ' · mirrored' : ''}`, 4, 12);
     }
   }, [entry, curve, sPos, sectionSpacing, sectionWidth, sectionThickness, mirror, radiusShift, effVoi, invert, gamma, zRowOf, zRange, nSections, traces, projected, measures, draft, sx, spz, archZ, sectionTilt, tilted]);
 
@@ -1468,7 +1452,17 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
     setSharpenAmt(0.7);
   };
 
-  const small: React.CSSProperties = { fontSize: 11, color: 'var(--text-dim)', whiteSpace: 'nowrap' };
+  const small: React.CSSProperties = { fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', whiteSpace: 'nowrap' };
+  const captionStrip: React.CSSProperties = {
+    ...small,
+    lineHeight: '20px',
+    height: 20,
+    flex: '0 0 auto',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    color: 'var(--text)',
+    fontVariantNumeric: 'tabular-nums',
+  };
   const sliderRow: React.CSSProperties = {
     display: 'flex',
     gap: 10,
@@ -1521,7 +1515,8 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
     >
       {/* left: arch editor + ITS slider + traces panel */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minHeight: 0 }}>
-        <div style={{ position: 'relative', flex: 1, minHeight: 0, background: 'var(--viewport-bg)', borderRadius: 4 }}>
+        <div {...bindPane('axial')} style={{ position: 'relative', flex: 1, minHeight: 0, background: 'var(--viewport-bg)', borderRadius: 4 }}>
+          <ActiveFrame on={activePane === 'axial'} />
           <canvas
             ref={axialCv}
             onPointerDown={onAxialDown}
@@ -1539,17 +1534,17 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
               display: 'block',
             }}
           />
-          {/* wraps to two lines instead of clipping — right: 30 keeps clear of the
-              vslice; the wheel mention was missing entirely */}
-          <span style={{ position: 'absolute', top: 6, left: 8, right: 30, ...small, pointerEvents: 'none', whiteSpace: 'normal', lineHeight: 1.4 }}>
-            {tilted
-              ? `OBLIQUE ${sectionTilt >= 0 ? '+' : ''}${sectionTilt.toFixed(0)}° · scout ⊥ the tilted section axis · arch + canals shown as projections · press upright to edit`
-              : `AXIAL ${entry ? sliceOrdinal(paneIndexFromBuffer('axial', archZ, slices), slices, PANE_DIRECTION.axial) : ''} · wheel = slice · ${
-                  archDone
-                    ? 'arch finished. Drag a dot to refine it, or drag the line to move the whole arch.'
-                    : 'stroke = draw arch · click = add dot · double-click = finish'
-                }`}
-          </span>
+          {/* plane and slice only: the gestures live in the Keys card and the status line */}
+          {tilted ? (
+            <PaneLabel name="OBLIQUE" slice={`${sectionTilt >= 0 ? '+' : ''}${sectionTilt.toFixed(0)}°`} />
+          ) : (
+            <PaneLabel
+              name="AXIAL"
+              color={PLANE_COLOR.axial}
+              slice={entry ? sliceOrdinal(paneIndexFromBuffer('axial', archZ, slices), slices, PANE_DIRECTION.axial) : undefined}
+            />
+          )}
+          <WlReadout voi={entry ? effVoi : null} />
           <input
             className="vslice"
             type="range"
@@ -1560,7 +1555,9 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
             onChange={(e) => setArchZ(Number(e.target.value))}
             onDoubleClick={() => setArchZ(Math.floor(slices / 2))}
             onPointerDown={(e) => e.stopPropagation()}
-            title="arch slice · up = superior (S) · double-click = volume middle"
+            title="Arch slice, up is superior. Double-click: volume middle."
+            aria-label="Axial slice"
+            data-overlay="slider"
             style={{
               position: 'absolute',
               right: 2,
@@ -1609,8 +1606,10 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
           >
             reset arch
           </button>
-          <span style={small}>
-            {points.length === 0
+          <span style={{ ...small, whiteSpace: 'normal' }}>
+            {tilted
+              ? 'The scout lies across the tilted sections; the arch and the canals show as projections. Press Upright to edit them.'
+              : points.length === 0
               ? 'no arch drawn'
               : archDone
                 ? `${points.length} dots, finished. Drag dots or the whole line; double-click or right-click a dot to delete it.`
@@ -1623,7 +1622,7 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
 
         {/* nerve / root-canal traces — always fully visible (medical dashboard rule) */}
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: 6 }}>
-          <div style={{ ...small, display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+          <div style={{ ...small, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 4 }}>
             <span style={{ color: 'var(--text)' }}>Canal traces</span>
             <button style={chip(false)} disabled={!curve} title="start a new nerve-canal trace (IAN)" onClick={() => {
               const t = newTrace(traces, 'nerve');
@@ -1711,19 +1710,24 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
             height is the user's split (divider below) — cropping scales the kept band to
             fit this fixed frame, it never moves the pane */}
         <div ref={panoAreaRef} style={{ display: 'flex', gap: 4, flex: `${panoFrac} 1 0%`, minHeight: 90 }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: 0, background: 'var(--viewport-bg)', borderRadius: 4 }}>
-          <canvas
-            ref={panoCv}
-            onPointerDown={onPanoDown}
-            onPointerMove={onPanoMove}
-            onPointerUp={onPanoUp}
-            onContextMenu={onPanoContext}
-            style={{ width: '100%', height: '100%', display: 'block', cursor: panoCursor, objectFit: 'contain', touchAction: 'none' }}
-          />
-          <span style={{ position: 'absolute', top: 6, left: 8, ...small, pointerEvents: 'none' }}>
-            CURVED PANO · arc-length mm ·{' '}
-            {activeTrace ? `tracing ${activeTrace.name}: click along the canal` : measureMode ? 'Drag to measure; right-click a measurement to delete it.' : 'Click or wheel to move the sections; right-click a measurement to delete it.'}
-          </span>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          {/* the caption sits in a strip above the image, never over bright bone */}
+          <div data-snap-caption style={captionStrip}>
+            Curved pano, arc-length mm
+            {activeTrace ? `. Tracing ${activeTrace.name}.` : measureMode ? '. Measuring.' : ''}
+          </div>
+          <div {...bindPane('pano')} style={{ position: 'relative', flex: 1, minHeight: 0, background: 'var(--viewport-bg)', borderRadius: 4 }}>
+            <ActiveFrame on={activePane === 'pano'} />
+            <canvas
+              ref={panoCv}
+              onPointerDown={onPanoDown}
+              onPointerMove={onPanoMove}
+              onPointerUp={onPanoUp}
+              onContextMenu={onPanoContext}
+              style={{ width: '100%', height: '100%', display: 'block', cursor: panoCursor, objectFit: 'contain', touchAction: 'none' }}
+            />
+            {panoLayers.length > 0 && <WlReadout voi={panoEffVoi} />}
+          </div>
         </div>
         <VertRangeSliders zFrac={zFrac} setZFrac={setZFrac} />
         </div>
@@ -1802,7 +1806,7 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
             title="auto-focus: the layer bends buccal/lingual to follow the sharpest anatomy (teeth). Click again to go back to the flat drawn layer."
             onClick={runAutoFocus}
           >
-            auto-focus{focusOffsets ? ' ✓' : ''}
+            auto-focus
           </button>
           <button
             style={chip(!!panoVoi)}
@@ -1810,7 +1814,7 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
             title="one-click pano look: contrast window from the pano's own pixels + light sharpening. Click again to undo."
             onClick={runAutoAdjust}
           >
-            auto-adjust{panoVoi ? ' ✓' : ''}
+            auto-adjust
           </button>
         </div>
         <div style={sliderRow}>
@@ -1836,7 +1840,7 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
             onClick={() => setMeasureMode((v) => !v)}
           >
             <Ruler size={13} strokeWidth={2} />
-            measure{measureMode ? ' ✓' : ''}
+            measure
           </button>
           <button
             style={chip(false)}
@@ -1868,12 +1872,21 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
         />
         <div
           ref={sectionsAreaRef}
+          {...bindPane('sections')}
           style={{ position: 'relative', flex: `${1 - panoFrac} 1 0%`, minHeight: 80, display: 'flex', gap: 6 }}
         >
-          {Array.from({ length: nSections }, (_, k) => (
+          <ActiveFrame on={activePane === 'sections'} />
+          {Array.from({ length: nSections }, (_, k) => {
+            const off = (k - (nSections - 1) / 2) * sectionSpacing;
+            const centre = k === (nSections - 1) / 2;
+            const at = curve ? Math.max(0, Math.min(curve.length, sPos + off)) : null;
+            return (
+            <div key={k} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <div data-snap-caption style={{ ...captionStrip, color: centre ? MARKER : SECTION_DIM_TEXT, fontWeight: centre ? 600 : 400 }}>
+              {at !== null ? `${k + 1} · ${at.toFixed(0)} mm${mirror ? ', mirrored' : ''}` : `${k + 1}`}
+            </div>
             <div
-              key={k}
-              style={{ position: 'relative', flex: 1, minWidth: 0, background: 'var(--viewport-bg)', borderRadius: 4 }}
+              style={{ position: 'relative', flex: 1, minHeight: 0, background: 'var(--viewport-bg)', borderRadius: 4 }}
             >
               <canvas
                 ref={(el) => {
@@ -1883,11 +1896,13 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
                 onPointerMove={onSectionMove(k)}
                 onPointerUp={onSectionUp}
                 onContextMenu={onSectionContext(k)}
-                title="right-drag = rotate the sections (MPR gesture) · right-click a measurement = delete"
                 style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: activeTrace ? 'copy' : measureMode ? 'crosshair' : 'default', touchAction: 'none' }}
               />
+              {curve && k === nSections - 1 && <WlReadout voi={effVoi} />}
             </div>
-          ))}
+            </div>
+            );
+          })}
           {!curve && (
             <div
               style={{

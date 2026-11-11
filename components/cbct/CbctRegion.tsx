@@ -13,6 +13,8 @@ import { VertRangeSliders } from './CbctPano';
 import DragDivider from './DragDivider';
 import { snapshotPaneCanvases, type SnapRef } from './SnapshotButton';
 import { PANE_DIRECTION, paneIndexFromBuffer, sliceOrdinal } from './geometry';
+import { ActiveFrame, PaneLabel, WlReadout, useActivePane } from './PaneOverlay';
+import { PLANE_COLOR } from './overlayGrammar';
 import { initialAxialIndex, setAxialLevel } from './readingPlace';
 
 interface Props {
@@ -52,6 +54,7 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
   const [axialZ, setAxialZ] = useState(0);
   // the scout's level is the tab's reading place (./readingPlace): set from it on open, written back on every move
   const loadedAnonRef = useRef<string | null>(null);
+  const { active: activePane, bind: bindPane } = useActivePane<'axial' | 'sagittal' | 'coronal'>('axial');
   const [presetKey, setPresetKey] = useState<string>('air');
   const [lo, setLo] = useState(-1024);
   const [hi, setHi] = useState(-400);
@@ -568,7 +571,7 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
     cursor: 'pointer',
     fontSize: 11,
   });
-  const small: React.CSSProperties = { fontSize: 11, color: 'var(--text-dim)' };
+  const small: React.CSSProperties = { fontSize: 'var(--fs-meta)', color: 'var(--text-dim)' };
   const stat = (label: string, value: string) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12 }}>
       <span style={{ color: 'var(--text-dim)' }}>{label}</span>
@@ -591,7 +594,8 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
     >
       {/* left: axial (box + seed) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minHeight: 0 }}>
-        <div style={{ position: 'relative', flex: 1, minHeight: 0, background: 'var(--viewport-bg)', borderRadius: 4 }}>
+        <div {...bindPane('axial')} style={{ position: 'relative', flex: 1, minHeight: 0, background: 'var(--viewport-bg)', borderRadius: 4 }}>
+          <ActiveFrame on={activePane === 'axial'} />
           <canvas
             ref={axialCv}
             onPointerDown={onAxialDown}
@@ -600,9 +604,13 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
             onContextMenu={onAxialContext}
             style={{ width: '100%', height: '100%', objectFit: 'contain', cursor: 'crosshair', touchAction: 'none', display: 'block' }}
           />
-          <span style={{ position: 'absolute', top: 6, left: 8, ...small, pointerEvents: 'none' }}>
-            AXIAL {entry ? sliceOrdinal(paneIndexFromBuffer('axial', axialZ, nz), nz, PANE_DIRECTION.axial) : ''} · drag = box (corners resize · inside moves · right-click deletes) · click = seed · wheel = slice
-          </span>
+          {/* plane and slice only: the gestures live in the Keys card and the status line */}
+          <PaneLabel
+            name="AXIAL"
+            color={PLANE_COLOR.axial}
+            slice={entry ? sliceOrdinal(paneIndexFromBuffer('axial', axialZ, nz), nz, PANE_DIRECTION.axial) : undefined}
+          />
+          <WlReadout voi={entry ? effVoi : null} />
           <input
             className="vslice"
             type="range"
@@ -613,7 +621,9 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
             onChange={(e) => setAxialZ(Number(e.target.value))}
             onDoubleClick={() => setAxialZ(Math.round(nz * 0.5))}
             onPointerDown={(e) => e.stopPropagation()}
-            title="scout slice · up = superior (S) · double-click = volume middle"
+            title="Scout slice, up is superior. Double-click: volume middle."
+            aria-label="Axial slice"
+            data-overlay="slider"
             style={{
               position: 'absolute',
               right: 2,
@@ -721,9 +731,11 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
               gap: 6,
             }}
           >
-            <div style={{ position: 'relative', minWidth: 0, background: 'var(--viewport-bg)', borderRadius: 4 }}>
+            <div {...bindPane('sagittal')} style={{ position: 'relative', minWidth: 0, background: 'var(--viewport-bg)', borderRadius: 4 }}>
+              <ActiveFrame on={activePane === 'sagittal'} />
               <canvas ref={sagCv} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
-              <span style={{ position: 'absolute', top: 4, left: 6, ...small, pointerEvents: 'none' }}>SAGITTAL @ seed</span>
+              <PaneLabel name="SAGITTAL" color={PLANE_COLOR.sagittal} slice="at the seed" />
+              {seed && <WlReadout voi={effVoi} />}
               {!seed && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', fontSize: 12 }}>set a seed →</div>}
             </div>
             <DragDivider
@@ -737,9 +749,11 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
               }}
               onReset={() => setSagFrac(0.5)}
             />
-            <div style={{ position: 'relative', minWidth: 0, background: 'var(--viewport-bg)', borderRadius: 4 }}>
+            <div {...bindPane('coronal')} style={{ position: 'relative', minWidth: 0, background: 'var(--viewport-bg)', borderRadius: 4 }}>
+              <ActiveFrame on={activePane === 'coronal'} />
               <canvas ref={corCv} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
-              <span style={{ position: 'absolute', top: 4, left: 6, ...small, pointerEvents: 'none' }}>CORONAL @ seed</span>
+              <PaneLabel name="CORONAL" color={PLANE_COLOR.coronal} slice="at the seed" />
+              {seed && <WlReadout voi={effVoi} />}
             </div>
           </div>
           <VertRangeSliders zFrac={zFrac} setZFrac={setZFrac} verb="bound the grow" noun="the grow window" />

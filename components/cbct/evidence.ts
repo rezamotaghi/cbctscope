@@ -255,6 +255,10 @@ export interface SnapPane {
   /** the Cornerstone annotation SVG layer over the canvas (null ⇒ canvas only) */
   svg: SVGSVGElement | null;
   label: string;
+  /** the window readout drawn bottom right ("W 4000 L 1000"), as the pane shows it */
+  wl?: string;
+  /** the scale bar drawn bottom centre: its length as a fraction of the pane width, and its label */
+  scale?: { frac: number; label: string };
 }
 
 function svgToImage(svg: SVGSVGElement): Promise<HTMLImageElement | null> {
@@ -312,8 +316,27 @@ export async function composeSnapshot(panes: SnapPane[], footer: string): Promis
     ctx.textBaseline = 'top';
     ctx.shadowColor = '#000';
     ctx.shadowBlur = 4;
-    ctx.fillStyle = '#dfe5f0';
+    ctx.fillStyle = '#e6e9ef';
     ctx.fillText(p.label, x + 8, y + 6);
+    ctx.font = `${fs}px system-ui, sans-serif`;
+    ctx.textBaseline = 'bottom';
+    if (p.wl) ctx.fillText(p.wl, x + p.canvas.width - ctx.measureText(p.wl).width - 8, y + p.canvas.height - 6);
+    if (p.scale) {
+      const bw = p.scale.frac * p.canvas.width;
+      const tw2 = ctx.measureText(p.scale.label).width;
+      const bx = x + (p.canvas.width - bw - fs / 2 - tw2) / 2;
+      const by = y + p.canvas.height - 6 - fs * 1.6;
+      ctx.strokeStyle = '#ffd54a';
+      ctx.fillStyle = '#ffd54a';
+      ctx.lineWidth = Math.max(2, fs / 7);
+      ctx.beginPath();
+      ctx.moveTo(bx, by - fs / 2);
+      ctx.lineTo(bx, by);
+      ctx.lineTo(bx + bw, by);
+      ctx.lineTo(bx + bw, by - fs / 2);
+      ctx.stroke();
+      ctx.fillText(p.scale.label, bx + bw + fs / 2, by + fs / 3);
+    }
     ctx.shadowBlur = 0;
   }
   ctx.font = `${fs}px system-ui, sans-serif`;

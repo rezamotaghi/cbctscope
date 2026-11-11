@@ -34,6 +34,7 @@ volume is A; you pick B from the catalog.
 
 | Control | Options or range | What it does |
 |---|---|---|
+| Panes | axial, sagittal, coronal | Each shows its plane and the compared slice's offset top left and the window bottom right; the pane that takes the wheel carries a thin blue frame. |
 | Volume picker | A (green), B (magenta) | A is the current volume; pick B from the same-patient candidates in the catalog. Fused volumes are excluded as inputs. |
 | auto align | button | Finds the best translation by maximizing density cross-correlation (an NCC hill-climb) over the overlap. |
 | auto + rotation | button | Also searches rotation; slower. |

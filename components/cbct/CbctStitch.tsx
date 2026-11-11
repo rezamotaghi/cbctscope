@@ -13,6 +13,8 @@ import { IS_WEB, source } from './source';
 import { IS_DESKTOP } from './shell';
 import { snapshotPaneCanvases, type SnapRef } from './SnapshotButton';
 import { Merge } from 'lucide-react';
+import { ActiveFrame, PaneLabel, WlReadout, useActivePane } from './PaneOverlay';
+import { PLANE_COLOR } from './overlayGrammar';
 import {
   autoRegister,
   bakeFusion,
@@ -304,7 +306,8 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
     cursor: 'pointer',
     fontSize: 12,
   });
-  const small: React.CSSProperties = { fontSize: 11, color: 'var(--text-dim)' };
+  const small: React.CSSProperties = { fontSize: 'var(--fs-meta)', color: 'var(--text-dim)' };
+  const { active: activePane, bind: bindPane } = useActivePane<Plane>('axial');
   const axisSlider = (label: string, kind: 't' | 'r', dim: 0 | 1 | 2, min: number, max: number, step: number, unit: string) => (
     <label style={{ ...small, flex: 1, minWidth: 150, display: 'flex', gap: 6, alignItems: 'center' }}>
       {label} {rigid[kind][dim].toFixed(1)}{unit}
@@ -337,12 +340,16 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
   );
 
   const pane = (label: string, plane: Plane, ref: React.RefObject<HTMLCanvasElement | null>) => (
-    <div style={{ position: 'relative', flex: 1, minWidth: 0, background: 'var(--viewport-bg)', borderRadius: 4 }}>
+    <div {...bindPane(plane)} style={{ position: 'relative', flex: 1, minWidth: 0, background: 'var(--viewport-bg)', borderRadius: 4 }}>
+      <ActiveFrame on={activePane === plane} />
       <canvas ref={ref as React.RefObject<HTMLCanvasElement>} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
-      <span style={{ position: 'absolute', top: 4, left: 6, ...small, pointerEvents: 'none' }}>
-        {label}
-        {sliceOff[plane] !== 0 ? ` ${sliceOff[plane] > 0 ? '+' : ''}${sliceOff[plane]}` : ''} · wheel = slice
-      </span>
+      {/* plane and slice offset only: the gestures live in the Keys card and the status line */}
+      <PaneLabel
+        name={label}
+        color={PLANE_COLOR[plane]}
+        slice={sliceOff[plane] !== 0 ? `${sliceOff[plane] > 0 ? '+' : ''}${sliceOff[plane]}` : undefined}
+      />
+      {entryA && <WlReadout voi={effVoi} />}
     </div>
   );
 

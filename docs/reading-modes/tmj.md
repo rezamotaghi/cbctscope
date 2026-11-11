@@ -41,7 +41,8 @@ The lines and the scout slice persist per volume.
 
 | Control | Options or range | What it does |
 |---|---|---|
-| Section orientation | perpendicular to axis | Sections perpendicular to each condyle's axis, the corrected sagittal stack, labeled A (anterior) and P (posterior). |
+| Panes | scout, two rows | The scout shows `AXIAL n/N` top left and the window bottom right. Each row's side name and each section's caption sit in strips above the images; the window is bottom right of each row's last section. The pane that takes the wheel carries a thin blue frame, and the axial level is the reading place shared with the other modes (section 3.2). |
+| Section orientation | perpendicular to axis | Sections perpendicular to each condyle's axis, the corrected sagittal stack, labeled A (anterior) and P (posterior) at the edge midpoints. |
 | | parallel to axis | Sections parallel to the axis, the corrected coronal stack, labeled lat and med. |
 | sync sides | checkbox | Editing one side (dragging an endpoint or the whole line) mirrors it to the other side about the midline, for a symmetric starting point that can then be refined per side. A fresh draw fills the other side only when it is empty; it never replaces a placed line there, so a stray stroke cannot wipe a tuned opposite side. |
 | clear lines | button | Deletes both axis lines. |
@@ -51,7 +52,7 @@ The lines and the scout slice persist per volume.
 | spacing | 0.5 to 6 mm | Distance between sections. |
 | width | 16 to 60 mm | Width of each section. |
 | thickness | 0 to 6 mm | Averaged across each section. |
-| Scout band and labels | scout, sections | The scout outlines each side's sampled band in green with cut marks showing where that side's sections cut. Each section is labeled with its side, number, and offset in mm from the axis midpoint. |
+| Scout band and labels | scout, sections | The scout outlines each side's sampled band in green with cut marks showing where that side's sections cut. Each section's caption, in a strip above it, gives its side, number, and offset in mm from the axis midpoint. |
 | Fan rotation | right-drag on any section | Rotates that side's fan, the same sweep gesture as the other modes, independently per side. The scout itself stays upright by design (one scout serves two independent sides): a tilted side's band redraws dashed as its exact axial shadow, its cut marks and orientation letters hide, and the axis line stays editable throughout. |
 | reset position | button | Returns both fans upright and the vertical crop to the condyle default, leaving lines, section parameters, and pane splits untouched. |
 | Layout | right side of the screen | The RIGHT condyle row above the LEFT condyle row, each side cut against its own axis with the same section settings; the divider between scout and sections and the row divider drag to resize and double-click to reset. |

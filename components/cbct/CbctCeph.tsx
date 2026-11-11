@@ -10,6 +10,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { loadVolumeData, type CbctMeta, type VolumeEntry } from './volumeData';
 import { renderOblique, projectHU, rotV, type Basis, type V3 } from './oblique';
 import { type SnapRef } from './SnapshotButton';
+import { PaneLabel, WlReadout } from './PaneOverlay';
 
 interface Props {
   anon: string;
@@ -228,7 +229,7 @@ export default function CbctCeph({ anon, voi, invert, gamma, onMeta, onError, on
     cursor: 'pointer',
     fontSize: 12,
   });
-  const small: React.CSSProperties = { fontSize: 11, color: 'var(--text-dim)' };
+  const small: React.CSSProperties = { fontSize: 'var(--fs-meta)', color: 'var(--text-dim)' };
 
   return (
     <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8, width: '100%', height: '100%', minHeight: 0 }}>
@@ -268,14 +269,20 @@ export default function CbctCeph({ anon, voi, invert, gamma, onMeta, onError, on
           onPointerCancel={onUp}
           style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: dragging ? 'grabbing' : 'grab', touchAction: 'none' }}
         />
-        <span style={{ position: 'absolute', top: 8, left: 10, ...small, pointerEvents: 'none' }}>
-          {PRESETS[preset].label}
-          {/* normalized like the slider readout — continuous dragging accumulates raw yaw,
-              and "turn +540°" is not a real head position */}
-          {yaw ? ` · turn ${(((yaw % 360) + 540) % 360 - 180) > 0 ? '+' : ''}${(((yaw % 360) + 540) % 360 - 180).toFixed(0)}°` : ''}
-          {nod ? ` · nod ${nod > 0 ? '+' : ''}${nod.toFixed(0)}°` : ''}
-          {' · drag = turn/tilt'}
-        </span>
+        {/* the projection and its head position; normalized like the slider readout, since
+            continuous dragging accumulates raw yaw and "turn +540°" is not a real head position */}
+        <PaneLabel
+          name={PRESETS[preset].label}
+          slice={
+            [
+              yaw ? `turn ${(((yaw % 360) + 540) % 360 - 180) > 0 ? '+' : ''}${(((yaw % 360) + 540) % 360 - 180).toFixed(0)}°` : '',
+              nod ? `nod ${nod > 0 ? '+' : ''}${nod.toFixed(0)}°` : '',
+            ]
+              .filter(Boolean)
+              .join(', ') || undefined
+          }
+        />
+        {entry && <WlReadout voi={effVoi} />}
       </div>
 
       {/* window/gamma live ONLY in the sidebar Window section now — Ceph carried a private

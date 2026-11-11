@@ -37,7 +37,6 @@ import {
   EllipticalROITool,
   PlanarFreehandROITool,
   StackScrollTool,
-  ScaleOverlayTool,
   WindowLevelTool,
   Enums as csToolsEnums,
   utilities as csToolsUtils,
@@ -61,7 +60,10 @@ import { Eraser3d, type ZRange } from './eraser3d';
 import { computeRoi3dStats, Roi3dOutlines, type Roi3d } from './evidence3d';
 import DragDivider from './DragDivider';
 import { type SnapRef } from './SnapshotButton';
-import { Bookmark, Eraser as EraserIcon } from 'lucide-react';
+import { Bookmark, Eraser as EraserIcon, Eye, EyeOff, Scissors, X } from 'lucide-react';
+import { ActiveFrame, PaneButton, PaneCluster, PaneLabel, PaneTextButton, ScaleBar, WlReadout, overlayText, useActivePane } from './PaneOverlay';
+import { PANE_BUTTON } from './paneButtons';
+import { PLANE_COLOR, scaleBar, wlText } from './overlayGrammar';
 import { getReadingPlace, planesIntersection, setReadingPlace } from './readingPlace';
 import type { AgentReply } from './useAgentBridge';
 import {
@@ -369,7 +371,6 @@ function ensureCbctTools() {
     addTool(LengthTool);
     addTool(AngleTool);
     addTool(TrackballRotateTool);
-    addTool(ScaleOverlayTool);
     addTool(WindowLevelTool);
     addTool(ArrowAnnotateTool);
     addTool(LabelTool);
@@ -539,6 +540,13 @@ export default function CbctViewport({
   const sliceInfoRef = useRef<Record<string, { idx: number; n: number; dir: SliceDirection | null }>>({});
   sliceInfoRef.current = sliceInfo;
   const [markers, setMarkers] = useState<Record<string, Markers>>({});
+  // the scale bar per slice pane: world mm per CSS pixel and the pane's width, read off the camera
+  const [paneScale, setPaneScale] = useState<Record<string, { mmPerPx: number; w: number }>>({});
+  const paneScaleRef = useRef(paneScale);
+  paneScaleRef.current = paneScale;
+  const paneUpdateRef = useRef<(id: string) => void>(() => {});
+  // which pane takes the wheel (the 1 px accent frame); the pointer decides
+  const { active: activePane, bind: bindPane } = useActivePane<string>(VP.axial);
   // the reading place (./readingPlace): written from the crosshair centre once this volume's
   // stored place has been applied, so the reset cameras of a fresh attach never overwrite it
   const placeArmedRef = useRef(false);
@@ -769,7 +777,17 @@ export default function CbctViewport({
       const info = sliceInfoRef.current[id];
       // the baked label is the pane's own count + direction, so a figure never has to be
       // re-read against the room it came from
-      panes.push({ canvas, svg, label: info ? `${base} ${sliceOrdinal(info.idx, info.n, info.dir)}` : base });
+      // the window and the scale bar ride along, as the pane shows them
+      const voi = controlsRef.current.voi ?? metaRef.current?.defaultVoi;
+      const sc = paneScaleRef.current[id];
+      const sb = id !== VP.v3d && controlsRef.current.showOverlay && sc ? scaleBar(sc.mmPerPx, sc.w) : null;
+      panes.push({
+        canvas,
+        svg,
+        label: info ? `${base} ${sliceOrdinal(info.idx, info.n, info.dir)}` : base,
+        wl: id !== VP.v3d && voi ? wlText(voi) : undefined,
+        scale: sb && sc ? { frac: sb.px / sc.w, label: sb.label } : undefined,
+      });
     }
     const url = await composeSnapshot(panes, `${anon} · ${new Date().toLocaleString()}`);
     if (!url) return;
@@ -1202,6 +1220,13 @@ export default function CbctViewport({
         }
         const m = markersFromCamera(vp.getCamera());
         if (m) setMarkers((s) => ({ ...s, [id]: m }));
+        // orthographic: parallelScale is half the world height the pane shows
+        const el = elRefs.current[id];
+        const ps = vp.getCamera().parallelScale;
+        if (el && ps && el.clientHeight) {
+          const next = { mmPerPx: (2 * ps) / el.clientHeight, w: el.clientWidth };
+          setPaneScale((s) => (s[id]?.mmPerPx === next.mmPerPx && s[id]?.w === next.w ? s : { ...s, [id]: next }));
+        }
         writePlaceRef.current();
         updateIndicatorsRef.current(); // 3D plane markers follow the MPR cameras
       } catch {
@@ -1209,9 +1234,19 @@ export default function CbctViewport({
       }
     };
 
+    paneUpdateRef.current = paneUpdate;
+
     (async () => {
       await ensureCornerstoneInit();
       ensureCbctTools();
+      // measurement labels: 12 px on a dark backing, so a length reads on bright bone as on air
+      try {
+        const st = csAnnotation.config.style;
+        const def = st.getDefaultToolStyles() as { global?: Record<string, unknown> };
+        st.setDefaultToolStyles({ ...def, global: { ...def.global, textBoxFontSize: '12px', textBoxBackground: 'rgba(0,0,0,0.7)' } });
+      } catch {
+        /* default styles stay */
+      }
       if (disposed) return;
 
       const engine = new RenderingEngine(engineId);
@@ -1264,11 +1299,6 @@ export default function CbctViewport({
       // freehand: open strokes measure a curved path (polyline mm in the object list);
       // closing the loop makes it a region with HU stats like the rect/ellipse ROIs
       mpr.addTool(PlanarFreehandROITool.toolName, { calculateStats: true });
-      try {
-        mpr.addTool(ScaleOverlayTool.toolName, { scaleLocation: 'bottom' });
-      } catch (e) {
-        console.warn('scale overlay unavailable', e);
-      }
       for (const id of MPR_IDS) mpr.addViewport(id, engineId);
       mpr.setToolActive(StackScrollTool.toolName, { bindings: [{ mouseButton: MouseBindings.Wheel }] });
       // plain right-drag is the oblique rotate (custom handlers below) — zoom
@@ -1277,9 +1307,6 @@ export default function CbctViewport({
         bindings: [{ mouseButton: MouseBindings.Secondary, modifierKey: csToolsEnums.KeyboardBindings.Shift }],
       });
       mpr.setToolActive(PanTool.toolName, { bindings: [{ mouseButton: MouseBindings.Auxiliary }] });
-      // NOTE: ScaleOverlayTool is enabled only after a volume is attached (see the volume-load
-      // effect) — enabling it here makes it render against an empty viewport and throw inside
-      // Cornerstone (vec3.distance on undefined).
 
       const t3d = ToolGroupManager.createToolGroup('tg-cbct-3d')!;
       for (const t of [TrackballRotateTool, ZoomTool, PanTool]) t3d.addTool(t.toolName);
@@ -2125,14 +2152,6 @@ export default function CbctViewport({
         engineRef.current.renderViewports([...MPR_IDS, VP.v3d]);
         // denoised 3D substrate: worker-side blur, swaps the 3D pane in when ready
         void ensureSmoothSubstrateRef.current();
-        try {
-          // volume is attached now, so the tool snapshots real pane corners; respect the O toggle
-          if (controls.showOverlay) {
-            ToolGroupManager.getToolGroup('tg-cbct-mpr')?.setToolEnabled(ScaleOverlayTool.toolName);
-          }
-        } catch {
-          /* scale bar is optional */
-        }
         if (controls.showOverlay && controls.planeLines) {
           reinitCrosshairs(controls.toolMode);
           engineRef.current.renderViewports(MPR_IDS);
@@ -2544,11 +2563,6 @@ export default function CbctViewport({
           }
         }
       } else reinitCrosshairs(controls.toolMode);
-      if (!controls.showOverlay) mpr.setToolDisabled(ScaleOverlayTool.toolName);
-      // enable only once a volume is attached: enabling earlier makes the tool snapshot the
-      // pane corners off a viewport with NO image data → an empty-points annotation that
-      // crashes the next annotation render pass (the startup "reading '0'" TypeError)
-      else if (metaRef.current) mpr.setToolEnabled(ScaleOverlayTool.toolName);
       for (const a of csAnnotation.state.getAllAnnotations()) {
         if (MEASURE_TOOLS.has(a.metadata?.toolName ?? '')) {
           // the master switch re-shows everything — per-row 👁 hides are session whims, not state
@@ -2601,6 +2615,7 @@ export default function CbctViewport({
         } catch {
           /* mid-teardown */
         }
+        for (const id of MPR_IDS) paneUpdateRef.current(id); // the scale bar follows the pane's size
         if (retry) clearTimeout(retry);
         if (backingStale() && attempt < 12) retry = setTimeout(() => doResize(attempt + 1), 120);
       });
@@ -2625,10 +2640,10 @@ export default function CbctViewport({
   const cells = useMemo(
     () =>
       [
-        { id: VP.axial, label: 'AXIAL' },
-        { id: VP.sagittal, label: 'SAGITTAL' },
-        { id: VP.coronal, label: 'CORONAL' },
-        { id: VP.v3d, label: '3D' },
+        { id: VP.axial, label: 'AXIAL', plane: 'axial' },
+        { id: VP.sagittal, label: 'SAGITTAL', plane: 'sagittal' },
+        { id: VP.coronal, label: 'CORONAL', plane: 'coronal' },
+        { id: VP.v3d, label: '3D', plane: null },
       ] as const,
     [],
   );
@@ -2664,6 +2679,8 @@ export default function CbctViewport({
   };
 
   const mk = (id: string): Markers | undefined => markers[id];
+  // the window every slice pane shows bottom right (the meta lands before the volume's first render)
+  const voiShown = controls.voi ?? metaRef.current?.defaultVoi ?? null;
 
   // Flip a pane's viewing direction — mirror the camera through the focal point (e.g. view the
   // sagittal from patient-left instead of patient-right). The orientation letters recompute
@@ -2897,6 +2914,7 @@ export default function CbctViewport({
   }, []);
 
   return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%', height: '100%', minHeight: 0 }}>
     <div
       ref={gridRef}
       style={{
@@ -2906,7 +2924,7 @@ export default function CbctViewport({
         gridTemplateRows: `${split.r}fr ${1 - split.r}fr`,
         gap: 6,
         width: '100%',
-        height: '100%',
+        flex: 1,
         minHeight: 0,
       }}
     >
@@ -3008,11 +3026,16 @@ export default function CbctViewport({
       {cells.map((c) => {
         const isMax = maximized === c.id;
         const hidden = maximized !== null && !isMax;
+        const is3d = c.id === VP.v3d;
+        const info = sliceInfo[c.id];
+        const sc = paneScale[c.id];
+        const sb = !is3d && controls.showOverlay && sc ? scaleBar(sc.mmPerPx, sc.w) : null;
         return (
           <div
             key={c.id}
+            {...bindPane(c.id)}
             onDoubleClick={() => setMaximized((m) => (m === c.id ? null : c.id))}
-            title="double-click: maximize / restore"
+            title="double-click: maximize or restore"
             style={{
               position: isMax ? 'absolute' : 'relative',
               inset: isMax ? 0 : undefined,
@@ -3028,131 +3051,106 @@ export default function CbctViewport({
               }}
               style={{ width: '100%', height: '100%', background: 'var(--viewport-bg)', borderRadius: 4 }}
             />
-            <span
-              style={{
-                position: 'absolute',
-                top: 6,
-                left: 8,
-                fontSize: 11,
-                letterSpacing: 0.5,
-                color: c.id === VP.v3d ? 'var(--text-dim)' : (REFLINE_COLORS[c.id] ?? 'var(--text-dim)'),
-                textShadow: '0 1px 2px #000',
-                pointerEvents: 'none',
-              }}
-            >
-              {c.label}
-              {sliceInfo[c.id] ? `  ${sliceOrdinal(sliceInfo[c.id].idx, sliceInfo[c.id].n, sliceInfo[c.id].dir)}` : ''}
-              {/* the 3D pane carries its own gesture caption; the slice panes were the app's
-                  biggest discoverability hole. Only the pane-unique gesture — wheel/left are
-                  in the header legend, dbl-click maximize in the pane tooltip — so the line
-                  ends well before the top-center orientation letter. */}
-              {c.id !== VP.v3d && (
-                <span style={{ color: 'var(--text-dim)', fontWeight: 'normal' }}>
-                  {'  ·  right-drag: rotate'}
-                </span>
-              )}
-            </span>
-            {c.id !== VP.v3d && (
+            <ActiveFrame on={activePane === c.id} />
+            {/* the plane and slice n/N, top left: no gesture hints in the pane (they live in
+                the Keys card and the status line) */}
+            <PaneLabel
+              name={c.label}
+              color={c.plane ? PLANE_COLOR[c.plane] : undefined}
+              slice={info ? sliceOrdinal(info.idx, info.n, info.dir) : undefined}
+            />
+            {!is3d && (
               <span
                 ref={(el) => {
                   huRefs.current[c.id] = el;
                 }}
+                data-overlay="hu"
+                style={{ ...overlayText, bottom: 4, left: 8 }}
+              />
+            )}
+            {!is3d && <WlReadout voi={voiShown} />}
+            {sb && <ScaleBar px={sb.px} label={sb.label} />}
+            {!is3d && (
+              <PaneCluster style={{ right: 26 }}>
+                {c.id === VP.axial && (
+                  <PaneTextButton
+                    icon={Bookmark}
+                    label="Save view"
+                    active={namingView !== null}
+                    onClick={startNamingView}
+                    title="Save view (V): all four cameras, the window and the render settings, under a name"
+                  />
+                )}
+                <PaneButton
+                  spec={PANE_BUTTON.reset}
+                  detail="re-fit this pane's zoom and pan; orientation and window stay (R squares up every pane)"
+                  onClick={() => resetPaneView(c.id)}
+                />
+                <PaneButton
+                  spec={PANE_BUTTON.flip}
+                  detail="mirror this pane's viewing direction"
+                  onClick={() => flipPane(c.id)}
+                />
+              </PaneCluster>
+            )}
+            {c.id === VP.axial && namingView !== null && (
+              <input
+                autoFocus
+                aria-label="Name this view"
+                value={namingView}
+                onChange={(e) => setNamingView(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    saveView(namingView);
+                    setNamingView(null);
+                  } else if (e.key === 'Escape') setNamingView(null);
+                }}
+                onBlur={() => setNamingView(null)}
+                onDoubleClick={(e) => e.stopPropagation()}
+                title="Name this view. Enter saves, Esc cancels."
                 style={{
                   position: 'absolute',
-                  bottom: 6,
-                  left: 8,
-                  fontSize: 11,
-                  fontVariantNumeric: 'tabular-nums',
+                  top: 32,
+                  right: 26,
+                  zIndex: 3,
+                  height: 'var(--ctl-h-pane)',
+                  width: 160,
+                  padding: '0 8px',
+                  borderRadius: 'var(--ctl-radius)',
+                  border: '1px solid var(--accent)',
+                  background: 'var(--panel-2)',
                   color: 'var(--text)',
-                  textShadow: '0 1px 3px #000',
-                  pointerEvents: 'none',
+                  fontSize: 'var(--fs-meta)',
                 }}
               />
             )}
-            {c.id !== VP.v3d && (
-              <button
-                onClick={() => flipPane(c.id)}
-                onDoubleClick={(e) => e.stopPropagation()}
-                title="flip viewing direction (mirror this pane)"
-                style={{
-                  position: 'absolute',
-                  top: 2,
-                  right: 26,
-                  width: 26,
-                  height: 22,
-                  borderRadius: 5,
-                  border: '1px solid var(--border)',
-                  background: 'rgba(27,31,39,0.85)',
-                  color: 'var(--text)',
-                  fontSize: 12,
-                  lineHeight: '18px',
-                  padding: 0,
-                  zIndex: 1,
-                }}
-              >
-                ⇋
-              </button>
-            )}
-            {c.id !== VP.v3d && (
-              <button
-                onClick={() => resetPaneView(c.id)}
-                onDoubleClick={(e) => e.stopPropagation()}
-                title="reset view: re-fit this pane's zoom & pan (orientation and window untouched; R squares up all panes)"
-                style={{
-                  position: 'absolute',
-                  top: 2,
-                  right: 54,
-                  width: 26,
-                  height: 22,
-                  borderRadius: 5,
-                  border: '1px solid var(--border)',
-                  background: 'rgba(27,31,39,0.85)',
-                  color: 'var(--text)',
-                  fontSize: 13,
-                  lineHeight: '18px',
-                  padding: 0,
-                  zIndex: 1,
-                }}
-              >
-                ↺
-              </button>
-            )}
-            {c.id !== VP.v3d &&
+            {!is3d &&
               controls.showOverlay &&
               mk(c.id) &&
               (
                 [
                   ['top', { top: 4, left: '50%', transform: 'translateX(-50%)' }],
                   ['bottom', { bottom: 4, left: '50%', transform: 'translateX(-50%)' }],
-                  ['left', { left: 6, top: '50%', transform: 'translateY(-50%)' }],
+                  ['left', { left: 8, top: '50%', transform: 'translateY(-50%)' }],
                   ['right', { right: 30, top: '50%', transform: 'translateY(-50%)' }],
                 ] as [keyof Markers, React.CSSProperties][]
               ).map(([side, pos]) => (
-                <span
-                  key={side}
-                  style={{
-                    position: 'absolute',
-                    ...pos,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: '#cfd6e4',
-                    textShadow: '0 1px 3px #000',
-                    pointerEvents: 'none',
-                  }}
-                >
+                <span key={side} data-overlay="letter" style={{ ...overlayText, ...pos, fontWeight: 600 }}>
                   {mk(c.id)![side]}
                 </span>
               ))}
-            {c.id !== VP.v3d && sliceInfo[c.id] && (
+            {!is3d && info && (
               <>
                 <input
                   className="vslice"
                   type="range"
+                  data-overlay="slider"
+                  aria-label={`${c.label} slice`}
                   min={0}
-                  max={Math.max(0, sliceInfo[c.id].n - 1)}
+                  max={Math.max(0, info.n - 1)}
                   step={1}
-                  value={sliceValue(c.id, sliceInfo[c.id])}
-                  onChange={(e) => jumpTo(c.id, sliceIndexFor(c.id, Number(e.target.value), sliceInfo[c.id].n))}
+                  value={sliceValue(c.id, info)}
+                  onChange={(e) => jumpTo(c.id, sliceIndexFor(c.id, Number(e.target.value), info.n))}
                   onPointerDown={(e) => {
                     e.stopPropagation();
                     setDragSlice(c.id);
@@ -3161,14 +3159,13 @@ export default function CbctViewport({
                   onLostPointerCapture={() => setDragSlice(null)}
                   onDoubleClick={(e) => {
                     e.stopPropagation(); // a dbl-click on the slider must not maximize the pane
-                    const n = sliceInfo[c.id].n;
-                    jumpTo(c.id, sliceIndexFor(c.id, Math.floor(n / 2), n));
+                    jumpTo(c.id, sliceIndexFor(c.id, Math.floor(info.n / 2), info.n));
                   }}
-                  title={`${SLIDER_TIP[c.id] ?? 'slice position'} · double-click = volume middle`}
+                  title={`${SLIDER_TIP[c.id] ?? 'slice position'}. Double-click: volume middle.`}
                   style={{
                     position: 'absolute',
                     right: 2,
-                    top: 26,
+                    top: 32,
                     bottom: 26,
                     width: 20,
                     height: 'auto',
@@ -3178,24 +3175,24 @@ export default function CbctViewport({
                   }}
                 />
                 {dragSlice === c.id && (
-                  <div style={{ position: 'absolute', top: 26, bottom: 26, right: 26, pointerEvents: 'none', zIndex: 2 }}>
+                  <div style={{ position: 'absolute', top: 32, bottom: 26, right: 26, pointerEvents: 'none', zIndex: 2 }}>
                     <span
                       style={{
                         position: 'absolute',
                         right: 0,
-                        top: `${(1 - sliceValue(c.id, sliceInfo[c.id]) / Math.max(1, sliceInfo[c.id].n - 1)) * 100}%`,
+                        top: `${(1 - sliceValue(c.id, info) / Math.max(1, info.n - 1)) * 100}%`,
                         transform: 'translateY(-50%)',
                         padding: '2px 6px',
                         borderRadius: 4,
                         background: 'rgba(20,23,29,0.92)',
-                        border: '1px solid var(--border)',
-                        fontSize: 11,
+                        border: '1px solid var(--ctl-border)',
+                        fontSize: 'var(--fs-meta)',
                         fontVariantNumeric: 'tabular-nums',
                         whiteSpace: 'nowrap',
                         color: 'var(--text)',
                       }}
                     >
-                      {sliceOrdinal(sliceInfo[c.id].idx, sliceInfo[c.id].n, sliceInfo[c.id].dir)}
+                      {sliceOrdinal(info.idx, info.n, info.dir)}
                     </span>
                   </div>
                 )}
@@ -3219,20 +3216,20 @@ export default function CbctViewport({
                 <span
                   style={{
                     position: 'absolute',
-                    top: 26,
+                    top: 32,
                     left: 8,
                     zIndex: 2,
                     padding: '2px 8px',
                     borderRadius: 4,
                     background: 'rgba(20,23,29,0.92)',
-                    border: '1px solid var(--border)',
-                    fontSize: 11,
+                    border: '1px solid var(--ctl-border)',
+                    fontSize: 'var(--fs-meta)',
                     color: '#ffb45e',
                     pointerEvents: 'none',
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  3D ROI · depth {controls.roi3dDepth} mm into the slice
+                  3D ROI, {controls.roi3dDepth} mm into the slice
                 </span>
               </>
             )}
@@ -3240,14 +3237,14 @@ export default function CbctViewport({
               <span
                 style={{
                   position: 'absolute',
-                  top: 26,
+                  top: 32,
                   left: 8,
                   zIndex: 2,
                   padding: '2px 8px',
                   borderRadius: 4,
                   background: 'rgba(20,23,29,0.92)',
-                  border: '1px solid var(--border)',
-                  fontSize: 11,
+                  border: '1px solid var(--ctl-border)',
+                  fontSize: 'var(--fs-meta)',
                   fontVariantNumeric: 'tabular-nums',
                   color: 'var(--text)',
                   pointerEvents: 'none',
@@ -3255,117 +3252,49 @@ export default function CbctViewport({
                 }}
               >
                 rotating {rotDrag.deg >= 0 ? '+' : ''}
-                {rotDrag.deg.toFixed(0)}° · R = reset
+                {rotDrag.deg.toFixed(0)}°. R resets.
               </span>
             )}
-            {c.id === VP.v3d && (
-              <div
-                onDoubleClick={(e) => e.stopPropagation()}
-                style={{
-                  position: 'absolute',
-                  top: 6,
-                  right: 8,
-                  display: 'flex',
-                  gap: 4,
-                  zIndex: 1,
-                  alignItems: 'center',
-                }}
-              >
+            {is3d && (
+              <PaneCluster>
                 {(
                   [
-                    ['⟲', [-14, 0], 'orbit left (hold to keep turning)'],
-                    ['⟳', [14, 0], 'orbit right (hold to keep turning)'],
-                    ['↑', [0, 10], 'orbit up (hold to keep turning)'],
-                    ['↓', [0, -10], 'orbit down (hold to keep turning)'],
-                  ] as [string, [number, number], string][]
-                ).map(([g, [yaw, pitch], tip]) => (
-                  <button
-                    key={tip}
-                    {...holdOrbit(yaw, pitch)}
-                    title={tip}
-                    style={{
-                      width: 26,
-                      height: 24,
-                      borderRadius: 5,
-                      border: '1px solid var(--border)',
-                      background: 'rgba(27,31,39,0.85)',
-                      color: 'var(--text)',
-                      fontSize: 13,
-                      lineHeight: '20px',
-                      padding: 0,
-                    }}
-                  >
-                    {g}
-                  </button>
+                    [PANE_BUTTON.orbitLeft, [-14, 0]],
+                    [PANE_BUTTON.orbitRight, [14, 0]],
+                    [PANE_BUTTON.orbitUp, [0, 10]],
+                    [PANE_BUTTON.orbitDown, [0, -10]],
+                  ] as const
+                ).map(([spec, [yaw, pitch]]) => (
+                  <PaneButton key={spec.name} spec={spec} detail="hold to keep turning" {...holdOrbit(yaw, pitch)} />
                 ))}
-                <button
+                <PaneButton
+                  spec={PANE_BUTTON.reset}
+                  detail="re-home the 3D camera; the window and the slices stay"
                   onClick={home3d}
-                  title="reset view: re-home the 3D camera (window and slices untouched)"
-                  style={{
-                    width: 26,
-                    height: 24,
-                    borderRadius: 5,
-                    border: '1px solid var(--border)',
-                    background: 'rgba(27,31,39,0.85)',
-                    color: 'var(--text)',
-                    fontSize: 13,
-                    lineHeight: '20px',
-                    padding: 0,
-                  }}
-                >
-                  ↺
-                </button>
-                <span style={{ fontSize: 10, color: 'var(--text-dim)', textShadow: '0 1px 2px #000' }}>
-                  {eraseMode ? 'drag = erase' : 'drag = rotate · right-drag = slice in · right+left = zoom'}
-                </span>
-              </div>
+                />
+              </PaneCluster>
             )}
-            {c.id === VP.v3d && (
-              <div
-                onDoubleClick={(e) => e.stopPropagation()}
-                style={{
-                  position: 'absolute',
-                  top: 34,
-                  right: 8,
-                  display: 'flex',
-                  gap: 4,
-                  zIndex: 1,
-                  alignItems: 'center',
-                }}
-              >
-                <button
-                  onClick={() => setEraseMode((m) => !m)}
-                  title="render eraser: erase what you touch on the render (a 3D-only copy; the slices NEVER change)"
-                  style={{
-                    height: 24,
-                    padding: '0 8px',
-                    borderRadius: 5,
-                    border: '1px solid var(--border)',
-                    background: eraseMode ? 'var(--accent-dim)' : 'rgba(27,31,39,0.85)',
-                    color: 'var(--text)',
-                    fontSize: 11,
-                  }}
-                >
-                  <EraserIcon size={12} strokeWidth={2} style={{ marginRight: 5, verticalAlign: '-2px' }} />
-                  eraser
-                </button>
+            {is3d && (
+              <PaneCluster style={{ top: 32 }}>
                 {eraseMode && (
                   <>
-                    <span style={{ fontSize: 10, color: 'var(--text)', textShadow: '0 1px 2px #000' }}>
-                      radius {eraseRadius} mm
-                    </span>
+                    <span style={{ ...overlayText, position: 'static' }}>radius {eraseRadius} mm</span>
                     <input
                       type="range"
+                      aria-label="Eraser radius"
                       min={1}
                       max={12}
                       step={0.5}
                       value={eraseRadius}
                       onChange={(e) => setEraseRadius(Number(e.target.value))}
                       onDoubleClick={() => setEraseRadius(4)}
-                      title={`brush radius ${eraseRadius} mm · double-click = 4 mm`}
+                      title={`Brush radius ${eraseRadius} mm. Double-click: 4 mm.`}
                       style={{ width: 70 }}
                     />
-                    <button
+                    <PaneButton
+                      spec={PANE_BUTTON.undoErase}
+                      disabled={eraseInfo.undo === 0}
+                      detail={eraseInfo.undo ? undefined : 'nothing to undo yet'}
                       onClick={() => {
                         const zr = eraserRef.current?.undo();
                         if (zr) {
@@ -3373,22 +3302,11 @@ export default function CbctViewport({
                           syncEraseInfo();
                         }
                       }}
-                      disabled={eraseInfo.undo === 0}
-                      title={eraseInfo.undo ? 'undo the last erase stroke' : 'nothing to undo yet'}
-                      style={{
-                        width: 26,
-                        height: 24,
-                        borderRadius: 5,
-                        border: '1px solid var(--border)',
-                        background: 'rgba(27,31,39,0.85)',
-                        color: 'var(--text)',
-                        fontSize: 12,
-                        padding: 0,
-                      }}
-                    >
-                      ↶
-                    </button>
-                    <button
+                    />
+                    <PaneButton
+                      spec={PANE_BUTTON.redoErase}
+                      disabled={eraseInfo.redo === 0}
+                      detail={eraseInfo.redo ? undefined : 'nothing to redo'}
                       onClick={() => {
                         const zr = eraserRef.current?.redo();
                         if (zr) {
@@ -3396,61 +3314,44 @@ export default function CbctViewport({
                           syncEraseInfo();
                         }
                       }}
-                      disabled={eraseInfo.redo === 0}
-                      title={eraseInfo.redo ? 'redo the undone erase stroke' : 'nothing to redo'}
-                      style={{
-                        width: 26,
-                        height: 24,
-                        borderRadius: 5,
-                        border: '1px solid var(--border)',
-                        background: 'rgba(27,31,39,0.85)',
-                        color: 'var(--text)',
-                        fontSize: 12,
-                        padding: 0,
-                      }}
-                    >
-                      ↷
-                    </button>
-                    <button
+                    />
+                    <PaneTextButton
+                      label="Revert"
+                      disabled={eraseInfo.undo === 0 && eraseInfo.redo === 0}
+                      title={
+                        eraseInfo.undo || eraseInfo.redo
+                          ? 'Revert every erase: the full volume returns to the render'
+                          : 'Nothing erased yet'
+                      }
                       onClick={() => {
                         void dropEraseVolume(true).then(() => {
                           if (eraseModeRef.current) void ensureEraseVolume().then(syncEraseInfo);
                         });
                       }}
-                      disabled={eraseInfo.undo === 0 && eraseInfo.redo === 0}
-                      title={
-                        eraseInfo.undo || eraseInfo.redo
-                          ? 'revert every erase: the full volume returns to the render'
-                          : 'nothing erased yet'
-                      }
-                      style={{
-                        height: 24,
-                        padding: '0 8px',
-                        borderRadius: 5,
-                        border: '1px solid var(--border)',
-                        background: 'rgba(27,31,39,0.85)',
-                        color: 'var(--text)',
-                        fontSize: 11,
-                      }}
-                    >
-                      revert
-                    </button>
+                    />
                   </>
                 )}
-              </div>
+                <PaneTextButton
+                  icon={EraserIcon}
+                  label="Eraser"
+                  active={eraseMode}
+                  onClick={() => setEraseMode((m) => !m)}
+                  title="Render eraser: erase what you touch on the render (a 3D-only copy; the slices never change)"
+                />
+              </PaneCluster>
             )}
-            {c.id === VP.v3d && cutDrag !== null && (
+            {is3d && cutDrag !== null && (
               <span
                 style={{
                   position: 'absolute',
-                  top: 34,
+                  top: 32,
                   left: 8,
                   zIndex: 2,
                   padding: '2px 8px',
                   borderRadius: 4,
                   background: 'rgba(20,23,29,0.92)',
-                  border: '1px solid var(--border)',
-                  fontSize: 11,
+                  border: '1px solid var(--ctl-border)',
+                  fontSize: 'var(--fs-meta)',
                   fontVariantNumeric: 'tabular-nums',
                   color: 'var(--text)',
                   pointerEvents: 'none',
@@ -3460,316 +3361,23 @@ export default function CbctViewport({
                 slicing {cutDrag.toFixed(0)} mm deep
               </span>
             )}
-            {c.id === VP.v3d && cutCount > 0 && (
-              <button
+            {is3d && cutCount > 0 && (
+              <PaneTextButton
+                icon={Scissors}
+                data-overlay="buttons"
+                label={`Clear ${cutCount} cut${cutCount > 1 ? 's' : ''}`}
+                title="Remove every cutaway cut from the 3D render"
                 onClick={() => {
                   cutsRef.current = [];
                   setCutCount(0);
                   reclipRef.current();
                 }}
-                onDoubleClick={(e) => e.stopPropagation()}
-                title="remove every cutaway cut from the 3D render"
-                style={{
-                  position: 'absolute',
-                  bottom: 6,
-                  left: 8,
-                  zIndex: 1,
-                  padding: '3px 8px',
-                  borderRadius: 5,
-                  border: '1px solid var(--border)',
-                  background: 'rgba(27,31,39,0.9)',
-                  color: 'var(--text)',
-                  fontSize: 11,
-                }}
-              >
-                ✂ {cutCount} cut{cutCount > 1 ? 's' : ''} · clear
-              </button>
+                style={{ position: 'absolute', bottom: 4, left: 8, zIndex: 2 }}
+              />
             )}
           </div>
         );
       })}
-
-      <div
-        onDoubleClick={(e) => e.stopPropagation()}
-        // anchored to the AXIAL pane's REAL center (derived from the live split — a fixed
-        // left:25% drifts over arbitrary content after a divider drag), one row BELOW its
-        // label; a maximized pane owns the whole grid, so center on it instead
-        style={{
-          position: 'absolute',
-          top: 26,
-          left: maximized ? '50%' : `calc((100% - 6px) * ${split.c / 2} + 3px)`,
-          transform: 'translateX(-50%)',
-          zIndex: 3,
-          display: 'flex',
-          gap: 6,
-        }}
-      >
-        {namingView !== null ? (
-          <input
-            autoFocus
-            value={namingView}
-            onChange={(e) => setNamingView(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                saveView(namingView);
-                setNamingView(null);
-              } else if (e.key === 'Escape') setNamingView(null);
-            }}
-            onBlur={() => setNamingView(null)}
-            title="name this view. Enter saves, Esc cancels."
-            style={{
-              height: 24,
-              width: 160,
-              padding: '0 8px',
-              borderRadius: 5,
-              border: '1px solid var(--accent)',
-              background: 'rgba(27,31,39,0.95)',
-              color: 'var(--text)',
-              fontSize: 11,
-            }}
-          />
-        ) : (
-          <button
-            onClick={startNamingView}
-            title="save the current view: all four cameras + window + render settings, under a name (V)"
-            style={{
-              height: 24,
-              padding: '0 10px',
-              borderRadius: 5,
-              border: '1px solid var(--border)',
-              background: 'rgba(27,31,39,0.9)',
-              color: 'var(--text)',
-              fontSize: 11,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-            }}
-          >
-            <Bookmark size={12} strokeWidth={2} />
-            save view (V)
-          </button>
-        )}
-      </div>
-
-      {/* NOT gated on showOverlay: O hides the drawings on the panes, but the management
-          panel must stay reachable — it is the only way to restore/delete hidden objects */}
-      {(measures.length > 0 || rois3d.length > 0 || views.length > 0) && (
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 10,
-            right: 10,
-            zIndex: 3,
-            background: 'rgba(20,23,29,0.92)',
-            border: '1px solid var(--border)',
-            borderRadius: 6,
-            padding: '6px 8px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 3,
-            maxHeight: 220,
-            maxWidth: 300,
-            overflowY: 'auto',
-          }}
-        >
-          <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: 0.4 }}>
-            OBJECTS. Click one to show it on the slices; Del deletes the selected one.
-          </div>
-          {measures.map((m) => (
-            <div
-              key={m.uid}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                fontSize: 12,
-                padding: '1px 4px',
-                borderRadius: 4,
-                background: selectedUid === m.uid ? 'var(--accent-dim)' : 'transparent',
-              }}
-            >
-              <button
-                onClick={() => toggleMeasureVisible(m.uid, !m.visible)}
-                title={m.visible ? 'hide this object' : 'show this object'}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: m.visible ? 'var(--text)' : 'var(--text-dim)',
-                  padding: 0,
-                  fontSize: 12,
-                  width: 18,
-                }}
-              >
-                {m.visible ? '👁' : '–'}
-              </button>
-              <button
-                onClick={() => pickMeasure(m)}
-                title="select + jump the slices to this object"
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text)',
-                  padding: 0,
-                  fontSize: 12,
-                  flex: 1,
-                  textAlign: 'left',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {m.label}
-              </button>
-              <button
-                onClick={() => deleteMeasure(m.uid)}
-                title="delete this object"
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-dim)',
-                  padding: 0,
-                  fontSize: 12,
-                }}
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-          {rois3d.map((roi) => {
-            const uid = `roi3d:${roi.id}`;
-            const s = roi.stats;
-            const dims = roi.half.map((h) => (h * 2).toFixed(0)).join('×');
-            return (
-              <div
-                key={uid}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  fontSize: 12,
-                  padding: '1px 4px',
-                  borderRadius: 4,
-                  background: selectedUid === uid ? 'var(--accent-dim)' : 'transparent',
-                }}
-              >
-                <button
-                  onClick={() => {
-                    setRois3d((rs) => rs.map((r) => (r.id === roi.id ? { ...r, visible: !r.visible } : r)));
-                  }}
-                  title={roi.visible ? 'hide this 3D ROI outline' : 'show this 3D ROI outline'}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: roi.visible ? 'var(--text)' : 'var(--text-dim)',
-                    padding: 0,
-                    fontSize: 12,
-                    width: 18,
-                  }}
-                >
-                  {roi.visible ? '👁' : '–'}
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedUid((cur) => (cur === uid ? null : uid));
-                    jumpPanesToWorld(roi.center);
-                  }}
-                  title={`3D box ROI ${dims} mm · ${s.nVoxels.toLocaleString()} voxels · min ${Math.round(s.minHu)} / max ${Math.round(s.maxHu)} HU. Click to jump the slices to it.`}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#ffb45e',
-                    padding: 0,
-                    fontSize: 12,
-                    flex: 1,
-                    textAlign: 'left',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  ⧈ {s.volumeCm3 >= 1 ? s.volumeCm3.toFixed(1) : s.volumeCm3.toFixed(2)} cm³ ·{' '}
-                  {Math.round(s.meanHu)}±{Math.round(s.sdHu)} HU
-                </button>
-                <button
-                  onClick={() => {
-                    setRois3d((rs) => rs.filter((r) => r.id !== roi.id));
-                    setSelectedUid((cur) => (cur === uid ? null : cur));
-                  }}
-                  title="delete this 3D ROI"
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-dim)',
-                    padding: 0,
-                    fontSize: 12,
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-            );
-          })}
-          {views.length > 0 && (
-            <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: 0.4, marginTop: 2 }}>
-              VIEWS. Click one to restore that exact presentation.
-            </div>
-          )}
-          {views.map((v) => (
-            <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '1px 4px' }}>
-              <span style={{ width: 18, textAlign: 'center', display: 'inline-flex', justifyContent: 'center' }}>
-                <Bookmark size={12} strokeWidth={2} />
-              </span>
-              <button
-                onClick={() => restoreView(v)}
-                title="restore this saved view (cameras + window + render settings)"
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text)',
-                  padding: 0,
-                  fontSize: 12,
-                  flex: 1,
-                  textAlign: 'left',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {v.name}
-              </button>
-              {v.by === 'agent' && (
-                <span
-                  title="saved by an AI agent over the agent bridge, not by you"
-                  style={{
-                    fontSize: 10,
-                    lineHeight: '14px',
-                    padding: '0 5px',
-                    borderRadius: 4,
-                    border: '1px solid var(--border)',
-                    color: 'var(--text)',
-                    letterSpacing: 0.4,
-                  }}
-                >
-                  agent
-                </span>
-              )}
-              <button
-                onClick={() => setViews((vs) => vs.filter((x) => x.id !== v.id))}
-                title="delete this saved view"
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-dim)',
-                  padding: 0,
-                  fontSize: 12,
-                }}
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
 
       {progress !== null && (
         <div
@@ -3801,8 +3409,168 @@ export default function CbctViewport({
         </div>
       )}
     </div>
+      {/* the objects list sits in a strip under the panes, never over an image. NOT gated on
+          showOverlay: O hides the drawings on the panes, but the list must stay reachable, it
+          is the only way to restore or delete hidden objects */}
+      {(measures.length > 0 || rois3d.length > 0 || views.length > 0) && (
+        <div
+          data-testid="objects-list"
+          style={{
+            flex: '0 0 auto',
+            background: 'var(--panel)',
+            border: '1px solid var(--border)',
+            borderRadius: 4,
+            padding: '4px 8px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+            columnGap: 16,
+            rowGap: 2,
+            alignContent: 'start',
+            maxHeight: 96,
+            overflowY: 'auto',
+          }}
+        >
+          <div style={{ ...rowHeading, gridColumn: '1 / -1' }}>
+            Objects. Click one to show it on the slices; Del deletes the selected one.
+          </div>
+          {measures.map((m) => (
+            <div key={m.uid} style={{ ...objRow, background: selectedUid === m.uid ? 'var(--accent-dim)' : 'transparent' }}>
+              <button
+                onClick={() => toggleMeasureVisible(m.uid, !m.visible)}
+                aria-label={m.visible ? 'Hide this object' : 'Show this object'}
+                title={m.visible ? 'Hide this object' : 'Show this object'}
+                style={objIconBtn}
+              >
+                {m.visible ? <Eye size={14} strokeWidth={2} aria-hidden /> : <EyeOff size={14} strokeWidth={2} aria-hidden />}
+              </button>
+              <button onClick={() => pickMeasure(m)} title="Select it and move the slices to it" style={objLabelBtn}>
+                {m.label}
+              </button>
+              <button onClick={() => deleteMeasure(m.uid)} aria-label="Delete this object" title="Delete this object" style={objIconBtn}>
+                <X size={14} strokeWidth={2} aria-hidden />
+              </button>
+            </div>
+          ))}
+          {rois3d.map((roi) => {
+            const uid = `roi3d:${roi.id}`;
+            const s = roi.stats;
+            const dims = roi.half.map((h) => (h * 2).toFixed(0)).join('×');
+            return (
+              <div key={uid} style={{ ...objRow, background: selectedUid === uid ? 'var(--accent-dim)' : 'transparent' }}>
+                <button
+                  onClick={() => {
+                    setRois3d((rs) => rs.map((r) => (r.id === roi.id ? { ...r, visible: !r.visible } : r)));
+                  }}
+                  aria-label={roi.visible ? 'Hide this 3D ROI outline' : 'Show this 3D ROI outline'}
+                  title={roi.visible ? 'Hide this 3D ROI outline' : 'Show this 3D ROI outline'}
+                  style={objIconBtn}
+                >
+                  {roi.visible ? <Eye size={14} strokeWidth={2} aria-hidden /> : <EyeOff size={14} strokeWidth={2} aria-hidden />}
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedUid((cur) => (cur === uid ? null : uid));
+                    jumpPanesToWorld(roi.center);
+                  }}
+                  title={`3D box ROI ${dims} mm, ${s.nVoxels.toLocaleString()} voxels, min ${Math.round(s.minHu)} and max ${Math.round(s.maxHu)} HU. Click to move the slices to it.`}
+                  style={{ ...objLabelBtn, color: '#ffb45e' }}
+                >
+                  ⧈ {s.volumeCm3 >= 1 ? s.volumeCm3.toFixed(1) : s.volumeCm3.toFixed(2)} cm³ ·{' '}
+                  {Math.round(s.meanHu)}±{Math.round(s.sdHu)} HU
+                </button>
+                <button
+                  onClick={() => {
+                    setRois3d((rs) => rs.filter((r) => r.id !== roi.id));
+                    setSelectedUid((cur) => (cur === uid ? null : cur));
+                  }}
+                  aria-label="Delete this 3D ROI"
+                  title="Delete this 3D ROI"
+                  style={objIconBtn}
+                >
+                  <X size={14} strokeWidth={2} aria-hidden />
+                </button>
+              </div>
+            );
+          })}
+          {views.length > 0 && (
+            <div style={{ ...rowHeading, gridColumn: '1 / -1', marginTop: 2 }}>Views. Click one to restore that exact presentation.</div>
+          )}
+          {views.map((v) => (
+            <div key={v.id} style={objRow}>
+              <span style={{ ...objIconBtn, display: 'inline-flex' }} aria-hidden>
+                <Bookmark size={14} strokeWidth={2} />
+              </span>
+              <button onClick={() => restoreView(v)} title="Restore this saved view (cameras, window, render settings)" style={objLabelBtn}>
+                {v.name}
+              </button>
+              {v.by === 'agent' && (
+                <span
+                  title="saved by an AI agent over the agent bridge, not by you"
+                  style={{
+                    fontSize: 'var(--fs-meta)',
+                    lineHeight: '16px',
+                    padding: '0 6px',
+                    borderRadius: 4,
+                    border: '1px solid var(--ctl-border)',
+                    color: 'var(--text)',
+                  }}
+                >
+                  agent
+                </span>
+              )}
+              <button
+                onClick={() => setViews((vs) => vs.filter((x) => x.id !== v.id))}
+                aria-label="Delete this saved view"
+                title="Delete this saved view"
+                style={objIconBtn}
+              >
+                <X size={14} strokeWidth={2} aria-hidden />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
+
+// the objects strip under the panes
+const rowHeading: React.CSSProperties = { fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', lineHeight: '20px' };
+const objRow: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+  fontSize: 'var(--fs-meta)',
+  padding: '0 4px',
+  borderRadius: 4,
+  minWidth: 0,
+};
+const objIconBtn: React.CSSProperties = {
+  background: 'none',
+  border: 'none',
+  color: 'var(--text)',
+  padding: 0,
+  width: 20,
+  height: 20,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flex: '0 0 auto',
+};
+const objLabelBtn: React.CSSProperties = {
+  background: 'none',
+  border: 'none',
+  color: 'var(--text)',
+  padding: 0,
+  fontSize: 'var(--fs-meta)',
+  fontVariantNumeric: 'tabular-nums',
+  flex: 1,
+  minWidth: 0,
+  textAlign: 'left',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+};
 
 function applyVoi(
   engine: RenderingEngine,

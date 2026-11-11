@@ -14,6 +14,8 @@ import { sweepDeg } from './CbctGrid';
 import { VertRangeSliders } from './CbctPano';
 import DragDivider from './DragDivider';
 import { PANE_DIRECTION, paneIndexFromBuffer, sliceOrdinal } from './geometry';
+import { ActiveFrame, PaneLabel, WlReadout, useActivePane } from './PaneOverlay';
+import { PLANE_COLOR, drawHaloLabel } from './overlayGrammar';
 import { initialAxialIndex, setAxialLevel } from './readingPlace';
 
 interface Props {
@@ -94,6 +96,7 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
   const [z, setZ] = useState(0);
   // the scout's level is the tab's reading place (./readingPlace): set from it on open, written back on every move
   const loadedAnonRef = useRef<string | null>(null);
+  const { active: activePane, bind: bindPane } = useActivePane<'axial' | 'R' | 'L'>('axial');
   const [lines, setLines] = useState<Partial<Record<Side, AxisLine>>>({});
   const [sync, setSync] = useState(false);
   const [nSec, setNSec] = useState(5);
@@ -288,10 +291,7 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
         ctx.arc(x, y, 4, 0, Math.PI * 2);
         ctx.fill();
       }
-      if (label) {
-        ctx.font = 'bold 12px sans-serif';
-        ctx.fillText(label, (x1 + x2) / 2 + 8, (y1 + y2) / 2 - 8);
-      }
+      if (label) drawHaloLabel(ctx, label, (x1 + x2) / 2 + 8, (y1 + y2) / 2 - 8, color);
     };
     // per side: green sampled-band outline (exactly what the fan cuts — the pano slab-guide,
     // TMJ edition) + per-section cut marks inside it. A tilted side keeps its band as the
@@ -381,25 +381,13 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
         ctx.moveTo(img.width / 2, 0);
         ctx.lineTo(img.width / 2, img.height);
         ctx.stroke();
-        ctx.fillStyle = SIDE_COLOR[side];
-        ctx.font = '10px sans-serif';
         const sideTilted = Math.abs(tilt[side]) > 0.01;
-        ctx.fillText(
-          `${side}${k + 1} · ${off > 0 ? '+' : ''}${off.toFixed(1)} mm${sideTilted ? ` · ${tilt[side] >= 0 ? '+' : ''}${tilt[side].toFixed(0)}°` : ''}`,
-          4,
-          11,
-        );
-        // orientation letters only while upright — an in-plane spin mixes them with S/I
+        // orientation letters at the edge midpoints, only while upright: an in-plane spin
+        // mixes them with S and I
         if (!sideTilted) {
-          if (mode === 'perp') {
-            ctx.fillStyle = 'rgba(230,233,239,0.75)';
-            ctx.fillText('A', 3, img.height - 4);
-            ctx.fillText('P', img.width - 10, img.height - 4);
-          } else {
-            ctx.fillStyle = 'rgba(230,233,239,0.75)';
-            ctx.fillText(side === 'R' ? 'lat' : 'med', 3, img.height - 4);
-            ctx.fillText(side === 'R' ? 'med' : 'lat', img.width - 22, img.height - 4);
-          }
+          const [lo, hi] = mode === 'perp' ? ['A', 'P'] : side === 'R' ? ['lat', 'med'] : ['med', 'lat'];
+          drawHaloLabel(ctx, lo, 0, img.height / 2, '#e6e9ef');
+          drawHaloLabel(ctx, hi, img.width, img.height / 2, '#e6e9ef');
         }
       }
     }
@@ -564,7 +552,16 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
     return () => cv.removeEventListener('wheel', onWheel);
   }, [entry]);
 
-  const small: React.CSSProperties = { fontSize: 11, color: 'var(--text-dim)', whiteSpace: 'nowrap' };
+  const small: React.CSSProperties = { fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', whiteSpace: 'nowrap' };
+  const captionStrip: React.CSSProperties = {
+    ...small,
+    lineHeight: '20px',
+    height: 20,
+    flex: '0 0 auto',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    fontVariantNumeric: 'tabular-nums',
+  };
   const sliderRow: React.CSSProperties = {
     display: 'flex',
     gap: 10,
@@ -600,23 +597,28 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
     fontSize: 11,
   });
 
-  const sideRow = (side: Side) => (
-    <div key={side} style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', gap: 6 }}>
-      <span
-        style={{
-          position: 'absolute',
-          top: 4,
-          left: 6,
-          zIndex: 1,
-          fontSize: 12,
-          fontWeight: 700,
-          color: SIDE_COLOR[side],
-          textShadow: '0 1px 2px #000',
-          pointerEvents: 'none',
-        }}
-      >
-        {side === 'R' ? 'RIGHT condyle' : 'LEFT condyle'}
-      </span>
+  const sideRow = (side: Side) => {
+    const sideTilted = Math.abs(tilt[side]) > 0.01;
+    return (
+    <div key={side} {...bindPane(side)} style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <ActiveFrame on={activePane === side} />
+      {/* the side and each section's caption sit in strips above the images */}
+      <div data-snap-caption style={{ ...captionStrip, color: SIDE_COLOR[side], fontWeight: 600 }}>
+        {side === 'R' ? 'Right condyle' : 'Left condyle'}
+      </div>
+      <div style={{ display: 'flex', gap: 6 }}>
+        {Array.from({ length: nSec }, (_, k) => {
+          const off = (k - (nSec - 1) / 2) * secSpacing;
+          return (
+            <div key={k} data-snap-caption style={{ ...captionStrip, flex: 1, minWidth: 0, color: 'var(--text)' }}>
+              {side}
+              {k + 1} {off > 0 ? '+' : ''}
+              {off.toFixed(1)} mm{sideTilted ? `, ${tilt[side] >= 0 ? '+' : ''}${tilt[side].toFixed(0)}°` : ''}
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', gap: 6 }}>
       {Array.from({ length: nSec }, (_, k) => {
         return (
         <div
@@ -626,7 +628,6 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
           onPointerUp={onTileUp}
           onPointerCancel={onTileUp}
           onContextMenu={(e) => e.preventDefault()}
-          title="right-drag = rotate this side's fan (MPR gesture)"
           style={{ position: 'relative', flex: 1, minWidth: 0, background: 'var(--viewport-bg)', borderRadius: 4, touchAction: 'none' }}
         >
           <canvas
@@ -635,6 +636,7 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
             }}
             style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
           />
+          {lines[side] && k === nSec - 1 && <WlReadout voi={effVoi} />}
         </div>
         );
       })}
@@ -647,15 +649,17 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
             alignItems: 'center',
             justifyContent: 'center',
             color: 'var(--text-dim)',
-            fontSize: 12,
+            fontSize: 'var(--fs-meta)',
             pointerEvents: 'none',
           }}
         >
           drag a line along the {side === 'R' ? 'right' : 'left'} condyle head on the axial scout
         </div>
       )}
+      </div>
     </div>
-  );
+    );
+  };
 
   return (
     <div
@@ -672,7 +676,8 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
     >
       {/* left: axial scout + controls */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minHeight: 0 }}>
-        <div style={{ position: 'relative', flex: 1, minHeight: 0, background: 'var(--viewport-bg)', borderRadius: 4 }}>
+        <div {...bindPane('axial')} style={{ position: 'relative', flex: 1, minHeight: 0, background: 'var(--viewport-bg)', borderRadius: 4 }}>
+          <ActiveFrame on={activePane === 'axial'} />
           <canvas
             ref={axialCv}
             onPointerDown={onAxialDown}
@@ -688,10 +693,13 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
               display: 'block',
             }}
           />
-          <span style={{ position: 'absolute', top: 6, left: 8, right: 30, ...small, pointerEvents: 'none', whiteSpace: 'normal', lineHeight: 1.4 }}>
-            AXIAL {entry ? sliceOrdinal(paneIndexFromBuffer('axial', z, slices), slices, PANE_DIRECTION.axial) : ''} · wheel = slice · scroll to the condyles · drag = axis
-            line per side · right-click = delete
-          </span>
+          {/* plane and slice only: the gestures live in the Keys card and the status line */}
+          <PaneLabel
+            name="AXIAL"
+            color={PLANE_COLOR.axial}
+            slice={entry ? sliceOrdinal(paneIndexFromBuffer('axial', z, slices), slices, PANE_DIRECTION.axial) : undefined}
+          />
+          <WlReadout voi={entry ? effVoi : null} />
           <input
             className="vslice"
             type="range"
@@ -702,7 +710,9 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
             onChange={(e) => setZ(Number(e.target.value))}
             onDoubleClick={() => setZ(Math.floor(slices / 2))}
             onPointerDown={(e) => e.stopPropagation()}
-            title="scout slice · up = superior (S) · double-click = volume middle"
+            title="Scout slice, up is superior. Double-click: volume middle."
+            aria-label="Axial slice"
+            data-overlay="slider"
             style={{
               position: 'absolute',
               right: 2,

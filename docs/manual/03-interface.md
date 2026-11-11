@@ -95,9 +95,11 @@ sliders, a gamma slider, and an invert checkbox.
 
 ## 3.4 The objects panel and saved views
 
-In MPR, a side panel lists every annotation and measurement on the current
-volume (chapter 6) together with **saved views**. Press `V`, or use the panel,
-to save the current view: all four pane cameras plus the display state
+In MPR, a strip under the four panes lists every annotation and measurement
+on the current volume (chapter 6) together with **saved views**; it appears
+once there is something to list and never covers an image. Press `V`, or the
+**Save view** button in the axial pane's top-right corner, to save the
+current view: all four pane cameras plus the display state
 (window, render settings). One click on a saved view restores it exactly. A
 view saved by an AI agent over MCP (chapter 9) carries an **agent** badge, so
 your bookmarks and the agent's never mix.
@@ -111,3 +113,51 @@ stored as small text sidecars on this machine, never inside the scan
 `R` reset orientation · `C` toggle plane lines · `O` toggle overlays ·
 `V` save the current view · `Del` delete the selected annotation. The full
 reference, including every mouse gesture, is chapter 12.
+
+## 3.6 The image panes
+
+Every slice pane, in every mode, keeps the same corners, in 12 px text on a
+dark halo so it reads on bright bone as on air, with numbers in fixed-width
+figures so they do not jitter while they change:
+
+- **Top left**: the plane, in its colour (axial red, sagittal yellow, coronal
+  green), and the slice as n/N with the direction of the count, for example
+  `AXIAL 100/200 S→I`. No mouse hints sit in a pane; they are in the keys
+  card and the hint line.
+- **Bottom right**: the window the pane shows, width then level, for example
+  `W 4000 L 1000`. It follows the presets, the sliders and a window drag. In
+  Pano the pano's own readout follows auto-adjust.
+- **Edge midpoints** (MPR): the patient-orientation letters, computed from the
+  live camera.
+- **Bottom centre** (MPR): the scale bar, a yellow bar of a round length (1,
+  2 or 5 mm, 1, 2 or 5 cm and so on) with its length beside it. `O` hides it
+  with the other overlays.
+- **Bottom left** (MPR): the HU under the cursor.
+- **Top right**: the pane's buttons.
+
+In Pano, TMJ and Reslice the captions of the pano and of each section sit in a
+strip above the image, never over it. Measurement labels stay inside the
+image, on the same dark halo.
+
+The pane that takes the mouse wheel carries a thin blue frame: the pane the
+pointer is in, or the last one it was in. Nothing else about a pane changes
+with the pointer.
+
+The pane buttons show an icon only, 14 px, each with its standard meaning;
+the keys card lists them with their names, and a screen reader reads the
+name:
+
+| Icon | Button | Where | What it does |
+|---|---|---|---|
+| Counter-clockwise arrow | **Reset view** | every MPR pane | Re-fit that pane's zoom and pan; orientation and window stay. On the 3D pane it re-homes the camera. |
+| Left-right arrow | **Flip** | MPR slice panes | Mirror the pane's viewing direction; the letters follow. |
+| Left arrow | **Orbit left** | 3D pane | Turn the render left; hold to keep turning. |
+| Right arrow | **Orbit right** | 3D pane | Turn the render right; hold to keep turning. |
+| Up arrow | **Orbit up** | 3D pane | Tip the render up; hold to keep turning. |
+| Down arrow | **Orbit down** | 3D pane | Tip the render down; hold to keep turning. |
+| Curved back arrow | **Undo erase** | 3D pane, eraser on | Undo the last eraser stroke. |
+| Curved forward arrow | **Redo erase** | 3D pane, eraser on | Redo the stroke just undone. |
+
+Three pane buttons keep their word beside the icon: **Save view** (axial
+pane, `V`), **Eraser** and **Revert** (3D pane). Grid's **Reset view** sits in
+its toolbar.
