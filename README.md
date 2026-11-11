@@ -160,7 +160,7 @@ contact any host but its own and the model providers of the in-page agent
 below, which receive nothing unless you switch the agent on. Marks are kept in the browser's own
 storage and travel as a marks file (**Save marks to file** / **Load marks from
 file**). The browser must hold the whole volume in memory, so a large volume
-shows a notice first; the repository viewer has no such limit. AI-agent control (MCP)
+shows a notice first; the repository viewer holds it in a tab as well and shows no notice. AI-agent control (MCP)
 needs the local app or the desktop app. Build it yourself with `npm run build:web`
 (writes `out/`). The user manual is served by the viewer itself, on the site and in the
 app, from **help ▾**.

@@ -90,13 +90,15 @@
 
 - **The Large volume notice appears** (in the web build and in the desktop
   app): the volume's voxels exceed the size threshold (section 4.6). The
-  browser engine must hold the whole volume in memory, and a tab or the
-  desktop app has less room than the repository viewer. Close other tabs or
-  volumes and continue, or read it in the repository viewer (section 2.3),
-  which has no such limit.
+  browser engine must hold the whole volume in memory. Close other tabs or
+  volumes and continue. The repository viewer (section 2.3) holds the volume
+  in a browser tab as well and needs the same memory; it only shows no
+  notice.
 - **The tab slows down, reloads, or shows "Aw, Snap" or "out of memory" on a
-  large volume**: the browser ran out of memory for this tab. Use the
-  repository viewer (section 2.3) for that volume.
+  large volume**: the browser ran out of memory for this tab. Close other
+  tabs, volumes and programs, then open the volume again; the repository
+  viewer (section 2.3) holds it in a tab too, so it needs the same free
+  memory.
 - **Open DICOMDIR or DICOM folder offers no folder choice, or a drop opens nothing**: the
   browser lacks folder reading. Chrome and Edge support both the folder picker
   and dropped folders; Firefox and Safari support the folder picker, and their

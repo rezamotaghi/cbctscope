@@ -122,6 +122,6 @@ never shows it.
 A volume above the size threshold (512 MiB of voxels by default) shows the
 **Large volume** notice before it loads: its size, and that the browser must
 hold it in memory (the tab's on the website, the app's in the desktop app),
-and that the viewer run from the repository has no such limit. **Continue** loads it; **Cancel** leaves the viewer as it
+and that the viewer run from the repository holds it in a browser tab as well and only shows no notice. **Continue** loads it; **Cancel** leaves the viewer as it
 was. **✕ Close** works as in section 4.3, without any memory of the source
 between visits.

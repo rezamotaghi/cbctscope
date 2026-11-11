@@ -49,7 +49,7 @@ nothing.
   offered an interpretation. CBCTScope does not display readings; ask for a view, not an
   opinion." The guard is a word filter, not a judge; the fence remains the clinician's.
 - The demo volume is the synthetic phantom only. No real image enters the repo or the build.
-- The local app has no size ceiling. The web build shows a notice before a large volume loads.
+- The local app holds the whole volume in a browser tab as well, and shows no notice. The web build shows a notice before a large volume loads.
 
 ## 3. The build target
 
@@ -141,7 +141,8 @@ can travel. Pixels never enter a sidecar.
   button, "I understand". Remembered in localStorage.
 - Size notice. Before a volume whose voxel bytes exceed `NEXT_PUBLIC_CBCTSCOPE_SIZE_NOTICE_MIB`
   (build-time, default 512) is loaded: the size, the fact that the browser must hold it in
-  memory, the line that the viewer run from the repository has no such limit, "Continue" and "Cancel".
+  memory, the line that the viewer run from the repository holds it in a tab as well and only shows no
+  notice, "Continue" and "Cancel".
 - Agent opt-in: milestone 3.
 
 Every dialogue follows hard rule 4: full contrast, nothing hidden. Its one exception applies
