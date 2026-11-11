@@ -225,8 +225,8 @@ describe('user manual tracks the app (docs/manual/)', () => {
     // The ritual: the bump commit resets doi: to the concept DOI, because the previous
     // release's version DOI becomes a wrong self-citation the moment the version changes;
     // the new version DOI exists only after the release and is pinned in a follow-up
-    // commit. The v1.5.0 bump shipped the v1.4.0 DOI with green gates, caught only in
-    // review — hence this check. Bumps up to 1.5.0 predate it and stay green.
+    // commit. Without this check a bump that keeps the previous version DOI passes every
+    // other gate. Bumps up to 1.5.0 predate the check and stay green.
     const CONCEPT_DOI = '10.5281/zenodo.21431452';
     const version = (JSON.parse(read('package.json')) as { version: string }).version;
     const [major, minor] = version.split('.').map(Number);

@@ -52,7 +52,7 @@ export default function ExportMenu({ anon, voi, invert, gamma, stlThreshold, cro
 
   const panelRef = useRef<HTMLDivElement | null>(null);
   // a press outside closes it, but never mid-export (the progress line must stay visible),
-  // and never while a field INSIDE the menu has focus: a stray click used to close the menu
+  // and never while a field INSIDE the menu has focus: a stray click would close the menu
   // mid-typing and eat the slice interval or threshold. Escape is the deliberate close.
   const close = useCallback(() => setOpen(false), []);
   const keepOpen = useCallback((e: Event) => {
@@ -175,7 +175,7 @@ export default function ExportMenu({ anon, voi, invert, gamma, stlThreshold, cro
             left: 0,
             width: 300,
             padding: '0 12px 12px',
-            // on a short window the panel used to run off the bottom with the export
+            // on a short window the panel would run off the bottom with the export
             // buttons unreachable; scroll inside it instead
             maxHeight: 'calc(100vh - 140px)',
             overflowY: 'auto',

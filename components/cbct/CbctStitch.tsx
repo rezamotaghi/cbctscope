@@ -444,9 +444,9 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
         ))}
       </div>
 
-      {/* transform sliders ride the toolbar (pane-global, Grid-style: the surface-anchored
-          rule Reza ratified 2026-08-05 puts per-surface rows under their surface and
-          pane-global params up top) */}
+      {/* transform sliders ride the toolbar: they move volume B in all three previews at
+          once, so they are pane-global and sit up top, as Grid's do; a control that belongs to
+          one surface sits under that surface instead */}
       <div className="mode-row" style={{ gap: 'var(--sp-3)', padding: 0 }}>
         {axisSlider('X', 't', 0, -60, 60, 0.5, ' mm')}
         {axisSlider('Y', 't', 1, -60, 60, 0.5, ' mm')}

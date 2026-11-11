@@ -42,7 +42,7 @@ interface Props {
 }
 
 const RESLICE_KEY = (anon: string) => `cbctscope-reslice:v1:${anon}`;
-// same MPR-vibrancy palette as the pano view (2026-07-29)
+// same MPR-vibrancy palette as the pano view
 const ACCENT = 'rgba(85,150,255,0.95)';
 const MARKER = 'rgba(235,205,45,0.95)';
 const MARKER_DIM = 'rgba(235,205,45,0.5)';
@@ -1086,7 +1086,7 @@ export default function CbctReslice({ anon, voi, invert, gamma, onMeta, onError,
         <VertRangeSliders zFrac={zFrac} setZFrac={setZFrac} />
         </div>
         <div style={sliderRow}>
-          {/* canonical section-row order (unified 2026-08-05): count, tilt, spacing,
+          {/* canonical section-row order: count, tilt, spacing,
               width, thickness, trailing toggle. Same anatomy in Pano and TMJ. */}
           <label className="mode-label">
             Slices {count}

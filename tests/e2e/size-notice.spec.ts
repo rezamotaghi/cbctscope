@@ -29,8 +29,8 @@ test('the size notice holds a large volume back; Cancel leaves the previous stat
 });
 
 // A first real open on a large export raises two dialogues. They come one at a time: the
-// research-use dialogue first, the size notice only after it is answered. Found on 04/11/26 with
-// an 801-cube export: both had been mounted in the same render, one on top of the other.
+// research-use dialogue first, the size notice only after it is answered. Mounted in the same
+// render, one would cover the other; an 801-cube export raises both.
 test('on a first real open the research dialogue comes first and the size notice after it', async ({ page, baseURL }) => {
   const problems = guardPage(page, new URL(baseURL as string).origin);
   const tmp = makeTempDir();

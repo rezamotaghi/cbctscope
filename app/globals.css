@@ -104,7 +104,7 @@ code {
 /* Vertical slice-position slider hugging a CBCT pane's right edge. ALWAYS fully visible —
    this is a medical dashboard: a control you have to discover by hovering is a control that
    doesn't exist. Native slider appearance (familiar, high-contrast), accent-colored.
-   (A 2026-07-09 pass dimmed these to 0.35 opacity at rest — rejected: clarity first.) */
+   Never dimmed at rest: a faded slider reads as disabled. */
 /* One slider grammar, app-wide: every range input carries the house accent so no pane
    invents its own look. Disabled sliders keep full contrast (reading-environment rule)
    and say "not now" through the cursor alone. */

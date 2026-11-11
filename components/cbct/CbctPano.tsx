@@ -1984,7 +1984,7 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
           >
             Upright
           </button>
-          {/* canonical section-row order (unified 2026-08-05): count, tilt, spacing,
+          {/* canonical section-row order: count, tilt, spacing,
               width, thickness, trailing toggle. Same anatomy in TMJ and Reslice. */}
           <label className="mode-label" style={{ flex: 1 }}>
             Spacing {sectionSpacing} mm

@@ -2276,11 +2276,11 @@ export default function CbctViewport({
   // guard breaks the echo loop: applyVoi re-fires the event with the values we just patched.
   //
   // ⚠ Cornerstone fires the SAME event when it ATTACHES a volume (createVolumeActor applies
-  // the volume's own default range), and `ready` flips before the volume attaches, so this
-  // listener used to mistake that for a user drag and silently overwrite whatever window the
-  // reader had set (a preset, the sliders, the histogram lines, a drag) with the volume default
-  // on EVERY return to MPR and every volume swap. It surfaced as "the window in Pano/TMJ/
-  // Reslice is not what I set" (2026-08-19): those rooms only ever showed the clobbered value.
+  // the volume's own default range), and `ready` flips before the volume attaches, so an
+  // unguarded listener would mistake that for a user drag and silently overwrite whatever window
+  // the reader had set (a preset, the sliders, the histogram lines, a drag) with the volume
+  // default on EVERY return to MPR and every volume swap; Pano, TMJ and Reslice would then show
+  // that default instead of the reader's window.
   // A VOI event is user intent ONLY while the W/L tool is the active tool AND a pointer is down
   // on a slice pane; everything else (mount, swap, our own applyVoi) is ignored.
   const wlPointerDownRef = useRef(false);

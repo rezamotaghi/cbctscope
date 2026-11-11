@@ -86,7 +86,7 @@ jobs:
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 
   # ---------------------------------------------------------------- the desktop app
-  # Signing and notarisation credentials, added by the owner as repository secrets (names
+  # Signing and notarisation credentials, stored as repository secrets (names
   # only; electron-builder 26.18.0 reads them from the environment):
   #   CSC_LINK            the Developer ID Application certificate, a .p12 exported from the
   #                       keychain, base64-encoded on one line

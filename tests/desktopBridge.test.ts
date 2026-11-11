@@ -115,7 +115,7 @@ describe('loopback checks (middleware.ts)', () => {
 
   it('refuses a cross-site GET to the agent stream before it can evict the viewer (the reproduction)', async () => {
     const viewer = await subscribe();
-    // the security review's probe: sec-fetch-site cross-site and no Origin
+    // a cross-site probe: sec-fetch-site cross-site and no Origin
     const probe = await req('/api/agent/events', { site: 'cross-site' });
     expect(probe.status).toBe(403);
     // a page on another local web server is same-site at best: refused too
