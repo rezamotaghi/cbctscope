@@ -171,20 +171,20 @@ What differs from the repository starters (section 2.3):
 profile behind: the app's own storage, holding your marks, the research-use
 acknowledgement, the agent settings and the browser engine's caches (about
 20 MB after a first session). On macOS that is the folder
-`~/Library/Application Support/CBCTScope` and the preferences file
+`~/Library/Application Support/cbctscope` and the preferences file
 `~/Library/Preferences/com.cbctscope.app.plist`; on Windows, the folder
-`%APPDATA%\CBCTScope`. To remove them as well, with the app quit: in the
+`%APPDATA%\cbctscope`. To remove them as well, with the app quit: in the
 Finder, choose **Go to Folder** in the **Go** menu, enter
-`~/Library/Application Support`, and move the **CBCTScope** folder to the
+`~/Library/Application Support`, and move the **cbctscope** folder to the
 Trash, then do the same for `com.cbctscope.app.plist` in
 `~/Library/Preferences`. From Terminal, the same is
 
 ```sh
-rm -rf ~/Library/"Application Support"/CBCTScope
+rm -rf ~/Library/"Application Support"/cbctscope
 defaults delete com.cbctscope.app
 ```
 
-On Windows, delete the folder you reach by typing `%APPDATA%\CBCTScope` into
+On Windows, delete the folder you reach by typing `%APPDATA%\cbctscope` into
 the Explorer address bar. Deleting the profile deletes the marks kept in it;
 save them to a marks file first (section 7.3) to keep them. No scan is ever
 stored there: scans stay where they were opened from.

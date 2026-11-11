@@ -37,9 +37,9 @@ browser to Downloads, like any file a web page saves.
 `~/.cbctscope`: its marks, the research-use acknowledgement and the agent
 settings live in the app's own profile, with the browser engine's caches.
 Removing the app leaves that profile behind: on macOS the folder
-`~/Library/Application Support/CBCTScope` and the preferences file
+`~/Library/Application Support/cbctscope` and the preferences file
 `~/Library/Preferences/com.cbctscope.app.plist`, on Windows the folder
-`%APPDATA%\CBCTScope`. Delete them, with the app quit, to remove every trace;
+`%APPDATA%\cbctscope`. Delete them, with the app quit, to remove every trace;
 section 2.6 gives the steps. They hold no pixels and no scan.
 
 ## 10.3 What remains your responsibility
