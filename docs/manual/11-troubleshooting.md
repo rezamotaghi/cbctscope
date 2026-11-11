@@ -34,8 +34,8 @@
 - **macOS asks whether you are sure you want to open CBCTScope** the first
   time the desktop app opens ("is an app downloaded from the Internet. Are you
   sure you want to open it?"): this is Gatekeeper's standard first-open
-  prompt for any downloaded app. The macOS build is signed and notarised by
-  Apple; choose **Open**. macOS asks once.
+  prompt for any downloaded app. The macOS build on the releases page is
+  signed and notarised by Apple; choose **Open**. macOS asks once.
 - **Windows shows "Windows protected your PC"** when the desktop app first
   starts: the Windows build is unsigned. Choose **More info**, then **Run
   anyway** (once; section 2.6).

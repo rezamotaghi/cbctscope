@@ -4,7 +4,7 @@
 board-certified oral and maxillofacial radiologist.**
 
 It can also be driven by an AI agent over MCP, under one rule: the agent moves
-the camera, the human reads.
+the camera and never produces findings; the human reads.
 
 [![DOI: 10.5281/zenodo.21431452](docs/media/doi-badge.svg)](https://doi.org/10.5281/zenodo.21431452)
 
@@ -41,8 +41,9 @@ complete standalone viewer.
 
 Through a built-in [MCP](https://modelcontextprotocol.io) server, an agent
 can open scans, switch reading modes, set the window, move through slices,
-and take snapshots, and nothing more. The agent moves the camera. The human
-reads. That split was the design from the first commit. To our knowledge,
+and take snapshots, and nothing more: it never produces findings. The agent
+moves the camera. The human reads. That split was the design from the first
+commit. To our knowledge,
 CBCTScope is the first purpose-built CBCT reading viewer with native AI-agent
 control; the neighboring projects, and how they differ, are under
 [Why this exists](#why-this-exists).
