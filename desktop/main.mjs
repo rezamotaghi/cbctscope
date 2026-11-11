@@ -144,6 +144,9 @@ async function boot() {
     },
   });
 
+  // the window keeps its own title: the page's title describes the website ("in your browser")
+  win.on('page-title-updated', (event) => event.preventDefault());
+
   const origin = new URL(bridge.url).origin;
   const sameOrigin = (url) => {
     try {
