@@ -48,6 +48,41 @@ test('the phantom loads without the repeated slice-lookup warning', async ({ pag
   expect(warnings).toEqual([]);
 });
 
+test('Cmd, Ctrl and Alt chords reach the browser and change no tool, overlay or orientation', async ({ page }) => {
+  await waitForVolume(page);
+  // a listener added after the app's own: it sees whether the viewer swallowed the key
+  await page.evaluate(() => {
+    const w = window as unknown as { swallowed: string[] };
+    w.swallowed = [];
+    window.addEventListener('keydown', (e) => {
+      if (e.defaultPrevented) w.swallowed.push(`${e.metaKey ? 'Meta+' : ''}${e.ctrlKey ? 'Control+' : ''}${e.altKey ? 'Alt+' : ''}${e.key}`);
+    });
+  });
+  const rail = page.locator('aside');
+  const crosshairs = rail.getByRole('button', { name: 'Crosshairs', exact: true });
+  const pan = rail.getByRole('button', { name: 'Pan', exact: true });
+  const bg = (b: typeof pan) => b.evaluate((el) => getComputedStyle(el).backgroundColor);
+  const selected = await bg(crosshairs);
+  const unselected = await bg(pan);
+  expect(selected).not.toBe(unselected);
+  const planeLines = rail.getByRole('checkbox', { name: /plane lines/ });
+  const overlays = rail.getByRole('checkbox', { name: /show overlays/ });
+  await expect(planeLines).toBeChecked();
+  await expect(overlays).toBeChecked();
+  await page.locator('main canvas').first().hover();
+  for (const mod of ['Meta', 'Control', 'Alt']) {
+    for (const key of ['o', 'w', 'c', '2', 'r', 'n', 'p', 'v']) await page.keyboard.press(`${mod}+${key}`);
+  }
+  expect(await page.evaluate(() => (window as unknown as { swallowed: string[] }).swallowed)).toEqual([]);
+  expect(await bg(crosshairs)).toBe(selected);
+  expect(await bg(pan)).toBe(unselected);
+  await expect(planeLines).toBeChecked();
+  await expect(overlays).toBeChecked();
+  // the same keys alone still work: O switches the overlays off
+  await page.keyboard.press('o');
+  await expect(overlays).not.toBeChecked();
+});
+
 test('no request leaves the served origin and the CSP blocks nothing', async ({ page }) => {
   await waitForVolume(page);
   // let workers, codecs and late chunks settle

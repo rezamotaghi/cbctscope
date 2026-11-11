@@ -35,6 +35,7 @@ import { SIZE_NOTICE_MIB, needsSizeNotice, voxelBytes } from './sizeNotice';
 import { dropLabel, entriesOf, walkDrop } from './dropFiles';
 import { selectVolumeVerb, type SwitchOutcome } from './agentSelect';
 import { useDropOverlay } from './useDropOverlay';
+import { isChord } from './keys';
 import { downloadBlob } from './exporters';
 import {
   ResearchUseDialog,
@@ -543,6 +544,9 @@ export default function CbctApp() {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      // Cmd, Ctrl or Alt held: the chord belongs to the browser or the app menu (open, close,
+      // reload, copy, new window, print, tab switching), never to a viewer key
+      if (isChord(e)) return;
       const k = e.key.toLowerCase();
       // the MPR keys (tools, W, C, O) are GATED to the MPR room — in any other mode they
       // used to silently mutate state the reader couldn't see. R also serves the

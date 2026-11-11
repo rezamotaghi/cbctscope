@@ -13,7 +13,10 @@
 | `V` | Save the current view (MPR only) |
 | `Del` / `Backspace` | Delete the selected annotation |
 
-Keys are ignored while you are typing in a text field. The tool and overlay
+Keys are ignored while you are typing in a text field. They also answer only
+when no Cmd, Ctrl or Alt is held: with one of those held, the key goes to the
+browser or the desktop app's menu, so Cmd-O opens, Cmd-W closes a window,
+Cmd-R reloads the page and Cmd-C copies, in every mode. The tool and overlay
 keys act only in the MPR room, so a stray keypress in another mode cannot
 change state you cannot see there. The header's "keys" button opens this
 reference in the app. Double-clicking any slider resets it: navigation

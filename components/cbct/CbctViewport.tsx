@@ -43,6 +43,7 @@ import {
   utilities as csToolsUtils,
 } from '@cornerstonejs/tools';
 import { ensureCornerstoneInit } from './cornerstoneInit';
+import { isChord } from './keys';
 import {
   loadVolumeData,
   keepOnly,
@@ -1301,6 +1302,7 @@ export default function CbctViewport({
     const onKeyDel = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      if (isChord(e)) return; // Cmd-V pastes and Cmd-Backspace edits: the browser's, not ours
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (deleteSelectedRef.current()) e.preventDefault();
       } else if (e.key === 'v' || e.key === 'V') {
