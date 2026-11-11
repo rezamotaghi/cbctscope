@@ -14,8 +14,11 @@ import { describe, expect, it } from 'vitest';
  * Re-measured 2026-11-11 after the manual's stills were recaptured on the redesigned interface
  * (the nine WebP stills 2_120_310 bytes, up 30_564): 10_588_932 bytes, of which manual/ is
  * 2_501_889.
+ *
+ * Re-measured 2026-11-11 after the stills and thumbnails were recaptured at v2.1.0 (the nine WebP
+ * stills 2_135_454 bytes): 10_608_180 bytes, of which manual/ is 2_520_629.
  */
-const MEASURED = 10_588_932;
+const MEASURED = 10_608_180;
 const BUDGET = Math.round(MEASURED * 1.1);
 
 const out = path.join(process.cwd(), 'out');
