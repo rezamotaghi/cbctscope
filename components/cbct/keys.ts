@@ -8,3 +8,8 @@
 export function isChord(e: Pick<KeyboardEvent, 'metaKey' | 'ctrlKey' | 'altKey'>): boolean {
   return e.metaKey || e.ctrlKey || e.altKey;
 }
+
+/** true while a modal dialogue is open: the viewer's keys wait until it closes */
+export function modalOpen(doc: Pick<Document, 'querySelector'> | null = typeof document !== 'undefined' ? document : null): boolean {
+  return !!doc?.querySelector('[aria-modal="true"]');
+}

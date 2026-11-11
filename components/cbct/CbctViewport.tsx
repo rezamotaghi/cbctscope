@@ -42,7 +42,7 @@ import {
   utilities as csToolsUtils,
 } from '@cornerstonejs/tools';
 import { ensureCornerstoneInit } from './cornerstoneInit';
-import { isChord } from './keys';
+import { isChord, modalOpen } from './keys';
 import { slicePositions } from './slicePositions';
 import {
   loadVolumeData,
@@ -61,7 +61,7 @@ import { computeRoi3dStats, Roi3dOutlines, type Roi3d } from './evidence3d';
 import DragDivider from './DragDivider';
 import { type SnapRef } from './SnapshotButton';
 import { Bookmark, Eraser as EraserIcon, Eye, EyeOff, Scissors, X } from 'lucide-react';
-import { ActiveFrame, PaneButton, PaneCluster, PaneLabel, PaneTextButton, ScaleBar, WlReadout, overlayText, useActivePane } from './PaneOverlay';
+import { ActiveFrame, PaneButton, PaneCluster, PaneCorner, PaneLabel, PaneTextButton, ScaleBar, WlReadout, overlayText, useActivePane } from './PaneOverlay';
 import { PANE_BUTTON } from './paneButtons';
 import { PLANE_COLOR, scaleBar, wlText } from './overlayGrammar';
 import { armedPlace, getReadingPlace, planesIntersection, setReadingPlace } from './readingPlace';
@@ -1357,6 +1357,7 @@ export default function CbctViewport({
       const t = e.target as HTMLElement;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
       if (isChord(e)) return; // Cmd-V pastes and Cmd-Backspace edits: the browser's, not ours
+      if (modalOpen()) return; // a modal dialogue holds the keyboard
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (deleteSelectedRef.current()) e.preventDefault();
       } else if (e.key === 'v' || e.key === 'V') {
@@ -3072,7 +3073,8 @@ export default function CbctViewport({
             {!is3d && <WlReadout voi={voiShown} />}
             {sb && <ScaleBar px={sb.px} label={sb.label} />}
             {!is3d && (
-              <PaneCluster style={{ right: 26 }}>
+              <PaneCorner right={26}>
+              <PaneCluster>
                 {c.id === VP.axial && (
                   <PaneTextButton
                     icon={Bookmark}
@@ -3093,6 +3095,7 @@ export default function CbctViewport({
                   onClick={() => flipPane(c.id)}
                 />
               </PaneCluster>
+              </PaneCorner>
             )}
             {c.id === VP.axial && namingView !== null && (
               <input
@@ -3257,6 +3260,7 @@ export default function CbctViewport({
               </span>
             )}
             {is3d && (
+              <PaneCorner>
               <PaneCluster>
                 {(
                   [
@@ -3274,9 +3278,7 @@ export default function CbctViewport({
                   onClick={home3d}
                 />
               </PaneCluster>
-            )}
-            {is3d && (
-              <PaneCluster style={{ top: 32 }}>
+              <PaneCluster>
                 {eraseMode && (
                   <>
                     <span style={{ ...overlayText, position: 'static' }}>radius {eraseRadius} mm</span>
@@ -3340,6 +3342,7 @@ export default function CbctViewport({
                   title="Render eraser: erase what you touch on the render (a 3D-only copy; the slices never change)"
                 />
               </PaneCluster>
+              </PaneCorner>
             )}
             {is3d && cutDrag !== null && (
               <span

@@ -7,8 +7,9 @@
 > - **Start:** open the scan, press `R` for orthogonal planes, pick a window preset
 >   (**Bone**, **Teeth**, **Soft**, or **Auto**), click a structure to spot the crosshairs.
 > - **Three gestures:** the wheel scrolls the hovered pane; the left button runs the tool
->   (with **Crosshairs**, a click spots the crosshairs and a drag pans); right-drag rotates
->   the section. On the 3D pane, left-drag orbits and right-drag cuts in.
+>   (with **Crosshairs**, a left-click places the crosshairs and a left-drag pans);
+>   right-drag rotates the section. On the 3D pane, left-drag orbits and right-drag cuts
+>   in. The Keys card lists every gesture of the mode.
 > - **Leave it for:** a slice-by-slice survey (Grid), the dental arch (Pano), the condyles
 >   (TMJ), any other cut (Reslice), a film-like projection (Ceph), a density region
 >   (Region), two volumes of one subject (Stitch).

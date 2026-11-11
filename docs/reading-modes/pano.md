@@ -8,7 +8,7 @@
 >   adjust the dots), double-click to finish; the pano and its cross-sections render live.
 > - **Three gestures:** on the axial editor, a stroke draws the arch and the wheel scrolls;
 >   on the pano, a click or the wheel moves the cross-sections along the arch; right-drag
->   on a cross-section tilts the whole frame.
+>   on a cross-section tilts the whole frame. The Keys card lists every gesture of the mode.
 > - **Leave it for:** measurements in true anatomical mm (MPR), and anything outside the
 >   sampled slab, which the pano simply does not contain.
 

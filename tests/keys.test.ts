@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
-import { isChord } from '@/components/cbct/keys';
+import { isChord, modalOpen } from '@/components/cbct/keys';
 
 const none = { metaKey: false, ctrlKey: false, altKey: false };
 
@@ -29,7 +29,7 @@ const anything: unknown = new Proxy(function () {}, {
  * Every `window.addEventListener('keydown', name)` in a file, with the handler `name` declares,
  * compiled so each free name resolves through a recording scope at run time.
  */
-function windowKeyHandlers(file: string): { name: string; run: (e: Partial<KeyboardEvent>) => Trace }[] {
+function windowKeyHandlers(file: string, modal = false): { name: string; run: (e: Partial<KeyboardEvent>) => Trace }[] {
   const src = readFileSync(path.join(process.cwd(), file), 'utf8');
   const sf = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const decls = new Map<string, ts.Expression>();
@@ -69,6 +69,7 @@ function windowKeyHandlers(file: string): { name: string; run: (e: Partial<Keybo
             get: (_t, k) => {
               if (k === Symbol.unscopables) return undefined;
               if (k === 'isChord') return isChord;
+              if (k === 'modalOpen') return () => modal;
               trace.names.push(String(k));
               return anything;
             },
@@ -122,6 +123,30 @@ describe('chords are not viewer keys', () => {
             expect(t.names, `${h.name}: ${mod} + ${key} reached ${t.names.join(', ')}`).toEqual([]);
             expect(t.event.filter((k) => !MODIFIERS.has(k)), `${h.name}: ${mod} + ${key} read the event`).toEqual([]);
           }
+        }
+      }
+    });
+  }
+});
+
+describe('a modal dialogue holds the keyboard', () => {
+  it('modalOpen sees an aria-modal dialogue, and nothing else', () => {
+    const doc = (hit: boolean) => ({ querySelector: (q: string) => (hit && q === '[aria-modal="true"]' ? ({} as Element) : null) });
+    expect(modalOpen(doc(true))).toBe(true);
+    expect(modalOpen(doc(false))).toBe(false);
+    expect(modalOpen(null)).toBe(false);
+  });
+  const cases: [string, string[]][] = [
+    ['components/cbct/CbctApp.tsx', ['n', 'p', 'N', 'P', 'r', 'c', 'o', 'w', '1', '0']],
+    ['components/cbct/CbctViewport.tsx', ['Delete', 'Backspace', 'v', 'V']],
+  ];
+  for (const [file, keys] of cases) {
+    it(`${file}: with a modal dialogue open, no bare key acts (N and P switch no volume)`, () => {
+      for (const h of windowKeyHandlers(file, true)) {
+        for (const key of keys) {
+          const t = h.run({ ...none, key, target: target as unknown as EventTarget });
+          expect(t.names, `${h.name}: ${key} reached ${t.names.join(', ')} behind a dialogue`).toEqual([]);
+          expect(t.event, `${h.name}: ${key} claimed the event behind a dialogue`).not.toContain('preventDefault');
         }
       }
     });

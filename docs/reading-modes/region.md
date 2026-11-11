@@ -7,7 +7,7 @@
 >   (**air / airway**, **soft tissue**, **bone**, or **tooth / root**), drag a bounding box
 >   just around the target, then click a seed well inside it.
 > - **Three gestures:** on the scout, drag draws the box, a click drops the seed, and the
->   wheel scrolls the slice.
+>   wheel scrolls the slice. The Keys card lists every gesture of the mode.
 > - **Leave it for:** anything a density threshold cannot separate: the grow follows
 >   density, not anatomy, and its numbers describe the mask, nothing more.
 
