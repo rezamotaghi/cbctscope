@@ -21,7 +21,7 @@ const CTL_BORDER = 'rgb(107, 115, 132)';
 
 /**
  * Words that may start a caption in lower case: units after a number that wrapped onto a
- * line of its own, and the version chip (v2.0.0). Everything else a reader sees starts with
+ * line of its own, and the version chip (v2.1.0). Everything else a reader sees starts with
  * a capital, a digit or a sign.
  */
 const LOWER_OK = ['mm', 'cm', 'px', 'ms', 'v'];

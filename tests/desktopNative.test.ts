@@ -96,7 +96,7 @@ describe('the menu bar', () => {
 describe('About, the save panel, the port dialogue', () => {
   it('About reads the version once, the copyright, the research line and the website', () => {
     const a = aboutPanelOptions(pkg.version);
-    expect(a).toMatchObject({ applicationName: 'CBCTScope', applicationVersion: '2.0.0', version: '', copyright: '© 2026 Reza Motaghi' });
+    expect(a).toMatchObject({ applicationName: 'CBCTScope', applicationVersion: pkg.version, version: '', copyright: '© 2026 Reza Motaghi' });
     expect(a.credits).toBe('Research software. Not a medical device.\nhttps://cbctscope.com');
   });
   it('the save panel is titled for what it saves', () => {

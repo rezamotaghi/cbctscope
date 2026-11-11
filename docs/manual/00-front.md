@@ -8,7 +8,7 @@ the camera, the human reads.
 
 | | |
 |---|---|
-| Software version | 2.0.0 |
+| Software version | 2.1.0 |
 | Manual revision | November 2026 |
 | Author | Dr. Reza Motaghi, oral and maxillofacial radiologist |
 | Project page | <https://github.com/rezamotaghi/cbctscope> |

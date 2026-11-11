@@ -63,7 +63,7 @@ mac:
     NSAudioCaptureUsageDescription: null
   artifactName: ${productName}-${version}-${arch}-mac.${ext}
 # The disk image (docs/web-build.md, section 12): the architecture is in the file name only; the
-# volume reads "CBCTScope 2.0.0". The window is scripts/dmg-background.mjs's picture (a 1x and a
+# volume reads "CBCTScope 2.1.0". The window is scripts/dmg-background.mjs's picture (a 1x and a
 # @2x png, which electron-builder joins into one tiff and sizes the window from: `window` here
 # records that size and must equal it); the icon centres match the picture, and
 # tests/dmgWindow.test.ts keeps them equal to DMG_LAYOUT. `sign` signs the dmg with the app's

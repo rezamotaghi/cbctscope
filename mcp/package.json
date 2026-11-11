@@ -1,6 +1,6 @@
 {
   "name": "cbctscope-mcp",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "Operates the CBCTScope CBCT viewer running on this machine, over MCP: open, window, slice, bookmark, snapshot. Navigation only, never findings. Research use only; not a medical device.",
   "license": "AGPL-3.0-or-later",
