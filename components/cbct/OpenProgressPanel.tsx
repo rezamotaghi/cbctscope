@@ -4,10 +4,11 @@
 // Three phases with elapsed seconds; a clear end state when nothing opens.
 import { useEffect, useState } from 'react';
 import type { OpenProgress } from '@/lib/browser/volumeSource';
+import { IS_DESKTOP } from './shell';
 
 export type OpenPanelState =
   | ({ kind: 'busy'; startedAt: number } & OpenProgress)
-  | { kind: 'none'; error: string; reasons: string[] };
+  | { kind: 'none'; error: string; reasons: string[]; /** plain words and an action, line 1 */ headline?: string };
 
 const fmt = (n: number) => n.toLocaleString('en-US');
 
@@ -54,7 +55,25 @@ const card: React.CSSProperties = {
   gap: 10,
 };
 
-export default function OpenProgressPanel({ state, onDismiss }: { state: OpenPanelState; onDismiss: () => void }) {
+const cardButton: React.CSSProperties = {
+  padding: '4px 12px',
+  borderRadius: 6,
+  border: '1px solid var(--border)',
+  background: 'var(--panel-2)',
+  color: 'var(--text)',
+  fontSize: 13,
+};
+
+export default function OpenProgressPanel({
+  state,
+  onDismiss,
+  onOpenAnother,
+}: {
+  state: OpenPanelState;
+  onDismiss: () => void;
+  /** the refusal's action: the folder picker again */
+  onOpenAnother?: () => void;
+}) {
   const busy = state.kind === 'busy';
   const startedAt = busy ? state.startedAt : 0;
   const [now, setNow] = useState(() => Date.now());
@@ -68,31 +87,28 @@ export default function OpenProgressPanel({ state, onDismiss }: { state: OpenPan
     return (
       <div style={box}>
         <div data-testid="open-none" role="alert" style={card}>
-          <div style={{ fontWeight: 600 }}>{state.error}</div>
+          {/* line 1: what happened in plain words, and what to do; line 2 on: the technical reason */}
+          <div style={{ fontWeight: 600 }}>
+            {state.headline ?? 'No CBCT volume could be read. Export from your CBCT software as DICOM, with compression off.'}
+          </div>
+          <div style={{ fontSize: 13 }}>{state.error}</div>
           {state.reasons.length > 0 && (
-            <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13 }}>
               {state.reasons.map((r) => (
                 <li key={r}>{r}</li>
               ))}
             </ul>
           )}
-          <div>
-            Open a DICOMDIR, a DICOM folder or a single DICOM file. Only uncompressed DICOM opens.
+          <div style={{ display: 'flex', gap: 8 }}>
+            {onOpenAnother && (
+              <button onClick={onOpenAnother} style={{ ...cardButton, background: 'var(--accent-dim)', fontWeight: 600 }}>
+                Open another folder
+              </button>
+            )}
+            <button onClick={onDismiss} style={cardButton}>
+              Dismiss
+            </button>
           </div>
-          <button
-            onClick={onDismiss}
-            style={{
-              alignSelf: 'flex-start',
-              padding: '4px 12px',
-              borderRadius: 6,
-              border: '1px solid var(--border)',
-              background: 'var(--panel-2)',
-              color: 'var(--text)',
-              fontSize: 13,
-            }}
-          >
-            Dismiss
-          </button>
         </div>
       </div>
     );
@@ -118,7 +134,10 @@ export default function OpenProgressPanel({ state, onDismiss }: { state: OpenPan
           <div style={{ width: `${pct}%`, height: '100%', background: 'var(--accent)', borderRadius: 4 }} />
         </div>
         <div style={{ fontSize: 13 }}>
-          Step {step} of 3. The files are read in this tab; nothing is uploaded.
+          Step {step} of 3.{' '}
+          {IS_DESKTOP
+            ? 'The files are read in this app on this computer; nothing is uploaded.'
+            : 'The files are read in this tab; nothing is uploaded.'}
         </div>
       </div>
     </div>

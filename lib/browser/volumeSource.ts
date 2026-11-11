@@ -20,7 +20,7 @@ export type SourceInput =
  */
 export type OpenResult =
   | { ok: true; label: string; count: number }
-  | { ok: false; error: string; scanned?: number; reasons?: string[] };
+  | { ok: false; error: string; scanned?: number; reasons?: string[]; /** plain words and an action, shown first */ headline?: string };
 
 /**
  * What an open is doing, from the moment the files are handed over until the volume is on

@@ -27,6 +27,62 @@ test('the header links the desktop app as a download', async ({ page }) => {
   await expect(link).toHaveAttribute('href', 'https://github.com/rezamotaghi/cbctscope/releases');
 });
 
+test('an unknown address shows the site-styled page with one title and a link back to the viewer', async ({ page }) => {
+  const res = await page.goto('/no-such-page');
+  expect(res?.status()).toBe(404);
+  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  expect(await page.locator('title').count()).toBe(1);
+  await page.getByRole('link', { name: 'Back to the viewer' }).click();
+  await waitForVolume(page);
+});
+
+test('the phantom loads without the repeated slice-lookup warning', async ({ page }) => {
+  const warnings: string[] = [];
+  page.on('console', (msg) => {
+    if (msg.text().includes('No imageId found')) warnings.push(msg.text());
+  });
+  await page.reload();
+  await waitForVolume(page);
+  await expect.poll(() => mainCanvasHasImage(page), { timeout: 60_000 }).toBe(true);
+  await page.waitForTimeout(2000);
+  expect(warnings).toEqual([]);
+});
+
+test('Cmd, Ctrl and Alt chords reach the browser and change no tool, overlay or orientation', async ({ page }) => {
+  await waitForVolume(page);
+  // a listener added after the app's own: it sees whether the viewer swallowed the key
+  await page.evaluate(() => {
+    const w = window as unknown as { swallowed: string[] };
+    w.swallowed = [];
+    window.addEventListener('keydown', (e) => {
+      if (e.defaultPrevented) w.swallowed.push(`${e.metaKey ? 'Meta+' : ''}${e.ctrlKey ? 'Control+' : ''}${e.altKey ? 'Alt+' : ''}${e.key}`);
+    });
+  });
+  const rail = page.locator('aside');
+  const crosshairs = rail.getByRole('button', { name: 'Crosshairs', exact: true });
+  const pan = rail.getByRole('button', { name: 'Pan', exact: true });
+  const bg = (b: typeof pan) => b.evaluate((el) => getComputedStyle(el).backgroundColor);
+  const selected = await bg(crosshairs);
+  const unselected = await bg(pan);
+  expect(selected).not.toBe(unselected);
+  const planeLines = rail.getByRole('checkbox', { name: /plane lines/ });
+  const overlays = rail.getByRole('checkbox', { name: /show overlays/ });
+  await expect(planeLines).toBeChecked();
+  await expect(overlays).toBeChecked();
+  await page.locator('main canvas').first().hover();
+  for (const mod of ['Meta', 'Control', 'Alt']) {
+    for (const key of ['o', 'w', 'c', '2', 'r', 'n', 'p', 'v']) await page.keyboard.press(`${mod}+${key}`);
+  }
+  expect(await page.evaluate(() => (window as unknown as { swallowed: string[] }).swallowed)).toEqual([]);
+  expect(await bg(crosshairs)).toBe(selected);
+  expect(await bg(pan)).toBe(unselected);
+  await expect(planeLines).toBeChecked();
+  await expect(overlays).toBeChecked();
+  // the same keys alone still work: O switches the overlays off
+  await page.keyboard.press('o');
+  await expect(overlays).not.toBeChecked();
+});
+
 test('no request leaves the served origin and the CSP blocks nothing', async ({ page }) => {
   await waitForVolume(page);
   // let workers, codecs and late chunks settle
@@ -149,6 +205,38 @@ test.describe('opening files', () => {
     return id as string;
   }
 
+  test('the privacy sentences name the target they run on: this tab on the website, this computer in the desktop app', async ({ page, browser, baseURL }) => {
+    // the website: the open menu prepares for the browser's "upload" wording, the dialogue says tab
+    await waitForVolume(page);
+    await page.locator('header').getByRole('button', { name: /open/ }).click();
+    await expect(page.getByText("Your browser may say 'upload': that is its word for letting this page read the files. They stay in this tab.")).toBeVisible();
+    await page.keyboard.press('Escape');
+    await openFolder(page, 'series');
+    const web = researchDialog(page);
+    await expect(web).toBeVisible({ timeout: 30_000 });
+    await expect(web).toContainText('The agent moves the camera; the human reads.');
+    await expect(web).toContainText('Nothing leaves this tab.');
+    await expect(web).not.toContainText('this computer');
+
+    // the desktop app: the same build under the shell's user-agent token
+    const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 }, userAgent: 'Mozilla/5.0 Chrome CBCTScope/0.0.0' });
+    const app = await ctx.newPage();
+    const appProblems = guardPage(app, new URL(baseURL as string).origin);
+    await app.goto('/');
+    await waitForVolume(app);
+    await app.locator('header').getByRole('button', { name: /open/ }).click();
+    await expect(app.getByText("The Open sheet may say 'Upload': that is its word for letting this app read the files. They stay on this computer.")).toBeVisible();
+    await app.locator('header').getByRole('button', { name: /open/ }).click();
+    await openFolder(app, 'series');
+    const desk = researchDialog(app);
+    await expect(desk).toBeVisible({ timeout: 30_000 });
+    await expect(desk).toContainText('The agent moves the camera; the human reads.');
+    await expect(desk).toContainText('Nothing leaves this computer. The scan is read from your disk into this app.');
+    await expect(desk).not.toContainText('this tab');
+    expect(appProblems).toEqual([]);
+    await ctx.close();
+  });
+
   test('the fixture folder opens through the directory input', async ({ page }) => {
     await waitForVolume(page);
 
@@ -216,8 +304,13 @@ test.describe('opening files', () => {
     await openFolder(page, 'junk');
     const none = page.getByTestId('open-none');
     await expect(none).toBeVisible({ timeout: 30_000 });
+    // line 1: plain words and the action; the technical reason after it
+    await expect(none.locator('div').first()).toHaveText(
+      'These files are not DICOM images. Export from your CBCT software as DICOM, with compression off.',
+    );
     await expect(none).toContainText('No DICOM volume found in 2 files');
     await expect(none).toContainText('no DICM magic bytes, not DICOM: 2 files');
+    await expect(none.getByRole('button', { name: 'Open another folder' })).toBeVisible();
     await expect(page.getByTestId('open-progress')).toHaveCount(0);
     await expect(researchDialog(page)).toHaveCount(0);
     await none.getByRole('button', { name: 'Dismiss' }).click();

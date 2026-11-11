@@ -9,7 +9,8 @@
 // Math: stitch.ts.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadVolumeData, type CbctMeta, type VolumeEntry } from './volumeData';
-import { source } from './source';
+import { IS_WEB, source } from './source';
+import { IS_DESKTOP } from './shell';
 import { snapshotPaneCanvases, type SnapRef } from './SnapshotButton';
 import { Merge } from 'lucide-react';
 import {
@@ -123,7 +124,7 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
       })
       .catch((e) => {
         console.error('[cbct-stitch] volume B load failed', e);
-        if (!stale) setHint('volume B load failed — pick a different volume and try again');
+        if (!stale) setHint('volume B load failed. Pick a different volume and try again.');
       });
     return () => {
       stale = true;
@@ -241,7 +242,7 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
         setHint(null);
       } catch (e) {
         console.error('[cbct-stitch] auto-register failed', e);
-        setHint('auto-registration failed — the manual sliders still work');
+        setHint('auto-registration failed. The manual sliders still work.');
       } finally {
         setBusy(null);
       }
@@ -269,7 +270,7 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
         onFused(fusedAnon);
       } catch (e) {
         console.error('[cbct-stitch] bake failed', e);
-        setHint(`bake failed: ${String(e)} — the transform is untouched, try again`);
+        setHint(`bake failed: ${String(e)}. The transform is untouched; try again.`);
       } finally {
         setBusy(null);
       }
@@ -314,7 +315,7 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
         step={step}
         value={rigid[kind][dim]}
         disabled={!entryB}
-        title={entryB ? `move B ${label} — double-click = 0` : 'pick volume B first'}
+        title={entryB ? `move B ${label}. Double-click sets it to 0.` : 'pick volume B first'}
         onChange={(e) => {
           const v = Number(e.target.value);
           setRigid((cur) => {
@@ -371,10 +372,10 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
           onChange={(e) => setBId(e.target.value || null)}
           style={{ background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 8px', maxWidth: 320 }}
         >
-          <option value="">— pick volume B (magenta) —</option>
+          <option value="">pick volume B (magenta)</option>
           {candidates.map((v) => (
             <option key={v.anon} value={v.anon}>
-              {v.label || v.anon.slice(5, 11)} — {v.fov[0]}×{v.fov[1]}cm {v.region || ''}
+              {v.label || v.anon.slice(5, 11)}: {v.fov[0]}×{v.fov[1]}cm {v.region || ''}
             </option>
           ))}
         </select>
@@ -399,7 +400,7 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
         {score !== null && (
           <span
             style={{ ...small, color: score > 0.6 ? 'var(--ok, #59d98c)' : 'var(--text-dim)' }}
-            title="normalized cross-correlation of the two volumes' densities over the overlap — 1.0 = identical; above ~0.6 reads as aligned (turns green)"
+            title="normalized cross-correlation of the two volumes' densities over the overlap: 1.0 = identical; above ~0.6 reads as aligned (turns green)"
           >
             overlap NCC {score.toFixed(3)}
           </span>
@@ -411,7 +412,7 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <span style={small}>overlay</span>
         {(['color', 'blend', 'checker', 'A', 'B'] as Mode[]).map((m) => (
-          <button key={m} style={chip(mode === m)} onClick={() => setMode(m)} title={m === 'color' ? 'A green / B magenta — fringes = misalignment' : m}>
+          <button key={m} style={chip(mode === m)} onClick={() => setMode(m)} title={m === 'color' ? 'A green, B magenta: colored fringes show misalignment' : m}>
             {m}
           </button>
         ))}
@@ -444,7 +445,8 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
         Rigid registration (translation + rotation) of two same-patient scans into one volume.
         Auto-align maximizes density cross-correlation over the overlap; drag the sliders to
         correct it. Bake resamples both onto a shared grid (averaging the overlap) and opens the
-        result in every view. The fused volume lives in server memory for this session.
+        result in every view. The fused volume lives in{' '}
+        {IS_DESKTOP ? "this app's memory" : IS_WEB ? "this tab's memory" : 'the local server\'s memory'} for this session.
       </div>
 
       {progress !== null && (

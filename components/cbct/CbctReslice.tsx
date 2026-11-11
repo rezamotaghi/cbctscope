@@ -175,7 +175,7 @@ export default function CbctReslice({ anon, voi, invert, gamma, onMeta, onError,
         console.error('[cbct-reslice] load failed', err);
         if (!stale) {
           setProgress(null);
-          onError?.('volume load failed — see console');
+          onError?.('volume load failed: see the console');
         }
       });
     return () => {
@@ -710,7 +710,7 @@ export default function CbctReslice({ anon, voi, invert, gamma, onMeta, onError,
       // an accidental wiggle mid-click-placing must not wipe the dots already placed —
       // freehand replacement only runs from an empty path or over a FINISHED one
       if (points.length > 0 && !pathDone) {
-        setHint('a drag would replace your placed dots — double-click to finish or "clear path" first');
+        setHint('a drag would replace your placed dots. Double-click to finish, or "clear path" first.');
         return;
       }
       const drawn = simplifyStroke(st);
@@ -812,7 +812,7 @@ export default function CbctReslice({ anon, voi, invert, gamma, onMeta, onError,
       setHint(null);
     } catch (e) {
       console.error('[cbct-reslice] snapshot failed', e);
-      setHint('snapshot failed — the stack is untouched, try again');
+      setHint('snapshot failed. The stack is untouched; try again.');
     }
   }, [count, curve, outMode, distance, anon]);
 
@@ -823,7 +823,7 @@ export default function CbctReslice({ anon, voi, invert, gamma, onMeta, onError,
   useEffect(() => {
     if (!snapRef) return;
     snapRef.current = () => {
-      if (!hasPath) setHint('draw a path first — the stack is what gets snapshotted');
+      if (!hasPath) setHint('draw a path first: the stack is what gets snapshotted');
       else saveStack();
     };
   });
@@ -886,7 +886,7 @@ export default function CbctReslice({ anon, voi, invert, gamma, onMeta, onError,
               ? `OBLIQUE ${tilt >= 0 ? '+' : ''}${tilt.toFixed(0)}° · scout ⊥ the tilted stack axis · path shown as projection · press upright to edit`
               : `AXIAL ${entry ? sliceOrdinal(paneIndexFromBuffer('axial', z, slices), slices, PANE_DIRECTION.axial) : ''} · wheel = slice · ${
                   pathDone
-                    ? 'path finished — drag a dot to refine · drag the line to move the whole path · dbl/right-click dot = delete'
+                    ? 'path finished. Drag a dot to refine it, or drag the line to move the whole path. Double-click or right-click a dot to delete it.'
                     : 'drag a line (2 pts) or curve (≥3) · click = add · double-click = finish'
                 }`}
           </span>
@@ -914,7 +914,7 @@ export default function CbctReslice({ anon, voi, invert, gamma, onMeta, onError,
           <button
             style={chip(false)}
             disabled={!points.length}
-            title="delete the drawn path — back to placing"
+            title="delete the drawn path and go back to placing"
             onClick={() => {
               setPoints([]);
               setPathDone(false);
@@ -929,8 +929,8 @@ export default function CbctReslice({ anon, voi, invert, gamma, onMeta, onError,
             disabled={!pathHome}
             title={
               !pathHome
-                ? 'nothing to reset — finish a path first'
-                : 'put the path back to its main position (as of the last finish) — undoes dot drags and whole-path drags'
+                ? 'nothing to reset: finish a path first'
+                : 'put the path back to its main position (as of the last finish). This undoes dot drags and whole-path drags.'
             }
             onClick={() => {
               if (!pathHome || pathHome.points.length < 2) return;
@@ -950,7 +950,7 @@ export default function CbctReslice({ anon, voi, invert, gamma, onMeta, onError,
           <button
             style={chip(false)}
             disabled={!entry}
-            title="reset the reading position — tilt upright + full vertical range (path, stack params, and pane split untouched)"
+            title="reset the reading position: tilt upright + full vertical range (path, stack params, and pane split untouched)"
             onClick={() => {
               setTilt(0);
               setZFrac([0, 1]);
@@ -963,7 +963,7 @@ export default function CbctReslice({ anon, voi, invert, gamma, onMeta, onError,
           <div style={{ fontSize: 11, color: 'var(--warn)', lineHeight: 1.4, whiteSpace: 'normal' }}>⚠ {hint}</div>
         )}
         <div style={{ ...small, whiteSpace: 'normal', lineHeight: 1.5 }}>
-          Draw ANY line or arc on the scout and get a fresh slice stack cut against it — a road
+          Draw ANY line or arc on the scout and get a fresh slice stack cut against it: a road
           through the volume no orthogonal plane gives you. ⊥ cross walks the path cutting
           across it; ∥ parallel stacks slices along it.
         </div>
@@ -1020,7 +1020,7 @@ export default function CbctReslice({ anon, voi, invert, gamma, onMeta, onError,
           })}
           {!hasPath && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', fontSize: 12, pointerEvents: 'none' }}>
-              draw a line or curve on the scout — the resliced stack appears here
+              draw a line or curve on the scout, and the resliced stack appears here
             </div>
           )}
           {rotChip && (
@@ -1058,7 +1058,7 @@ export default function CbctReslice({ anon, voi, invert, gamma, onMeta, onError,
           <button
             style={chip(false)}
             disabled={!tilted}
-            title={tilted ? 'back upright (0°) — scout and path editing return' : 'already upright — right-drag a tile to tilt the stack'}
+            title={tilted ? 'back upright (0°): scout and path editing return' : 'already upright: right-drag a tile to tilt the stack'}
             onClick={() => setTilt(0)}
           >
             upright

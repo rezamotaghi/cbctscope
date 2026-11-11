@@ -501,7 +501,7 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
             <button
               key={p}
               style={btn(plane === p)}
-              title={`cut ${p} slices (switching planes straightens the stack — ↺ does the same in place)`}
+              title={`cut ${p} slices (switching planes straightens the stack; ↺ does the same in place)`}
               onClick={() => {
                 if (p === plane) return; // re-clicking the active plane must not wipe a tuned oblique
                 const wasRotated = basis !== INIT_BASIS[plane] || scoutBasis !== SCOUT_BASIS[plane];
@@ -530,7 +530,7 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
         <button
           style={{ ...btn(false), fontSize: 14, lineHeight: 1 }}
           onClick={() => resetOrientation(plane)}
-          title="reset view — back to the straight orthogonal stack, window recentered"
+          title="reset view: back to the straight orthogonal stack, window recentered"
         >
           ↺
         </button>
@@ -605,7 +605,7 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
             onPointerUp={onDragEnd}
             onPointerCancel={onDragEnd}
             style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'crosshair', touchAction: 'none' }}
-            title="scout — left-drag: move the section window · right-drag: rotate the image (grid re-cuts through the turned anatomy)"
+            title="scout. Left-drag moves the section window. Right-drag rotates the image, and the grid re-cuts through the turned anatomy."
           />
           <span
             style={{

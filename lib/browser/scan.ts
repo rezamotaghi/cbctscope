@@ -67,7 +67,42 @@ export interface BrowserVolume {
 
 export type ScanResult =
   | { ok: true; label: string; volumes: BrowserVolume[] }
-  | { ok: false; error: string; scanned?: number; reasons?: string[] };
+  | { ok: false; error: string; scanned?: number; reasons?: string[]; headline?: string };
+
+/** what a scan that opened nothing saw, as counts: the input of the refusal's first line */
+export interface RefusalCounts {
+  total: number;
+  noMagic: number;
+  compressed: number;
+  /** files of another modality, and those modalities */
+  otherModality: number;
+  modalities: string[];
+  shortSeries: number;
+  oversize: number;
+  /** files refused for any reason but their modality (unreadable, thumbnails, bad geometry) */
+  otherwiseRefused: number;
+  capped: boolean;
+}
+
+const EXPORT_AGAIN = 'Export from your CBCT software as DICOM, with compression off.';
+
+/**
+ * The refusal's first line: plain words and what to do, before the technical reason. The most
+ * telling case wins; a folder of another kind of scanner gets no compression advice, because
+ * compression is not its problem.
+ */
+export function refusalHeadline(c: RefusalCounts): string {
+  if (c.capped) return `This folder holds more than ${fmtCount(MAX_WALK_FILES)} files. Open the export folder itself.`;
+  // every refused file was refused for its modality alone
+  if (c.otherModality > 0 && c.noMagic + c.compressed + c.shortSeries + c.oversize + c.otherwiseRefused === 0) {
+    return `These files are from another kind of scanner (${c.modalities.join(', ')}), not a CBCT export.`;
+  }
+  if (c.total > 0 && c.noMagic === c.total) return `These files are not DICOM images. ${EXPORT_AGAIN}`;
+  if (c.compressed > 0) return `These DICOM files are compressed. ${EXPORT_AGAIN}`;
+  if (c.shortSeries > 0) return `These files hold no complete CBCT volume. Export the whole volume from your CBCT software as DICOM, with compression off.`;
+  if (c.oversize > 0) return 'This volume is larger than the 1.5 GB the viewer opens. Export a smaller field of view or a coarser voxel size.';
+  return `No CBCT volume could be read from these files. ${EXPORT_AGAIN}`;
+}
 
 // ---------------------------------------------------------------------------
 // path helpers (forward slashes: webkitRelativePath is always '/'-separated)
@@ -394,7 +429,19 @@ export async function scanFiles(
     if (why.oversize) reasons.push(`over the 1.5 GB size guard: ${why.oversize} ${why.oversize === 1 ? 'volume' : 'volumes'}`);
     if (skippedHidden) reasons.push(`hidden, or deeper than ${MAX_WALK_DEPTH} folders, skipped: ${filesN(skippedHidden)}`);
     if (capped) reasons.push(`the scan stops at ${fmtCount(MAX_WALK_FILES)} files: open the export folder itself`);
-    return { ok: false, error: `No DICOM volume found in ${filesN(total)}`, scanned: total, reasons };
+    const otherCount = [...otherModality.values()].reduce((a, c) => a + c, 0);
+    const headline = refusalHeadline({
+      total,
+      noMagic: why.noMagic,
+      compressed: why.compressed,
+      otherModality: otherCount,
+      modalities: [...otherModality.keys()].sort(),
+      shortSeries: shortSeries.length,
+      oversize: why.oversize,
+      otherwiseRefused: why.unreadable + why.small + why.badGeometry,
+      capped,
+    });
+    return { ok: false, error: `No DICOM volume found in ${filesN(total)}`, scanned: total, reasons, headline };
   }
   volumes.sort((a, b) => a.label.localeCompare(b.label));
   // no two catalog rows may share an id (CbctApp treats a known id as already open)

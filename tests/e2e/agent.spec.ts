@@ -1,6 +1,6 @@
 // The opt-in in-page agent end to end (docs/web-build.md, sections 2 and 12), against out/
 // with a fake OpenAI-compatible model server on loopback (tests/e2e/fakeProvider.mjs) as the
-// "Local or custom endpoint". No real provider and no key are involved. Every other test in
+// "Model server on this computer". No real provider and no key are involved. Every other test in
 // this suite fails on any off-origin request, which proves nothing leaves before opt-in; here
 // the only off-origin requests allowed are the fake server's, they must start only after the
 // clinician confirms, and they come from the sandboxed agent frame (origin "null"), never from
@@ -70,9 +70,9 @@ async function setUpLocal(page: Page) {
   await openPanel(page);
   await expect(panel(page).getByText('Agent: off')).toBeVisible();
   await panel(page).getByRole('button', { name: 'Set up the navigation agent' }).click();
-  await panel(page).getByLabel('Provider').selectOption({ label: 'Local or custom endpoint' });
+  await panel(page).getByLabel('Provider').selectOption({ label: 'Model server on this computer' });
   await panel(page).getByLabel('Endpoint').fill(fake.origin);
-  await panel(page).getByLabel('Model id').fill('fake-model');
+  await panel(page).getByLabel('Model name').fill('fake-model');
   await panel(page).getByRole('button', { name: 'Switch on…' }).click();
   await expect(optIn(page)).toBeVisible();
 }
@@ -80,7 +80,7 @@ async function setUpLocal(page: Page) {
 async function switchOn(page: Page) {
   await setUpLocal(page);
   await optIn(page).getByRole('button', { name: 'Switch on', exact: true }).click();
-  await expect(toggle(page)).toHaveText(`Agent: on, Local or custom endpoint (${fake.origin})`);
+  await expect(toggle(page)).toHaveText(`Agent: on, Model server on this computer (${fake.origin})`);
 }
 
 async function ask(page: Page, text: string) {
@@ -96,18 +96,47 @@ test('the agent is off and its panel closed on load, and nothing is sent', async
   expect(offOrigin).toEqual([]);
 });
 
+test('the setup starts with no provider and no model, and Switch on asks for a provider first', async ({ page }) => {
+  await openPanel(page);
+  await panel(page).getByRole('button', { name: 'Set up the navigation agent' }).click();
+  const provider = panel(page).getByLabel('Provider');
+  await expect(provider.locator('option:checked')).toHaveText('Choose a provider');
+  // the model server on this computer is listed first, before any cloud provider
+  const labels = await provider.locator('option').allTextContents();
+  expect(labels).toEqual(['Choose a provider', 'Model server on this computer', 'Anthropic', 'OpenAI', 'Google Gemini']);
+  await expect(panel(page).getByLabel('Model name')).toHaveValue('');
+  // Switch on stays at full contrast and answers with a plain message, never a dialogue
+  const switchOnButton = panel(page).getByRole('button', { name: 'Switch on…' });
+  await expect(switchOnButton).toBeEnabled();
+  await switchOnButton.click();
+  await expect(panel(page).getByRole('alert')).toHaveText('Choose a provider first: a model server on this computer, or a cloud provider.');
+  await expect(optIn(page)).toHaveCount(0);
+  // a choice fills the model field
+  await provider.selectOption({ label: 'Anthropic' });
+  await expect(panel(page).getByLabel('Model name')).not.toHaveValue('');
+  await expect(provider.locator('option')).toHaveCount(4);
+  expect(fake.requests).toEqual([]);
+});
+
 test('the opt-in dialogue says what the agent is, and Cancel sends nothing', async ({ page }) => {
   await setUpLocal(page);
   const d = optIn(page);
-  await expect(d).toContainText('The agent runs on your own model account with Local or custom endpoint');
-  await expect(d).toContainText("Your key stays in this tab's memory and is forgotten when the tab closes.");
-  await expect(d).toContainText('Every snapshot the agent asks for is sent to Local or custom endpoint');
-  await expect(d).toContainText('and nowhere else.');
+  await expect(d).toContainText(`The agent runs on the model server at ${fake.origin}.`);
+  // no key was entered, so the dialogue says nothing about one
+  await expect(d).not.toContainText('Your key');
+  await expect(d).toContainText(`Every snapshot the agent asks for is sent to the model server at ${fake.origin} and nowhere else.`);
+  await expect(d).toContainText('Each snapshot is a picture of the open scan. Use de-identified scans.');
   await expect(d).toContainText('The agent only moves the camera. It is not asked for findings, and nothing it says is a finding.');
-  await expect(d).toContainText('The local server must accept requests from the agent frame (CORS); llama-server does by default.');
+  await expect(d).toContainText("The model server must accept requests from the agent's isolated frame (CORS); llama-server does by default.");
   await d.getByRole('button', { name: 'Cancel' }).click();
   await expect(d).toHaveCount(0);
   await expect(panel(page).getByText('Agent: off')).toBeVisible();
+  // with a key entered, the key line appears
+  await panel(page).getByLabel('API key').fill('local-test-key');
+  await panel(page).getByRole('button', { name: 'Switch on…' }).click();
+  await expect(d).toContainText("Your key stays in this tab's memory and is forgotten when the tab closes.");
+  await d.getByRole('button', { name: 'Cancel' }).click();
+  await expect(d).toHaveCount(0);
   await page.waitForTimeout(1000);
   expect(fake.requests).toEqual([]);
   expect(offOrigin).toEqual([]);
@@ -193,7 +222,7 @@ test('closing the panel mid-turn keeps Stop in the header, and it works', async 
   await page.waitForTimeout(2000);
   expect(fake.requests.length).toBe(2);
   // the agent stays on; the panel says the request stopped
-  await expect(toggle(page)).toHaveText(`Agent: on, Local or custom endpoint (${fake.origin})`);
+  await expect(toggle(page)).toHaveText(`Agent: on, Model server on this computer (${fake.origin})`);
   await toggle(page).click();
   await expect(panel(page).getByTestId('agent-log')).toContainText('Stopped.');
 });

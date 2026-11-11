@@ -136,11 +136,12 @@ can travel. Pixels never enter a sidecar.
 ## 6. Dialogues
 
 - Research use. Opens the first time a real volume is opened in a browser profile. Title
-  "Research use only". Body: not a medical device; the viewer moves the camera, the human
-  reads; nothing leaves this browser. One button, "I understand". Remembered in localStorage.
+  "Research use only". Body: not a medical device; the agent moves the camera, the human
+  reads; nothing leaves this tab (in the desktop app: this computer, read into this app). One
+  button, "I understand". Remembered in localStorage.
 - Size notice. Before a volume whose voxel bytes exceed `NEXT_PUBLIC_CBCTSCOPE_SIZE_NOTICE_MIB`
   (build-time, default 512) is loaded: the size, the fact that the browser must hold it in
-  memory, the line that the local app has no such limit, "Continue" and "Cancel".
+  memory, the line that the viewer run from the repository has no such limit, "Continue" and "Cancel".
 - Agent opt-in: milestone 3.
 
 Every dialogue follows hard rule 4: full contrast, nothing hidden. Its one exception applies
@@ -306,8 +307,10 @@ first-launch test on a clean user account.
 
 Built to the owner's decisions of 04/11/26:
 
-- Providers: Anthropic, OpenAI, Google Gemini, and "Local or custom endpoint" (an
-  OpenAI-compatible chat completions server with image input on loopback), with presets for
+- Providers: "Model server on this computer" (an OpenAI-compatible chat completions server
+  with image input on loopback), listed first, then Anthropic, OpenAI and Google Gemini; the
+  panel opens on "Choose a provider" with an empty model field, and a choice fills the model
+  in (amended 11/11/26: nothing is preselected). Presets for
   llama-server `http://127.0.0.1:8080`, Ollama `http://127.0.0.1:11434` and LM Studio
   `http://127.0.0.1:1234`; the endpoint field accepts any loopback port (current llama-server
   builds default to 9931, so the preset is a starting point, not a claim about the default).
@@ -332,8 +335,11 @@ Built to the owner's decisions of 04/11/26:
   id persist in localStorage through `lib/shared/agentSettings.ts`, which writes those three
   fields only.
 - The opt-in dialogue (title "Switch on the navigation agent", buttons "Switch on" and
-  "Cancel") names the provider and states the key, snapshot and fence terms; for the local
-  endpoint it adds that the local server must accept requests from the agent's frame (CORS). Off on every load; while on, the panel reads "Agent: on,"
+  "Cancel") names the provider (for the model server on this computer, "The agent runs on the
+  model server at" its address), states the key term only when a key was entered, the snapshot
+  term (sent to that provider only; each snapshot is a picture of the open scan, so use
+  de-identified scans) and the fence; for the model server it adds that the server must accept
+  requests from the agent's isolated frame (CORS). Off on every load; while on, the panel reads "Agent: on,"
   and the provider at all times, beside "Switch off".
 - The loop (`agent/frame/loop.ts`, in the frame): the fence as the system prompt and the
   fifteen verbs as tools, both composed in the page from `lib/shared/verbs.mjs` (the module

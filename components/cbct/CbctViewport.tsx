@@ -43,6 +43,7 @@ import {
   utilities as csToolsUtils,
 } from '@cornerstonejs/tools';
 import { ensureCornerstoneInit } from './cornerstoneInit';
+import { isChord } from './keys';
 import {
   loadVolumeData,
   keepOnly,
@@ -239,7 +240,7 @@ function ensureLocalVolume(anon: string, entry: VolumeEntry): string {
   const volumeId = `cbctlocal:${anon}`;
   if (csCache.getVolume(volumeId)) return volumeId;
   const { meta, scalar } = entry;
-  const create = () => volumeLoader.createLocalVolume(volumeId, buildLocalVolumeOptions(anon, meta, scalar));
+  const create = () => createLocalVolume(volumeId, buildLocalVolumeOptions(anon, meta, scalar));
   try {
     create();
   } catch {
@@ -251,6 +252,30 @@ function ensureLocalVolume(anon: string, entry: VolumeEntry): string {
     create();
   }
   return volumeId;
+}
+
+// Cornerstone's createLocalVolume caches one image per slice, but gives every one of them the
+// VOLUME origin as its imagePositionPatient, so all slices claim to sit at z0. Whatever later
+// asks which slice lies under the camera (getClosestImageId, run by the annotation and
+// crosshair tools on every render) then finds none and logs "No imageId found within the
+// specified criteria" once per call. Write each slice's true position into the same metadata
+// store the library filled (the direction is identity, so slice i sits i spacings up in z).
+function createLocalVolume(volumeId: string, options: ReturnType<typeof buildLocalVolumeOptions>) {
+  const volume = volumeLoader.createLocalVolume(volumeId, options);
+  const [ox, oy, oz] = options.origin;
+  const dz = options.spacing[2];
+  for (let i = 0; i < options.dimensions[2]; i++) {
+    const imageId = `${volumeId}_slice_${i}`;
+    const plane = csUtils.genericMetadataProvider.get(Enums.MetadataModules.IMAGE_PLANE, imageId) as
+      | Record<string, unknown>
+      | undefined;
+    if (!plane) continue;
+    csUtils.genericMetadataProvider.addRaw(imageId, {
+      type: Enums.MetadataModules.IMAGE_PLANE,
+      metadata: { ...plane, imagePositionPatient: [ox, oy, oz + i * dz] },
+    });
+  }
+  return volume;
 }
 
 function buildLocalVolumeOptions(anon: string, meta: CbctMeta, scalar: Int16Array) {
@@ -856,7 +881,7 @@ export default function CbctViewport({
     const id = `cbctlocal:${anon}:erase`;
     try {
       if (!csCache.getVolume(id)) {
-        volumeLoader.createLocalVolume(id, buildLocalVolumeOptions(`${anon}-erase`, meta, copy));
+        createLocalVolume(id, buildLocalVolumeOptions(`${anon}-erase`, meta, copy));
       }
       const vp = engineRef.current.getViewport(VP.v3d);
       const cam = vp.getCamera();
@@ -948,7 +973,7 @@ export default function CbctViewport({
     try {
       smooth = await getSmooth3d(anonNow, { meta, scalar });
     } catch (e) {
-      console.warn('3d smoothing failed — keeping the original substrate', e);
+      console.warn('3d smoothing failed, keeping the original substrate', e);
       return;
     }
     // re-guard: the volume, the toggle, or the eraser may have moved during the blur
@@ -958,7 +983,7 @@ export default function CbctViewport({
     const id = `cbctlocal:${anonNow}:smooth3d`;
     try {
       if (!csCache.getVolume(id)) {
-        volumeLoader.createLocalVolume(id, buildLocalVolumeOptions(`${anonNow}-smooth3d`, meta, smooth));
+        createLocalVolume(id, buildLocalVolumeOptions(`${anonNow}-smooth3d`, meta, smooth));
       }
       const vp = engineRef.current.getViewport(VP.v3d);
       const cam = vp.getCamera();
@@ -971,7 +996,7 @@ export default function CbctViewport({
       reclipRef.current();
       vp.render();
     } catch (e) {
-      console.warn('smooth substrate attach failed — keeping the original', e);
+      console.warn('smooth substrate attach failed, keeping the original', e);
     }
   };
   const ensureSmoothSubstrateRef = useRef(ensureSmoothSubstrate);
@@ -1277,6 +1302,7 @@ export default function CbctViewport({
     const onKeyDel = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      if (isChord(e)) return; // Cmd-V pastes and Cmd-Backspace edits: the browser's, not ours
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (deleteSelectedRef.current()) e.preventDefault();
       } else if (e.key === 'v' || e.key === 'V') {
@@ -2136,7 +2162,7 @@ export default function CbctViewport({
         console.error('[cbct] load failed', err);
         if (!stale) {
           setProgress(null);
-          onError?.('volume load failed — see console');
+          onError?.('volume load failed: see the console');
         }
       }
     })();
@@ -3038,7 +3064,7 @@ export default function CbctViewport({
               <button
                 onClick={() => resetPaneView(c.id)}
                 onDoubleClick={(e) => e.stopPropagation()}
-                title="reset view — re-fit this pane's zoom & pan (orientation and window untouched; R squares up all panes)"
+                title="reset view: re-fit this pane's zoom & pan (orientation and window untouched; R squares up all panes)"
                 style={{
                   position: 'absolute',
                   top: 2,
@@ -3241,7 +3267,7 @@ export default function CbctViewport({
                 ))}
                 <button
                   onClick={home3d}
-                  title="reset view — re-home the 3D camera (window and slices untouched)"
+                  title="reset view: re-home the 3D camera (window and slices untouched)"
                   style={{
                     width: 26,
                     height: 24,
@@ -3276,7 +3302,7 @@ export default function CbctViewport({
               >
                 <button
                   onClick={() => setEraseMode((m) => !m)}
-                  title="render eraser: erase what you touch on the render (a 3D-only copy — the slices NEVER change)"
+                  title="render eraser: erase what you touch on the render (a 3D-only copy; the slices NEVER change)"
                   style={{
                     height: 24,
                     padding: '0 8px',
@@ -3361,7 +3387,7 @@ export default function CbctViewport({
                       disabled={eraseInfo.undo === 0 && eraseInfo.redo === 0}
                       title={
                         eraseInfo.undo || eraseInfo.redo
-                          ? 'revert every erase — the full volume returns to the render'
+                          ? 'revert every erase: the full volume returns to the render'
                           : 'nothing erased yet'
                       }
                       style={{
@@ -3457,7 +3483,7 @@ export default function CbctViewport({
               } else if (e.key === 'Escape') setNamingView(null);
             }}
             onBlur={() => setNamingView(null)}
-            title="name this view — Enter saves, Esc cancels"
+            title="name this view. Enter saves, Esc cancels."
             style={{
               height: 24,
               width: 160,
@@ -3472,7 +3498,7 @@ export default function CbctViewport({
         ) : (
           <button
             onClick={startNamingView}
-            title="save the current view — all four cameras + window + render settings, under a name (V)"
+            title="save the current view: all four cameras + window + render settings, under a name (V)"
             style={{
               height: 24,
               padding: '0 10px',
@@ -3514,7 +3540,7 @@ export default function CbctViewport({
           }}
         >
           <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: 0.4 }}>
-            OBJECTS — click: show it on the slices · Del: delete selected
+            OBJECTS. Click one to show it on the slices; Del deletes the selected one.
           </div>
           {measures.map((m) => (
             <div
@@ -3614,7 +3640,7 @@ export default function CbctViewport({
                     setSelectedUid((cur) => (cur === uid ? null : uid));
                     jumpPanesToWorld(roi.center);
                   }}
-                  title={`3D box ROI ${dims} mm · ${s.nVoxels.toLocaleString()} voxels · min ${Math.round(s.minHu)} / max ${Math.round(s.maxHu)} HU — click: jump the slices to it`}
+                  title={`3D box ROI ${dims} mm · ${s.nVoxels.toLocaleString()} voxels · min ${Math.round(s.minHu)} / max ${Math.round(s.maxHu)} HU. Click to jump the slices to it.`}
                   style={{
                     background: 'none',
                     border: 'none',
@@ -3652,7 +3678,7 @@ export default function CbctViewport({
           })}
           {views.length > 0 && (
             <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: 0.4, marginTop: 2 }}>
-              VIEWS — click: restore that exact presentation
+              VIEWS. Click one to restore that exact presentation.
             </div>
           )}
           {views.map((v) => (

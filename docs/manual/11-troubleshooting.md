@@ -47,12 +47,18 @@
 - **"found N compressed DICOM file(s), only uncompressed exports are
   supported"**: re-export from your CBCT unit's software with compression
   off, then open the new export.
-- **"No DICOM volume found in N files"** (the web build and the desktop app):
-  the panel lists what the scan saw. Compressed transfer syntax: re-export
-  with compression off. Too few slices: the folder holds a short series, not a
-  CBCT volume. No DICM magic bytes: those files are not DICOM. The scan stops
-  at 8,000 files: open the export folder itself, not a folder that holds it
-  among much else.
+- **"These files are not DICOM images. Export from your CBCT software as
+  DICOM, with compression off."** (the web build and the desktop app): the
+  panel's first line says what went wrong and what to do; the line under it,
+  "No DICOM volume found in N files", and the list after it give the technical
+  reason, and **Open another folder** opens the picker again. The first line
+  follows the case: "These DICOM files are compressed" (re-export with
+  compression off); "These files hold no complete CBCT volume" (the folder
+  holds a short series, not a CBCT volume); "These files are from another kind
+  of scanner (XA), not a CBCT export" when every file came from another
+  modality, with no compression advice, because compression is not the
+  problem; "This folder holds more than 8,000 files. Open the export folder
+  itself." when the scan stopped at its limit.
 - **"not a DICOM file (or a compressed/foreign format)"**: the picked file is
   not uncompressed DICOM. Pick a `.dcm` slice, a DICOMDIR, or a multiframe
   file from a fresh uncompressed export.

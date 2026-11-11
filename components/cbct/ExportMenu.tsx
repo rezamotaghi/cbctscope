@@ -145,7 +145,7 @@ export default function ExportMenu({ anon, voi, invert, gamma, stlThreshold, cro
         maxDim: QUALITY[quality].cap,
         crop: useCrop ? crop3d : null,
       });
-      if (!triangles) throw new Error('no surface at this threshold — lower it');
+      if (!triangles) throw new Error('no surface at this threshold: lower it');
       downloadBlob(blob, `${entry.meta.anon}_${stlThr}hu.stl`);
       setNote({ msg: `STL exported · ${triangles.toLocaleString()} triangles · ${(blob.size / 1e6).toFixed(0)} MB`, ok: true });
     });
@@ -183,7 +183,7 @@ export default function ExportMenu({ anon, voi, invert, gamma, stlThreshold, cro
         style={{ ...btn, background: open ? 'var(--accent-dim)' : 'var(--panel-2)' }}
         disabled={!anon}
         onClick={toggleOpen}
-        title="Export the open volume — PNG slice stack, NIfTI, or STL surface (computed in-browser, saved to Downloads)"
+        title="Export the open volume: PNG slice stack, NIfTI, or STL surface (computed in-browser, saved to Downloads)"
       >
         ⇩ export ▾
       </button>
@@ -242,7 +242,7 @@ export default function ExportMenu({ anon, voi, invert, gamma, stlThreshold, cro
             style={dlBtn}
             disabled={!!busy}
             onClick={doNifti}
-            title="NIfTI (.nii.gz) — the volume in HU, for Slicer, ITK-SNAP, nibabel, MONAI"
+            title="NIfTI (.nii.gz): the volume in HU, for Slicer, ITK-SNAP, nibabel, MONAI"
           >
             ⇩ NIfTI volume (.nii.gz)
           </button>
@@ -280,7 +280,7 @@ export default function ExportMenu({ anon, voi, invert, gamma, stlThreshold, cro
             style={dlBtn}
             disabled={!!busy}
             onClick={doStl}
-            title="binary STL, mm units — any print slicer, Blender, Meshmixer, CAD"
+            title="binary STL, mm units, for any print slicer, Blender, Meshmixer, CAD"
           >
             ⇩ STL surface mesh (.stl)
           </button>

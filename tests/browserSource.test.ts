@@ -7,7 +7,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createBrowserSource, directRunner } from '../lib/browser/browserSource';
 import { createEvidenceStore, type KeyValueAdapter } from '../lib/browser/evidenceStore';
-import { MAX_WALK_FILES } from '../lib/browser/scan';
+import { MAX_WALK_FILES, refusalHeadline, type RefusalCounts } from '../lib/browser/scan';
 import type { OpenProgress } from '../lib/browser/volumeSource';
 import { VOLUME_ID_RE } from '../lib/shared/dicom';
 import { XRAY_MAX } from '../lib/shared/radiograph';
@@ -185,6 +185,7 @@ describe('browserSource: refusals and guards', () => {
       error: 'No DICOM volume found in 2 files',
       scanned: 2,
       reasons: ['no DICM magic bytes, not DICOM: 2 files'],
+      headline: 'These files are not DICOM images. Export from your CBCT software as DICOM, with compression off.',
     });
     expect(await src.opened()).toBeNull();
   });
@@ -209,6 +210,7 @@ describe('browserSource: refusals and guards', () => {
     const over = await source().open({ kind: 'files', files: [...junk(MAX_WALK_FILES), xray] });
     expect(over).toMatchObject({ ok: false, error: `No DICOM volume found in 8,000 files`, scanned: MAX_WALK_FILES });
     if (!over.ok) expect(over.reasons?.at(-1)).toBe('the scan stops at 8,000 files: open the export folder itself');
+    if (!over.ok) expect(over.headline).toBe('This folder holds more than 8,000 files. Open the export folder itself.');
     const under = await source().open({ kind: 'files', files: [...junk(MAX_WALK_FILES - 1), xray] });
     expect(under.ok).toBe(true);
   });
@@ -303,5 +305,42 @@ describe('browserSource: phantom, fused, evidence', () => {
     const bare = createEvidenceStore();
     expect(await bare.get(file.anon)).toBeNull();
     expect(await bare.put(file)).toBe(false);
+  });
+});
+
+describe('the refusal headline: plain words and an action first', () => {
+  const none: RefusalCounts = {
+    total: 10,
+    noMagic: 0,
+    compressed: 0,
+    otherModality: 0,
+    modalities: [],
+    shortSeries: 0,
+    oversize: 0,
+    otherwiseRefused: 0,
+    capped: false,
+  };
+  it('files that are not DICOM', () => {
+    expect(refusalHeadline({ ...none, noMagic: 10 })).toBe(
+      'These files are not DICOM images. Export from your CBCT software as DICOM, with compression off.',
+    );
+  });
+  it('compressed DICOM', () => {
+    expect(refusalHeadline({ ...none, compressed: 4, noMagic: 1 })).toBe(
+      'These DICOM files are compressed. Export from your CBCT software as DICOM, with compression off.',
+    );
+  });
+  it('every file refused for its modality: says so, with no compression advice', () => {
+    const h = refusalHeadline({ ...none, otherModality: 10, modalities: ['XA'] });
+    expect(h).toBe('These files are from another kind of scanner (XA), not a CBCT export.');
+    expect(h).not.toMatch(/compression/);
+  });
+  it('another modality mixed with other refusals falls through to the general advice', () => {
+    expect(refusalHeadline({ ...none, otherModality: 3, modalities: ['MR'], otherwiseRefused: 2 })).toMatch(/^No CBCT volume could be read/);
+  });
+  it('a short series, an oversized volume, a capped walk', () => {
+    expect(refusalHeadline({ ...none, shortSeries: 1 })).toMatch(/^These files hold no complete CBCT volume\./);
+    expect(refusalHeadline({ ...none, oversize: 1 })).toMatch(/^This volume is larger than the 1\.5 GB/);
+    expect(refusalHeadline({ ...none, capped: true })).toBe('This folder holds more than 8,000 files. Open the export folder itself.');
   });
 });

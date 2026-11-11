@@ -76,8 +76,10 @@ brightest voxel across the slab instead of the average.
 
 **3D render, style.** A style picker with two parametric groups, Styles (Shaded, Shiny,
 Surface, Soft tissue, MIP, X-ray, X-ray shaded, B&W X-ray) and CBCT tuned (bone + teeth,
-teeth high density, translucent bone with solid teeth), plus generic CT presets that
-apply as-is without the adjust sliders. Surface, a bone-toned isosurface, is the default.
+teeth high density, translucent bone with solid teeth), plus **Air**, the rendering
+library's air preset, which applies as it is: the adjust sliders do not work on it. A
+saved view or saved 3D preset that names a generic CT preset from earlier versions opens
+on Shaded. Surface, a bone-toned isosurface, is the default.
 The shaded styles light off the render's opacity cloud with local ambient occlusion, so
 sockets and interproximal gaps self-shadow.
 

@@ -82,7 +82,7 @@ to your browser and has no server that could receive anything back.
   model id. Never the API key: that stays in the agent frame's memory only.
 - **Nothing is uploaded.** The page carries a Content Security Policy whose
   network rule (`connect-src`) forbids it to contact any host but its own.
-  The in-page agent (section 9.6) runs in a sealed frame with a policy of its
+  The in-page agent (section 9.6) runs in an isolated frame with a policy of its
   own that allows the three model providers' API hosts and a model server on
   this computer's loopback, and nothing else. The frame exists only after you
   switch the agent on, and then contacts only the provider you chose, with

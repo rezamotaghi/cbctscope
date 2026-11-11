@@ -2,7 +2,6 @@
 // CBCT reading app — the client shell. Owns all control state and the volume picker;
 // CbctViewport (keyed by volume id, so switching = clean remount) does the rendering.
 import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { CONSTANTS } from '@cornerstonejs/core';
 import CbctViewport, {
   type CbctControls,
   type CbctMeta,
@@ -11,7 +10,7 @@ import CbctViewport, {
   type HistogramData,
   type MprPane,
 } from './CbctViewport';
-import { RENDER_STYLES, DEFAULT_RENDER3D, type Render3dSettings, type PseudoKey } from './render3d';
+import { RENDER_STYLES, DEFAULT_RENDER3D, AIR_PRESET, migrateRender3d, type Render3dSettings, type PseudoKey } from './render3d';
 import CbctPano from './CbctPano';
 import CbctGrid from './CbctGrid';
 import CbctRadiograph from './CbctRadiograph';
@@ -36,6 +35,7 @@ import { SIZE_NOTICE_MIB, needsSizeNotice, voxelBytes } from './sizeNotice';
 import { dropLabel, entriesOf, walkDrop } from './dropFiles';
 import { selectVolumeVerb, type SwitchOutcome } from './agentSelect';
 import { useDropOverlay } from './useDropOverlay';
+import { isChord } from './keys';
 import { downloadBlob } from './exporters';
 import {
   ResearchUseDialog,
@@ -81,7 +81,7 @@ const VIEW_MODES: [ViewMode, string, string][] = [
   ['pano', 'Pano', 'curved panoramic + cross-sections'],
   ['tmj', 'TMJ', 'both condyles in axis-corrected sections'],
   ['reslice', 'Reslice', 'new slice stack along any drawn line or curve'],
-  ['ceph', 'Ceph', 'virtual cephalogram — the volume projected flat like a film'],
+  ['ceph', 'Ceph', 'virtual cephalogram: the volume projected flat like a film'],
   ['region', 'Region', 'region growing + airway analysis'],
   ['stitch', 'Stitch', 'register + merge two volumes of the same subject'],
 ];
@@ -100,14 +100,14 @@ const WL_PRESETS: Record<string, { center: number; width: number } | null> = {
 // describing gestures the other rooms don't have. MPR's stays tool-aware; the universal
 // "dbl-click a slider = reset" tail is appended for all.
 const MODE_LEGEND: Record<ViewMode, (tool: string) => string> = {
-  mpr: (tool) => `wheel: slice · left: ${tool} · right-drag: rotate section · right+left drag: zoom · middle-drag: pan`,
-  grid: () => 'scout: left-drag = move window · right-drag = rotate · tiles: wheel = step · right-drag = rotate in-plane',
-  pano: () => 'axial: stroke = arch · wheel = slice · pano: click/wheel = move sections · sections: right-drag = tilt',
-  tmj: () => 'axial: drag = axis line per side · right-click = delete · wheel = slice · tiles: right-drag = tilt the fan',
-  reslice: () => 'scout: drag = line · click = dots · dbl-click = finish · wheel = slice · tiles: right-drag = tilt',
-  ceph: () => 'drag the image: horizontal = turn (yaw) · vertical = nod (pitch) · projection presets in the toolbar',
-  region: () => 'axial: drag = box · click = seed · wheel = slice · right of the planes: vertical-range handles',
-  stitch: () => 'pick volume B → auto align → fine-tune the sliders · color overlay: fringes = misalignment',
+  mpr: (tool) => `Wheel: slice. Left: ${tool}. Right-drag rotates the section, right and left drag zooms, middle-drag pans.`,
+  grid: () => 'Scout: left-drag moves the window, right-drag rotates. Tiles: wheel steps, right-drag rotates in-plane.',
+  pano: () => 'Axial: a stroke draws the arch, the wheel moves the slice. Pano: click or wheel moves the sections. Sections: right-drag tilts.',
+  tmj: () => 'Axial: drag an axis line per side, right-click deletes, the wheel moves the slice. Tiles: right-drag tilts the fan.',
+  reslice: () => 'Scout: drag a line, or click dots and double-click to finish; the wheel moves the slice. Tiles: right-drag tilts.',
+  ceph: () => 'Drag the image: horizontal turns (yaw), vertical nods (pitch). Projection presets are in the toolbar.',
+  region: () => 'Axial: drag a box, click a seed, the wheel moves the slice. Right of the planes: the vertical-range handles.',
+  stitch: () => 'Pick volume B, auto align, then fine-tune the sliders. In the color overlay, fringes show misalignment.',
 };
 
 // 'wl' rides at the END so the 1-9/0 number keys keep their historical meaning — it gets
@@ -166,35 +166,6 @@ interface Saved3dPreset {
   name: string;
   settings: Render3dSettings;
 }
-// Style keys and setting fields were renamed when the style set was reworked; presets
-// saved before that carry the old names. Migrate on load so no saved preset ever feeds a
-// dead style key into the render path.
-const LEGACY_STYLE_KEYS: Record<string, string> = {
-  'style:matte': 'style:shaded',
-  'style:gloss': 'style:shiny',
-  'style:shell': 'style:surface',
-  'style:skin': 'style:soft-tissue',
-  'style:radiograph': 'style:xray',
-  'style:glass': 'style:xray-shaded',
-  'style:film': 'style:bw-xray',
-};
-function migratePreset(s: Render3dSettings): Render3dSettings {
-  const legacy = s as Render3dSettings & {
-    edgeEmphasis?: number;
-    skinShell?: boolean;
-    skinShellThreshold?: number;
-    skinShellOpacity?: number;
-  };
-  return {
-    ...DEFAULT_RENDER3D,
-    ...s,
-    style: LEGACY_STYLE_KEYS[s.style] ?? s.style,
-    depthEnhance: s.depthEnhance ?? legacy.edgeEmphasis ?? DEFAULT_RENDER3D.depthEnhance,
-    stOverlay: s.stOverlay ?? legacy.skinShell ?? DEFAULT_RENDER3D.stOverlay,
-    stThreshold: s.stThreshold ?? legacy.skinShellThreshold ?? DEFAULT_RENDER3D.stThreshold,
-    stOpacity: s.stOpacity ?? legacy.skinShellOpacity ?? DEFAULT_RENDER3D.stOpacity,
-  };
-}
 function loadSavedPresets(): Saved3dPreset[] {
   try {
     const raw = localStorage.getItem(PRESETS_KEY);
@@ -202,7 +173,7 @@ function loadSavedPresets(): Saved3dPreset[] {
     return Array.isArray(arr)
       ? arr
           .filter((p) => p && typeof p.name === 'string' && p.settings)
-          .map((p) => ({ ...p, settings: migratePreset(p.settings) }))
+          .map((p) => ({ ...p, settings: migrateRender3d(p.settings) }))
       : [];
   } catch {
     return [];
@@ -318,12 +289,8 @@ export default function CbctApp() {
   /** the open image is a single 2D radiograph — the volumetric modes don't apply */
   const isXray = current?.kind === 'xray';
 
-  const ctPresetNames = useMemo(
-    () => CONSTANTS.VIEWPORT_PRESETS.filter((p) => p.name.startsWith('CT-')).map((p) => p.name),
-    [],
-  );
   const r3d = controls.render3d;
-  const styleDef = RENDER_STYLES[r3d.style]; // undefined ⇒ a CT-* preset: sliders don't apply
+  const styleDef = RENDER_STYLES[r3d.style]; // undefined means the Air preset: the sliders don't apply
   const setR3d = useCallback((patch: Partial<Render3dSettings>) => {
     setControls((c) => ({ ...c, render3d: { ...c.render3d, ...patch } }));
   }, []);
@@ -447,7 +414,7 @@ export default function CbctApp() {
       if (isCanceled(r)) return; // the reader dismissed the dialog: not an error
       if (!r.ok) {
         if (live() && r.scanned !== undefined) {
-          return setOpenPanel({ kind: 'none', error: r.error, reasons: r.reasons ?? [] });
+          return setOpenPanel({ kind: 'none', error: r.error, reasons: r.reasons ?? [], headline: r.headline });
         }
         if (live()) setOpenPanel(null);
         return setError(r.error);
@@ -577,6 +544,9 @@ export default function CbctApp() {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      // Cmd, Ctrl or Alt held: the chord belongs to the browser or the app menu (open, close,
+      // reload, copy, new window, print, tab switching), never to a viewer key
+      if (isChord(e)) return;
       const k = e.key.toLowerCase();
       // the MPR keys (tools, W, C, O) are GATED to the MPR room — in any other mode they
       // used to silently mutate state the reader couldn't see. R also serves the
@@ -841,7 +811,7 @@ export default function CbctApp() {
         )}
         {isXray ? (
           <span
-            title="A single 2D radiograph is open — the volumetric reading modes apply to CBCT volumes"
+            title="A single 2D radiograph is open. The volumetric reading modes apply to CBCT volumes."
             style={{
               fontSize: 12,
               color: 'var(--text)',
@@ -893,7 +863,7 @@ export default function CbctApp() {
                 .filter((v) => isFusedVol(v.anon))
                 .map((v) => (
                   <option key={v.anon} value={v.anon}>
-                    {v.label || v.anon.slice(6, 12)} — {volLabel(v)}
+                    {v.label || v.anon.slice(6, 12)}: {volLabel(v)}
                   </option>
                 ))}
             </optgroup>
@@ -904,7 +874,7 @@ export default function CbctApp() {
                 .filter((v) => isLocalVol(v.anon))
                 .map((v) => (
                   <option key={v.anon} value={v.anon}>
-                    {v.label || v.anon.slice(6, 12)} — {volLabel(v)}
+                    {v.label || v.anon.slice(6, 12)}: {volLabel(v)}
                   </option>
                 ))}
             </optgroup>
@@ -914,7 +884,7 @@ export default function CbctApp() {
               .filter((v) => isDemoVol(v.anon))
               .map((v) => (
                 <option key={v.anon} value={v.anon}>
-                  {v.label || 'Synthetic phantom'} — {volLabel(v)}
+                  {v.label || 'Synthetic phantom'}: {volLabel(v)}
                 </option>
               ))}
           </optgroup>
@@ -937,7 +907,7 @@ export default function CbctApp() {
         {anon && (
           <SnapshotButton
             onClick={() => snapRef.current?.()}
-            title="snapshot: save what the current room shows as a PNG image — each room composes its own"
+            title="snapshot: save what the current room shows as a PNG image. Each room composes its own."
           />
         )}
         {/* 📂 open a local CBCT export — DICOMDIR tree, slice-series folder, or multiframe file */}
@@ -949,8 +919,12 @@ export default function CbctApp() {
             title={
               IS_WEB
                 ? picking
-                  ? 'reading the files you chose into this tab'
-                  : 'Open a CBCT export (folder, DICOMDIR, or DICOM file), or drop it on the viewer. The browser reads it into this tab; nothing is uploaded.'
+                  ? inShell
+                    ? 'reading the files you chose into this app'
+                    : 'reading the files you chose into this tab'
+                  : inShell
+                    ? 'Open a CBCT export (folder, DICOMDIR, or DICOM file), or drop it on the viewer. This app reads it on this computer; nothing is uploaded.'
+                    : 'Open a CBCT export (folder, DICOMDIR, or DICOM file), or drop it on the viewer. The browser reads it into this tab; nothing is uploaded.'
                 : picking
                   ? 'the native file chooser is open: finish or cancel it first'
                   : 'Open a local CBCT export (folder, DICOMDIR, or DICOM file). Scans are read in place and never leave this computer.'
@@ -987,6 +961,12 @@ export default function CbctApp() {
                   >
                     📁 Open DICOMDIR or DICOM folder
                   </button>
+                  {/* the picker's own button may read "Upload": say what it means before it appears */}
+                  <div style={{ padding: '2px 10px 6px', fontSize: 12, color: 'var(--text)', lineHeight: 1.45, maxWidth: 300 }}>
+                    {inShell
+                      ? "The Open sheet may say 'Upload': that is its word for letting this app read the files. They stay on this computer."
+                      : "Your browser may say 'upload': that is its word for letting this page read the files. They stay in this tab."}
+                  </div>
                   <button
                     className="menu-item"
                     title="One multiframe volume or one 2D radiograph"
@@ -1065,8 +1045,8 @@ export default function CbctApp() {
                 nothing to dismiss, and it leaves by itself once an export is opened. */}
             {isDemoVol(current.anon) && !srcLabel && (
               <span style={{ color: 'var(--text)' }}>
-                {' · '}built-in, no patient data · your own scan: <b>open</b>
-                {IS_WEB ? ' or drop it on the viewer' : ''} · guide: <b>help</b>
+                {'. '}Built in, no patient data. For your own scan: <b>open</b>
+                {IS_WEB ? ' or drop it on the viewer' : ''}. The guide: <b>help</b>.
               </span>
             )}
           </span>
@@ -1074,17 +1054,17 @@ export default function CbctApp() {
         <span style={{ flex: 1 }} />
         <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>
           {isXray
-            ? 'wheel: zoom · left-drag: pan · double-click / R: fit'
+            ? 'Wheel zooms, left-drag pans, double-click or R fits.'
             : MODE_LEGEND[viewMode](
-                controls.toolMode === 'crosshairs' ? 'click spots crosshairs · drag pans' : TOOL_LABEL[controls.toolMode],
+                controls.toolMode === 'crosshairs' ? 'a click spots the crosshairs, a drag pans' : TOOL_LABEL[controls.toolMode],
               )}
-          {' · dbl-click a slider = reset'}
+          {' Double-click a slider to reset it.'}
         </span>
         <div style={{ position: 'relative' }}>
           <button
             style={btn(keysOpen)}
             onClick={() => setKeysOpen((v) => !v)}
-            title="keyboard reference — every hotkey, in words"
+            title="keyboard reference: every hotkey, in words"
           >
             <Keyboard size={13} strokeWidth={2} style={{ marginRight: 5, verticalAlign: '-2px' }} />
             keys
@@ -1110,18 +1090,18 @@ export default function CbctApp() {
               <div style={{ color: 'var(--text-dim)', fontSize: 10, letterSpacing: 0.4, marginBottom: 2 }}>
                 EVERY ROOM
               </div>
-              <div>N / P — next / previous volume</div>
-              <div>double-click a slider — reset it</div>
+              <div>N / P: next / previous volume</div>
+              <div>double-click a slider: reset it</div>
               <div style={{ color: 'var(--text-dim)', fontSize: 10, letterSpacing: 0.4, margin: '6px 0 2px' }}>
                 MPR ONLY
               </div>
-              <div>1–9, 0 — tools (crosshairs … 3D ROI)</div>
-              <div>W — window/level tool</div>
-              <div>R — reset orientation (also fits a 2D radiograph)</div>
-              <div>C — plane lines on / off</div>
-              <div>O — overlays on / off</div>
-              <div>V — save the current view</div>
-              <div>Del — delete the selected object</div>
+              <div>1–9, 0: tools (crosshairs … 3D ROI)</div>
+              <div>W: window/level tool</div>
+              <div>R: reset orientation (also fits a 2D radiograph)</div>
+              <div>C: plane lines on / off</div>
+              <div>O: overlays on / off</div>
+              <div>V: save the current view</div>
+              <div>Del: delete the selected object</div>
             </div>
           )}
         </div>
@@ -1228,7 +1208,14 @@ export default function CbctApp() {
             </div>
           )}
           {IS_WEB && openPanel && !(openPanel.kind === 'busy' && pendingSize) && (
-            <OpenProgressPanel state={openPanel} onDismiss={() => setOpenPanel(null)} />
+            <OpenProgressPanel
+              state={openPanel}
+              onDismiss={() => setOpenPanel(null)}
+              onOpenAnother={() => {
+                setOpenPanel(null);
+                folderInputRef.current?.click();
+              }}
+            />
           )}
           {marksBusy ? (
             <div style={{ color: 'var(--text)', padding: 24 }}>loading marks…</div>
@@ -1238,7 +1225,7 @@ export default function CbctApp() {
               <button
                 style={btn(false)}
                 onClick={() => setError(null)}
-                title="clear the error and remount the room — a transient load failure retries"
+                title="clear the error and remount the room. A transient load failure retries."
               >
                 ↻ retry
               </button>
@@ -1265,7 +1252,10 @@ export default function CbctApp() {
                 onMeta={setMeta}
                 onHistogram={setHistogram}
                 onError={setError}
-                onControlsPatch={(p) => setControls((c) => ({ ...c, ...p }))}
+                onControlsPatch={(p) =>
+                  // a saved view may name a 3D preset the interface no longer offers: it opens on a house style
+                  setControls((c) => ({ ...c, ...p, ...(p.render3d ? { render3d: migrateRender3d(p.render3d) } : {}) }))
+                }
               />
             ) : viewMode === 'grid' ? (
               <CbctGrid
@@ -1373,7 +1363,7 @@ export default function CbctApp() {
                   onClick={() => setControls((c) => ({ ...c, toolMode: m }))}
                   title={
                     m === 'wl'
-                      ? 'window/level (W) — left-drag on any slice: up/down = center, left/right = width; the sidebar follows live'
+                      ? 'window/level (W). Left-drag on any slice: up and down set the center, left and right the width. The sidebar follows live.'
                       : `${TOOL_LABEL[m]} (${TOOL_KEY(m, i)})`
                   }
                 >
@@ -1392,15 +1382,15 @@ export default function CbctApp() {
                   value={controls.roi3dDepth}
                   onChange={(e) => setControls((c) => ({ ...c, roi3dDepth: Number(e.target.value) }))}
                   onDoubleClick={() => setControls((c) => ({ ...c, roi3dDepth: 10 }))}
-                  title="drag a rectangle on any slice pane; the box extends this many mm through the slice — double-click resets to 10"
+                  title="drag a rectangle on any slice pane; the box extends this many mm through the slice. Double-click resets to 10."
                   style={{ width: '100%' }}
                 />
               </label>
             )}
             <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4, lineHeight: 1.5 }}>
-              arrow/text prompt for a label · rect/ellipse report density (HU) stats · freehand:
-              open stroke = curved-path mm, closed loop = region stats · 3D ROI: drag a box, get
-              volume + density stats · Del deletes the selected object
+              Arrow and Text ask for a label. Rect and Ellipse report density (HU) stats. Freehand:
+              an open stroke gives a curved-path length in mm, a closed loop gives region stats. 3D
+              ROI: drag a box to get volume and density stats. Del deletes the selected object.
             </div>
           </section>
           )}
@@ -1424,7 +1414,7 @@ export default function CbctApp() {
                     onClick={() => setVoiPreset(name)}
                     title={
                       p
-                        ? `center ${p.center} · width ${p.width} HU`
+                        ? `center ${p.center}, width ${p.width} HU`
                         : "robust percentile window from this image's own pixels (the per-volume default)"
                     }
                   >
@@ -1478,7 +1468,7 @@ export default function CbctApp() {
                     voi: { center: meta.defaultVoi.center, width: voiShown.width },
                   }))
                 }
-                title="full value range of this image — double-click = back to the Auto center"
+                title="full value range of this image. Double-click returns to the Auto center."
                 style={{ width: '100%' }}
               />
             </label>
@@ -1503,7 +1493,7 @@ export default function CbctApp() {
                     voi: { center: voiShown.center, width: meta.defaultVoi.width },
                   }))
                 }
-                title="log scale up to the image's full span — double-click = back to the Auto width"
+                title="log scale up to the image's full span. Double-click returns to the Auto width."
                 style={{ width: '100%' }}
               />
             </label>
@@ -1517,7 +1507,7 @@ export default function CbctApp() {
                 value={controls.gamma}
                 onChange={(e) => setControls((c) => ({ ...c, gamma: Number(e.target.value) }))}
                 onDoubleClick={() => setControls((c) => ({ ...c, gamma: 1 }))}
-                title="display gamma — double-click to reset to 1"
+                title="display gamma. Double-click to reset to 1."
                 style={{ width: '100%' }}
               />
             </label>
@@ -1570,41 +1560,26 @@ export default function CbctApp() {
           {viewMode === 'mpr' && !isXray && (
           <section>
             <div style={{ color: 'var(--text-dim)', marginBottom: 6 }}>3D render</div>
-            {/* the house styles as one-click chips (the old single select buried them among
-                dozens of generic CT presets); the CT long tail keeps a compact select below —
-                nothing is hidden, the wall of entries just stops being the front door */}
+            {/* the house styles as one-click chips, then one library preset, Air, applied as-is */}
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
               {Object.entries(RENDER_STYLES).map(([value, d]) => (
                 <button
                   key={value}
                   style={btn(r3d.style === value)}
                   onClick={() => pickStyle(value)}
-                  title={d.group === 'cbct' ? `${d.label} — CBCT-tuned` : d.label}
+                  title={d.group === 'cbct' ? `${d.label}, CBCT-tuned` : d.label}
                 >
                   {d.label.replace('CBCT · ', '')}
                 </button>
               ))}
+              <button
+                style={btn(r3d.style === AIR_PRESET)}
+                onClick={() => pickStyle(AIR_PRESET)}
+                title="Air: the library's air preset, applied as it is. The adjust sliders do not apply to it."
+              >
+                Air
+              </button>
             </div>
-            <select
-              value={RENDER_STYLES[r3d.style] ? '' : r3d.style}
-              onChange={(e) => e.target.value && pickStyle(e.target.value)}
-              title="generic VTK medical CT presets — applied as-is, the adjust sliders work on the named styles above"
-              style={{
-                width: '100%',
-                background: 'var(--panel-2)',
-                border: '1px solid var(--border)',
-                borderRadius: 6,
-                padding: '4px 8px',
-                marginBottom: 8,
-              }}
-            >
-              <option value="">more (VTK medical)…</option>
-              {ctPresetNames.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
             {styleDef ? (
               <>
                 {histogram && (
@@ -1709,7 +1684,7 @@ export default function CbctApp() {
                     checked={r3d.smooth3d}
                     onChange={(e) => setR3d({ smooth3d: e.target.checked })}
                   />
-                  smooth 3D surface (denoised copy — slice views stay untouched)
+                  smooth 3D surface (denoised copy; slice views stay untouched)
                 </label>
                 <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, margin: '4px 0' }}>
                   <input
@@ -1717,7 +1692,7 @@ export default function CbctApp() {
                     checked={r3d.cinematic}
                     onChange={(e) => setR3d({ cinematic: e.target.checked })}
                   />
-                  cinematic light (soft in-volume shadows — slower to orbit)
+                  cinematic light (soft in-volume shadows; slower to orbit)
                 </label>
                 <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, margin: '4px 0' }}>
                   <input
@@ -1797,8 +1772,8 @@ export default function CbctApp() {
                 )}
               </>
             ) : (
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
-                generic CT preset — applied as-is, the adjust sliders work on the named styles above
+              <div style={{ fontSize: 12, color: 'var(--text)', marginBottom: 4 }}>
+                Air is applied as it is. The adjust sliders work on the other styles only.
               </div>
             )}
             <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, marginTop: 2 }}>
@@ -1815,7 +1790,7 @@ export default function CbctApp() {
                 checked={controls.planes3d}
                 onChange={(e) => setControls((c) => ({ ...c, planes3d: e.target.checked }))}
               />
-              plane indicators — the three section planes + bounding box inside the render
+              plane indicators: the three section planes and the bounding box inside the render
             </label>
           </section>
           )}
@@ -1823,7 +1798,7 @@ export default function CbctApp() {
           {viewMode === 'mpr' && !isXray && (
           <section>
             <div style={{ color: 'var(--text-dim)', marginBottom: 6 }}>
-              Crop 3D <span style={{ fontSize: 10 }}>(render only — slices unaffected)</span>
+              Crop 3D <span style={{ fontSize: 10 }}>(render only; slices unaffected)</span>
             </div>
             {(
               [
@@ -1864,7 +1839,7 @@ export default function CbctApp() {
                       }
                       title={
                         (idx === 0 ? `crop from the ${label.split(' ')[0]} side` : `crop from the ${label.split(' ')[2]} side`) +
-                        ' — double-click = no crop'
+                        '. Double-click removes the crop.'
                       }
                       style={{ flex: 1 }}
                     />
@@ -1902,7 +1877,7 @@ export default function CbctApp() {
                 </button>
                 <button
                   onClick={() => toggleDefaultPreset(p.name)}
-                  title={defaultPreset === p.name ? 'default on app start — click to unset' : 'set as the default on app start'}
+                  title={defaultPreset === p.name ? 'default on app start. Click to unset.' : 'set as the default on app start'}
                   style={{
                     ...btn(defaultPreset === p.name),
                     padding: '4px 7px',
@@ -1954,7 +1929,7 @@ export default function CbctApp() {
                 checked={controls.planeLines}
                 onChange={(e) => setControls((c) => ({ ...c, planeLines: e.target.checked }))}
               />
-              plane lines (C) — synced on all three views
+              plane lines (C), synced on all three views
             </label>
             <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, marginBottom: 8 }}>
               <input
@@ -1962,12 +1937,12 @@ export default function CbctApp() {
                 checked={controls.showOverlay}
                 onChange={(e) => setControls((c) => ({ ...c, showOverlay: e.target.checked }))}
               />
-              show overlays (O) — lines, measurements, labels
+              show overlays (O): lines, measurements, labels
             </label>
             <button
               style={{ ...btn(false), width: '100%', marginBottom: 6 }}
               onClick={() => setControls((c) => ({ ...c, resetNonce: c.resetNonce + 1 }))}
-              title="Cameras back to orthogonal — window and everything else untouched (R)"
+              title="Cameras back to orthogonal. Window and everything else untouched (R)."
             >
               Reset orientation (R)
             </button>
@@ -1994,7 +1969,7 @@ export default function CbctApp() {
               <button
                 style={{ ...btn(false), width: '100%', marginBottom: 6 }}
                 onClick={() => setControls((c) => ({ ...c, resetNonce: c.resetNonce + 1 }))}
-                title="Fit the radiograph to the pane — window untouched (R)"
+                title="Fit the radiograph to the pane. Window untouched (R)."
               >
                 Fit to pane (R)
               </button>
@@ -2018,8 +1993,8 @@ export default function CbctApp() {
 
           <div style={{ fontSize: 11, color: 'var(--text-dim)', lineHeight: 1.5 }}>
             {isXray
-              ? 'Radiograph: wheel zooms about the cursor · left-drag pans · double-click or R refits. Gray values are display-normalized (0-4095): window them via the histogram or sliders; they are not HU.'
-              : 'Measurements are true anatomical mm (isotropic voxels) — unlike pano mm, no projection magnification. Crosshairs: drag the lines to re-slice; wheel scrolls the hovered pane.'}
+              ? 'Radiograph: the wheel zooms about the cursor, left-drag pans, double-click or R refits. Gray values are display-normalized (0-4095): window them via the histogram or sliders; they are not HU.'
+              : 'Measurements are true anatomical mm (isotropic voxels): unlike pano mm, no projection magnification. Crosshairs: drag the lines to re-slice; wheel scrolls the hovered pane.'}
           </div>
         </aside>
         {/* the user manual's drawer: a column of this row, so it narrows the viewer and covers nothing */}
