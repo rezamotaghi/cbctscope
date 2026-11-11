@@ -40,10 +40,13 @@ describe('MCP server tracks the viewer source', () => {
     expect(serverList('WL_PRESETS')).toEqual(presets);
   });
 
-  it('3D styles match the RENDER_STYLES keys', () => {
+  it('3D styles match the RENDER_STYLES keys plus the Air preset', () => {
     const keys = [...r3dSrc.matchAll(/^ {2}'([^']+)': \{/gm)].map((m) => m[1]);
     expect(keys.length).toBeGreaterThanOrEqual(8);
-    expect(serverList('STYLES_3D')).toEqual(keys);
+    // the Air chip's key is the Cornerstone preset name, accepted as the same string
+    const air = r3dSrc.match(/export const AIR_PRESET = '([^']+)'/)?.[1];
+    expect(air).toBe('CT-Air');
+    expect(serverList('STYLES_3D')).toEqual([...keys, air]);
   });
 
   it('the server registers exactly the shared verbs, each with its own config and a handler', () => {

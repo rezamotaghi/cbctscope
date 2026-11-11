@@ -128,7 +128,7 @@ design.
 | `viewer_state` | none | What is on screen: volume, mode, window, slice positions in the pane count, the grid window or the pano arch position, 3D style, saved views. |
 | `set_view_mode` | `mode` | One of the eight reading modes, by name. |
 | `set_window_level` | `preset` or `center` + `width`, optional `invert` | The density window. |
-| `set_3d_style` | `style` | The 3D pane's rendering style (MPR), by its key: `style:shaded`, `style:shiny`, `style:surface`, `style:soft-tissue`, `style:mip`, `style:xray`, `style:xray-shaded`, `style:bw-xray`, `cbct:bone-teeth`, `cbct:teeth`, `cbct:translucent`. |
+| `set_3d_style` | `style` | The 3D pane's rendering style (MPR), by its key: `style:shaded`, `style:shiny`, `style:surface`, `style:soft-tissue`, `style:mip`, `style:xray`, `style:xray-shaded`, `style:bw-xray`, `cbct:bone-teeth`, `cbct:teeth`, `cbct:translucent`, `CT-Air` (the Air chip: applied as it is, so the adjust sliders do not apply). |
 | `navigate_slice` | `pane`, `index` or `delta` | Move to a slice. `index` is 0-based in the pane's own count (the label `AXIAL 622/801 S→I` is index 621; axial counts from the superior end, coronal from posterior, sagittal from patient right); `delta` moves toward the label's "to" end. In MPR it moves that pane; in grid it moves the window centre (`pane` switches the plane, `delta` steps whole grid spacings); in pano `pane: "axial"` moves the axial editor slice. |
 | `navigate_arch` | `position_mm` or `delta_mm` | Pano: center the cross-sections along the drawn arch, in mm from the patient-right end. The arch is yours to draw. |
 | `list_views` | none | Saved views of the selected volume (MPR): id, name, and who saved it. |
