@@ -188,6 +188,10 @@ describe('user manual tracks the app (docs/manual/)', () => {
     // CITATION.cff feeds the Zenodo deposit metadata on every GitHub release —
     // a stale version there ships a wrong citation.
     expect(read('CITATION.cff'), `CITATION.cff must state version ${version}`).toContain(`version: ${version}`);
+    // the Agent Skill ships on its own to agent hosts, so its metadata names the release it teaches
+    expect(read('skills/cbctscope-reading/SKILL.md'), `skills/cbctscope-reading/SKILL.md metadata.version must be "${version}"`).toMatch(
+      new RegExp(`^metadata:\\n(?: {2}.*\\n)*? {2}version: "${version.replace(/\./g, '\\.')}"$`, 'm'),
+    );
   });
 
   it('the citation file carries a release date at least as new as the version bump', () => {
