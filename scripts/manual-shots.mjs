@@ -1,13 +1,19 @@
-// Manual stills for docs/media/manual/, captured from the running viewer in a headless Chrome
-// over the DevTools protocol. No dependencies (Node 22 has fetch and WebSocket).
+// Manual stills for docs/media/manual/, and the README thumbnails and agent GIF for docs/media/,
+// captured from the running viewer in a headless Chrome over the DevTools protocol. No
+// dependencies (Node 22 has fetch and WebSocket); the gif plan calls ffmpeg, a tool on the PATH.
 //
-//   node scripts/manual-shots.mjs <plan...> [--params file.json] [--out docs/media/manual] [--url http://localhost:3810/] [--reload]
+//   node scripts/manual-shots.mjs <plan...> [--params file.json] [--out docs/media/manual] [--media docs/media] [--url http://localhost:3810/] [--reload]
 //   node scripts/manual-shots.mjs measure     prints the visible pane rectangles of the current mode
 //
 // Plans: header (the phantom with numbered callouts: run against `npm run demo`, nothing opened),
 // mpr, grid, pano, tmj, reslice, ceph, region, stitch, or `modes` for all eight (run against
 // `npm run dev` with the volume to show opened; demo mode drops an opened source on every
 // recompile). Each still is written as WebP at 1600 by 913 CSS pixels, device scale 2.
+// thumbs: the four README thumbnails (thumb-mpr, -grid, -pano, -tmj) as PNG at 1600 by 914, device
+// scale 1, into --media. gif: the agent demo, cbctscope-demo.gif in --media: the agent verbs walk
+// the beats (slice descent to the dentition, Teeth and Bone windows, the bone 3D orbit, grid, pano
+// sections along the arch, TMJ, reslice, ceph, reset), one frame per beat at device scale 2 under
+// the OS temp folder, then ffmpeg scales them to 960 by 548 with one palette and the timings below.
 //
 // The params file supplies what a still needs on a given volume; without it a plan only enters
 // the mode and shoots. The file for the consented volume that the manual uses lives beside that
@@ -26,6 +32,10 @@
 //   pano: { axial, archFile | arch, preset }                    tmj: { axial, lines: [[p, p], ...], sync, preset }
 //   reslice: { axial, stroke: [p, ...], vrange: [lo%, hi%], preset }
 //   region: { axial, box: [p, p], seed: p, preset }            ceph, stitch: {}
+//   thumbs: { mpr: { axial, sagittal, coronal, preset, threshold3d, orbit: { dir: 'up' | 'down' | 'left' | 'right', steps } },
+//             grid: { axial, preset }, pano: { axial, archFile | arch, preset, vrange }, tmj: { axial, lines, preset } }
+//   gif: { from, to, threshold3d, orbit, grid: { axial }, pano: { axial, archFile | arch, positions: [mm, ...] },
+//          tmj: { axial, lines }, reslice: { axial, stroke } }   (from/to: the axial levels of the descent)
 //
 // Chrome: the CHROME env var, else the Playwright chromium under ~/Library/Caches/ms-playwright.
 // Hardware WebGL is required (the software renderer cannot hold a full CBCT texture), so the
@@ -33,17 +43,18 @@
 // from one run to the next (the plans seed what they need), and on macOS 27 a profile's disk
 // cache stalled every request of a fresh headless Chrome. A verb goes to the newest viewer tab:
 // keep other tabs closed.
-import { spawn } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 const args = process.argv.slice(2);
 const opt = (name, dflt) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : dflt; };
-const plans = args.filter((a, i) => !a.startsWith('--') && !['--params', '--out', '--url'].includes(args[i - 1]));
+const plans = args.filter((a, i) => !a.startsWith('--') && !['--params', '--out', '--media', '--url'].includes(args[i - 1]));
 const URL_ = opt('--url', 'http://localhost:3810/');
 const OUT = opt('--out', 'docs/media/manual');
+const MEDIA = opt('--media', 'docs/media');
 const P = opt('--params', null) ? JSON.parse(readFileSync(opt('--params'), 'utf8')) : {};
 const W = 1600, H = 913, PORT = 9333;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -98,7 +109,10 @@ async function page() {
   const shot = async (name, height = H) => { await sleep(400); const r = await send('Page.captureScreenshot', { format: 'webp', quality: 82, ...(height < H ? { clip: { x: 0, y: 0, width: W, height, scale: 1 } } : {}) }); await mkdir(OUT, { recursive: true }); const f = path.join(OUT, name + '.webp'); await writeFile(f, Buffer.from(r.data, 'base64')); console.log('wrote', f); return f; };
   await send('Page.enable'); await send('Runtime.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 2, mobile: false });
-  return { send, evaluate, click, stroke, drag, clickText, shot, close: () => ws.close() };
+  const metrics = (w, h, dpr) => send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: dpr, mobile: false });
+  const png = async (file) => { const r = await send('Page.captureScreenshot', { format: 'png' }); await mkdir(path.dirname(file), { recursive: true }); await writeFile(file, Buffer.from(r.data, 'base64')); return file; };
+  const move = (x, y) => mouse('mouseMoved', x, y, { button: 'none' });
+  return { send, evaluate, click, stroke, drag, clickText, shot, metrics, png, move, close: () => ws.close() };
 }
 
 const verb = async (v, a = {}) => {
@@ -106,7 +120,7 @@ const verb = async (v, a = {}) => {
   for (let attempt = 0; ; attempt++) {
     const d = await (await fetch(URL_ + 'api/agent/command', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ verb: v, args: a, timeoutMs: 30000 }) })).json();
     if (d.ok) return d;
-    if (attempt < 20 && /not loaded yet|not ready|no viewer/.test(String(d.error))) { await sleep(500); continue; }
+    if (attempt < 20 && /not loaded yet|not ready|no viewer|no slice to move/.test(String(d.error))) { await sleep(500); continue; }
     throw new Error(`${v}: ${d.error}`);
   }
 };
@@ -145,6 +159,16 @@ const preset = async (name) => { if (name) { await verb('set_window_level', { pr
 const level = async (m, axial) => { await mode('mpr'); if (axial) { await verb('navigate_slice', { pane: 'axial', index: axial - 1 }); await sleep(800); } await mode(m); await sleep(2500); };
 const KEYS = { tmj: 'cbctscope-tmj:v1:', reslice: 'cbctscope-reslice:v1:', arch: 'cbctscope-arch:v1:' };
 const store = (key, value) => p.evaluate(`localStorage.setItem(${JSON.stringify(key + P.anon)}, ${JSON.stringify(JSON.stringify(value))}); 'ok'`);
+const archOf = (c) => c.arch || (c.archFile ? JSON.parse(readFileSync(c.archFile, 'utf8')) : null);
+/** draw axis lines (TMJ) or a path (Reslice) on the axial scout, from params points */
+const drawLines = async (lines) => { for (const [a, b] of lines || []) { const [x1, y1] = await at(a), [x2, y2] = await at(b); await p.drag(x1, y1, x2, y2); await sleep(800); } };
+const drawPath = async (stroke) => { if (!stroke) return; const pts = []; for (const q of stroke) pts.push(await at(q)); await p.stroke(pts); await sleep(400); await p.click(...pts[pts.length - 1], 2); await sleep(2500); };
+/** click a button by its aria-label (the icon-only pane buttons) or the start of its text */
+const button = async (label) => { const r = await p.evaluate(`(() => { const b = Array.from(document.querySelectorAll('button')).find((e) => e.getAttribute('aria-label') === ${JSON.stringify(label)} || (e.innerText || '').trim().startsWith(${JSON.stringify(label)})); if (!b) return null; const q = b.getBoundingClientRect(); return [q.left + q.width / 2, q.top + q.height / 2]; })()`); if (!r) throw new Error('no button ' + label); await p.click(r[0], r[1]); };
+/** the 3D pane's orbit buttons, one 10 or 14 degree step per click */
+const orbit = async (o, steps = o?.steps ?? 0) => { const name = 'Orbit ' + (o?.dir || 'up'); for (let i = 0; i < steps; i++) { await button(name); await sleep(250); } };
+/** MPR with the bone Surface render (AGENTS.md hard rule 3: never a soft-tissue surface) */
+const boneMpr = async (threshold3d) => { await mode('mpr'); await verb('reset_view', { full: true }); await verb('set_3d_style', { style: 'style:surface' }); await sleep(500); if (threshold3d) await setRange('Cut-off threshold', threshold3d); };
 
 const PLANS = {
   async header() {
@@ -213,6 +237,69 @@ const PLANS = {
 };
 PLANS.modes = async () => { for (const m of ['mpr', 'grid', 'pano', 'tmj', 'reslice', 'ceph', 'region', 'stitch']) await PLANS[m](); };
 
-if (!plans.length) { console.error('usage: node scripts/manual-shots.mjs <plan...> [--params file.json] [--out dir] [--url url]; plans: measure, ' + Object.keys(PLANS).join(', ')); process.exit(2); }
+PLANS.thumbs = async () => {
+  // the README thumbnails: 1600 by 914 CSS pixels at device scale 1, PNG
+  const T = P.thumbs || {};
+  await p.metrics(W, 914, 1); await sleep(1500);
+  const shoot = async (n) => console.log('wrote', await p.png(path.join(MEDIA, `thumb-${n}.png`)));
+  { const c = T.mpr || {}; await boneMpr(c.threshold3d); await preset(c.preset);
+    for (const pane of ['axial', 'sagittal', 'coronal']) if (c[pane]) await verb('navigate_slice', { pane, index: c[pane] - 1 });
+    await orbit(c.orbit); const ax = (await panes())[0]; await p.move(ax.x + ax.w / 2, ax.y + ax.h / 2); await sleep(4000); await shoot('mpr'); }
+  { const c = T.grid || {}; await preset(c.preset); await mode('grid'); if (c.axial) await verb('navigate_slice', { pane: 'axial', index: c.axial - 1 }); await sleep(3500); await shoot('grid'); }
+  { const c = T.pano || {}; const arch = archOf(c); if (arch) await store(KEYS.arch, arch);
+    await level('pano', c.axial); await preset(c.preset); await sleep(1500);
+    if (c.vrange) { await setRange('Crop from below', c.vrange[0]); await setRange('Crop from above', c.vrange[1]); }
+    await sleep(5000); await shoot('pano'); }
+  { const c = T.tmj || {}; await preset(c.preset); await store(KEYS.tmj, { lines: {} }); await level('tmj', c.axial); await drawLines(c.lines); await sleep(3000); await shoot('tmj'); }
+  await p.metrics(W, H, 2);
+};
+
+// the agent GIF: frame durations in ms, one per beat frame, as the recording has always run
+const GIF_MS = [1120, 120, 160, 120, 160, 120, 160, 120, 160, 120, 920, 800, 600, 160, 160, 160, 920, 1000, 200, 200, 680, 1200, 200, 160, 200, 800, 1280, 1200, 1320, 1080, 40];
+PLANS.gif = async () => {
+  if (spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status !== 0) throw new Error('the gif plan needs ffmpeg on the PATH: install it (macOS: brew install ffmpeg; Windows: winget install ffmpeg) and run again');
+  const g = P.gif || {}; const from = g.from || 401, to = g.to || 622;
+  const dir = mkdtempSync(path.join(tmpdir(), 'cbctscope-gif-'));
+  try {
+    await p.metrics(W, H, 2); await sleep(1000);
+    let n = 0; const frame = async (wait) => { await sleep(wait); await p.png(path.join(dir, `f${String(++n).padStart(3, '0')}.png`)); };
+    // the TMJ lines and the Reslice path are the reader's own tools: placed before the recording
+    // (the first mode after opening the volume waits for its scout; each mode persists after a debounce)
+    if (g.tmj) { await store(KEYS.tmj, { lines: {} }); await level('tmj', g.tmj.axial); await sleep(3000); await drawLines(g.tmj.lines); await sleep(1500); }
+    if (g.reslice) { await store(KEYS.reslice, { points: [], done: false }); await level('reslice', g.reslice.axial); await sleep(1500); await drawPath(g.reslice.stroke); await sleep(1500); }
+    const arch = archOf(g.pano || {}); if (arch) await store(KEYS.arch, arch);
+    await boneMpr(g.threshold3d); await verb('navigate_slice', { pane: 'axial', index: from - 1 }); await sleep(3000);
+    await frame(2000);                                                                   // MPR at the start level
+    for (let k = 1; k <= 9; k++) { await verb('navigate_slice', { pane: 'axial', index: Math.round(from - 1 + ((to - from) * k) / 10) }); await frame(700); }
+    await verb('navigate_slice', { pane: 'axial', index: to - 1 }); await frame(900);   // down to the dentition
+    await preset('Teeth'); await frame(900); await preset('Bone'); await frame(900);
+    const steps = g.orbit?.steps ?? 9; let done = 0;                                    // the bone 3D orbits
+    for (const s of [Math.round(steps / 3), Math.round((2 * steps) / 3), steps]) { await orbit(g.orbit, s - done); done = s; await frame(1500); }
+    await frame(800);
+    await mode('grid'); await verb('navigate_slice', { pane: 'axial', index: (g.grid?.axial || 601) - 1 }); await frame(3000);
+    for (const d of [1, 1, 0]) { await verb('navigate_slice', { pane: 'axial', delta: d }); await frame(1200); }
+    await level('pano', g.pano?.axial); await sleep(1500);
+    for (const mm of g.pano?.positions || [82, 72, 62, 52, 42]) { await verb('navigate_arch', { position_mm: mm }); await frame(1500); }
+    await level('tmj', g.tmj?.axial); await frame(4000);
+    await level('reslice', g.reslice?.axial); await frame(4000);
+    // densest-only MIP: no soft-tissue profile is projected (AGENTS.md hard rule 3)
+    await mode('ceph'); await sleep(1500); await setCheck('MIP', true); await sleep(1500); await p.clickText('button', 'Auto contrast'); await frame(4000);
+    await mode('mpr'); await verb('reset_view', { full: true }); await frame(4000); await frame(300);
+    if (n !== GIF_MS.length) throw new Error(`gif: ${n} frames for ${GIF_MS.length} timings`);
+    const list = path.join(dir, 'frames.txt');
+    writeFileSync(list, GIF_MS.map((ms, i) => `file 'f${String(i + 1).padStart(3, '0')}.png'\nduration ${(ms / 1000).toFixed(3)}\n`).join(''));
+    const ff = (a) => { const r = spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', list, ...a], { stdio: 'inherit' }); if (r.status !== 0) throw new Error('ffmpeg failed'); };
+    const scale = `scale=960:548:flags=lanczos`;
+    ff(['-vf', `${scale},palettegen=max_colors=192:stats_mode=full`, path.join(dir, 'palette.png')]);
+    const out = path.join(MEDIA, 'cbctscope-demo.gif');
+    ff(['-i', path.join(dir, 'palette.png'), '-lavfi', `${scale}[x];[x][1:v]paletteuse=dither=sierra2_4a`, '-fps_mode', 'vfr', '-loop', '0', out]);
+    console.log('wrote', out);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    await p.metrics(W, H, 2);
+  }
+};
+
+if (!plans.length) { console.error('usage: node scripts/manual-shots.mjs <plan...> [--params file.json] [--out dir] [--media dir] [--url url]; plans: measure, ' + Object.keys(PLANS).join(', ')); process.exit(2); }
 for (const name of plans) { if (!PLANS[name]) throw new Error('unknown plan ' + name); await PLANS[name](); }
 p.close();
