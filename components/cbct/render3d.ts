@@ -161,7 +161,7 @@ export const RENDER_STYLES: Record<string, StyleDef> = {
   },
   // ---- CBCT hand-tuned favorites (threshold slides them)
   'cbct:bone-teeth': {
-    label: 'CBCT · bone + teeth',
+    label: 'CBCT · Bone and teeth',
     group: 'cbct',
     blend: 0,
     defaultThreshold: 150,
@@ -170,7 +170,7 @@ export const RENDER_STYLES: Record<string, StyleDef> = {
     shade: { ambient: 0.25, diffuse: 0.9, specular: 0.3, specularPower: 15 },
   },
   'cbct:teeth': {
-    label: 'CBCT · teeth (high density)',
+    label: 'CBCT · Teeth (high density)',
     group: 'cbct',
     blend: 0,
     defaultThreshold: 1000,
@@ -183,7 +183,7 @@ export const RENDER_STYLES: Record<string, StyleDef> = {
     shade: { ambient: 0.25, diffuse: 0.9, specular: 0.3, specularPower: 15 },
   },
   'cbct:translucent': {
-    label: 'CBCT · translucent bone, solid teeth',
+    label: 'CBCT · Translucent bone, solid teeth',
     group: 'cbct',
     blend: 0,
     defaultThreshold: 250,
