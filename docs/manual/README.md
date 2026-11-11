@@ -43,3 +43,13 @@ a layout change needs no recalibration. The older `manual-shots.json` beside
 it carries CSS pixels of the v1.6 layout and no longer fits the script.
 Recapture after any change to the header or to a mode's layout, in the same
 commit as the change.
+
+The README media come from the same script and the same parameter file, run
+against `npm run dev` with the real CBCT open: `node scripts/manual-shots.mjs
+thumbs --params <file>` writes the four `docs/media/thumb-*.png` (1600 by 914,
+device scale 1), and `node scripts/manual-shots.mjs gif --params <file>` drives
+the agent demo's beats with the agent verbs and encodes
+`docs/media/cbctscope-demo.gif` (960 by 548, 31 frames). The gif plan needs
+ffmpeg on the PATH (`brew install ffmpeg` on macOS) and says so when it is
+missing; its frames live in the OS temp folder and are deleted after encoding.
+Re-run both whenever the header or a mode they show changes.
