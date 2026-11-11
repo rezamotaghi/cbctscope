@@ -14,11 +14,15 @@
 //     or APPLE_API_KEY + APPLE_API_KEY_ID + APPLE_API_ISSUER (CI), or APPLE_ID +
 //     APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID. A signed local build with none of them set
 //     uses the keychain profile named `notary`.
+//   - the dmg: electron-builder signs it (dmg.sign) and notarises only the app inside, so each
+//     dmg built here is then submitted, stapled and validated with the same credentials
+//     (scripts/desktop-notarize.mjs). An unsigned build skips that with one line.
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { notariseDmgs } from './desktop-notarize.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const mode = process.argv[2];
@@ -54,4 +58,17 @@ if (process.platform === 'darwin' && env.CSC_IDENTITY_AUTO_DISCOVERY !== 'false'
 const builder = require.resolve('electron-builder/cli.js');
 const started = Date.now();
 run([builder, ...process.argv.slice(3)], env);
+const outDir = path.join(root, 'dist-desktop');
+const dmgs = existsSync(outDir)
+  ? readdirSync(outDir)
+      .filter((f) => f.endsWith('.dmg'))
+      .map((f) => path.join(outDir, f))
+      .filter((f) => statSync(f).mtimeMs >= started)
+  : [];
+try {
+  notariseDmgs(dmgs, env);
+} catch (e) {
+  console.error(e instanceof Error ? e.message : String(e));
+  process.exit(1);
+}
 console.log(`desktop: packaged in ${((Date.now() - started) / 1000).toFixed(1)} s, output in dist-desktop/`);

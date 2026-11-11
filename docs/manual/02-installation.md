@@ -136,8 +136,13 @@ GitHub releases page:
 
 - macOS: `CBCTScope-<version>-arm64.dmg` for Apple silicon,
   `CBCTScope-<version>-x64.dmg` for an Intel Mac (a `.zip` of each is there
-  too). Open the dmg and drag **CBCTScope** into **Applications**. The macOS
-  build is signed and notarised by Apple.
+  too). Open the dmg: a dark window titled **CBCTScope** and the
+  version number shows the app and the **Applications** folder, with the
+  line "Drag CBCTScope to Applications". Drag **CBCTScope** onto **Applications**, then
+  eject the disk image. Both the app and the disk image itself are signed
+  and notarised by Apple, with the ticket attached, so macOS checks them
+  even offline and asks only its usual question for an app downloaded from
+  the internet, on the first launch.
 - Windows: `CBCTScope-<version>-setup.exe` installs for the current user;
   `CBCTScope-<version>-portable.exe` runs without installing. Both are
   unsigned, so on first launch Windows SmartScreen shows **Windows protected
