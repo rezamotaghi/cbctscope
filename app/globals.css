@@ -6,7 +6,6 @@
   --text: #e6e9ef;
   --text-dim: #9aa3b2;
   --accent: #4c8dff;
-  --accent-dim: #2b4d8a;
   --warn: #e0b341;
   --viewport-bg: #000;
   /* the interface grammar's tokens: one place for control shape, type and spacing */
@@ -194,6 +193,52 @@ textarea:focus-visible,
 }
 .ctl-wide {
   width: 100%;
+}
+/* the same button inside an image pane: one step lower */
+.ctl.ctl-pane {
+  height: var(--ctl-h-pane);
+}
+
+/* a reading mode's own rows (components/cbct/Cbct*.tsx): the header's grammar inside the mode.
+   A caption beside its slider, a checkbox with its word, every changing number in tabular figures. */
+.mode-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  padding: var(--sp-1) 0;
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+}
+.mode-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-meta);
+  font-weight: var(--fw-regular);
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.mode-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-meta);
+  color: var(--text);
+  white-space: nowrap;
+}
+.mode-note {
+  font-size: var(--fs-meta);
+  color: var(--text-dim);
+  line-height: 1.5;
+  white-space: normal;
+}
+.mode-warn {
+  font-size: var(--fs-meta);
+  color: var(--warn);
+  line-height: 1.5;
+  white-space: normal;
 }
 
 /* the mode switch: one segmented tab group, visibly unlike the action buttons */

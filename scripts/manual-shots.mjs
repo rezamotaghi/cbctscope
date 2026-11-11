@@ -188,7 +188,7 @@ const PLANS = {
   async tmj() {
     const c = P.tmj || {}; await preset(c.preset);
     await store(KEYS.tmj, { lines: {} }); await level('tmj', c.axial);
-    if (c.sync !== undefined) await setCheck('sync sides', c.sync);
+    if (c.sync !== undefined) await setCheck('Sync sides', c.sync);
     for (const [a, b] of c.lines || []) { const [x1, y1] = await at(a), [x2, y2] = await at(b); await p.drag(x1, y1, x2, y2); await sleep(800); }
     await sleep(3000); await p.shot('mode-tmj');
   },
@@ -196,15 +196,15 @@ const PLANS = {
     const c = P.reslice || {}; await preset(c.preset);
     await store(KEYS.reslice, { points: [], done: false }); await level('reslice', c.axial);
     if (c.stroke) { const pts = []; for (const q of c.stroke) pts.push(await at(q)); await p.stroke(pts); await sleep(400); await p.click(...pts[pts.length - 1], 2); await sleep(2500); }
-    if (c.vrange) { await setRange('crop from below', c.vrange[0]); await setRange('crop from above', c.vrange[1]); await sleep(800); }
+    if (c.vrange) { await setRange('Crop from below', c.vrange[0]); await setRange('Crop from above', c.vrange[1]); await sleep(800); }
     await sleep(2500); await p.shot('mode-reslice');
   },
   async ceph() {
     // densest-only MIP: no soft-tissue profile is projected (AGENTS.md hard rule 3)
-    await mode('ceph'); await sleep(1500); await setCheck('MIP', true); await sleep(1500); await p.clickText('button', 'auto contrast'); await sleep(4000); await p.shot('mode-ceph');
+    await mode('ceph'); await sleep(1500); await setCheck('MIP', true); await sleep(1500); await p.clickText('button', 'Auto contrast'); await sleep(4000); await p.shot('mode-ceph');
   },
   async region() {
-    const c = P.region || {}; await preset(c.preset); await level('region', c.axial); await p.clickText('button', 'air'); await sleep(300);
+    const c = P.region || {}; await preset(c.preset); await level('region', c.axial); await p.clickText('button', 'Air'); await sleep(300);
     if (c.box) { const [x1, y1] = await at(c.box[0]), [x2, y2] = await at(c.box[1]); await p.drag(x1, y1, x2, y2); await sleep(500); }
     if (c.seed) { await p.click(...(await at(c.seed))); await sleep(6000); }
     await p.shot('mode-region');

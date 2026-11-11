@@ -315,7 +315,7 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
     const py = r.top + r.height / 2;
     if (e.button === 2) {
       dragRef.current = { kind: 'scout-rotate', lastX: e.clientX, lastY: e.clientY, totalDeg: 0, px, py };
-      setChip('rotating 0°');
+      setChip('Rotating 0°');
     } else if (e.button === 0) {
       dragRef.current = { kind: 'scout-move', lastX: e.clientX, lastY: e.clientY, totalDeg: 0, px, py };
       const o = scoutOffsetAt(e);
@@ -347,7 +347,7 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
       const a = handOf(scout) > 0 ? -deg : deg;
       setScoutBasis((b) => ({ u: rotV(b.u, axis, a), v: rotV(b.v, axis, a), n: b.n }));
       setBasis((b) => ({ u: rotV(b.u, axis, a), v: rotV(b.v, axis, a), n: rotV(b.n, axis, a) }));
-      setChip(`rotating ${d.totalDeg >= 0 ? '+' : ''}${d.totalDeg.toFixed(0)}°`);
+      setChip(`Rotating ${d.totalDeg >= 0 ? '+' : ''}${d.totalDeg.toFixed(0)}°`);
     } else {
       const deg = sweepDeg(d.px, d.py, prevX, prevY, e.clientX, e.clientY);
       if (!deg) return;
@@ -359,7 +359,7 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
         const a = handOf(b) > 0 ? -deg : deg;
         return { u: rotV(b.u, b.n, a), v: rotV(b.v, b.n, a), n: b.n };
       });
-      setChip(`rotating ${d.totalDeg >= 0 ? '+' : ''}${d.totalDeg.toFixed(0)}°`);
+      setChip(`Rotating ${d.totalDeg >= 0 ? '+' : ''}${d.totalDeg.toFixed(0)}°`);
     }
   };
 
@@ -393,7 +393,7 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
       px: r.left + r.width / 2,
       py: r.top + r.height / 2,
     };
-    setChip('rotating 0°');
+    setChip('Rotating 0°');
   };
 
   // wheel steps the whole window one spacing unit
@@ -489,61 +489,50 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
     };
   }, [snapRef]);
 
-  const btn = (active: boolean): React.CSSProperties => ({
-    padding: '3px 9px',
-    borderRadius: 6,
-    border: '1px solid var(--border)',
-    background: active ? 'var(--accent-dim)' : 'var(--panel-2)',
-    color: 'var(--text)',
-    fontSize: 12,
-  });
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, gap: 6 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <span style={{ display: 'flex', gap: 4 }}>
+      <div className="mode-row" style={{ padding: 0 }}>
+        <span style={{ display: 'flex', gap: 'var(--sp-1)' }}>
           {(['axial', 'sagittal', 'coronal'] as Plane[]).map((p) => (
             <button
               key={p}
-              style={btn(plane === p)}
-              title={`cut ${p} slices (switching planes straightens the stack; Reset view does the same in place)`}
+              type="button"
+              className="ctl"
+              aria-pressed={plane === p}
+              title={`Cut ${p} slices (switching planes straightens the stack; Reset view does the same in place)`}
               onClick={() => {
                 if (p === plane) return; // re-clicking the active plane must not wipe a tuned oblique
                 const wasRotated = basis !== INIT_BASIS[plane] || scoutBasis !== SCOUT_BASIS[plane];
                 setPlane(p);
                 resetOrientation(p, { keepWindow: true });
                 if (wasRotated) {
-                  // announce in the chip — a tuned oblique just straightened,
+                  // announce in the chip: a tuned oblique just straightened,
                   // and a tooltip nobody hovers is not an announcement
-                  const msg = 'straightened for the new plane';
+                  const msg = 'Straightened for the new plane';
                   setChip(msg);
                   setTimeout(() => setChip((c) => (c === msg ? null : c)), 2500);
                 }
               }}
             >
-              {p}
+              {p[0].toUpperCase() + p.slice(1)}
             </button>
           ))}
         </span>
-        <span style={{ display: 'flex', gap: 4 }}>
+        <span style={{ display: 'flex', gap: 'var(--sp-1)' }}>
           {Object.keys(GRIDS).map((g) => (
-            <button key={g} style={btn(gridKey === g)} onClick={() => setGridKey(g)}>
+            <button key={g} type="button" className="ctl" aria-pressed={gridKey === g} onClick={() => setGridKey(g)}>
               {g}
             </button>
           ))}
         </span>
-        <button
-          style={{ ...btn(false), display: 'inline-flex', alignItems: 'center', gap: 4 }}
-          onClick={() => resetOrientation(plane)}
-          title="Reset view: back to the straight orthogonal stack, window recentred"
-        >
+        <button type="button" className="ctl" onClick={() => resetOrientation(plane)} title="Reset view: back to the straight orthogonal stack, window recentred">
           <RotateCcw size={14} strokeWidth={2} aria-hidden />
           Reset view
         </button>
-        {/* these live in the TOP toolbar by explicit design preference — do not
+        {/* these live in the TOP toolbar by explicit design preference: do not
             re-standardize this pane's slider placement into a bottom row */}
-        <label style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-          spacing {spacingMm.toFixed(1)} mm{' '}
+        <label className="mode-label">
+          Spacing {spacingMm.toFixed(1)} mm
           <input
             type="range"
             min={0.5}
@@ -552,11 +541,11 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
             value={spacingMm}
             onChange={(e) => setSpacingMm(Number(e.target.value))}
             onDoubleClick={() => setSpacingMm(2)}
-            style={{ verticalAlign: 'middle', width: 90 }}
+            style={{ width: 90 }}
           />
         </label>
-        <label style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-          thickness {thickMm.toFixed(1)} mm{' '}
+        <label className="mode-label">
+          Thickness {thickMm.toFixed(1)} mm
           <input
             type="range"
             min={0.1}
@@ -565,19 +554,16 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
             value={thickMm}
             onChange={(e) => setThickMm(Number(e.target.value))}
             onDoubleClick={() => setThickMm(0.5)}
-            style={{ verticalAlign: 'middle', width: 90 }}
+            style={{ width: 90 }}
           />
         </label>
-        <label
-          style={{ display: 'inline-flex', gap: 5, alignItems: 'center', fontSize: 12 }}
-          title="brightest voxel across the slab (off = average)"
-        >
+        <label className="mode-check" title="Brightest voxel across the slab (off: average)">
           <input type="checkbox" checked={mip} onChange={(e) => setMip(e.target.checked)} />
           MIP
         </label>
         {entry && (
-          <label style={{ fontSize: 11, color: 'var(--text-dim)', flex: 1, minWidth: 150 }}>
-            position{' '}
+          <label className="mode-label" style={{ flex: 1, minWidth: 150 }}>
+            Position
             <input
               type="range"
               min={-maxOff}
@@ -586,8 +572,8 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
               value={Math.round(clampOff(centerOff))}
               onChange={(e) => setCenterOff(Number(e.target.value))}
               onDoubleClick={() => setCenterOff(0)}
-              title="section-window position along the cut axis · double-click = volume center"
-              style={{ verticalAlign: 'middle', width: 'calc(100% - 70px)' }}
+              title="Section-window position along the cut axis. Double-click: volume centre."
+              style={{ flex: 1, minWidth: 0 }}
             />
           </label>
         )}
@@ -613,7 +599,7 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
             onPointerUp={onDragEnd}
             onPointerCancel={onDragEnd}
             style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'crosshair', touchAction: 'none' }}
-            title="scout. Left-drag moves the section window. Right-drag rotates the image, and the grid re-cuts through the turned anatomy."
+            title="Scout. Left-drag moves the section window. Right-drag rotates the image, and the grid re-cuts through the turned anatomy."
           />
           {/* the scout's plane only: the gestures live in the Keys card and the status line */}
           <PaneLabel name={SCOUT_NAME[plane]} color={PLANE_COLOR[SCOUT_NAME[plane].toLowerCase() as Plane]} slice="scout" />
@@ -622,7 +608,7 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
         {/* draggable scout|stack pane line (always visible; double-click = default width) */}
         <DragDivider
           cursor="col-resize"
-          title="drag: resize the scout · double-click: default width"
+          title="Drag: resize the scout. Double-click: default width."
           style={{ flex: 'none', alignSelf: 'stretch', width: 8, borderRadius: 4 }}
           onMove={(x) => {
             const w = wrapRef.current;
@@ -688,7 +674,7 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
               borderRadius: 4,
               background: 'rgba(20,23,29,0.92)',
               border: '1px solid var(--border)',
-              fontSize: 11,
+              fontSize: 'var(--fs-meta)',
               fontVariantNumeric: 'tabular-nums',
               color: 'var(--text)',
               pointerEvents: 'none',
@@ -712,15 +698,14 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
               borderRadius: 4,
             }}
           >
-            loading volume… {Math.round((progress ?? 0) * 100)}%
+            Loading volume… <span style={{ fontVariantNumeric: 'tabular-nums' }}>{Math.round((progress ?? 0) * 100)}%</span>
           </div>
         )}
       </div>
-      <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-        scout: left-drag = move the window · right-drag = rotate (grid re-cuts obliquely) · tiles:
-        right-drag = rotate the sections in-plane · wheel = step · {count} parallel {plane} slices ·
-        every {(stepVox * voxMm).toFixed(1)} mm · slab {(slabVox * voxMm).toFixed(1)} mm{' '}
-        {mip ? 'MIP' : 'average'}
+      <div className="mode-note" style={{ fontVariantNumeric: 'tabular-nums' }}>
+        Scout: left-drag moves the window, right-drag rotates it (the grid re-cuts obliquely). Tiles: right-drag rotates the
+        sections in-plane, the wheel steps. {count} parallel {plane} slices, every {(stepVox * voxMm).toFixed(1)} mm, slab{' '}
+        {(slabVox * voxMm).toFixed(1)} mm {mip ? 'MIP' : 'average'}.
       </div>
     </div>
   );

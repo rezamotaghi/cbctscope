@@ -31,11 +31,11 @@ interface Props {
 type PresetKey = 'lateralL' | 'lateralR' | 'pa' | 'ap';
 const PRESETS: Record<PresetKey, { label: string; basis: Basis; tip: string }> = {
   // looking from the patient's LEFT: anterior at viewer-left → column+ = posterior (u=+y)
-  lateralL: { label: 'Lateral L', basis: { u: [0, 1, 0], v: [0, 0, -1], n: [-1, 0, 0] }, tip: 'profile, looking from the left' },
-  lateralR: { label: 'Lateral R', basis: { u: [0, -1, 0], v: [0, 0, -1], n: [1, 0, 0] }, tip: 'profile, looking from the right' },
+  lateralL: { label: 'Lateral L', basis: { u: [0, 1, 0], v: [0, 0, -1], n: [-1, 0, 0] }, tip: 'Profile, looking from the left' },
+  lateralR: { label: 'Lateral R', basis: { u: [0, -1, 0], v: [0, 0, -1], n: [1, 0, 0] }, tip: 'Profile, looking from the right' },
   // PA (looking anterior→posterior along +y): patient right at viewer-left (film convention)
-  pa: { label: 'PA', basis: { u: [1, 0, 0], v: [0, 0, -1], n: [0, 1, 0] }, tip: 'front, postero-anterior' },
-  ap: { label: 'AP', basis: { u: [-1, 0, 0], v: [0, 0, -1], n: [0, -1, 0] }, tip: 'front, antero-posterior' },
+  pa: { label: 'PA', basis: { u: [1, 0, 0], v: [0, 0, -1], n: [0, 1, 0] }, tip: 'Front, postero-anterior' },
+  ap: { label: 'AP', basis: { u: [-1, 0, 0], v: [0, 0, -1], n: [0, -1, 0] }, tip: 'Front, antero-posterior' },
 };
 
 const PREVIEW_STRIDE = 3; // coarse pass while dragging
@@ -220,24 +220,15 @@ export default function CbctCeph({ anon, voi, invert, gamma, onMeta, onError, on
     };
   }, [snapRef]);
 
-  const chip = (active: boolean): React.CSSProperties => ({
-    padding: '4px 10px',
-    borderRadius: 6,
-    border: '1px solid var(--border)',
-    background: active ? 'var(--accent-dim)' : 'var(--panel-2)',
-    color: 'var(--text)',
-    cursor: 'pointer',
-    fontSize: 12,
-  });
-  const small: React.CSSProperties = { fontSize: 'var(--fs-meta)', color: 'var(--text-dim)' };
-
   return (
     <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8, width: '100%', height: '100%', minHeight: 0 }}>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className="mode-row" style={{ padding: 0 }}>
         {(Object.keys(PRESETS) as PresetKey[]).map((k) => (
           <button
             key={k}
-            style={chip(preset === k)}
+            type="button"
+            className="ctl"
+            aria-pressed={preset === k}
             title={PRESETS[k].tip}
             onClick={() => {
               setPreset(k);
@@ -248,16 +239,22 @@ export default function CbctCeph({ anon, voi, invert, gamma, onMeta, onError, on
             {PRESETS[k].label}
           </button>
         ))}
-        <label style={{ display: 'inline-flex', gap: 5, alignItems: 'center', fontSize: 12 }}>
-          <input type="checkbox" checked={mip} onChange={(e) => setMip(e.target.checked)} /> MIP (densest-only)
+        <label className="mode-check">
+          <input type="checkbox" checked={mip} onChange={(e) => setMip(e.target.checked)} /> MIP (densest only)
         </label>
-        <button style={chip(autoActive)} onClick={runAuto} title="pick a window from the projection's own densities. It writes the shared Window section (✓ while that window is still active)">
-          auto contrast{autoActive ? ' ✓' : ''}
+        <button
+          type="button"
+          className="ctl"
+          aria-pressed={autoActive}
+          onClick={runAuto}
+          title="Pick a window from the projection's own densities. It writes the shared Window section, and stays selected while that window is still active."
+        >
+          Auto contrast
         </button>
-        <button style={chip(false)} onClick={() => onVoi?.(null)} title="back to the volume's Auto window (gamma is the sidebar slider)">
-          reset window
+        <button type="button" className="ctl" onClick={() => onVoi?.(null)} title="Back to the volume's Auto window (gamma is the sidebar slider)">
+          Reset window
         </button>
-        {hint && <span style={{ fontSize: 11, color: 'var(--warn)' }}>⚠ {hint}</span>}
+        {hint && <span className="mode-warn">{hint}</span>}
       </div>
 
       <div style={{ flex: 1, minHeight: 0, position: 'relative', background: 'var(--viewport-bg)', borderRadius: 4 }}>
@@ -288,26 +285,26 @@ export default function CbctCeph({ anon, voi, invert, gamma, onMeta, onError, on
       {/* window/gamma live ONLY in the sidebar Window section now — Ceph carried a private
           center/width/gamma that showed different numbers than the sidebar for the same
           image (the deepest instance of the two-sliders-one-value bug) */}
-      <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-        <label style={{ ...small, display: 'flex', gap: 6, alignItems: 'center' }}>
-          turn {(((yaw % 360) + 540) % 360 - 180).toFixed(0)}°
+      <div className="mode-row" style={{ gap: 'var(--sp-4)', padding: 0 }}>
+        <label className="mode-label">
+          Turn {(((yaw % 360) + 540) % 360 - 180).toFixed(0)}°
           <input type="range" min={-180} max={180} step={1} value={((yaw % 360) + 540) % 360 - 180} onChange={(e) => setYaw(Number(e.target.value))} onDoubleClick={() => setYaw(0)} style={{ width: 140 }} />
         </label>
-        <label style={{ ...small, display: 'flex', gap: 6, alignItems: 'center' }}>
-          nod {nod.toFixed(0)}°
+        <label className="mode-label">
+          Nod {nod.toFixed(0)}°
           <input type="range" min={-60} max={60} step={1} value={nod} onChange={(e) => setNod(Number(e.target.value))} onDoubleClick={() => setNod(0)} style={{ width: 120 }} />
         </label>
-        <span style={small}>window + gamma: the Window (HU) section in the sidebar</span>
+        <span className="mode-label">Window and gamma: the Window (HU) section in the side rail</span>
       </div>
-      <div style={{ ...small }}>
+      <div className="mode-note">
         A film-like radiograph reconstructed from the volume: AVG sums every structure along
         the ray (true ceph look), MIP keeps only the densest. Not a substitute for a real ceph
         (no true focal geometry), but measurable and reproducible off the same scan.
       </div>
 
       {progress !== null && (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(12,14,18,0.82)', zIndex: 5, color: 'var(--text-dim)' }}>
-          loading volume… {Math.round((progress ?? 0) * 100)}%
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(12,14,18,0.82)', zIndex: 5, color: 'var(--text-dim)', fontVariantNumeric: 'tabular-nums' }}>
+          Loading volume… {Math.round((progress ?? 0) * 100)}%
         </div>
       )}
     </div>

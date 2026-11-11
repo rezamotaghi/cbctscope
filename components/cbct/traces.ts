@@ -29,7 +29,7 @@ export function newTrace(existing: NerveTrace[], kind: 'nerve' | 'root'): NerveT
   const n = existing.filter((t) => t.kind === kind).length + 1;
   return {
     id: `tr_${Math.random().toString(36).slice(2, 10)}`,
-    name: kind === 'nerve' ? `nerve ${n}` : `root canal ${n}`,
+    name: kind === 'nerve' ? `Nerve ${n}` : `Root canal ${n}`,
     color: TRACE_COLORS[existing.length % TRACE_COLORS.length],
     kind,
     points: [],

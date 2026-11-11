@@ -42,19 +42,20 @@ The lines and the scout slice persist per volume.
 | Control | Options or range | What it does |
 |---|---|---|
 | Panes | scout, two rows | The scout shows `AXIAL n/N` top left and the window bottom right. Each row's side name and each section's caption sit in strips above the images; the window is bottom right of each row's last section. The pane that takes the wheel carries a thin blue frame, and the axial level is the reading place shared with the other modes (section 3.3). |
-| Section orientation | perpendicular to axis | Sections perpendicular to each condyle's axis, the corrected sagittal stack, labeled A (anterior) and P (posterior) at the edge midpoints. |
-| | parallel to axis | Sections parallel to the axis, the corrected coronal stack, labeled lat and med. |
-| sync sides | checkbox | Editing one side (dragging an endpoint or the whole line) mirrors it to the other side about the midline, for a symmetric starting point that can then be refined per side. A fresh draw fills the other side only when it is empty; it never replaces a placed line there, so a stray stroke cannot wipe a tuned opposite side. |
-| clear lines | button | Deletes both axis lines. |
+| Section orientation | Perpendicular | Sections perpendicular to each condyle's axis, the corrected sagittal stack, labeled A (anterior) and P (posterior) at the edge midpoints. |
+| | Parallel | Sections parallel to the axis, the corrected coronal stack, labeled lat and med. The selected orientation is solid blue. |
+| Sync sides | checkbox | Editing one side (dragging an endpoint or the whole line) mirrors it to the other side about the midline, for a symmetric starting point that can then be refined per side. A fresh draw fills the other side only when it is empty; it never replaces a placed line there, so a stray stroke cannot wipe a tuned opposite side. |
+| Clear lines | button | Deletes both axis lines. |
 | Reset lines | button | Restores both axis lines to where they were drawn, rolling back exploratory nudges. |
-| vertical crop | two handles on the right edge of the sections column | Trim the sections top and bottom to the condyle and fossa region (the default keeps roughly the upper three quarters of the volume); double-click on a handle resets it. |
-| sections | 3 to 9 per side | Shared section controls: how many sections each side gets. |
-| spacing | 0.5 to 6 mm | Distance between sections. |
-| width | 16 to 60 mm | Width of each section. |
-| thickness | 0 to 6 mm | Averaged across each section. |
+| Vertical range | two handles on the right edge of the sections column | Trim the sections top and bottom to the condyle and fossa region (the default keeps roughly the upper three quarters of the volume); double-click on a handle resets it. |
+| Sections | 3 to 9 per side | Shared section controls: how many sections each side gets. |
+| Tilt R, L and Upright | readout, button | Each side's fan tilt in degrees, and the button that sets both back to 0°. |
+| Spacing | 0.5 to 6 mm | Distance between sections. |
+| Width | 16 to 60 mm | Width of each section. |
+| Thickness | 0 to 6 mm | Averaged across each section. |
 | Scout band and labels | scout, sections | The scout outlines each side's sampled band in green with cut marks showing where that side's sections cut. Each section's caption, in a strip above it, gives its side, number, and offset in mm from the axis midpoint. |
 | Fan rotation | right-drag on any section | Rotates that side's fan, the same sweep gesture as the other modes, independently per side. The scout itself stays upright by design (one scout serves two independent sides): a tilted side's band redraws dashed as its exact axial shadow, its cut marks and orientation letters hide, and the axis line stays editable throughout. |
-| reset position | button | Returns both fans upright and the vertical crop to the condyle default, leaving lines, section parameters, and pane splits untouched. |
+| Reset position | button | Returns both fans upright and the vertical crop to the condyle default, leaving lines, section parameters, and pane splits untouched. |
 | Layout | right side of the screen | The RIGHT condyle row above the LEFT condyle row, each side cut against its own axis with the same section settings; the divider between scout and sections and the row divider drag to resize and double-click to reset. |
 | Window | shared sidebar | The shared Window (HU) presets, center, width, and invert apply. |
 
@@ -62,13 +63,13 @@ The lines and the scout slice persist per volume.
 
 1. Scroll the scout to the level where both condylar heads show their widest outline.
 2. Drag one line per side along the condylar head, lateral pole to medial pole; start with
-   sync sides if the sides are roughly symmetric, then uncheck it and refine each side on
+   Sync sides if the sides are roughly symmetric, then uncheck it and refine each side on
    its own axis.
 3. Set a bone window before assessing the joints; the osseous read is what these thin
    sections are for.
-4. Start in the perpendicular (corrected sagittal) orientation with thin sections at close
+4. Start in the Perpendicular (corrected sagittal) orientation with thin sections at close
    spacing, so the whole head is covered from lateral to medial pole.
-5. Read each side lateral to medial in order, then switch to the parallel (corrected
+5. Read each side lateral to medial in order, then switch to the Parallel (corrected
    coronal) orientation for the mediolateral read.
 6. Follow the cortical outline of each condyle across consecutive sections, and use the
    fossa and joint space in the same sections for the positional read.

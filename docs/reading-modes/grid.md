@@ -35,15 +35,15 @@ The tiles themselves are display-only.
 
 | Control | Options or range | What it does |
 |---|---|---|
-| Plane | axial, sagittal, coronal | The initial cutting direction. Switching planes straightens a rotated stack (announced briefly in the on-screen chip) but keeps your window position along the new axis; re-clicking the already-active plane does nothing, so a tuned oblique cannot be wiped by a stray click. The **Reset view** button straightens in place. |
-| Grid size | 2x2, 3x3, 4x4, 4x6 | The tiles on screen. Each tile is labeled with its offset in mm from the stack center and a tile number that matches the numbered section lines on the scout; the window reads bottom right of the scout and of the last tile, and the pane that takes the wheel carries a thin blue frame. |
-| spacing | 0.5 to 10 mm | The distance between consecutive slices in the stack. |
-| thickness | 0.1 to 10 mm | The slab averaged into each slice; the MIP checkbox takes the brightest voxel across the slab instead of the average. |
-| reset orientation | button | Back to the straight orthogonal stack after any rotation. |
-| position | slider | Moves the whole slice window along the stack normal. |
+| Plane | Axial, Sagittal, Coronal | The initial cutting direction. Switching planes straightens a rotated stack (announced briefly in the on-screen chip) but keeps your window position along the new axis; re-clicking the already-active plane does nothing, so a tuned oblique cannot be wiped by a stray click. The **Reset view** button straightens in place. |
+| Grid size | 2×2, 3×3, 4×4, 4×6 | The tiles on screen. The selected plane and grid size are solid blue. Each tile is labeled with its offset in mm from the stack center and a tile number that matches the numbered section lines on the scout; the window reads bottom right of the scout and of the last tile, and the pane that takes the wheel carries a thin blue frame. |
+| Spacing | 0.5 to 10 mm | The distance between consecutive slices in the stack. |
+| Thickness | 0.1 to 10 mm | The slab averaged into each slice; the MIP checkbox takes the brightest voxel across the slab instead of the average. |
+| Reset view | button | Back to the straight orthogonal stack after any rotation. |
+| Position | slider | Moves the whole slice window along the stack normal. |
 | Scout pane | left | The control surface: the perpendicular reference view (a sagittal scout for an axial grid, an axial scout otherwise) with one numbered line per tile. |
 | Window | shared sidebar | The shared Window (HU) panel applies here, including the presets, the histogram cut lines, center and width, gamma, and invert. |
-| Status line | under the grid | Restates the current geometry: how many parallel slices, at what spacing, with what slab, averaged or MIP. |
+| Note | under the grid | Restates the current geometry: how many parallel slices, at what spacing, with what slab, averaged or MIP. |
 
 ## A reading workflow
 
@@ -56,7 +56,7 @@ The tiles themselves are display-only.
 4. Choose spacing no larger than the smallest structure you want to be sure of catching,
    or step the window with the wheel so consecutive positions overlap.
 5. If the anatomy runs oblique to the standard planes, right-drag on the scout until the
-   stack cuts along it, and use "reset orientation" to return.
+   stack cuts along it, and use Reset view to return.
 6. Read the tiles in numbered order and cross-check any tile against the scout: the
    numbered line shows exactly where that slice cuts.
 7. Keep the slab thin for fine detail; use a thicker slab, or MIP, when continuity of a

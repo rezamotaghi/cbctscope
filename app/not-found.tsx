@@ -31,19 +31,7 @@ export default function NotFound() {
       >
         <h1 style={{ fontSize: 16, margin: '0 0 10px' }}>Page not found</h1>
         <p style={{ margin: '0 0 14px' }}>CBCTScope has no page at this address.</p>
-        <Link
-          href="/"
-          style={{
-            display: 'inline-block',
-            padding: '6px 14px',
-            borderRadius: 6,
-            border: '1px solid var(--border)',
-            background: 'var(--accent-dim)',
-            color: 'var(--text)',
-            fontWeight: 600,
-            textDecoration: 'none',
-          }}
-        >
+        <Link href="/" className="ctl">
           Back to the viewer
         </Link>
       </div>

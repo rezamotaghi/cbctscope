@@ -109,7 +109,7 @@ for (const [w, h] of [
 
     await openMode(page, 'Pano');
     await expect(page.locator('main [data-pane="axial"] [data-overlay="label"]')).toHaveText(/^AXIAL \d+\/\d+/, { timeout: 60_000 });
-    await page.getByRole('button', { name: 'auto arch', exact: true }).click();
+    await page.getByRole('button', { name: 'Auto arch', exact: true }).click();
     await page.waitForTimeout(1500);
     expect(await overlapsInPanes(page), 'Pano').toEqual([]);
 

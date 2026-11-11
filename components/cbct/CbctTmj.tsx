@@ -564,10 +564,11 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
   };
   const sliderRow: React.CSSProperties = {
     display: 'flex',
-    gap: 10,
+    gap: 'var(--sp-2)',
     alignItems: 'center',
-    padding: '4px 2px',
+    padding: 'var(--sp-1) 0',
     flexWrap: 'wrap',
+    fontVariantNumeric: 'tabular-nums',
   };
 
   // one snapshot door: the shell header owns the button; this room registers its composer
@@ -586,16 +587,6 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
       snapRef.current = null;
     };
   }, [snapRef]);
-
-  const chip = (active: boolean): React.CSSProperties => ({
-    padding: '3px 8px',
-    borderRadius: 6,
-    border: '1px solid var(--border)',
-    background: active ? 'var(--accent-dim)' : 'var(--panel-2)',
-    color: 'var(--text)',
-    cursor: 'pointer',
-    fontSize: 11,
-  });
 
   const sideRow = (side: Side) => {
     const sideTilted = Math.abs(tilt[side]) > 0.01;
@@ -653,7 +644,7 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
             pointerEvents: 'none',
           }}
         >
-          drag a line along the {side === 'R' ? 'right' : 'left'} condyle head on the axial scout
+          Drag a line along the {side === 'R' ? 'right' : 'left'} condyle head on the axial scout
         </div>
       )}
       </div>
@@ -728,58 +719,64 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
         </div>
         <div style={sliderRow}>
           <button
-            style={chip(mode === 'perp')}
-            title="sections PERPENDICULAR to each condyle's axis (corrected sagittal, the classic TMJ read)"
+            type="button"
+            className="ctl"
+            aria-pressed={mode === 'perp'}
+            title="Sections perpendicular to each condyle's axis (corrected sagittal, the classic TMJ read)"
             onClick={() => setMode('perp')}
           >
-            ⊥ axis
+            Perpendicular
           </button>
           <button
-            style={chip(mode === 'para')}
-            title="sections PARALLEL to each condyle's axis (corrected coronal)"
+            type="button"
+            className="ctl"
+            aria-pressed={mode === 'para'}
+            title="Sections parallel to each condyle's axis (corrected coronal)"
             onClick={() => setMode('para')}
           >
-            ∥ axis
+            Parallel
           </button>
-          <label style={{ ...small, display: 'flex', gap: 4, alignItems: 'center' }} title="editing one side mirrors the line to the other about the midline; a fresh draw fills the other side only if it is empty, and never replaces a placed line there">
-            <input type="checkbox" checked={sync} onChange={(e) => setSync(e.target.checked)} /> sync sides
+          <label className="mode-check" title="Editing one side mirrors the line to the other about the midline; a fresh draw fills the other side only if it is empty, and never replaces a placed line there">
+            <input type="checkbox" checked={sync} onChange={(e) => setSync(e.target.checked)} /> Sync sides
           </label>
           <button
-            style={chip(false)}
+            type="button"
+            className="ctl"
             disabled={!lines.R && !lines.L}
-            title="delete both axis lines (and their saved home)"
+            title={!lines.R && !lines.L ? 'No axis line to clear yet' : 'Delete both axis lines (and their saved home)'}
             onClick={() => {
               setLines({});
               setLinesHome({});
               setTilt({ R: 0, L: 0 });
             }}
           >
-            clear lines
+            Clear lines
           </button>
           <button
-            style={chip(false)}
+            type="button"
+            className="ctl"
             disabled={!linesHome.R && !linesHome.L}
             title={
               !linesHome.R && !linesHome.L
-                ? 'nothing to reset: draw an axis line first'
-                : "restore both axis lines to where they were drawn. Exploratory nudges roll back (the pano's reset arch)"
+                ? 'Nothing to reset: draw an axis line first'
+                : "Restore both axis lines to where they were drawn. Exploratory nudges roll back (the pano's Reset arch)"
             }
             onClick={() => setLines({ ...linesHome })}
           >
-            reset lines
+            Reset lines
           </button>
         </div>
-        <div style={{ ...small, whiteSpace: 'normal', lineHeight: 1.5 }}>
-          Drag one line along each condyle head (lateral pole → medial pole). Sections are cut
-          against each side&apos;s own axis, so the joint is read in ITS plane, not the
-          scanner&apos;s. ⊥ axis is corrected sagittal; ∥ axis is corrected coronal.
+        <div className="mode-note">
+          Drag one line along each condyle head, from the lateral pole to the medial pole. Sections are cut
+          against each side&apos;s own axis, so the joint is read in its own plane, not the
+          scanner&apos;s. Perpendicular is corrected sagittal; Parallel is corrected coronal.
         </div>
       </div>
 
-      {/* draggable divider: scout ↔ sections */}
+      {/* draggable divider: scout and sections */}
       <DragDivider
         cursor="col-resize"
-        title="drag to resize the scout vs the sections · double-click resets"
+        title="Drag to resize the scout against the sections. Double-click resets."
         style={{ borderRadius: 3, alignSelf: 'stretch' }}
         onMove={(clientX) => {
           const r = gridRef.current?.getBoundingClientRect();
@@ -808,7 +805,7 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
             {sideRow('R')}
             <DragDivider
               cursor="row-resize"
-              title="drag to resize the RIGHT vs LEFT condyle rows · double-click resets"
+              title="Drag to resize the right condyle row against the left. Double-click resets."
               style={{ borderRadius: 3 }}
               onMove={(_x, clientY) => {
                 const r = rowsRef.current?.getBoundingClientRect();
@@ -824,11 +821,12 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
                   position: 'absolute',
                   top: 6,
                   right: 8,
-                  fontSize: 12,
+                  fontSize: 'var(--fs-meta)',
+                  fontVariantNumeric: 'tabular-nums',
                   color: 'var(--text)',
                   background: 'var(--panel-2)',
                   border: '1px solid var(--border)',
-                  borderRadius: 6,
+                  borderRadius: 'var(--ctl-radius)',
                   padding: '2px 8px',
                   pointerEvents: 'none',
                   zIndex: 2,
@@ -841,8 +839,8 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
           <VertRangeSliders zFrac={zFrac} setZFrac={setZFrac} />
         </div>
         <div style={sliderRow}>
-          <label style={{ ...small, display: 'flex', gap: 6, alignItems: 'center' }} title="odd counts only, so one section stays exactly on the condyle axis">
-            sections {nSec}
+          <label className="mode-label" title="Odd counts only, so one section stays exactly on the condyle axis">
+            Sections {nSec}
             <input
               type="range"
               min={3}
@@ -854,25 +852,26 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
               style={{ width: 70 }}
             />
           </label>
-          {/* canonical section-row order (unified 2026-08-05): count → tilt → spacing →
-              width → thickness. Same anatomy in Pano and Reslice. */}
-          <span style={small} title="right-drag on any tile rotates that side's whole fan in-plane (MPR gesture)">
-            tilt R {tilt.R >= 0 ? '+' : ''}{tilt.R.toFixed(0)}° · L {tilt.L >= 0 ? '+' : ''}{tilt.L.toFixed(0)}°
+          {/* canonical section-row order (unified 2026-08-05): count, tilt, spacing,
+              width, thickness. Same anatomy in Pano and Reslice. */}
+          <span style={small} title="Right-drag on any tile rotates that side's whole fan in-plane (MPR gesture)">
+            Tilt R {tilt.R >= 0 ? '+' : ''}{tilt.R.toFixed(0)}°, L {tilt.L >= 0 ? '+' : ''}{tilt.L.toFixed(0)}°
           </span>
           <button
-            style={chip(false)}
+            type="button"
+            className="ctl"
             disabled={Math.abs(tilt.R) <= 0.01 && Math.abs(tilt.L) <= 0.01}
             title={
               Math.abs(tilt.R) > 0.01 || Math.abs(tilt.L) > 0.01
-                ? 'both fans back upright (0°)'
-                : 'already upright: right-drag a tile to tilt its fan'
+                ? 'Both fans back upright (0°)'
+                : 'Already upright: right-drag a tile to tilt its fan'
             }
             onClick={() => setTilt({ R: 0, L: 0 })}
           >
-            upright
+            Upright
           </button>
-          <label style={{ ...small, flex: 1, display: 'flex', gap: 6, alignItems: 'center' }}>
-            spacing {secSpacing.toFixed(1)} mm
+          <label className="mode-label" style={{ flex: 1 }}>
+            Spacing {secSpacing.toFixed(1)} mm
             <input
               type="range"
               min={0.5}
@@ -881,11 +880,11 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
               value={secSpacing}
               onChange={(e) => setSecSpacing(Number(e.target.value))}
               onDoubleClick={() => setSecSpacing(2.5)}
-              style={{ flex: 1 }}
+              style={{ flex: 1, minWidth: 0 }}
             />
           </label>
-          <label style={{ ...small, flex: 1, display: 'flex', gap: 6, alignItems: 'center' }}>
-            width {secWidth} mm
+          <label className="mode-label" style={{ flex: 1 }}>
+            Width {secWidth} mm
             <input
               type="range"
               min={16}
@@ -894,11 +893,11 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
               value={secWidth}
               onChange={(e) => setSecWidth(Number(e.target.value))}
               onDoubleClick={() => setSecWidth(34)}
-              style={{ flex: 1 }}
+              style={{ flex: 1, minWidth: 0 }}
             />
           </label>
-          <label style={{ ...small, flex: 1, display: 'flex', gap: 6, alignItems: 'center' }} title="average this many mm across each section, for a thicker, quieter cut">
-            thickness {secThickness.toFixed(1)} mm
+          <label className="mode-label" style={{ flex: 1 }} title="Average this many mm across each section, for a thicker, quieter cut">
+            Thickness {secThickness.toFixed(1)} mm
             <input
               type="range"
               min={0}
@@ -907,24 +906,25 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
               value={secThickness}
               onChange={(e) => setSecThickness(Number(e.target.value))}
               onDoubleClick={() => setSecThickness(0.5)}
-              style={{ flex: 1 }}
+              style={{ flex: 1, minWidth: 0 }}
             />
           </label>
         </div>
         <div style={sliderRow}>
-          <span style={small} title="crop the sections vertically. The handles moved to the right edge of the sections (pano-style)">
-            vertical range {Math.round(zFrac[0] * 100)}–{Math.round(zFrac[1] * 100)}%
+          <span style={small} title="Crop the sections vertically with the handles at the right edge of the sections">
+            Vertical range {Math.round(zFrac[0] * 100)} to {Math.round(zFrac[1] * 100)}%
           </span>
           <button
-            style={chip(false)}
+            type="button"
+            className="ctl"
             disabled={!entry}
-            title="reset the reading position: both fans upright + the condyle-default vertical range (lines, section params, and pane splits untouched)"
+            title="Reset the reading position: both fans upright and the condyle-default vertical range (lines, section settings, and pane splits untouched)"
             onClick={() => {
               setTilt({ R: 0, L: 0 });
               setZFrac([0.25, 1]);
             }}
           >
-            reset position
+            Reset position
           </button>
         </div>
       </div>
@@ -940,9 +940,10 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
             background: 'rgba(12,14,18,0.82)',
             zIndex: 5,
             color: 'var(--text-dim)',
+            fontVariantNumeric: 'tabular-nums',
           }}
         >
-          loading volume… {Math.round((progress ?? 0) * 100)}%
+          Loading volume… {Math.round((progress ?? 0) * 100)}%
         </div>
       )}
     </div>

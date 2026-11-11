@@ -126,7 +126,7 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
       })
       .catch((e) => {
         console.error('[cbct-stitch] volume B load failed', e);
-        if (!stale) setHint('volume B load failed. Pick a different volume and try again.');
+        if (!stale) setHint('Volume B load failed. Pick a different volume and try again.');
       });
     return () => {
       stale = true;
@@ -235,7 +235,7 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
 
   const runAuto = (withTilt: boolean) => {
     if (!entryA || !entryB) return;
-    setBusy(withTilt ? 'registering (+ tilt)…' : 'registering…');
+    setBusy(withTilt ? 'Registering with tilt…' : 'Registering…');
     // let the label paint before the sync hill-climb
     setTimeout(() => {
       try {
@@ -244,7 +244,7 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
         setHint(null);
       } catch (e) {
         console.error('[cbct-stitch] auto-register failed', e);
-        setHint('auto-registration failed. The manual sliders still work.');
+        setHint('Auto registration failed. The manual sliders still work.');
       } finally {
         setBusy(null);
       }
@@ -253,7 +253,7 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
 
   const bakeAndLoad = () => {
     if (!entryA || !entryB) return;
-    setBusy('baking fusion…');
+    setBusy('Baking the fusion…');
     setTimeout(async () => {
       try {
         const baked = bakeFusion(entryA, entryB, rigid);
@@ -267,12 +267,12 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
           label: `stitch ${aLabel}+${bLabel}`,
           year: entryA.meta.year,
         };
-        setBusy('registering fusion…');
+        setBusy('Registering the fusion…');
         const { anon: fusedAnon } = await source.registerFused(meta, baked.data);
         onFused(fusedAnon);
       } catch (e) {
         console.error('[cbct-stitch] bake failed', e);
-        setHint(`bake failed: ${String(e)}. The transform is untouched; try again.`);
+        setHint(`Bake failed: ${String(e)}. The transform is untouched; try again.`);
       } finally {
         setBusy(null);
       }
@@ -297,19 +297,10 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
     };
   }, [snapRef]);
 
-  const chip = (active: boolean): React.CSSProperties => ({
-    padding: '4px 10px',
-    borderRadius: 6,
-    border: '1px solid var(--border)',
-    background: active ? 'var(--accent-dim)' : 'var(--panel-2)',
-    color: 'var(--text)',
-    cursor: 'pointer',
-    fontSize: 12,
-  });
-  const small: React.CSSProperties = { fontSize: 'var(--fs-meta)', color: 'var(--text-dim)' };
+  const small: React.CSSProperties = { fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', fontVariantNumeric: 'tabular-nums' };
   const { active: activePane, bind: bindPane } = useActivePane<Plane>('axial');
   const axisSlider = (label: string, kind: 't' | 'r', dim: 0 | 1 | 2, min: number, max: number, step: number, unit: string) => (
-    <label style={{ ...small, flex: 1, minWidth: 150, display: 'flex', gap: 6, alignItems: 'center' }}>
+    <label className="mode-label" style={{ flex: 1, minWidth: 150 }}>
       {label} {rigid[kind][dim].toFixed(1)}{unit}
       <input
         type="range"
@@ -318,7 +309,7 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
         step={step}
         value={rigid[kind][dim]}
         disabled={!entryB}
-        title={entryB ? `move B ${label}. Double-click sets it to 0.` : 'pick volume B first'}
+        title={entryB ? `Move B: ${label}. Double-click sets it to 0.` : 'Pick volume B first'}
         onChange={(e) => {
           const v = Number(e.target.value);
           setRigid((cur) => {
@@ -334,7 +325,7 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
             return next;
           })
         }
-        style={{ flex: 1 }}
+        style={{ flex: 1, minWidth: 0 }}
       />
     </label>
   );
@@ -372,69 +363,97 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
 
   return (
     <div ref={rootRef} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8, width: '100%', height: '100%', minHeight: 0 }}>
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span style={small}>fuse the current volume (A, green) with</span>
+      <div className="mode-row" style={{ padding: 0 }}>
+        <span className="mode-label">Fuse the current volume (A, green) with</span>
         <select
+          className="hselect"
+          aria-label="Volume B"
           value={bId ?? ''}
           onChange={(e) => setBId(e.target.value || null)}
-          style={{ background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 8px', maxWidth: 320 }}
+          style={{ flex: '0 1 auto', maxWidth: 320 }}
         >
-          <option value="">pick volume B (magenta)</option>
+          <option value="">Pick volume B (magenta)</option>
           {candidates.map((v) => (
             <option key={v.anon} value={v.anon}>
-              {v.label || v.anon.slice(5, 11)}: {v.fov[0]}×{v.fov[1]}cm {v.region || ''}
+              {v.label || v.anon.slice(5, 11)}: {v.fov[0]}×{v.fov[1]} cm {v.region || ''}
             </option>
           ))}
         </select>
-        <button style={chip(false)} disabled={!entryB || !!busy} onClick={() => runAuto(false)} title="find the best translation (NCC hill-climb)">
-          auto align
-        </button>
-        <button style={chip(false)} disabled={!entryB || !!busy} onClick={() => runAuto(true)} title="also search rotation (slower)">
-          auto + tilt
-        </button>
-        <button style={chip(false)} disabled={!entryB} onClick={() => setRigid(IDENTITY)}>
-          reset transform
+        <button
+          type="button"
+          className="ctl"
+          disabled={!entryB || !!busy}
+          onClick={() => runAuto(false)}
+          title={entryB ? 'Find the best translation (NCC hill-climb)' : 'Pick volume B first'}
+        >
+          Auto align
         </button>
         <button
-          style={{ ...chip(false), display: 'inline-flex', alignItems: 'center', gap: 5 }}
+          type="button"
+          className="ctl"
+          disabled={!entryB || !!busy}
+          onClick={() => runAuto(true)}
+          title={entryB ? 'Also search rotation (slower)' : 'Pick volume B first'}
+        >
+          Auto with tilt
+        </button>
+        <button
+          type="button"
+          className="ctl"
+          disabled={!entryB}
+          onClick={() => setRigid(IDENTITY)}
+          title={entryB ? 'Put volume B back where it started' : 'Pick volume B first'}
+        >
+          Reset transform
+        </button>
+        <button
+          type="button"
+          className="ctl"
           disabled={!entryB || !!busy}
           onClick={bakeAndLoad}
-          title="resample both onto one grid, register the fused volume, and open it"
+          title={entryB ? 'Resample both onto one grid, register the fused volume, and open it' : 'Pick volume B first'}
         >
-          <Merge size={13} strokeWidth={2} />
-          bake &amp; load
+          <Merge size={14} strokeWidth={2} aria-hidden />
+          Bake and load
         </button>
         {score !== null && (
           <span
             style={{ ...small, color: score > 0.6 ? 'var(--ok, #59d98c)' : 'var(--text-dim)' }}
-            title="normalized cross-correlation of the two volumes' densities over the overlap: 1.0 = identical; above ~0.6 reads as aligned (turns green)"
+            title="Normalized cross-correlation of the two volumes' densities over the overlap: 1.0 is identical; above about 0.6 reads as aligned (turns green)"
           >
-            overlap NCC {score.toFixed(3)}
+            Overlap NCC {score.toFixed(3)}
           </span>
         )}
         {busy && <span style={{ ...small, color: 'var(--accent)' }}>{busy}</span>}
-        {hint && <span style={{ fontSize: 11, color: 'var(--warn)' }}>⚠ {hint}</span>}
+        {hint && <span className="mode-warn">{hint}</span>}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span style={small}>overlay</span>
+      <div className="mode-row" style={{ padding: 0 }}>
+        <span className="mode-label">Overlay</span>
         {(['color', 'blend', 'checker', 'A', 'B'] as Mode[]).map((m) => (
-          <button key={m} style={chip(mode === m)} onClick={() => setMode(m)} title={m === 'color' ? 'A green, B magenta: colored fringes show misalignment' : m}>
-            {m}
+          <button
+            key={m}
+            type="button"
+            className="ctl"
+            aria-pressed={mode === m}
+            onClick={() => setMode(m)}
+            title={m === 'color' ? 'A green, B magenta: colored fringes show misalignment' : m === 'blend' ? 'Half A, half B' : m === 'checker' ? 'A and B in alternating squares' : `Volume ${m} alone`}
+          >
+            {m.charAt(0).toUpperCase() + m.slice(1)}
           </button>
         ))}
       </div>
 
-      {/* transform sliders ride the toolbar (pane-global, Grid-style — the surface-anchored
+      {/* transform sliders ride the toolbar (pane-global, Grid-style: the surface-anchored
           rule Reza ratified 2026-08-05 puts per-surface rows under their surface and
           pane-global params up top) */}
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-        {axisSlider('X', 't', 0, -60, 60, 0.5, 'mm')}
-        {axisSlider('Y', 't', 1, -60, 60, 0.5, 'mm')}
-        {axisSlider('Z', 't', 2, -60, 60, 0.5, 'mm')}
-        {axisSlider('rX', 'r', 0, -20, 20, 0.5, '°')}
-        {axisSlider('rY', 'r', 1, -20, 20, 0.5, '°')}
-        {axisSlider('rZ', 'r', 2, -20, 20, 0.5, '°')}
+      <div className="mode-row" style={{ gap: 'var(--sp-3)', padding: 0 }}>
+        {axisSlider('X', 't', 0, -60, 60, 0.5, ' mm')}
+        {axisSlider('Y', 't', 1, -60, 60, 0.5, ' mm')}
+        {axisSlider('Z', 't', 2, -60, 60, 0.5, ' mm')}
+        {axisSlider('Rotation X', 'r', 0, -20, 20, 0.5, '°')}
+        {axisSlider('Rotation Y', 'r', 1, -20, 20, 0.5, '°')}
+        {axisSlider('Rotation Z', 'r', 2, -20, 20, 0.5, '°')}
       </div>
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 6 }}>
@@ -442,23 +461,33 @@ export default function CbctStitch({ anon, voi, invert, gamma, volumes, onFused,
         {pane('SAGITTAL', 'sagittal', sgCv)}
         {pane('CORONAL', 'coronal', coCv)}
         {!entryB && (
-          <div style={{ position: 'absolute', inset: 0, top: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', fontSize: 13, pointerEvents: 'none' }}>
-            pick a second volume of the same patient to begin
+          <div style={{ position: 'absolute', inset: 0, top: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+            <span
+              style={{
+                padding: 'var(--sp-1) var(--sp-2)',
+                borderRadius: 'var(--ctl-radius)',
+                background: 'rgba(12,14,18,0.88)',
+                color: 'var(--text)',
+                fontSize: 'var(--fs-body)',
+              }}
+            >
+              Pick a second volume of the same patient to begin
+            </span>
           </div>
         )}
       </div>
 
-      <div style={small}>
+      <div className="mode-note">
         Rigid registration (translation + rotation) of two same-patient scans into one volume.
-        Auto-align maximizes density cross-correlation over the overlap; drag the sliders to
+        Auto align maximizes density cross-correlation over the overlap; drag the sliders to
         correct it. Bake resamples both onto a shared grid (averaging the overlap) and opens the
         result in every view. The fused volume lives in{' '}
         {IS_DESKTOP ? "this app's memory" : IS_WEB ? "this tab's memory" : 'the local server\'s memory'} for this session.
       </div>
 
       {progress !== null && (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(12,14,18,0.82)', zIndex: 5, color: 'var(--text-dim)' }}>
-          loading volume A… {Math.round((progress ?? 0) * 100)}%
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(12,14,18,0.82)', zIndex: 5, color: 'var(--text-dim)', fontVariantNumeric: 'tabular-nums' }}>
+          Loading volume A… {Math.round((progress ?? 0) * 100)}%
         </div>
       )}
     </div>

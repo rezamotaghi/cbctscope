@@ -43,7 +43,7 @@ import {
 import { fetchEvidence, mergeEvidence } from './evidence';
 import DragDivider from './DragDivider';
 import { snapshotPaneCanvases, type SnapRef } from './SnapshotButton';
-import { Ruler } from 'lucide-react';
+import { Eye, EyeOff, Ruler, Trash2 } from 'lucide-react';
 import { ActiveFrame, PaneLabel, WlReadout, useActivePane } from './PaneOverlay';
 import { PLANE_COLOR, drawHaloLabel } from './overlayGrammar';
 import { initialAxialIndex, setAxialLevel } from './readingPlace';
@@ -179,6 +179,7 @@ export function VertRangeSliders({
   verb?: string;
   noun?: string;
 }) {
+  const Verb = verb.charAt(0).toUpperCase() + verb.slice(1);
   const vertical: React.CSSProperties = {
     writingMode: 'vertical-lr',
     direction: 'rtl',
@@ -190,11 +191,10 @@ export function VertRangeSliders({
     <div style={{ display: 'flex', flexShrink: 0 }}>
       {/* Caption strip so the sliders are discoverable — reads top-to-bottom beside them. */}
       <div
-        title={`vertical range: ${verb} the height, the left slider from above, the right slider from below. Double-click a slider to reset its end.`}
+        title={`Vertical range: ${verb} the height, the left slider from above, the right slider from below. Double-click a slider to reset its end.`}
         style={{
           writingMode: 'vertical-lr',
-          fontSize: 10,
-          letterSpacing: 1.5,
+          fontSize: 'var(--fs-meta)',
           color: 'var(--text-dim)',
           textAlign: 'center',
           whiteSpace: 'nowrap',
@@ -203,7 +203,7 @@ export function VertRangeSliders({
           cursor: 'default',
         }}
       >
-        ↕ vertical range
+        Vertical range
       </div>
       <input
         type="range"
@@ -211,7 +211,7 @@ export function VertRangeSliders({
         max={100}
         step={1}
         value={Math.round(zFrac[1] * 100)}
-        title={`${verb} from above: drag the handle down (top of ${noun}: ${Math.round(zFrac[1] * 100)}%). Double-click resets.`}
+        title={`${Verb} from above: drag the handle down (top of ${noun}: ${Math.round(zFrac[1] * 100)}%). Double-click resets.`}
         onChange={(e) => {
           const v = Number(e.target.value) / 100;
           setZFrac((cur) => [cur[0], Math.max(v, cur[0] + 0.05)]);
@@ -225,7 +225,7 @@ export function VertRangeSliders({
         max={100}
         step={1}
         value={Math.round(zFrac[0] * 100)}
-        title={`${verb} from below: drag the handle up (bottom of ${noun}: ${Math.round(zFrac[0] * 100)}%). Double-click resets.`}
+        title={`${Verb} from below: drag the handle up (bottom of ${noun}: ${Math.round(zFrac[0] * 100)}%). Double-click resets.`}
         onChange={(e) => {
           const v = Number(e.target.value) / 100;
           setZFrac((cur) => [Math.min(v, cur[1] - 0.05), cur[1]]);
@@ -1245,7 +1245,7 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
         tilt0: sectionTilt,
       };
       rotConsumedRef.current = false;
-      setRotChip(`tilt ${sectionTilt >= 0 ? '+' : ''}${sectionTilt.toFixed(0)}°`);
+      setRotChip(`Tilt ${sectionTilt >= 0 ? '+' : ''}${sectionTilt.toFixed(0)}°`);
       return;
     }
     if (e.button !== 0) return;
@@ -1297,7 +1297,7 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
       if (Math.abs(rot.totalDeg) > 1.5) rotConsumedRef.current = true;
       const next = rot.tilt0 + rot.totalDeg;
       setSectionTilt(next);
-      setRotChip(`tilt ${next >= 0 ? '+' : ''}${next.toFixed(0)}°`);
+      setRotChip(`Tilt ${next >= 0 ? '+' : ''}${next.toFixed(0)}°`);
       return;
     }
     const d = draftRef.current;
@@ -1433,7 +1433,7 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
       setArchHome({ points: pts, archZ });
       setHint(null);
     } else {
-      setHint('auto arch found no tooth-bearing anatomy on this slice. Scroll to the teeth and retry.');
+      setHint('Auto arch found no tooth-bearing anatomy on this slice. Scroll to the teeth and retry.');
     }
   };
   const runAutoFocus = () => {
@@ -1465,10 +1465,11 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
   };
   const sliderRow: React.CSSProperties = {
     display: 'flex',
-    gap: 10,
+    gap: 'var(--sp-2)',
     alignItems: 'center',
-    padding: '4px 2px',
+    padding: 'var(--sp-1) 0',
     flexWrap: 'wrap',
+    fontVariantNumeric: 'tabular-nums',
   };
 
   // one snapshot door: the shell header owns the button; this room registers its composer
@@ -1487,16 +1488,6 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
       snapRef.current = null;
     };
   }, [snapRef]);
-
-  const chip = (active: boolean): React.CSSProperties => ({
-    padding: '3px 8px',
-    borderRadius: 6,
-    border: '1px solid var(--border)',
-    background: active ? 'var(--accent-dim)' : 'var(--panel-2)',
-    color: 'var(--text)',
-    cursor: 'pointer',
-    fontSize: 11,
-  });
 
   const panoCursor = activeTrace ? 'copy' : measureMode ? 'crosshair' : 'crosshair';
 
@@ -1573,27 +1564,31 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
         </div>
         <div style={sliderRow}>
           <button
+            type="button"
+            className="ctl"
             onClick={() => {
               setPoints([]);
-              setArchDone(false); // back to the placing phase — clicks add dots again
+              setArchDone(false); // back to the placing phase: clicks add dots again
               setSectionTilt(0); // the tilt belonged to the frame the arch defined
               setArchHome(null); // and so did the home
             }}
             disabled={points.length === 0}
-            title={points.length === 0 ? 'no arch to delete yet' : 'delete the whole arch line. The pano and cross-sections clear with it.'}
-            style={chip(false)}
+            title={points.length === 0 ? 'No arch to delete yet' : 'Delete the whole arch line. The pano and cross-sections clear with it.'}
           >
-            delete arch
+            Delete arch
           </button>
           <button
+            type="button"
+            className="ctl"
             onClick={runAutoArch}
             disabled={!entry}
-            title="propose the arch from the anatomy of this axial slice (then drag the dots to adjust)"
-            style={chip(false)}
+            title="Propose the arch from the anatomy of this axial slice (then drag the dots to adjust)"
           >
-            auto arch
+            Auto arch
           </button>
           <button
+            type="button"
+            className="ctl"
             onClick={() => {
               if (!archHome || archHome.points.length < 3) return;
               setPoints(archHome.points.map((p) => ({ ...p })));
@@ -1601,91 +1596,96 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
               setArchDone(true);
             }}
             disabled={!archHome}
-            title={!archHome ? 'nothing to reset: finish an arch first' : 'put the arch back to its main position (as of the last finish). This undoes dot drags and whole-arch drags.'}
-            style={chip(false)}
+            title={!archHome ? 'Nothing to reset: finish an arch first' : 'Put the arch back to its main position (as of the last finish). This undoes dot drags and whole-arch drags.'}
           >
-            reset arch
+            Reset arch
           </button>
-          <span style={{ ...small, whiteSpace: 'normal' }}>
+          <span className="mode-note">
             {tilted
               ? 'The scout lies across the tilted sections; the arch and the canals show as projections. Press Upright to edit them.'
               : points.length === 0
-              ? 'no arch drawn'
+              ? 'No arch drawn. Click dots along the arch, or press Auto arch.'
               : archDone
                 ? `${points.length} dots, finished. Drag dots or the whole line; double-click or right-click a dot to delete it.`
                 : `${points.length} dots, placing. Double-click to finish.`}
           </span>
         </div>
-        {hint && (
-          <div style={{ fontSize: 11, color: 'var(--warn)', lineHeight: 1.4, whiteSpace: 'normal' }}>⚠ {hint}</div>
-        )}
+        {hint && <div className="mode-warn">{hint}</div>}
 
-        {/* nerve / root-canal traces — always fully visible (medical dashboard rule) */}
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 6 }}>
-          <div style={{ ...small, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 4 }}>
-            <span style={{ color: 'var(--text)' }}>Canal traces</span>
-            <button style={chip(false)} disabled={!curve} title="start a new nerve-canal trace (IAN)" onClick={() => {
+        {/* nerve / root-canal traces: always fully visible (medical dashboard rule) */}
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--sp-2)' }}>
+          <div className="mode-row" style={{ paddingTop: 0 }}>
+            <span style={{ color: 'var(--text)', fontWeight: 600 }}>Canal traces</span>
+            <button type="button" className="ctl" disabled={!curve} title={curve ? 'Start a new nerve-canal trace (IAN)' : 'Draw or auto-fit an arch first'} onClick={() => {
               const t = newTrace(traces, 'nerve');
               setTraces((ts) => [...ts, t]);
               setActiveTraceId(t.id);
             }}>
-              + nerve
+              Add nerve
             </button>
-            <button style={chip(false)} disabled={!curve} title="start a new root-canal trace" onClick={() => {
+            <button type="button" className="ctl" disabled={!curve} title={curve ? 'Start a new root-canal trace' : 'Draw or auto-fit an arch first'} onClick={() => {
               const t = newTrace(traces, 'root');
               setTraces((ts) => [...ts, t]);
               setActiveTraceId(t.id);
             }}>
-              + root canal
+              Add root canal
             </button>
             <button
-              style={chip(!!activeTrace)}
+              type="button"
+              className="ctl"
               disabled={!activeTrace}
-              title={activeTrace ? 'stop adding points to this trace' : 'no active trace: start one with + nerve or + root canal'}
+              title={activeTrace ? 'Stop adding points to this trace' : 'No active trace: start one with Add nerve or Add root canal'}
               onClick={() => setActiveTraceId(null)}
             >
-              done tracing
+              Done tracing
             </button>
           </div>
           {traces.length === 0 && (
-            <div style={{ ...small, whiteSpace: 'normal' }}>
-              trace the mandibular canal or a root canal: + nerve, then click along it on the pano;
+            <div className="mode-note">
+              Trace the mandibular canal or a root canal: Add nerve, then click along it on the pano;
               refine the exact position by clicking on the cross-sections. It shows on every surface.
             </div>
           )}
           {traces.map((t) => (
-            <div key={t.id} style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '2px 0' }}>
+            <div key={t.id} style={{ display: 'flex', gap: 'var(--sp-1)', alignItems: 'center', padding: '2px 0', fontVariantNumeric: 'tabular-nums' }}>
               <span style={{ width: 10, height: 10, borderRadius: 5, background: t.color, flexShrink: 0 }} />
               <button
+                type="button"
+                className="ctl"
+                aria-pressed={activeTraceId === t.id}
                 onClick={() => setActiveTraceId((cur) => (cur === t.id ? null : t.id))}
-                title={activeTraceId === t.id ? 'tracing: click the pano or the sections to add points; click here to stop' : 'resume adding points to this trace'}
-                style={{ ...chip(activeTraceId === t.id), flex: 1, textAlign: 'left' }}
+                title={activeTraceId === t.id ? 'Tracing: click the pano or the sections to add points; click here to stop' : 'Resume adding points to this trace'}
+                style={{ flex: 1, justifyContent: 'flex-start' }}
               >
-                {t.name} · {t.points.length} pts{activeTraceId === t.id ? ' · tracing…' : ''}
+                {t.name.charAt(0).toUpperCase() + t.name.slice(1)}, {t.points.length} points{activeTraceId === t.id ? ', tracing' : ''}
               </button>
               <button
-                style={chip(false)}
-                title={t.visible ? 'hide this trace on all surfaces' : 'show this trace'}
+                type="button"
+                className="ctl"
+                title={t.visible ? 'Hide this trace on all surfaces' : 'Show this trace'}
                 onClick={() => setTraces((ts) => ts.map((x) => (x.id === t.id ? { ...x, visible: !x.visible } : x)))}
               >
-                {t.visible ? '👁' : 'off'}
+                {t.visible ? <Eye size={14} strokeWidth={2} aria-hidden /> : <EyeOff size={14} strokeWidth={2} aria-hidden />}
+                {t.visible ? 'Shown' : 'Hidden'}
               </button>
               <button
-                style={chip(false)}
-                title="delete this trace"
+                type="button"
+                className="ctl"
+                title="Delete this trace"
                 onClick={() => {
                   setTraces((ts) => ts.filter((x) => x.id !== t.id));
                   if (activeTraceId === t.id) setActiveTraceId(null);
                 }}
               >
-                ✕
+                <Trash2 size={14} strokeWidth={2} aria-hidden />
+                Delete
               </button>
             </div>
           ))}
           {activeTrace && (
-            <div style={{ ...small, whiteSpace: 'normal', marginTop: 2 }}>
-              click along the canal on the PANO (adds points) · click a CROSS-SECTION to set the
-              exact buccolingual position there · right-click a point on the pano = delete it
+            <div className="mode-note" style={{ marginTop: 2 }}>
+              Click along the canal on the pano to add points. Click a cross-section to set the exact buccolingual position
+              there. Right-click a point on the pano to delete it.
             </div>
           )}
         </div>
@@ -1694,7 +1694,7 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
       {/* draggable divider: axial column ↔ pano/sections column */}
       <DragDivider
         cursor="col-resize"
-        title="drag to resize the axial pane vs the pano side · double-click resets"
+        title="Drag to resize the axial pane against the pano side. Double-click resets."
         style={{ borderRadius: 3, alignSelf: 'stretch' }}
         onMove={(clientX) => {
           const r = gridRef.current?.getBoundingClientRect();
@@ -1732,8 +1732,8 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
         <VertRangeSliders zFrac={zFrac} setZFrac={setZFrac} />
         </div>
         <div style={sliderRow}>
-          <label style={{ ...small, flex: 2, display: 'flex', gap: 6, alignItems: 'center' }}>
-            section position along arch {curve ? `${sPos.toFixed(0)}/${curve.length.toFixed(0)} mm` : 'none yet'}
+          <label className="mode-label" style={{ flex: 2 }}>
+            Section position along arch {curve ? `${sPos.toFixed(0)}/${curve.length.toFixed(0)} mm` : 'none yet'}
             <input
               type="range"
               min={0}
@@ -1741,14 +1741,14 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
               step={0.5}
               value={Math.min(sPos, curve?.length ?? 1)}
               disabled={!curve}
-              title={curve ? 'double-click = mid-arch' : 'draw or auto-fit an arch first'}
+              title={curve ? 'Double-click: mid-arch' : 'Draw or auto-fit an arch first'}
               onChange={(e) => setSPos(Number(e.target.value))}
               onDoubleClick={() => curve && setSPos(curve.length / 2)}
-              style={{ flex: 1 }}
+              style={{ flex: 1, minWidth: 0 }}
             />
           </label>
-          <label style={{ ...small, flex: 1, display: 'flex', gap: 6, alignItems: 'center' }}>
-            slab {panoSlab} mm
+          <label className="mode-label" style={{ flex: 1 }}>
+            Slab {panoSlab} mm
             <input
               type="range"
               min={2}
@@ -1757,22 +1757,29 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
               value={panoSlab}
               onChange={(e) => setPanoSlab(Number(e.target.value))}
               onDoubleClick={() => setPanoSlab(15)}
-              style={{ flex: 1 }}
+              style={{ flex: 1, minWidth: 0 }}
             />
           </label>
-          <label style={{ ...small, display: 'flex', gap: 4, alignItems: 'center' }} title="brightest voxel across the slab (off = average)">
+          <label className="mode-check" title="Brightest voxel across the slab (off: average)">
             <input type="checkbox" checked={mip} onChange={(e) => setMip(e.target.checked)} /> MIP
           </label>
         </div>
         <div style={sliderRow}>
-          <span style={small}>layers</span>
+          <span style={small}>Layers</span>
           {[1, 3, 5].map((n) => (
-            <button key={n} style={chip(nLayers === n)} title={n === 1 ? 'single pano layer' : `${n} parallel layers: flip through the focal trough`} onClick={() => setNLayers(n)}>
+            <button
+              key={n}
+              type="button"
+              className="ctl"
+              aria-pressed={nLayers === n}
+              title={n === 1 ? 'Single pano layer' : `${n} parallel layers: flip through the focal trough`}
+              onClick={() => setNLayers(n)}
+            >
               {n}
             </button>
           ))}
-          <label style={{ ...small, flex: 1, display: 'flex', gap: 6, alignItems: 'center' }}>
-            layer spacing {layerSpacing.toFixed(1)} mm
+          <label className="mode-label" style={{ flex: 1 }}>
+            Layer spacing {layerSpacing.toFixed(1)} mm
             <input
               type="range"
               min={0.5}
@@ -1780,14 +1787,14 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
               step={0.5}
               value={layerSpacing}
               disabled={nLayers === 1}
-              title={nLayers === 1 ? 'single-layer pano: pick 3 or 5 layers to space them' : 'double-click = 2 mm'}
+              title={nLayers === 1 ? 'Single-layer pano: pick 3 or 5 layers to space them' : 'Double-click: 2 mm'}
               onChange={(e) => setLayerSpacing(Number(e.target.value))}
               onDoubleClick={() => setLayerSpacing(2)}
-              style={{ flex: 1 }}
+              style={{ flex: 1, minWidth: 0 }}
             />
           </label>
-          <label style={{ ...small, flex: 1, display: 'flex', gap: 6, alignItems: 'center' }} title="slide the whole sampling layer buccal/lingual without redrawing the arch. Double-click to reset.">
-            radius shift {radiusShift > 0 ? '+' : ''}{radiusShift.toFixed(1)} mm
+          <label className="mode-label" style={{ flex: 1 }} title="Slide the whole sampling layer buccal/lingual without redrawing the arch. Double-click to reset.">
+            Radius shift {radiusShift > 0 ? '+' : ''}{radiusShift.toFixed(1)} mm
             <input
               type="range"
               min={-8}
@@ -1797,34 +1804,39 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
               disabled={!curve}
               onChange={(e) => setRadiusShift(Number(e.target.value))}
               onDoubleClick={() => setRadiusShift(0)}
-              style={{ flex: 1 }}
+              style={{ flex: 1, minWidth: 0 }}
             />
           </label>
           <button
-            style={chip(!!focusOffsets)}
+            type="button"
+            className="ctl"
+            aria-pressed={!!focusOffsets}
             disabled={!curve}
-            title="auto-focus: the layer bends buccal/lingual to follow the sharpest anatomy (teeth). Click again to go back to the flat drawn layer."
+            title={curve ? 'Auto focus: the layer bends buccal/lingual to follow the sharpest anatomy (teeth). Click again to go back to the flat drawn layer.' : 'Draw or auto-fit an arch first'}
             onClick={runAutoFocus}
           >
-            auto-focus
+            Auto focus
           </button>
           <button
-            style={chip(!!panoVoi)}
+            type="button"
+            className="ctl"
+            aria-pressed={!!panoVoi}
             disabled={!panoLayers.length}
-            title="one-click pano look: contrast window from the pano's own pixels + light sharpening. Click again to undo."
+            title={panoLayers.length ? "One-click pano look: contrast window from the pano's own pixels and light sharpening. Click again to undo." : 'Draw or auto-fit an arch first'}
             onClick={runAutoAdjust}
           >
-            auto-adjust
+            Auto adjust
           </button>
         </div>
         <div style={sliderRow}>
-          <span style={small} title="the vertical crop moved to the handles on the pano's right edge (pano-style)">
-            vertical range {Math.round(zFrac[0] * 100)}–{Math.round(zFrac[1] * 100)}% (handles right of the pano)
+          <span style={small} title="The vertical crop is on the handles at the pano's right edge">
+            Vertical range {Math.round(zFrac[0] * 100)} to {Math.round(zFrac[1] * 100)}% (handles right of the pano)
           </span>
           <button
-            style={chip(false)}
+            type="button"
+            className="ctl"
             disabled={!entry}
-            title="reset the reading position: sections to mid-arch, tilt upright, full vertical range, radius shift 0 (arch, slab, and pane layout untouched)"
+            title="Reset the reading position: sections to mid-arch, tilt upright, full vertical range, radius shift 0 (arch, slab, and pane layout untouched)"
             onClick={() => {
               if (curve) setSPos(curve.length / 2);
               setSectionTilt(0);
@@ -1832,23 +1844,26 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
               setRadiusShift(0);
             }}
           >
-            reset position
+            Reset position
           </button>
           <button
-            style={{ ...chip(measureMode), display: 'inline-flex', alignItems: 'center', gap: 5 }}
-            title="measure on the pano / cross-sections: drag a line, true mm. Right-click a line to delete it."
+            type="button"
+            className="ctl"
+            aria-pressed={measureMode}
+            title="Measure on the pano or the cross-sections: drag a line, true mm. Right-click a line to delete it."
             onClick={() => setMeasureMode((v) => !v)}
           >
-            <Ruler size={13} strokeWidth={2} />
-            measure
+            <Ruler size={14} strokeWidth={2} aria-hidden />
+            Measure
           </button>
           <button
-            style={chip(false)}
+            type="button"
+            className="ctl"
             disabled={!measures.length}
-            title="delete every pano/section measurement on this volume"
+            title={measures.length ? 'Delete every pano and section measurement on this volume' : 'No measurement to clear yet'}
             onClick={() => setMeasures([])}
           >
-            clear ({measures.length})
+            Clear ({measures.length})
           </button>
         </div>
         {/* draggable divider: pano ↔ cross-sections. The pointer sits on the divider; the
@@ -1856,7 +1871,7 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
             comes from how far the pointer moved the divider (self-correcting per event). */}
         <DragDivider
           cursor="row-resize"
-          title="drag to resize the pano vs the cross-sections · double-click resets"
+          title="Drag to resize the pano against the cross-sections. Double-click resets."
           style={{ height: 6, borderRadius: 3 }}
           onMove={(_x, clientY) => {
             const p = panoAreaRef.current?.getBoundingClientRect();
@@ -1912,11 +1927,11 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: 'var(--text-dim)',
-                fontSize: 12,
+                fontSize: 'var(--fs-meta)',
                 pointerEvents: 'none',
               }}
             >
-              perpendicular cross-sections appear here after you draw the arch
+              Perpendicular cross-sections appear here after you draw the arch
             </div>
           )}
           {rotChip && (
@@ -1925,11 +1940,12 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
                 position: 'absolute',
                 top: 6,
                 right: 8,
-                fontSize: 12,
+                fontSize: 'var(--fs-meta)',
+                fontVariantNumeric: 'tabular-nums',
                 color: 'var(--text)',
                 background: 'var(--panel-2)',
                 border: '1px solid var(--border)',
-                borderRadius: 6,
+                borderRadius: 'var(--ctl-radius)',
                 padding: '2px 8px',
                 pointerEvents: 'none',
               }}
@@ -1939,8 +1955,8 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
           )}
         </div>
         <div style={sliderRow}>
-          <label style={{ ...small, display: 'flex', gap: 6, alignItems: 'center' }} title="odd counts only, so one section stays exactly on the position line">
-            sections {nSections}
+          <label className="mode-label" title="Odd counts only, so one section stays exactly on the position line">
+            Sections {nSections}
             <input
               type="range"
               min={1}
@@ -1952,25 +1968,26 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
               style={{ width: 70 }}
             />
           </label>
-          <span style={small} title="right-drag on any section rotates the whole fan in-plane (MPR gesture)">
-            tilt {sectionTilt >= 0 ? '+' : ''}{sectionTilt.toFixed(0)}°
+          <span style={small} title="Right-drag on any section rotates the whole fan in-plane (MPR gesture)">
+            Tilt {sectionTilt >= 0 ? '+' : ''}{sectionTilt.toFixed(0)}°
           </span>
           <button
-            style={chip(false)}
+            type="button"
+            className="ctl"
             disabled={Math.abs(sectionTilt) <= 0.01}
             title={
               Math.abs(sectionTilt) > 0.01
-                ? 'back upright (0°): the axial line, canal crossings and measuring return'
-                : 'already upright: right-drag a section to tilt the fan'
+                ? 'Back upright (0°): the axial line, canal crossings and measuring return'
+                : 'Already upright: right-drag a section to tilt the fan'
             }
             onClick={() => setSectionTilt(0)}
           >
-            upright
+            Upright
           </button>
-          {/* canonical section-row order (unified 2026-08-05): count → tilt → spacing →
-              width → thickness → trailing toggle. Same anatomy in TMJ and Reslice. */}
-          <label style={{ ...small, flex: 1, display: 'flex', gap: 6, alignItems: 'center' }}>
-            spacing {sectionSpacing} mm
+          {/* canonical section-row order (unified 2026-08-05): count, tilt, spacing,
+              width, thickness, trailing toggle. Same anatomy in TMJ and Reslice. */}
+          <label className="mode-label" style={{ flex: 1 }}>
+            Spacing {sectionSpacing} mm
             <input
               type="range"
               min={1}
@@ -1979,11 +1996,11 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
               value={sectionSpacing}
               onChange={(e) => setSectionSpacing(Number(e.target.value))}
               onDoubleClick={() => setSectionSpacing(3)}
-              style={{ flex: 1 }}
+              style={{ flex: 1, minWidth: 0 }}
             />
           </label>
-          <label style={{ ...small, flex: 1, display: 'flex', gap: 6, alignItems: 'center' }}>
-            width {sectionWidth} mm
+          <label className="mode-label" style={{ flex: 1 }}>
+            Width {sectionWidth} mm
             <input
               type="range"
               min={10}
@@ -1992,11 +2009,11 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
               value={sectionWidth}
               onChange={(e) => setSectionWidth(Number(e.target.value))}
               onDoubleClick={() => setSectionWidth(24)}
-              style={{ flex: 1 }}
+              style={{ flex: 1, minWidth: 0 }}
             />
           </label>
-          <label style={{ ...small, flex: 1, display: 'flex', gap: 6, alignItems: 'center' }} title="average this many mm ALONG the arch into each section, for a thicker, quieter cut">
-            thickness {sectionThickness.toFixed(1)} mm
+          <label className="mode-label" style={{ flex: 1 }} title="Average this many mm along the arch into each section, for a thicker, quieter cut">
+            Thickness {sectionThickness.toFixed(1)} mm
             <input
               type="range"
               min={0}
@@ -2005,11 +2022,11 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
               value={sectionThickness}
               onChange={(e) => setSectionThickness(Number(e.target.value))}
               onDoubleClick={() => setSectionThickness(0.5)}
-              style={{ flex: 1 }}
+              style={{ flex: 1, minWidth: 0 }}
             />
           </label>
-          <label style={{ ...small, display: 'flex', gap: 4, alignItems: 'center' }} title="flip which side of the arch faces left in every section (view from the other side)">
-            <input type="checkbox" checked={mirror} onChange={(e) => setMirror(e.target.checked)} /> mirror
+          <label className="mode-check" title="Flip which side of the arch faces left in every section (view from the other side)">
+            <input type="checkbox" checked={mirror} onChange={(e) => setMirror(e.target.checked)} /> Mirror
           </label>
         </div>
       </div>
@@ -2025,9 +2042,10 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
             background: 'rgba(12,14,18,0.82)',
             zIndex: 5,
             color: 'var(--text-dim)',
+            fontVariantNumeric: 'tabular-nums',
           }}
         >
-          loading volume… {Math.round((progress ?? 0) * 100)}%
+          Loading volume… {Math.round((progress ?? 0) * 100)}%
         </div>
       )}
     </div>
