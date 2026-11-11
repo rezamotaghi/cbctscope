@@ -94,7 +94,7 @@ const verb = async (v, a = {}) => {
 
 await launch();
 const p = await page();
-const header = () => p.evaluate("document.querySelector('header') ? document.querySelector('header').innerText : ''");
+const header = () => p.evaluate("['header', '[data-testid=status-line]'].map((s) => document.querySelector(s)?.innerText ?? '').join(' ')");
 // --reload: start from a fresh page load (after a server restart the attached page is stale);
 // params.label: the volume label to wait for in the header, else any loaded image (µm in the image line)
 if (args.includes('--reload')) await p.send('Page.navigate', { url: URL_ });
@@ -110,10 +110,10 @@ const setZ = async (m, z, extra) => { const key = KEYS[m] + P.anon; await p.eval
 const PLANS = {
   async header() {
     // callouts numbered as in docs/manual/03-interface.md, on the header's children in DOM order
-    const groups = [[0, 1], [2], [3], [4, 5, 6], [7], [8], [9], [13], [14], [10], [12]];
+    const groups = [[0], [1], [2], [3], [4], [5], [7]];
     // a fresh load: the still shows the first-run state (phantom named, hint on the image line)
     await p.send('Page.navigate', { url: URL_ });
-    for (let i = 0; i < 120; i++) { if (/Synthetic phantom/.test(await header())) break; await sleep(500); }
+    for (let i = 0; i < 120; i++) { if (/no patient data/.test(await header())) break; await sleep(500); }
     await sleep(3000); await mode('mpr');
     await p.evaluate(`(() => { const c = Array.from(document.querySelector('header').children); document.querySelectorAll('.doc-callout').forEach(e => e.remove()); ${JSON.stringify(groups)}.forEach((idxs, n) => { const rs = idxs.map(i => c[i].getBoundingClientRect()); const left = Math.max(2, Math.min(...rs.map(r => r.left)) - 10), top = Math.max(2, Math.min(...rs.map(r => r.top)) - 10); const el = document.createElement('div'); el.className = 'doc-callout'; el.textContent = String(n + 1); Object.assign(el.style, { position: 'fixed', left: left + 'px', top: top + 'px', width: '18px', height: '18px', borderRadius: '50%', background: '#e0b341', color: '#000', font: 'bold 11px/18px system-ui, sans-serif', textAlign: 'center', zIndex: 9999, boxShadow: '0 0 0 1.5px #000' }); document.body.appendChild(el); }); return document.querySelector('header').getBoundingClientRect().height; })()`);
     const h = await p.evaluate("document.querySelector('header').getBoundingClientRect().height");

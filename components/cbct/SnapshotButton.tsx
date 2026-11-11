@@ -1,11 +1,10 @@
 'use client';
-// ONE snapshot door for every room: the same button, the same icon, the same
+// ONE snapshot door for every room: the same button, the same
 // "what this room shows right now → one PNG" contract, living in the shell header so it
 // sits in the same place no matter which mode is open. Rooms with a richer bespoke
 // composer keep their behavior behind this shared face; rooms without one use the
 // generic canvas compositor below.
 import React from 'react';
-import { Camera } from 'lucide-react';
 
 /** The active room registers its composer here; the ONE header snapshot button calls it. */
 export type SnapRef = React.MutableRefObject<(() => void) | null>;
@@ -13,37 +12,21 @@ export type SnapRef = React.MutableRefObject<(() => void) | null>;
 export default function SnapshotButton({
   onClick,
   title,
-  label = 'snapshot',
+  label = 'Snapshot',
   disabled = false,
-  floating = false,
 }: {
   onClick: () => void;
   title?: string;
   label?: string;
   disabled?: boolean;
-  /** translucent-dark toolbar look instead of the chip look */
-  floating?: boolean;
 }) {
   return (
     <button
+      className="ctl"
       onClick={onClick}
       disabled={disabled}
       title={title ?? 'snapshot: save what this room shows (as laid out on screen) as a PNG image'}
-      style={{
-        padding: floating ? '0 10px' : '4px 10px',
-        height: floating ? 24 : undefined,
-        borderRadius: floating ? 5 : 6,
-        border: '1px solid var(--border)',
-        background: floating ? 'rgba(27,31,39,0.9)' : 'var(--panel-2)',
-        color: 'var(--text)',
-        fontSize: floating ? 11 : 12,
-        cursor: 'pointer',
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 5,
-      }}
     >
-      <Camera size={13} strokeWidth={2} />
       {label}
     </button>
   );

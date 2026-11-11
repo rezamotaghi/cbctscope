@@ -42,10 +42,13 @@ CBCTScope opens two classes of image:
 
 ## The demo phantom
 
-A synthetic phantom is built into the program: jaws, dental arches, teeth with
+A geometric test phantom is built into the program: jaws, dental arches, teeth with
 enamel and pulp, a metal crown, airway, sinuses, and TMJ condyles, all
 procedurally generated. It loads the moment the viewer starts, so every part
-of this manual can be tried with zero patient data; the header names it and,
-until you open an export of your own, says where **open** and **help** are.
+of this manual can be tried with zero patient data. The volume list names it
+**Geometric test phantom**: simple shapes for trying the controls, not a jaw.
+Until you open an export of your own, the status line at the bottom says that
+your scan is read on your machine and never uploaded, and links to stills of a
+real, consented scan.
 When the program is started in demo mode it additionally never remembers a
 previously opened scan (section 2.4).

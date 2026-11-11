@@ -30,7 +30,7 @@ for research, education, and methodological work such as multi-reader studies.
 ## How to read this manual
 
 - **Bold** text names an element you can see in the interface, such as the
-  **open** button.
+  **Open** button.
 - `Code` text is something you type, or a key you press, such as `npm run demo`
   or `R`.
 - A blockquote marked **Note** adds context; one marked **Caution** prevents a

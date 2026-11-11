@@ -21,10 +21,13 @@ test('the posture line is in the header', async ({ page }) => {
   await expect(page.getByText('Research use only. Not a medical device.')).toBeVisible();
 });
 
-test('the header links the desktop app as a download', async ({ page }) => {
+test('the header ends with the desktop app download, pointing at the latest release', async ({ page }) => {
   const link = page.locator('header').getByRole('link', { name: 'Download the desktop app', exact: true });
   await expect(link).toBeVisible();
-  await expect(link).toHaveAttribute('href', 'https://github.com/rezamotaghi/cbctscope/releases');
+  await expect(link).toHaveAttribute('href', 'https://github.com/rezamotaghi/cbctscope/releases/latest');
+  // the last control of the header row
+  const last = await page.locator('header a, header button, header select').last().getAttribute('aria-label');
+  expect(last).toBe('Download the desktop app');
 });
 
 test('an unknown address shows the site-styled page with one title and a link back to the viewer', async ({ page }) => {
@@ -65,8 +68,8 @@ test('Cmd, Ctrl and Alt chords reach the browser and change no tool, overlay or 
   const selected = await bg(crosshairs);
   const unselected = await bg(pan);
   expect(selected).not.toBe(unselected);
-  const planeLines = rail.getByRole('checkbox', { name: /plane lines/ });
-  const overlays = rail.getByRole('checkbox', { name: /show overlays/ });
+  const planeLines = rail.getByRole('checkbox', { name: /Plane lines/ });
+  const overlays = rail.getByRole('checkbox', { name: /Show overlays/ });
   await expect(planeLines).toBeChecked();
   await expect(overlays).toBeChecked();
   await page.locator('main canvas').first().hover();
@@ -195,7 +198,7 @@ test.describe('opening files', () => {
 
   /** the opened volume is current: the select points at a local_ id whose option names `geom` */
   async function expectCurrentLocal(page: Page, folder: string, geom: string) {
-    const option = volumeSelect(page).locator('optgroup[label^="opened"] option');
+    const option = volumeSelect(page).locator('optgroup[label^="Opened"] option');
     await expect(option).toHaveCount(1, { timeout: 30_000 });
     await expect(option).toContainText(folder);
     await expect(option).toContainText(geom);
@@ -208,7 +211,7 @@ test.describe('opening files', () => {
   test('the privacy sentences name the target they run on: this tab on the website, this computer in the desktop app', async ({ page, browser, baseURL }) => {
     // the website: the open menu prepares for the browser's "upload" wording, the dialogue says tab
     await waitForVolume(page);
-    await page.locator('header').getByRole('button', { name: /open/ }).click();
+    await page.locator('header').getByRole('button', { name: 'Open', exact: true }).click();
     await expect(page.getByText("Your browser may say 'upload': that is its word for letting this page read the files. They stay in this tab.")).toBeVisible();
     await page.keyboard.press('Escape');
     await openFolder(page, 'series');
@@ -224,9 +227,9 @@ test.describe('opening files', () => {
     const appProblems = guardPage(app, new URL(baseURL as string).origin);
     await app.goto('/');
     await waitForVolume(app);
-    await app.locator('header').getByRole('button', { name: /open/ }).click();
+    await app.locator('header').getByRole('button', { name: 'Open', exact: true }).click();
     await expect(app.getByText("The Open sheet may say 'Upload': that is its word for letting this app read the files. They stay on this computer.")).toBeVisible();
-    await app.locator('header').getByRole('button', { name: /open/ }).click();
+    await app.locator('header').getByRole('button', { name: 'Open', exact: true }).click();
     await openFolder(app, 'series');
     const desk = researchDialog(app);
     await expect(desk).toBeVisible({ timeout: 30_000 });
@@ -344,7 +347,7 @@ test.describe('opening files', () => {
     await page.waitForTimeout(1500);
 
     // Save marks to file: capture the download
-    await page.locator('header').getByRole('button', { name: /series ▾/ }).click();
+    await page.locator('header').getByRole('button', { name: 'Open', exact: true }).click();
     const [download] = await Promise.all([
       page.waitForEvent('download'),
       page.getByRole('button', { name: /Save marks to file/ }).click(),
@@ -385,7 +388,7 @@ test.describe('opening files', () => {
 
     // Load marks from file: the mark is back, exactly once (the remount leaves Cornerstone's
     // annotation state clean: the objects panel lists what that state holds)
-    await page.locator('header').getByRole('button', { name: /series ▾/ }).click();
+    await page.locator('header').getByRole('button', { name: 'Open', exact: true }).click();
     const [chooser] = await Promise.all([
       page.waitForEvent('filechooser'),
       page.getByRole('button', { name: /Load marks from file/ }).click(),
@@ -435,14 +438,14 @@ test.describe('the manual', () => {
     await waitForVolume(page);
     const tabProblems: string[] = [];
     context.on('page', (p) => tabProblems.push(...guardPage(p, new URL(baseURL as string).origin)));
-    await page.getByRole('button', { name: /help ▾/ }).click();
-    const [tab] = await Promise.all([context.waitForEvent('page'), page.getByRole('link', { name: '📘 User manual' }).click()]);
+    await page.getByRole('button', { name: 'Help', exact: true }).click();
+    const [tab] = await Promise.all([context.waitForEvent('page'), page.getByRole('menuitem', { name: 'User manual', exact: true }).click()]);
     await tab.waitForLoadState();
     expect(new URL(tab.url()).pathname).toBe('/manual/index.html');
     await expect(tab.getByRole('heading', { level: 1, name: 'CBCTScope User Manual' })).toBeVisible();
     // the guide entry points at this mode's guide page
-    await page.getByRole('button', { name: /help ▾/ }).click();
-    await expect(page.getByRole('link', { name: /reading guide$/ })).toHaveAttribute('href', 'manual/mpr.html');
+    await page.getByRole('button', { name: 'Help', exact: true }).click();
+    await expect(page.getByRole('menuitem', { name: /reading guide$/ })).toHaveAttribute('href', 'manual/mpr.html');
     expect(tabProblems).toEqual([]);
   });
 });
@@ -460,8 +463,8 @@ test.describe('the manual, drawer and phone', () => {
     const tabProblems = guardPage(page, new URL(baseURL as string).origin);
     await page.goto('/');
     await waitForVolume(page);
-    await page.getByRole('button', { name: /help ▾/ }).click();
-    await page.getByRole('button', { name: '📘 User manual' }).click();
+    await page.getByRole('button', { name: 'Help', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'User manual', exact: true }).click();
     const drawer = page.getByTestId('manual-drawer');
     await expect(drawer).toBeVisible();
     // the iframe loads a page with stills; under the full suite's load it can take more than 5 s

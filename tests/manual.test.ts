@@ -74,12 +74,30 @@ describe('user manual tracks the app (docs/manual/)', () => {
     }
   });
 
-  it('the interface chapter documents the help menu, names the phantom, and carries the header still', () => {
+  it('the interface chapter documents every header control and the status line, names the phantom, and carries the header still', () => {
     const chapter = read('docs/manual/03-interface.md');
-    expect(appSrc, 'the header help menu was removed or renamed').toContain('help ▾');
-    expect(chapter, '03-interface.md must document the help menu').toContain('**help ▾**');
-    expect(appSrc, 'the phantom label was removed or renamed').toContain("'Synthetic phantom'");
-    expect(chapter, '03-interface.md must name the phantom as the header does').toContain('**Synthetic phantom**');
+    // the header's controls, in their order, as the reader sees them
+    const header = appSrc.slice(appSrc.indexOf('<header'), appSrc.indexOf('</header>'));
+    for (const label of ['Open', 'Keys', 'Help']) {
+      expect(header, `the header control "${label}" was removed or renamed`).toMatch(new RegExp(`>\\s*${label}\\s*<`));
+      expect(chapter, `03-interface.md must document the header control "${label}"`).toContain(`**${label}**`);
+    }
+    expect(read('components/cbct/ExportMenu.tsx')).toMatch(/>\s*Export\s*</);
+    expect(chapter, '03-interface.md must document Export').toContain('**Export**');
+    expect(read('components/cbct/SnapshotButton.tsx')).toContain("label = 'Snapshot'");
+    expect(chapter, '03-interface.md must document Snapshot').toContain('**Snapshot**');
+    expect(read('components/cbct/agent/AgentPanel.tsx')).toContain("'Agent on' : 'Agent'");
+    expect(chapter, '03-interface.md must document the Agent button').toContain('**Agent**');
+    for (const line of ['CBCT and radiograph viewer', 'See CBCTScope on a real scan', 'never uploaded']) {
+      expect(appSrc, `"${line}" was removed or renamed`).toContain(line);
+      expect(chapter, `03-interface.md must quote "${line}"`).toContain(line);
+    }
+    // the phantom has one name, the same in the catalog and the viewer
+    expect(appSrc, 'the phantom label was removed or renamed').toContain("PHANTOM_NAME = 'Geometric test phantom'");
+    expect(read('lib/shared/phantom.ts'), 'the catalog names the phantom as the viewer does').toContain(
+      "PHANTOM_LABEL = 'Geometric test phantom'",
+    );
+    expect(chapter, '03-interface.md must name the phantom as the header does').toContain('**Geometric test phantom**');
     expect(chapter, '03-interface.md must embed the header still').toContain('../media/manual/header.webp');
     expect(existsSync(path.join(root, 'docs/media/manual/header.webp')), 'header still').toBe(true);
   });
@@ -140,7 +158,10 @@ describe('user manual tracks the app (docs/manual/)', () => {
       [scan, 'No DICOM volume found in', 'docs/manual/04-opening-scans.md'],
       [appSrc, 'Save marks to file', 'docs/manual/07-exporting.md'],
       [appSrc, 'Load marks from file', 'docs/manual/07-exporting.md'],
-      [appSrc, 'Research use only. Not a medical device.', 'docs/manual/02-installation.md'],
+      [appSrc, 'Research use only.', 'docs/manual/02-installation.md'],
+      [appSrc, 'Not a medical device.', 'docs/manual/02-installation.md'],
+      [appSrc, 'Source code repository', 'docs/manual/03-interface.md'],
+      [read('components/links.ts'), '/releases/latest', 'docs/manual/02-installation.md'],
       [dialogs, 'Research use only', 'docs/manual/04-opening-scans.md'],
       [dialogs, 'I understand', 'docs/manual/04-opening-scans.md'],
       [dialogs, 'Large volume', 'docs/manual/04-opening-scans.md'],

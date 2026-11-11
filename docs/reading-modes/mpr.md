@@ -97,7 +97,7 @@ its sampling and sharpens again on idle. Perspective projection is a separate to
 section planes and a bounding box inside the render.
 
 **Crop 3D.** Per-axis keep ranges (R to L, A to P, I to S) that crop the render only; the
-slices are unaffected. "Un-crop + clear cuts" restores the full volume.
+slices are unaffected. "Un-crop and clear cuts" restores the full volume.
 
 **Cutaway.** Right-drag on the 3D pane opens a cut plane facing the camera; dragging up
 pushes it deeper, down backs it out. Later right-drags resume the same cut from its
@@ -108,10 +108,11 @@ then does a new drag open a fresh plane facing wherever the camera is now.
 (radius 1 to 12 mm) that erases what you touch on the render. It edits a 3D-only copy of
 the voxels; the slice panes never change. Undo, redo, and revert are on the same toolbar.
 
-**My 3D presets.** Save the current render settings under a name; the star marks one as
-the default applied on app start.
+**My 3D presets.** Save the current render settings under a name; **Default** beside a
+saved preset marks it as the one applied on app start (solid blue while it is), and
+**Delete** removes it.
 
-**Snapshot and views.** "snapshot" (header) saves the visible layout (annotations
+**Snapshot and views.** **Snapshot** (header) saves the visible layout (annotations
 included) as a PNG. "save view (V)" stores all four cameras plus window and render
 settings under a name; the objects panel restores it in one click. Annotations, saved
 views, and 3D ROIs persist per volume in the evidence sidecar and return when the volume
@@ -119,7 +120,8 @@ is reopened.
 
 ## A reading workflow
 
-1. Open the scan and confirm the volume label, field of view, and voxel size in the header.
+1. Open the scan and confirm the volume label in the header's volume list, and the field of
+   view and voxel size in the status line at the bottom.
 2. Press R to start from orthogonal planes, then set the window: Bone or Teeth for the
    skeletal read, Soft for the soft tissues, Auto to return to the volume's own window.
 3. Scroll each pane through its full extent once before concentrating on any one finding,

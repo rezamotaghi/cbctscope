@@ -33,7 +33,7 @@ the objects panel. `Del` (or `Backspace`) deletes the selection.
 ## 6.3 The objects panel
 
 The panel lists every annotation and measurement on the current volume with
-its values, alongside the saved views (section 3.4). Rows select, restore, and
+its values, alongside the saved views (section 3.5). Rows select, restore, and
 delete in one click.
 
 ## 6.4 Persistence

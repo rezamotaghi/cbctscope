@@ -18,6 +18,10 @@
   Safari). The 3D render and all reformats are computed on this machine, so a
   recent computer with a working graphics driver is assumed; large volumes
   read more comfortably with more memory.
+- **A screen at least 1024 px wide.** The header holds every control on one
+  row from about 1410 px and wraps onto a second row below that. Below 768 px
+  (a phone) a notice says that CBCTScope reads scans in a desktop browser and
+  that there you can look at the built-in phantom; there is no phone layout.
 - **macOS, Windows, or Linux.** The file-open dialog is native on macOS and
   Windows; on Linux it uses the desktop's dialog helper (zenity or kdialog,
   one of which most distributions ship). Section 4.4 gives a one-line
@@ -62,7 +66,7 @@ npm run dev
 ```
 
 for normal mode, or `npm run demo` for demo mode (section 2.4). Then open
-**http://localhost:3810** in your browser. The synthetic phantom loads
+**http://localhost:3810** in your browser. The built-in phantom loads
 immediately.
 
 To stop the viewer, press `Ctrl-C` in its window or close the window. The
@@ -86,7 +90,7 @@ start, which is the convenient behavior for daily reading.
 
 Both commands behave the same on every OS.
 
-On first launch both modes show the synthetic phantom.
+On first launch both modes show the built-in phantom.
 
 ## 2.5 The web build
 
@@ -107,10 +111,13 @@ What differs from the local app:
 - There is no MCP connection in a plain browser (chapter 9); the desktop app
   (section 2.6) adds it. The opt-in in-page navigation agent, on your own
   model account, works in both (section 9.6).
-- The header reads **Research use only. Not a medical device.** at all times,
-  and links to the repository and, as **Download the desktop app**, to the
-  releases page. **help ▾** opens this manual, served by the site itself, in a
-  new tab; in the desktop app it opens the manual drawer instead (section 3.1).
+- The header reads **Research use only. Not a medical device.** at all times.
+  Its last button, **Download the desktop app** (on a narrower window,
+  **Desktop app**), opens the latest release (`/releases/latest` on the
+  project's GitHub page), with the installers. **Help** opens this manual,
+  served by the site itself, in a new tab, and links the source code
+  repository; in the desktop app it opens the manual drawer instead
+  (section 3.1).
 
 To build it yourself: `npm run build:web` writes the site to `out/`. Serve
 that folder with any static file server. The threshold is set at build time
@@ -136,12 +143,12 @@ GitHub releases page:
   unsigned, so on first launch Windows SmartScreen shows **Windows protected
   your PC**: choose **More info**, then **Run anyway** (once).
 
-**First launch.** The window opens on the synthetic phantom, as the web build
-does. **File → Open…** (`Cmd-O` on macOS, `Ctrl-O` on Windows) or the
-**📂 open** menu opens your own export through the system's folder dialog; the
+**First launch.** The window opens on the built-in phantom, as the web build
+does. **Open…** in the File menu (`Cmd-O` on macOS, `Ctrl-O` on Windows) or the
+**Open** menu in the header opens your own export through the system's folder dialog; the
 dialog's button may read **Upload**, which is the browser engine's standard
 wording: the files are read into the app and nothing is sent anywhere. Closing
-the window quits the app. **Help → CBCTScope Help** opens this manual beside
+the window quits the app. **CBCTScope Help** in the app's Help menu opens this manual beside
 the viewer, and **View** holds Actual Size, Zoom In, Zoom Out and full screen.
 
 What differs from the repository starters (section 2.3):

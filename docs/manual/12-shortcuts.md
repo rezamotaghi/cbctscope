@@ -19,8 +19,8 @@ browser or the desktop app's menu, in every mode: Cmd-O opens, Cmd-W closes
 a window and Cmd-C copies. In a browser, Cmd-R reloads the page; the desktop
 app has no reload. The tool and overlay
 keys act only in the MPR room, so a stray keypress in another mode cannot
-change state you cannot see there. The header's "keys" button opens this
-reference in the app. Double-clicking any slider resets it: navigation
+change state you cannot see there. The header's **Keys** button shows the
+keys of the current mode in the app. Double-clicking any slider resets it: navigation
 sliders return to the volume middle, parameter sliders to their defaults,
 and the histogram's cut lines to the automatic window.
 

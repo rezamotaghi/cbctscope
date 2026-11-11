@@ -97,10 +97,10 @@ deleting the folder.
    downloads the viewer's components once (about 130 MB downloaded, 600 MB on
    disk: ten to fifteen seconds on the author's Mac and connection in
    September 2026, longer on a slow one); then your browser opens the viewer by itself. A built-in
-   **synthetic phantom** loads immediately: jaws, dental arches, teeth with
+   **geometric test phantom** loads immediately: jaws, dental arches, teeth with
    enamel and pulp, a metal crown, airway, sinuses, and TMJ condyles, all
    procedurally generated. The full viewer works with zero patient data, and
-   the header says so until you open a scan of your own. **help** in the
+   the status line says so until you open a scan of your own. **Help** in the
    header opens the reading guide for the mode you are in.
 
 To stop the viewer, close the starter's window or press Ctrl-C in it. Next
@@ -150,7 +150,7 @@ first launch both modes show the phantom.
 
 The same viewer also runs as a static web build: no install, no Node.js, just
 a current desktop browser. Each published release deploys it to the project's
-GitHub Pages site. It opens on the synthetic phantom; **open → Open DICOMDIR or DICOM
+GitHub Pages site. It opens on the built-in phantom; **Open**, then **Open DICOMDIR or DICOM
 folder** or **Open a single DICOM file**, or a drop on the viewer, reads your
 own export, with a progress panel until the volume is on screen.
 
@@ -164,7 +164,7 @@ file**). The browser must hold the whole volume in memory, so a large volume
 shows a notice first; the repository viewer holds it in a tab as well and shows no notice. AI-agent control (MCP)
 needs the local app or the desktop app. Build it yourself with `npm run build:web`
 (writes `out/`). The user manual is served by the viewer itself, on the site and in the
-app, from **help ▾**.
+app, from **Help**.
 
 **The in-page agent** is the browser's answer to MCP, and it is off until you
 switch it on. Type a request ("show the left TMJ in sagittal, bone window") in
@@ -184,7 +184,7 @@ setup below works with it unchanged (manual section 2.6).
 
 ## Opening your own scan
 
-Click **open** in the viewer header and pick a CBCT export: a folder of DICOM
+Click **Open** in the viewer header and pick a CBCT export: a folder of DICOM
 slices, a DICOMDIR tree, a single multiframe DICOM file, or one slice of a
 series (the whole series opens). Any export your scanner software produces as
 **uncompressed DICOM** works.
@@ -232,7 +232,7 @@ under identical display settings.
 
 ### Exporting
 
-The volume header has an **export** menu with three client-side formats: a PNG slice
+The volume header has an **Export** menu with three client-side formats: a PNG slice
 stack (a zip of one PNG per slice at the displayed window, plus a geometry `meta.json`),
 a NIfTI volume (`.nii.gz`, HU values, for Slicer, ITK-SNAP, nibabel, MONAI), and an STL
 surface mesh (marching cubes at a chosen HU threshold, honoring the 3D crop box, for
