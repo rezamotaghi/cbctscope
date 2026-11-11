@@ -44,6 +44,7 @@ import {
 } from '@cornerstonejs/tools';
 import { ensureCornerstoneInit } from './cornerstoneInit';
 import { isChord } from './keys';
+import { slicePositions } from './slicePositions';
 import {
   loadVolumeData,
   keepOnly,
@@ -259,12 +260,12 @@ function ensureLocalVolume(anon: string, entry: VolumeEntry): string {
 // asks which slice lies under the camera (getClosestImageId, run by the annotation and
 // crosshair tools on every render) then finds none and logs "No imageId found within the
 // specified criteria" once per call. Write each slice's true position into the same metadata
-// store the library filled (the direction is identity, so slice i sits i spacings up in z).
+// store the library filled (slicePositions.ts: the direction is identity, so slice i sits i
+// spacings up in z).
 function createLocalVolume(volumeId: string, options: ReturnType<typeof buildLocalVolumeOptions>) {
   const volume = volumeLoader.createLocalVolume(volumeId, options);
-  const [ox, oy, oz] = options.origin;
-  const dz = options.spacing[2];
-  for (let i = 0; i < options.dimensions[2]; i++) {
+  const positions = slicePositions(options.origin, options.spacing, options.dimensions[2]);
+  for (let i = 0; i < positions.length; i++) {
     const imageId = `${volumeId}_slice_${i}`;
     const plane = csUtils.genericMetadataProvider.get(Enums.MetadataModules.IMAGE_PLANE, imageId) as
       | Record<string, unknown>
@@ -272,7 +273,7 @@ function createLocalVolume(volumeId: string, options: ReturnType<typeof buildLoc
     if (!plane) continue;
     csUtils.genericMetadataProvider.addRaw(imageId, {
       type: Enums.MetadataModules.IMAGE_PLANE,
-      metadata: { ...plane, imagePositionPatient: [ox, oy, oz + i * dz] },
+      metadata: { ...plane, imagePositionPatient: positions[i] },
     });
   }
   return volume;
