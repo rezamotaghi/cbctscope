@@ -1,5 +1,5 @@
-// The four providers the clinician can choose, as the panel shows them: id, label, default
-// model, whether a key is needed, and the local presets. No adapter and no cloud address lives
+// The four providers the clinician can choose, as the panel lists them: id, label, the model
+// filled in once that provider is chosen, whether a key is needed, and the local presets. No adapter and no cloud address lives
 // here: the adapters, their API bases and the key run inside the sandboxed agent frame
 // (components/cbct/agent/frame/, docs/web-build.md section 2), so the viewer's own page keeps
 // connect-src 'self'. The loopback presets are addresses the clinician sees and may edit; the
@@ -35,11 +35,13 @@ export interface ProviderInfo {
   needsKey: boolean;
 }
 
+// The model server on this computer comes first, and nothing is preselected: the panel opens on
+// "Choose a provider" with an empty model field, which fills only once a provider is chosen.
 export const PROVIDERS: ProviderInfo[] = [
+  { id: 'local', label: 'Model server on this computer', defaultModel: LOCAL_PRESETS[0].model, needsKey: false },
   { id: 'anthropic', label: 'Anthropic', defaultModel: ANTHROPIC_DEFAULT_MODEL, needsKey: true },
   { id: 'openai', label: 'OpenAI', defaultModel: OPENAI_DEFAULT_MODEL, needsKey: true },
   { id: 'gemini', label: 'Google Gemini', defaultModel: GEMINI_DEFAULT_MODEL, needsKey: true },
-  { id: 'local', label: 'Local or custom endpoint', defaultModel: LOCAL_PRESETS[0].model, needsKey: false },
 ];
 
 export function provider(id: ProviderId): ProviderInfo {

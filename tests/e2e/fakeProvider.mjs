@@ -1,5 +1,5 @@
 // A tiny OpenAI-compatible chat-completions server on 127.0.0.1 for tests/e2e/agent.spec.ts:
-// the in-page agent's "Local or custom endpoint" pointed at it. It answers with a scripted
+// the in-page agent's "Model server on this computer" pointed at it. It answers with a scripted
 // conversation, decided from the request alone:
 //   no tool result yet            -> call set_view_mode { mode: 'tmj' }
 //   last result from set_view_mode -> call snapshot

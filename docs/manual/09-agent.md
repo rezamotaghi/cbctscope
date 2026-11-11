@@ -182,7 +182,11 @@ surface stays those fifteen verbs; the agent gets nothing more.
 
 **Off by default.** The agent is off every time the page loads and sends
 nothing to anyone until you switch it on. **Set up the navigation agent**
-asks for the provider, the model id and your API key; **Switch on…** then
+opens with no provider chosen: **Provider** reads **Choose a provider** and the
+model field is empty until you pick one. Choose the provider first, then check
+the model id and give your API key; **Switch on…** before a provider is chosen
+only answers "Choose a provider first", in the panel. Once one is chosen,
+**Switch on…**
 shows a dialogue, **Switch on the navigation agent**, that names the provider
 and states what follows: the agent runs on your own model account; your key
 stays in this tab's memory and is forgotten when the tab closes; every
@@ -193,17 +197,17 @@ button reads **Agent: on**, followed by the provider, at all times, open panel
 or not, and **Switch off** (beside it and in the panel) stops it at once and
 forgets the key.
 
-**Providers.** Anthropic (default model `claude-opus-5-5`), OpenAI
-(`gpt-6-astra`), Google Gemini (`gemini-3.8-flash`), or **Local or custom
-endpoint**: a model server on this computer that speaks the OpenAI-compatible
-chat completions API with image input, with presets for llama-server
+**Providers.** The list starts with **Model server on this computer**: a model
+server that speaks the OpenAI-compatible chat completions API with image input, with presets for llama-server
 (`http://127.0.0.1:8080`), Ollama (`http://127.0.0.1:11434`) and LM Studio
 (`http://127.0.0.1:1234`). A preset only fills in the address; the endpoint
 field accepts any port on `127.0.0.1` or `localhost`. For llama-server, start
 it with `--port 8080` or type the port it listens on: its documented default
 has changed between releases (recent builds use 9931), and the MCP host
-example in docs/mcp.md runs it on 8089; any of these works if the field says so. You may type any model id the
-provider offers. The model must support tool calls and images.
+example in docs/mcp.md runs it on 8089; any of these works if the field says so.
+Then come the cloud providers: Anthropic (choosing it fills in the model
+`claude-opus-5-5`), OpenAI (`gpt-6-astra`) and Google Gemini
+(`gemini-3.8-flash`). You may type any model id the provider offers. The model must support tool calls and images.
 
 **The key.** Your API key goes once to the agent's sealed frame: a small page
 inside the viewer that holds the provider connection and nothing else. The

@@ -127,9 +127,10 @@ export default function AgentPanel() {
 
 function AgentPanelBody() {
   const ui = useSyncExternalStore(agentUi.subscribe, agentUi.get, agentUi.server);
-  const [providerId, setProviderId] = useState<ProviderId>('anthropic');
+  // no provider and no model until the clinician chooses one (or a remembered choice returns)
+  const [providerId, setProviderId] = useState<ProviderId | ''>('');
   const [endpoint, setEndpoint] = useState(LOCAL_PRESETS[0].endpoint);
-  const [model, setModel] = useState(PROVIDERS[0].defaultModel);
+  const [model, setModel] = useState('');
   const [keyInput, setKeyInput] = useState('');
   const [setupError, setSetupError] = useState('');
   const [request, setRequest] = useState('');
@@ -151,7 +152,8 @@ function AgentPanelBody() {
     modelEnd.current?.scrollIntoView({ block: 'nearest' });
   }, [ui.modelText]);
 
-  const info = providerOf(providerId);
+  const chosen = providerId !== '';
+  const info = providerOf(providerId || 'local');
   const local = providerId === 'local';
   const providerName = local ? `${info.label} (${endpoint})` : info.label;
 
@@ -163,6 +165,7 @@ function AgentPanelBody() {
   };
 
   const askToSwitchOn = () => {
+    if (!chosen) return setSetupError('Choose a provider first: a model server on this computer, or a cloud provider.');
     if (info.needsKey && !keyInput.trim()) return setSetupError(`Enter your ${info.label} API key.`);
     if (!local && !model.trim()) return setSetupError('Enter a model id.');
     if (local && !isLoopbackEndpoint(endpoint)) {
@@ -175,6 +178,7 @@ function AgentPanelBody() {
   const switchOn = () => {
     const key = keyInput.trim();
     setKeyInput(''); // the panel forgets the key; the frame gets it once
+    if (!chosen) return;
     saveAgentSettings({ provider: providerId, endpoint, model: model.trim() });
     void agentUi.switchOn({ provider: providerId, model: model.trim(), endpoint, key });
   };
@@ -230,9 +234,10 @@ function AgentPanelBody() {
           <select
             style={field}
             value={providerId}
-            onChange={(e) => chooseProvider(e.target.value as ProviderId)}
+            onChange={(e) => e.target.value && chooseProvider(e.target.value as ProviderId)}
             aria-label="Provider"
           >
+            {!chosen && <option value="">Choose a provider</option>}
             {PROVIDERS.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.label}
@@ -280,12 +285,12 @@ function AgentPanelBody() {
             style={field}
             aria-label="Model id"
             value={model}
-            placeholder={local ? 'the model the server runs' : info.defaultModel}
+            placeholder={!chosen ? 'filled in once you choose a provider' : local ? 'the model the server runs' : info.defaultModel}
             onChange={(e) => setModel(e.target.value)}
           />
         </label>
         <label style={{ display: 'block', marginBottom: 6 }}>
-          {local ? 'API key (only if the server asks for one)' : `${info.label} API key`}
+          {!chosen ? 'API key' : local ? 'API key (only if the server asks for one)' : `${info.label} API key`}
           <input
             style={field}
             aria-label="API key"
