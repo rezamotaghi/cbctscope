@@ -233,6 +233,17 @@ How it is built:
   `CBCTScope/<version>` to the user agent; `components/cbct/shell.ts` reads it (`IS_DESKTOP`,
   `AGENT_AVAILABLE`), so the same `out/` mounts the agent channel in the app and nothing in a
   browser. Quit stops the bridge and releases the port.
+- `desktop/native.mjs` holds what the operating system shows: the menu bar (File with
+  **Open…**, Edit, View with zoom and full screen, Window, Help whose first item opens the
+  manual drawer through a window event that `ManualDrawer.tsx` answers), the About panel, the
+  save panel's title ("Save snapshot" or "Save export", from the `will-download` handler) and
+  the port-in-use dialogue. The packaged app quits before any window when launched with
+  `--remote-debugging-port` or `--remote-debugging-pipe`. `package.json` `productName` names
+  the app CBCTScope; the profile folder stays `cbctscope`, its name before. The Info.plist
+  declares no camera, microphone, Bluetooth or audio-capture use (`mac.extendInfo`), and
+  `scripts/desktop-after-pack.mjs` sets `NSAllowsArbitraryLoads` to false; the window's
+  loopback traffic goes through Chromium's own network stack, which that key does not govern.
+  `tests/desktopNative.test.ts` covers it.
 - `desktop/bridge.mjs` serves `out/` (MIME by extension, confined to `out/`, no listing) and
   `/api/agent/command`, `/api/agent/events`, `/api/agent/result` with the agentBus contract,
   behind the Host, Sec-Fetch-Site and Origin checks of `middleware.ts`. Port 3810 and no

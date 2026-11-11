@@ -5,6 +5,8 @@
 // viewer's row, so opening it narrows the viewer and covers no control (AGENTS.md, hard
 // rule 4). The website opens the same pages in a new tab instead (CbctApp's help menu).
 
+import { IS_DESKTOP } from './shell';
+
 /** the manual page a mode's reading guide is, or the 2D radiographs section of chapter 4 */
 export function guidePage(viewMode: string, isXray: boolean): string {
   return isXray ? '04-opening-scans.html#45-2d-radiographs' : `${viewMode}.html`;
@@ -18,6 +20,31 @@ export function drawerSrc(page: string): string {
   const [file, hash] = page.split('#');
   return `${manualHref(file)}?theme=dark${hash ? `#${hash}` : ''}`;
 }
+
+/**
+ * The desktop app's Help menu (desktop/main.mjs, desktop/native.mjs) asks for the manual with
+ * this window event. The page answers through its own help menu, so the drawer opens exactly
+ * as a click there opens it; nothing crosses the window's context isolation but the event.
+ * Outside the app the event does nothing.
+ */
+export const MANUAL_EVENT = 'cbctscope:manual';
+
+async function openManualFromShell(): Promise<void> {
+  if (!IS_DESKTOP) return;
+  const buttons = () => [...document.querySelectorAll<HTMLButtonElement>('header button')];
+  const entry = () =>
+    buttons().find((b) => b.classList.contains('menu-item') && /user manual$/i.test(b.textContent?.trim() ?? ''));
+  let target = entry();
+  if (!target) {
+    buttons()
+      .find((b) => /^help\b/i.test(b.textContent?.trim() ?? ''))
+      ?.click();
+    for (let i = 0; i < 40 && !(target = entry()); i++) await new Promise((r) => setTimeout(r, 25));
+  }
+  target?.click();
+}
+
+if (typeof window !== 'undefined') window.addEventListener(MANUAL_EVENT, () => void openManualFromShell());
 
 export default function ManualDrawer({ page, onClose }: { page: string; onClose: () => void }) {
   return (

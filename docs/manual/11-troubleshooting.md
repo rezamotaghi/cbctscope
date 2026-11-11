@@ -25,8 +25,8 @@
 - **The start command warns that port 3810 is in use**: the viewer is already
   running in another terminal window. One is enough: open
   http://localhost:3810 as is, or stop the older one with `Ctrl-C` first.
-- **The desktop app says "CBCTScope needs port 3810 and another program is
-  using it"** and quits: another program holds the port, most often the
+- **The desktop app says "CBCTScope is already running, or another program
+  uses its port"** and quits: another program holds the port, most often the
   repository's viewer (`npm run dev` or `npm run demo`) in a terminal. Stop it
   with `Ctrl-C`, or quit the other program, then open CBCTScope again. The app
   never moves to another port, because its marks and settings belong to the

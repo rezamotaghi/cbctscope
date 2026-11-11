@@ -4,7 +4,7 @@
 #                           are present (scripts/desktop.mjs says which ones)
 appId: com.cbctscope.app
 productName: CBCTScope
-copyright: Copyright (c) Dr. Reza Motaghi. AGPL-3.0-or-later.
+copyright: © 2026 Reza Motaghi. AGPL-3.0-or-later.
 directories:
   output: dist-desktop
 files:
@@ -16,6 +16,9 @@ files:
   # the viewer's npm dependencies are already bundled into out/; the main process needs none
   - "!node_modules/**"
 npmRebuild: false
+# macOS Info.plist: the app transport policy refuses arbitrary loads (electron-builder sets them
+# allowed after extendInfo, so the hook rewrites the key, then checks every key below is gone)
+afterPack: ./scripts/desktop-after-pack.mjs
 asar: true
 # Electron fuses, flipped in the binary after packing and before signing (electron-builder 26.18.0
 # `electronFuses`, docs: website/docs/tutorials/adding-electron-fuses.md). The app never runs as
@@ -50,6 +53,14 @@ mac:
   # APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID) and is skipped with a warning otherwise.
   # scripts/desktop.mjs points a local signed build at the keychain profile `notary`.
   notarize: true
+  # the app asks for no camera, microphone, Bluetooth or audio capture: Electron's default usage
+  # strings go (a null removes the key)
+  extendInfo:
+    NSCameraUsageDescription: null
+    NSMicrophoneUsageDescription: null
+    NSBluetoothAlwaysUsageDescription: null
+    NSBluetoothPeripheralUsageDescription: null
+    NSAudioCaptureUsageDescription: null
   artifactName: ${productName}-${version}-${arch}-mac.${ext}
 dmg:
   artifactName: ${productName}-${version}-${arch}.${ext}

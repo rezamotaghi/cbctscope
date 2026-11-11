@@ -82,7 +82,7 @@ from your file manager onto the image area, which then reads
 **Drop a DICOM folder, a DICOMDIR or a single file here**. Folders are read
 with all their subfolders. The same accepted formats apply as in section 4.1, and the files
 are recognized by their content, never by their names. In the desktop app,
-**File → Open DICOMDIR or DICOM folder** does the same as the first entry.
+**File → Open…** does the same as the first entry.
 
 From the moment the files are handed over until the volume is on screen, a
 progress panel covers the image area with the step it is on and the seconds

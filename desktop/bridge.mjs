@@ -307,10 +307,6 @@ async function catalog(bus, req, res, anon) {
 const NO_PATH_ROUTE =
   'the desktop app opens scans through its own picker only: ask the human to choose Open DICOMDIR or DICOM folder in the CBCTScope window, then call list_volumes';
 
-/** what the app says, in a native dialog, before it quits on a taken port (desktop/main.mjs) */
-export const PORT_IN_USE =
-  'CBCTScope needs port 3810 and another program is using it (often a CBCTScope dev server). Quit that program and open CBCTScope again.';
-
 /** the port is taken: the app refuses to start rather than change its origin (desktop/main.mjs) */
 export class PortInUseError extends Error {
   constructor(port) {
