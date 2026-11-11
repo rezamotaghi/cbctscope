@@ -111,7 +111,7 @@ export function chooseNative(kind: ChooserKind, prompt: string): Promise<Chooser
       return chooseLinux(kind, prompt);
     default:
       return Promise.resolve({
-        error: 'no native dialog on this platform — POST /api/cbct/source with { path } instead',
+        error: 'no native dialog on this platform. POST /api/cbct/source with { path } instead.',
         unsupported: true,
       });
   }

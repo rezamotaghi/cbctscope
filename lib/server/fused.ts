@@ -62,7 +62,7 @@ export function registerFused(input: FusedInput): { anon: string; label: string 
 
 export function getFusedVolume(anon: string): AssembledVolume {
   const hit = store.get(anon);
-  if (!hit) throw new Error(`fused volume ${anon} not in memory (session-scoped — re-stitch)`);
+  if (!hit) throw new Error(`fused volume ${anon} not in memory (session-scoped: re-stitch)`);
   return { meta: hit.meta, data: hit.data };
 }
 

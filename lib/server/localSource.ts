@@ -33,6 +33,7 @@ import {
 } from './dicom';
 import {
   assertPixelRange,
+  EXPORT_AGAIN,
   HEAD_BYTES,
   HEAD_RETRY_BYTES,
   labelOf as sharedLabelOf,
@@ -359,10 +360,10 @@ export function setLocalSource(
       ok: false,
       error:
         scan.skippedCompressed > 0
-          ? `found ${scan.skippedCompressed} compressed DICOM file(s) — only uncompressed exports are supported`
+          ? `These DICOM files are compressed. ${EXPORT_AGAIN} Found ${scan.skippedCompressed} compressed DICOM file(s): only uncompressed exports are supported.`
           : scan.dicomFiles > 0
-            ? 'DICOM files found, but no CBCT volume (multiframe or ≥30-slice CT series) and no 2D radiograph (PX/DX/CR/IO) among them'
-            : 'no DICOM files found there',
+            ? `These files hold no complete CBCT volume. ${EXPORT_AGAIN} DICOM files found, but no CBCT volume (multiframe or ≥30-slice CT series) and no 2D radiograph (PX/DX/CR/IO) among them.`
+            : `These files are not DICOM images. ${EXPORT_AGAIN} No DICOM files found there.`,
     };
   }
 

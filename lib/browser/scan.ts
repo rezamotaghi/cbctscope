@@ -16,6 +16,7 @@
 import dicomParser from 'dicom-parser';
 import { TAG, ippZ } from '../shared/dicom';
 import {
+  EXPORT_AGAIN,
   HEAD_BYTES,
   HEAD_RETRY_BYTES,
   labelOf,
@@ -83,8 +84,6 @@ export interface RefusalCounts {
   otherwiseRefused: number;
   capped: boolean;
 }
-
-const EXPORT_AGAIN = 'Export from your CBCT software as DICOM, with compression off.';
 
 /**
  * The refusal's first line: plain words and what to do, before the technical reason. The most

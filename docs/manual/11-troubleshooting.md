@@ -44,9 +44,13 @@
 
 ## Opening scans
 
-- **"found N compressed DICOM file(s), only uncompressed exports are
-  supported"**: re-export from your CBCT unit's software with compression
-  off, then open the new export.
+- **"These DICOM files are compressed. Export from your CBCT software as
+  DICOM, with compression off."** (the repository viewer, followed by "Found
+  N compressed DICOM file(s): only uncompressed exports are supported."):
+  re-export from your CBCT unit's software with compression off, then open
+  the new export. The repository viewer's other refusals take the same shape,
+  plain words first and the technical reason after them: "These files hold
+  no complete CBCT volume" and "These files are not DICOM images".
 - **"These files are not DICOM images. Export from your CBCT software as
   DICOM, with compression off."** (the web build and the desktop app): the
   panel's first line says what went wrong and what to do; the line under it,

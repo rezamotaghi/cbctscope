@@ -141,7 +141,7 @@ first launch both modes show the phantom.
 - **The start command warns that port 3810 is in use**: the viewer is already
   running in another window. One is enough: just open http://localhost:3810,
   or stop the older one first.
-- **"found N compressed DICOM file(s)"** when opening a scan: the viewer reads
+- **"These DICOM files are compressed"** when opening a scan: the viewer reads
   uncompressed DICOM only. Re-export from your scanner software with
   compression off.
 

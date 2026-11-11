@@ -13,6 +13,9 @@ export const MIN_SLICES = 30; // fewer single-frame files than this is not a CBC
 export const MIN_MF_FRAMES = 16;
 export const MAX_VOLUME_BYTES = 1.5e9; // runaway guard (about 900^2 x 900 slices)
 
+/** the advice a refusal gives after its plain first sentence, on every target */
+export const EXPORT_AGAIN = 'Export from your CBCT software as DICOM, with compression off.';
+
 /** extra tags the scanners need beyond the shared TAG set */
 export const XTAG = {
   tsUid: 'x00020010',
