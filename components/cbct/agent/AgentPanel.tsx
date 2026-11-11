@@ -13,7 +13,7 @@ import { loadAgentSettings, saveAgentSettings } from '@/lib/shared/agentSettings
 import { MODEL_TEXT_HEADING } from '@/lib/shared/readingTerms.mjs';
 import { agentUi } from './agentUi';
 import { IS_DESKTOP } from '../shell';
-import { isLoopbackEndpoint, LOCAL_PRESETS, PROVIDERS, provider as providerOf, type ProviderId } from './catalog';
+import { LOCAL_PRESETS, PROVIDERS, provider as providerOf, switchOnProblem, type ProviderId } from './catalog';
 
 
 const LOCAL_NOTE = "The model server must accept requests from the agent's isolated frame (CORS); llama-server does by default.";
@@ -182,12 +182,8 @@ function AgentPanelBody() {
   };
 
   const askToSwitchOn = () => {
-    if (!chosen) return setSetupError('Choose a provider first: a model server on this computer, or a cloud provider.');
-    if (info.needsKey && !keyInput.trim()) return setSetupError(`Enter your ${info.label} API key.`);
-    if (!local && !model.trim()) return setSetupError('Enter a model name.');
-    if (local && !isLoopbackEndpoint(endpoint)) {
-      return setSetupError("The model server's address must be http://127.0.0.1:<port> or http://localhost:<port>.");
-    }
+    const problem = switchOnProblem({ providerId, key: keyInput, model, endpoint });
+    if (problem) return setSetupError(problem);
     setSetupError('');
     agentUi.setPhase('confirm');
   };
