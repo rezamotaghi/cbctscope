@@ -239,7 +239,7 @@ function ensureLocalVolume(anon: string, entry: VolumeEntry): string {
   const volumeId = `cbctlocal:${anon}`;
   if (csCache.getVolume(volumeId)) return volumeId;
   const { meta, scalar } = entry;
-  const create = () => volumeLoader.createLocalVolume(volumeId, buildLocalVolumeOptions(anon, meta, scalar));
+  const create = () => createLocalVolume(volumeId, buildLocalVolumeOptions(anon, meta, scalar));
   try {
     create();
   } catch {
@@ -251,6 +251,30 @@ function ensureLocalVolume(anon: string, entry: VolumeEntry): string {
     create();
   }
   return volumeId;
+}
+
+// Cornerstone's createLocalVolume caches one image per slice, but gives every one of them the
+// VOLUME origin as its imagePositionPatient, so all slices claim to sit at z0. Whatever later
+// asks which slice lies under the camera (getClosestImageId, run by the annotation and
+// crosshair tools on every render) then finds none and logs "No imageId found within the
+// specified criteria" once per call. Write each slice's true position into the same metadata
+// store the library filled (the direction is identity, so slice i sits i spacings up in z).
+function createLocalVolume(volumeId: string, options: ReturnType<typeof buildLocalVolumeOptions>) {
+  const volume = volumeLoader.createLocalVolume(volumeId, options);
+  const [ox, oy, oz] = options.origin;
+  const dz = options.spacing[2];
+  for (let i = 0; i < options.dimensions[2]; i++) {
+    const imageId = `${volumeId}_slice_${i}`;
+    const plane = csUtils.genericMetadataProvider.get(Enums.MetadataModules.IMAGE_PLANE, imageId) as
+      | Record<string, unknown>
+      | undefined;
+    if (!plane) continue;
+    csUtils.genericMetadataProvider.addRaw(imageId, {
+      type: Enums.MetadataModules.IMAGE_PLANE,
+      metadata: { ...plane, imagePositionPatient: [ox, oy, oz + i * dz] },
+    });
+  }
+  return volume;
 }
 
 function buildLocalVolumeOptions(anon: string, meta: CbctMeta, scalar: Int16Array) {
@@ -856,7 +880,7 @@ export default function CbctViewport({
     const id = `cbctlocal:${anon}:erase`;
     try {
       if (!csCache.getVolume(id)) {
-        volumeLoader.createLocalVolume(id, buildLocalVolumeOptions(`${anon}-erase`, meta, copy));
+        createLocalVolume(id, buildLocalVolumeOptions(`${anon}-erase`, meta, copy));
       }
       const vp = engineRef.current.getViewport(VP.v3d);
       const cam = vp.getCamera();
@@ -958,7 +982,7 @@ export default function CbctViewport({
     const id = `cbctlocal:${anonNow}:smooth3d`;
     try {
       if (!csCache.getVolume(id)) {
-        volumeLoader.createLocalVolume(id, buildLocalVolumeOptions(`${anonNow}-smooth3d`, meta, smooth));
+        createLocalVolume(id, buildLocalVolumeOptions(`${anonNow}-smooth3d`, meta, smooth));
       }
       const vp = engineRef.current.getViewport(VP.v3d);
       const cam = vp.getCamera();

@@ -2,7 +2,6 @@
 // CBCT reading app — the client shell. Owns all control state and the volume picker;
 // CbctViewport (keyed by volume id, so switching = clean remount) does the rendering.
 import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { CONSTANTS } from '@cornerstonejs/core';
 import CbctViewport, {
   type CbctControls,
   type CbctMeta,
@@ -11,7 +10,7 @@ import CbctViewport, {
   type HistogramData,
   type MprPane,
 } from './CbctViewport';
-import { RENDER_STYLES, DEFAULT_RENDER3D, type Render3dSettings, type PseudoKey } from './render3d';
+import { RENDER_STYLES, DEFAULT_RENDER3D, AIR_PRESET, migrateRender3d, type Render3dSettings, type PseudoKey } from './render3d';
 import CbctPano from './CbctPano';
 import CbctGrid from './CbctGrid';
 import CbctRadiograph from './CbctRadiograph';
@@ -166,35 +165,6 @@ interface Saved3dPreset {
   name: string;
   settings: Render3dSettings;
 }
-// Style keys and setting fields were renamed when the style set was reworked; presets
-// saved before that carry the old names. Migrate on load so no saved preset ever feeds a
-// dead style key into the render path.
-const LEGACY_STYLE_KEYS: Record<string, string> = {
-  'style:matte': 'style:shaded',
-  'style:gloss': 'style:shiny',
-  'style:shell': 'style:surface',
-  'style:skin': 'style:soft-tissue',
-  'style:radiograph': 'style:xray',
-  'style:glass': 'style:xray-shaded',
-  'style:film': 'style:bw-xray',
-};
-function migratePreset(s: Render3dSettings): Render3dSettings {
-  const legacy = s as Render3dSettings & {
-    edgeEmphasis?: number;
-    skinShell?: boolean;
-    skinShellThreshold?: number;
-    skinShellOpacity?: number;
-  };
-  return {
-    ...DEFAULT_RENDER3D,
-    ...s,
-    style: LEGACY_STYLE_KEYS[s.style] ?? s.style,
-    depthEnhance: s.depthEnhance ?? legacy.edgeEmphasis ?? DEFAULT_RENDER3D.depthEnhance,
-    stOverlay: s.stOverlay ?? legacy.skinShell ?? DEFAULT_RENDER3D.stOverlay,
-    stThreshold: s.stThreshold ?? legacy.skinShellThreshold ?? DEFAULT_RENDER3D.stThreshold,
-    stOpacity: s.stOpacity ?? legacy.skinShellOpacity ?? DEFAULT_RENDER3D.stOpacity,
-  };
-}
 function loadSavedPresets(): Saved3dPreset[] {
   try {
     const raw = localStorage.getItem(PRESETS_KEY);
@@ -202,7 +172,7 @@ function loadSavedPresets(): Saved3dPreset[] {
     return Array.isArray(arr)
       ? arr
           .filter((p) => p && typeof p.name === 'string' && p.settings)
-          .map((p) => ({ ...p, settings: migratePreset(p.settings) }))
+          .map((p) => ({ ...p, settings: migrateRender3d(p.settings) }))
       : [];
   } catch {
     return [];
@@ -318,12 +288,8 @@ export default function CbctApp() {
   /** the open image is a single 2D radiograph — the volumetric modes don't apply */
   const isXray = current?.kind === 'xray';
 
-  const ctPresetNames = useMemo(
-    () => CONSTANTS.VIEWPORT_PRESETS.filter((p) => p.name.startsWith('CT-')).map((p) => p.name),
-    [],
-  );
   const r3d = controls.render3d;
-  const styleDef = RENDER_STYLES[r3d.style]; // undefined ⇒ a CT-* preset: sliders don't apply
+  const styleDef = RENDER_STYLES[r3d.style]; // undefined means the Air preset: the sliders don't apply
   const setR3d = useCallback((patch: Partial<Render3dSettings>) => {
     setControls((c) => ({ ...c, render3d: { ...c.render3d, ...patch } }));
   }, []);
@@ -1265,7 +1231,10 @@ export default function CbctApp() {
                 onMeta={setMeta}
                 onHistogram={setHistogram}
                 onError={setError}
-                onControlsPatch={(p) => setControls((c) => ({ ...c, ...p }))}
+                onControlsPatch={(p) =>
+                  // a saved view may name a 3D preset the interface no longer offers: it opens on a house style
+                  setControls((c) => ({ ...c, ...p, ...(p.render3d ? { render3d: migrateRender3d(p.render3d) } : {}) }))
+                }
               />
             ) : viewMode === 'grid' ? (
               <CbctGrid
@@ -1570,9 +1539,7 @@ export default function CbctApp() {
           {viewMode === 'mpr' && !isXray && (
           <section>
             <div style={{ color: 'var(--text-dim)', marginBottom: 6 }}>3D render</div>
-            {/* the house styles as one-click chips (the old single select buried them among
-                dozens of generic CT presets); the CT long tail keeps a compact select below —
-                nothing is hidden, the wall of entries just stops being the front door */}
+            {/* the house styles as one-click chips, then one library preset, Air, applied as-is */}
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
               {Object.entries(RENDER_STYLES).map(([value, d]) => (
                 <button
@@ -1584,27 +1551,14 @@ export default function CbctApp() {
                   {d.label.replace('CBCT · ', '')}
                 </button>
               ))}
+              <button
+                style={btn(r3d.style === AIR_PRESET)}
+                onClick={() => pickStyle(AIR_PRESET)}
+                title="Air: the library's air preset, applied as it is. The adjust sliders do not apply to it."
+              >
+                Air
+              </button>
             </div>
-            <select
-              value={RENDER_STYLES[r3d.style] ? '' : r3d.style}
-              onChange={(e) => e.target.value && pickStyle(e.target.value)}
-              title="generic VTK medical CT presets — applied as-is, the adjust sliders work on the named styles above"
-              style={{
-                width: '100%',
-                background: 'var(--panel-2)',
-                border: '1px solid var(--border)',
-                borderRadius: 6,
-                padding: '4px 8px',
-                marginBottom: 8,
-              }}
-            >
-              <option value="">more (VTK medical)…</option>
-              {ctPresetNames.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
             {styleDef ? (
               <>
                 {histogram && (
@@ -1797,8 +1751,8 @@ export default function CbctApp() {
                 )}
               </>
             ) : (
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
-                generic CT preset — applied as-is, the adjust sliders work on the named styles above
+              <div style={{ fontSize: 12, color: 'var(--text)', marginBottom: 4 }}>
+                Air is applied as it is. The adjust sliders work on the other styles only.
               </div>
             )}
             <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, marginTop: 2 }}>

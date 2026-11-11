@@ -15,7 +15,7 @@ import type { RenderingEngine, Types } from '@cornerstonejs/core';
 export type PseudoKey = 'none' | 'hot' | 'cool' | 'rainbow';
 
 export interface Render3dSettings {
-  /** 'style:*' / 'cbct:*' (parametric, sliders apply) or a Cornerstone CT-* preset name (as-is). */
+  /** 'style:*' / 'cbct:*' (parametric, sliders apply) or AIR_PRESET, Cornerstone's CT-Air (as-is). */
   style: string;
   threshold: number; // HU cut-off
   transparency: number; // 0..90 (%)
@@ -198,6 +198,25 @@ export const RENDER_STYLES: Record<string, StyleDef> = {
   },
 };
 
+/**
+ * The one library preset the interface offers beside the house styles: Cornerstone's CT-Air,
+ * applied as-is. Every other CT-* preset is dropped (they doubled the house styles or were made
+ * for body CT).
+ */
+export const AIR_PRESET = 'CT-Air';
+
+/** the house style a setting falls back to when it names a preset the interface no longer offers */
+export const FALLBACK_STYLE = 'style:shaded';
+
+/**
+ * Settings saved earlier (a "My 3D preset", a saved view) may name a dropped CT-* preset or an
+ * unknown key: they still open, on the fallback house style at its own default threshold.
+ */
+export function offeredRender3d<T extends Render3dSettings>(s: T): T {
+  if (s.style in RENDER_STYLES || s.style === AIR_PRESET) return s;
+  return { ...s, style: FALLBACK_STYLE, threshold: RENDER_STYLES[FALLBACK_STYLE].defaultThreshold };
+}
+
 export const DEFAULT_RENDER3D: Render3dSettings = {
   style: 'style:surface',
   threshold: RENDER_STYLES['style:surface'].defaultThreshold,
@@ -285,7 +304,7 @@ function bc(v: number, brightness: number, contrast: number): number {
 /**
  * Apply the full settings object to the 3D viewport's volume actor. Parametric styles get
  * blend + reshaped transfer functions + shading; unknown keys fall through to Cornerstone's
- * named CT-* presets (as-is — the sliders don't apply to those).
+ * named presets (as-is: the sliders don't apply to those). The interface offers one, AIR_PRESET.
  */
 export function apply3dRender(engine: RenderingEngine, viewportId: string, s: Render3dSettings) {
   const vp = engine.getViewport(viewportId) as Types.IVolumeViewport;
@@ -498,4 +517,35 @@ export function applyProjection(
     vp.resetCamera(); // Cornerstone's parallel-scale fit is the right one for isometric
   }
   vp.render();
+}
+
+// Style keys and setting fields were renamed when the style set was reworked; presets
+// saved before that carry the old names. Migrate on load (a saved "My 3D preset", a saved
+// view's patch) so no saved setting ever feeds a dead style key into the render path, and a
+// dropped CT-* preset opens on the fallback house style.
+const LEGACY_STYLE_KEYS: Record<string, string> = {
+  'style:matte': 'style:shaded',
+  'style:gloss': 'style:shiny',
+  'style:shell': 'style:surface',
+  'style:skin': 'style:soft-tissue',
+  'style:radiograph': 'style:xray',
+  'style:glass': 'style:xray-shaded',
+  'style:film': 'style:bw-xray',
+};
+export function migrateRender3d(s: Render3dSettings): Render3dSettings {
+  const legacy = s as Render3dSettings & {
+    edgeEmphasis?: number;
+    skinShell?: boolean;
+    skinShellThreshold?: number;
+    skinShellOpacity?: number;
+  };
+  return offeredRender3d({
+    ...DEFAULT_RENDER3D,
+    ...s,
+    style: LEGACY_STYLE_KEYS[s.style] ?? s.style,
+    depthEnhance: s.depthEnhance ?? legacy.edgeEmphasis ?? DEFAULT_RENDER3D.depthEnhance,
+    stOverlay: s.stOverlay ?? legacy.skinShell ?? DEFAULT_RENDER3D.stOverlay,
+    stThreshold: s.stThreshold ?? legacy.skinShellThreshold ?? DEFAULT_RENDER3D.stThreshold,
+    stOpacity: s.stOpacity ?? legacy.skinShellOpacity ?? DEFAULT_RENDER3D.stOpacity,
+  });
 }

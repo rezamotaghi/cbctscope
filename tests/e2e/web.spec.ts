@@ -27,6 +27,27 @@ test('the header links the desktop app as a download', async ({ page }) => {
   await expect(link).toHaveAttribute('href', 'https://github.com/rezamotaghi/cbctscope/releases');
 });
 
+test('an unknown address shows the site-styled page with one title and a link back to the viewer', async ({ page }) => {
+  const res = await page.goto('/no-such-page');
+  expect(res?.status()).toBe(404);
+  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  expect(await page.locator('title').count()).toBe(1);
+  await page.getByRole('link', { name: 'Back to the viewer' }).click();
+  await waitForVolume(page);
+});
+
+test('the phantom loads without the repeated slice-lookup warning', async ({ page }) => {
+  const warnings: string[] = [];
+  page.on('console', (msg) => {
+    if (msg.text().includes('No imageId found')) warnings.push(msg.text());
+  });
+  await page.reload();
+  await waitForVolume(page);
+  await expect.poll(() => mainCanvasHasImage(page), { timeout: 60_000 }).toBe(true);
+  await page.waitForTimeout(2000);
+  expect(warnings).toEqual([]);
+});
+
 test('no request leaves the served origin and the CSP blocks nothing', async ({ page }) => {
   await waitForVolume(page);
   // let workers, codecs and late chunks settle
