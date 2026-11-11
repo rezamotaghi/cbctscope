@@ -177,22 +177,27 @@ viewer moves up to make room, so the panel never covers a control, and the
 same button or **Close panel** closes it. You type a request in the panel
 ("show the left TMJ in sagittal, bone window"), and
 a model on your own account moves the viewer with the same fifteen verbs as
-the MCP server (section 9.3), through the same verb handling in the page. The
-surface stays those fifteen verbs; the agent gets nothing more.
+the MCP server (section 9.3), through the same verb handling in the page. It
+never produces findings. The surface stays those fifteen verbs; the agent gets
+nothing more.
 
 **Off by default.** The agent is off every time the page loads and sends
 nothing to anyone until you switch it on. **Set up the navigation agent**
 opens with no provider chosen: **Provider** reads **Choose a provider** and the
 model field is empty until you pick one. Choose the provider first, then check
-the model id and give your API key; **Switch on…** before a provider is chosen
+the model name and give your API key; **Switch on…** before a provider is chosen
 only answers "Choose a provider first", in the panel. Once one is chosen,
 **Switch on…**
 shows a dialogue, **Switch on the navigation agent**, that names the provider
-and states what follows: the agent runs on your own model account; your key
-stays in this tab's memory and is forgotten when the tab closes; every
-snapshot the agent asks for is sent to that provider and nowhere else; the
-agent only moves the camera and is not asked for findings, and nothing it says
-is a finding. **Cancel** sends nothing. While the agent is on, the header
+and states what follows: the agent runs on your own model account with that
+provider, or, for a model server on this computer, "The agent runs on the
+model server at" its address; if you entered a key, it stays in this tab's
+memory (in the desktop app, this app's) and is forgotten when the tab closes
+(when the app quits), and without a key the dialogue says nothing about one;
+every snapshot the agent asks for is sent to that provider or server and
+nowhere else; each snapshot is a picture of the open scan, so use
+de-identified scans; the agent only moves the camera and is not asked for
+findings, and nothing it says is a finding. **Cancel** sends nothing. While the agent is on, the header
 button reads **Agent: on**, followed by the provider, at all times, open panel
 or not, and **Switch off** (beside it and in the panel) stops it at once and
 forgets the key.
@@ -207,16 +212,16 @@ has changed between releases (recent builds use 9931), and the MCP host
 example in docs/mcp.md runs it on 8089; any of these works if the field says so.
 Then come the cloud providers: Anthropic (choosing it fills in the model
 `claude-opus-5-5`), OpenAI (`gpt-6-astra`) and Google Gemini
-(`gemini-3.8-flash`). You may type any model id the provider offers. The model must support tool calls and images.
+(`gemini-3.8-flash`). You may type any model name the provider offers. The model must support tool calls and images.
 
-**The key.** Your API key goes once to the agent's sealed frame: a small page
+**The key.** Your API key goes once to the agent's isolated frame: a small page
 inside the viewer that holds the provider connection and nothing else. The
 frame cannot read the viewer's storage or the page, and the viewer itself
 never contacts a provider. The key stays in the frame's memory only. It is
 never written to the browser's storage, a cookie, or a file, and it goes only
 to the provider you chose, with each request. **Switch off** removes the frame
 and the key with it. The browser remembers the provider, the endpoint and the
-model id between visits, never the key.
+model name between visits, never the key.
 
 **What the model says.** The panel shows the model's own words only in a
 block headed **Model text. Not a reading, not a finding.**, apart from the
@@ -225,7 +230,7 @@ lesion, fracture, cyst, "consistent with", findings, and similar terms), the
 block shows instead: "The model offered an interpretation. CBCTScope does not
 display readings; ask for a view, not an opinion." This guard is a word
 filter, not a judge: it catches the obvious terms and not a paraphrase. The
-fence remains yours: the viewer moves the camera, you read.
+fence remains yours: the agent moves the camera, you read.
 
 **The fence.** The agent's instructions state it: navigation and
 visualisation only; never interpret, measure for a diagnosis, or state
@@ -237,7 +242,7 @@ malformed is answered to the model as an error and runs nothing.
 Errors appear in the panel in plain words. `open_scan` and `pick_scan` answer
 that you open the scan yourself, with **open** or a drop on the viewer.
 
-**The local endpoint.** The agent's sealed frame calls the local server, and
+**The model server on this computer.** The agent's isolated frame calls the server, and
 its requests carry no site address (the origin `null`), on the published site
 and in the desktop app alike. The server must accept such cross-origin (CORS)
 requests: llama-server allows any origin by default; Ollama and LM Studio need

@@ -12,10 +12,11 @@ import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { loadAgentSettings, saveAgentSettings } from '@/lib/shared/agentSettings';
 import { MODEL_TEXT_HEADING } from '@/lib/shared/readingTerms.mjs';
 import { agentUi } from './agentUi';
+import { IS_DESKTOP } from '../shell';
 import { isLoopbackEndpoint, LOCAL_PRESETS, PROVIDERS, provider as providerOf, type ProviderId } from './catalog';
 
 
-const LOCAL_NOTE = 'The local server must accept requests from the agent frame (CORS); llama-server does by default.';
+const LOCAL_NOTE = "The model server must accept requests from the agent's isolated frame (CORS); llama-server does by default.";
 
 /** the docked strip under the viewer: fixed height, never over a control (hard rule 4) */
 export const AGENT_STRIP_HEIGHT = 220;
@@ -84,23 +85,39 @@ const dialogButton = (primary: boolean): React.CSSProperties => ({ ...button(pri
 export function OptInDialog({
   providerName,
   local,
+  endpoint,
+  hasKey,
   onSwitchOn,
   onCancel,
 }: {
   providerName: string;
   local: boolean;
+  /** the model server's address (local only) */
+  endpoint: string;
+  /** a key was entered: only then does the dialogue speak of one */
+  hasKey: boolean;
   onSwitchOn: () => void;
   onCancel: () => void;
 }) {
+  const where = local ? `the model server at ${endpoint}` : providerName;
   return (
     <div style={backdrop}>
       <div role="dialog" aria-modal="true" aria-labelledby="agent-optin-title" style={card}>
         <h2 id="agent-optin-title" style={{ fontSize: 16, margin: '0 0 10px' }}>
           Switch on the navigation agent
         </h2>
-        <p style={{ margin: '0 0 8px' }}>The agent runs on your own model account with {providerName}.</p>
-        <p style={{ margin: '0 0 8px' }}>Your key stays in this tab&apos;s memory and is forgotten when the tab closes.</p>
-        <p style={{ margin: '0 0 8px' }}>Every snapshot the agent asks for is sent to {providerName} and nowhere else.</p>
+        <p style={{ margin: '0 0 8px' }}>
+          {local ? `The agent runs on the model server at ${endpoint}.` : `The agent runs on your own model account with ${providerName}.`}
+        </p>
+        {hasKey && (
+          <p style={{ margin: '0 0 8px' }}>
+            {IS_DESKTOP
+              ? "Your key stays in this app's memory and is forgotten when the app quits."
+              : "Your key stays in this tab's memory and is forgotten when the tab closes."}
+          </p>
+        )}
+        <p style={{ margin: '0 0 8px' }}>Every snapshot the agent asks for is sent to {where} and nowhere else.</p>
+        <p style={{ margin: '0 0 8px' }}>Each snapshot is a picture of the open scan. Use de-identified scans.</p>
         <p style={{ margin: local ? '0 0 8px' : '0 0 14px' }}>
           The agent only moves the camera. It is not asked for findings, and nothing it says is a finding.
         </p>
@@ -167,9 +184,9 @@ function AgentPanelBody() {
   const askToSwitchOn = () => {
     if (!chosen) return setSetupError('Choose a provider first: a model server on this computer, or a cloud provider.');
     if (info.needsKey && !keyInput.trim()) return setSetupError(`Enter your ${info.label} API key.`);
-    if (!local && !model.trim()) return setSetupError('Enter a model id.');
+    if (!local && !model.trim()) return setSetupError('Enter a model name.');
     if (local && !isLoopbackEndpoint(endpoint)) {
-      return setSetupError('The local endpoint must be http://127.0.0.1:<port> or http://localhost:<port>.');
+      return setSetupError("The model server's address must be http://127.0.0.1:<port> or http://localhost:<port>.");
     }
     setSetupError('');
     agentUi.setPhase('confirm');
@@ -211,7 +228,7 @@ function AgentPanelBody() {
         </div>
         <p style={{ margin: '0 0 8px' }}>
           A navigation agent on your own model account: you ask for a view in words, it moves the camera, you read.
-          Nothing is sent anywhere until you switch it on.
+          It never produces findings. Nothing is sent anywhere until you switch it on.
         </p>
         <button style={button(true)} onClick={() => agentUi.setPhase('setup')}>
           Set up the navigation agent
@@ -225,7 +242,9 @@ function AgentPanelBody() {
       <div style={strip} id="agent-panel" data-testid="agent-panel">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <strong>{ui.phase === 'starting' ? 'Agent: starting' : 'Agent: off'}</strong>
-          <span style={{ flex: 1 }}>A navigation agent on your own model account. It moves the camera; you read.</span>
+          <span style={{ flex: 1 }}>
+            A navigation agent on your own model account. It moves the camera; you read. It never produces findings.
+          </span>
           {closeButton}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', columnGap: 12 }}>
@@ -280,10 +299,10 @@ function AgentPanelBody() {
           </>
         )}
         <label style={{ display: 'block', marginBottom: 6 }}>
-          Model id
+          Model name
           <input
             style={field}
-            aria-label="Model id"
+            aria-label="Model name"
             value={model}
             placeholder={!chosen ? 'filled in once you choose a provider' : local ? 'the model the server runs' : info.defaultModel}
             onChange={(e) => setModel(e.target.value)}
@@ -302,7 +321,7 @@ function AgentPanelBody() {
         </label>
         </div>
         <p style={{ margin: '0 0 8px' }}>
-          The key goes once to the agent&apos;s sealed frame, stays in its memory only and is never stored.
+          The key goes once to the agent&apos;s isolated frame, stays in its memory only and is never stored.
         </p>
         {local && <p style={{ margin: '0 0 8px' }}>{LOCAL_NOTE}</p>}
         {(setupError || ui.log.some((l) => l.who === 'error')) && (
@@ -326,7 +345,14 @@ function AgentPanelBody() {
           </button>
         </div>
         {ui.phase === 'confirm' && (
-          <OptInDialog providerName={providerName} local={local} onSwitchOn={switchOn} onCancel={cancelOptIn} />
+          <OptInDialog
+            providerName={providerName}
+            local={local}
+            endpoint={endpoint}
+            hasKey={keyInput.trim() !== ''}
+            onSwitchOn={switchOn}
+            onCancel={cancelOptIn}
+          />
         )}
       </div>
     );
@@ -429,7 +455,7 @@ export function AgentToggle() {
         aria-expanded={ui.open}
         aria-controls="agent-panel"
         data-testid="agent-status"
-        title="the opt-in navigation agent on your own model account: opens the panel under the viewer"
+        title="the opt-in navigation agent on your own model account: it moves the camera and never produces findings. Opens the panel under the viewer."
         onClick={() => agentUi.toggle()}
       >
         {ui.status ?? 'Agent: off'}

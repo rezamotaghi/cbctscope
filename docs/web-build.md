@@ -322,8 +322,11 @@ Built to the owner's decisions of 04/11/26:
   id persist in localStorage through `lib/shared/agentSettings.ts`, which writes those three
   fields only.
 - The opt-in dialogue (title "Switch on the navigation agent", buttons "Switch on" and
-  "Cancel") names the provider and states the key, snapshot and fence terms; for the local
-  endpoint it adds that the local server must accept requests from the agent's frame (CORS). Off on every load; while on, the panel reads "Agent: on,"
+  "Cancel") names the provider (for the model server on this computer, "The agent runs on the
+  model server at" its address), states the key term only when a key was entered, the snapshot
+  term (sent to that provider only; each snapshot is a picture of the open scan, so use
+  de-identified scans) and the fence; for the model server it adds that the server must accept
+  requests from the agent's isolated frame (CORS). Off on every load; while on, the panel reads "Agent: on,"
   and the provider at all times, beside "Switch off".
 - The loop (`agent/frame/loop.ts`, in the frame): the fence as the system prompt and the
   fifteen verbs as tools, both composed in the page from `lib/shared/verbs.mjs` (the module
