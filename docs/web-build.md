@@ -137,7 +137,8 @@ can travel. Pixels never enter a sidecar.
 
 - Research use. Opens the first time a real volume is opened in a browser profile. Title
   "Research use only". Body: not a medical device; the agent moves the camera, the human
-  reads; nothing leaves this tab (in the desktop app: this computer, read into this app). One
+  reads; nothing leaves this tab (in the desktop app: this computer, read into this app), except the
+  agent's snapshots of the view, which go to the chosen model once the reader switches it on. One
   button, "I understand". Remembered in localStorage.
 - Size notice. Before a volume whose voxel bytes exceed `NEXT_PUBLIC_CBCTSCOPE_SIZE_NOTICE_MIB`
   (build-time, default 512) is loaded: the size, the fact that the browser must hold it in
