@@ -42,7 +42,7 @@ import {
   utilities as csToolsUtils,
 } from '@cornerstonejs/tools';
 import { ensureCornerstoneInit } from './cornerstoneInit';
-import { isChord } from './keys';
+import { isChord, modalOpen } from './keys';
 import { slicePositions } from './slicePositions';
 import {
   loadVolumeData,
@@ -61,10 +61,10 @@ import { computeRoi3dStats, Roi3dOutlines, type Roi3d } from './evidence3d';
 import DragDivider from './DragDivider';
 import { type SnapRef } from './SnapshotButton';
 import { Bookmark, Eraser as EraserIcon, Eye, EyeOff, Scissors, X } from 'lucide-react';
-import { ActiveFrame, PaneButton, PaneCluster, PaneLabel, PaneTextButton, ScaleBar, WlReadout, overlayText, useActivePane } from './PaneOverlay';
+import { ActiveFrame, PaneButton, PaneCluster, PaneCorner, PaneLabel, PaneTextButton, ScaleBar, WlReadout, overlayText, useActivePane } from './PaneOverlay';
 import { PANE_BUTTON } from './paneButtons';
 import { PLANE_COLOR, scaleBar, wlText } from './overlayGrammar';
-import { getReadingPlace, planesIntersection, setReadingPlace } from './readingPlace';
+import { armedPlace, getReadingPlace, planesIntersection, setReadingPlace } from './readingPlace';
 import type { AgentReply } from './useAgentBridge';
 import {
   VP,
@@ -411,8 +411,8 @@ const MEASURE_TOOLS = new Set<string>([
   PlanarFreehandROITool.toolName,
 ]);
 
-// One-line object-browser label per annotation: kind glyph + the value that matters
-// (mm / ° / HU stats / the typed text).
+// One-line object-browser label per annotation: its kind in words, as the tool palette names
+// it, then the value that matters (mm, degrees, HU stats, the typed text). No glyphs.
 function annotationLabel(a: {
   metadata?: { toolName?: string };
   data?: {
@@ -428,16 +428,16 @@ function annotationLabel(a: {
   const txt = (a.data?.label || a.data?.text || '').trim();
   switch (tn) {
     case LengthTool.toolName:
-      return stats?.length != null ? `↔ ${stats.length.toFixed(1)} mm` : '↔ …';
+      return stats?.length != null ? `Length ${stats.length.toFixed(1)} mm` : 'Length …';
     case AngleTool.toolName:
-      return stats?.angle != null ? `∠ ${stats.angle.toFixed(1)}°` : '∠ …';
+      return stats?.angle != null ? `Angle ${stats.angle.toFixed(1)}°` : 'Angle …';
     case ArrowAnnotateTool.toolName:
-      return `➤ ${txt || 'arrow'}`;
+      return txt ? `Arrow: ${txt}` : 'Arrow';
     case LabelTool.toolName:
-      return `T ${txt || 'text'}`;
+      return txt ? `Text: ${txt}` : 'Text';
     case RectangleROITool.toolName:
     case EllipticalROITool.toolName: {
-      const glyph = tn === RectangleROITool.toolName ? '▭' : '⬭';
+      const glyph = tn === RectangleROITool.toolName ? 'Rect ROI' : 'Ellipse ROI';
       if (stats?.mean == null) return `${glyph} …`;
       const sd = stats.stdDev != null ? `±${Math.round(stats.stdDev)}` : '';
       const area = stats.area != null ? ` · ${stats.area.toFixed(0)} mm²` : '';
@@ -448,18 +448,18 @@ function annotationLabel(a: {
       if (a.data?.contour?.closed) {
         if (stats?.mean != null) {
           const area = stats.area != null ? ` · ${stats.area.toFixed(0)} mm²` : '';
-          return `⬯ ${Math.round(stats.mean)}±${Math.round(stats.stdDev ?? 0)} HU${area}`;
+          return `Freehand ${Math.round(stats.mean)}±${Math.round(stats.stdDev ?? 0)} HU${area}`;
         }
-        return '⬯ region';
+        return 'Freehand region';
       }
       if (poly && poly.length > 1) {
         let len = 0;
         for (let i = 1; i < poly.length; i++) {
           len += Math.hypot(poly[i][0] - poly[i - 1][0], poly[i][1] - poly[i - 1][1], poly[i][2] - poly[i - 1][2]);
         }
-        return `〰 ${len.toFixed(1)} mm`;
+        return `Freehand ${len.toFixed(1)} mm`;
       }
-      return '〰 …';
+      return 'Freehand …';
     }
     default:
       return tn ?? '?';
@@ -548,8 +548,9 @@ export default function CbctViewport({
   // which pane takes the wheel (the 1 px accent frame); the pointer decides
   const { active: activePane, bind: bindPane } = useActivePane<string>(VP.axial);
   // the reading place (./readingPlace): written from the crosshair centre once this volume's
-  // stored place has been applied, so the reset cameras of a fresh attach never overwrite it
-  const placeArmedRef = useRef(false);
+  // stored place has been applied, so the reset cameras of a fresh attach never overwrite it.
+  // It holds the id of the volume it is armed for: a volume change disarms it in that render.
+  const placeArmedRef = useRef<string | null>(null);
   const anonRef = useRef(anon);
   anonRef.current = anon;
   const [measures, setMeasures] = useState<MeasureRow[]>([]);
@@ -1187,14 +1188,14 @@ export default function CbctViewport({
   // the crosshair centre (where the three slice planes meet) becomes the tab's reading place
   const writePlace = () => {
     const engine = engineRef.current;
-    if (!placeArmedRef.current || !engine) return;
+    if (placeArmedRef.current !== anonRef.current || !engine) return;
     try {
       const planes = MPR_IDS.map((id) => {
         const cam = engine.getViewport(id).getCamera();
         return { normal: (cam.viewPlaneNormal ?? [0, 0, 0]) as number[], point: (cam.focalPoint ?? [0, 0, 0]) as number[] };
       });
-      const world = planesIntersection(planes);
-      if (world) setReadingPlace({ anon: anonRef.current, world });
+      const place = armedPlace(placeArmedRef.current, anonRef.current, planesIntersection(planes));
+      if (place) setReadingPlace(place);
     } catch {
       /* pane mid-init */
     }
@@ -1356,6 +1357,7 @@ export default function CbctViewport({
       const t = e.target as HTMLElement;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
       if (isChord(e)) return; // Cmd-V pastes and Cmd-Backspace edits: the browser's, not ours
+      if (modalOpen()) return; // a modal dialogue holds the keyboard
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (deleteSelectedRef.current()) e.preventDefault();
       } else if (e.key === 'v' || e.key === 'V') {
@@ -2033,7 +2035,7 @@ export default function CbctViewport({
     (async () => {
       try {
         setProgress(0);
-        placeArmedRef.current = false;
+        placeArmedRef.current = null;
         const entry = await loadVolumeData(anon, (f) => !stale && setProgress(Math.min(0.94, f)));
         if (stale || !engineRef.current) return;
         metaRef.current = entry.meta;
@@ -2159,9 +2161,9 @@ export default function CbctViewport({
         }
         // the reading place another mode left for this volume: the crosshair and the axial
         // level come back where they were (a pair swap kept its cameras already)
-        const place = getReadingPlace(anon);
+        const place = getReadingPlace(anon, entry.meta.pair);
         if (place && !isPairSwap) jumpPanesToWorld(place.world);
-        placeArmedRef.current = true;
+        placeArmedRef.current = anon;
         writePlaceRef.current();
         prevAnonRef.current = anon;
         setProgress(null);
@@ -3071,7 +3073,8 @@ export default function CbctViewport({
             {!is3d && <WlReadout voi={voiShown} />}
             {sb && <ScaleBar px={sb.px} label={sb.label} />}
             {!is3d && (
-              <PaneCluster style={{ right: 26 }}>
+              <PaneCorner right={26}>
+              <PaneCluster>
                 {c.id === VP.axial && (
                   <PaneTextButton
                     icon={Bookmark}
@@ -3092,6 +3095,7 @@ export default function CbctViewport({
                   onClick={() => flipPane(c.id)}
                 />
               </PaneCluster>
+              </PaneCorner>
             )}
             {c.id === VP.axial && namingView !== null && (
               <input
@@ -3256,6 +3260,7 @@ export default function CbctViewport({
               </span>
             )}
             {is3d && (
+              <PaneCorner>
               <PaneCluster>
                 {(
                   [
@@ -3273,9 +3278,7 @@ export default function CbctViewport({
                   onClick={home3d}
                 />
               </PaneCluster>
-            )}
-            {is3d && (
-              <PaneCluster style={{ top: 32 }}>
+              <PaneCluster>
                 {eraseMode && (
                   <>
                     <span style={{ ...overlayText, position: 'static' }}>radius {eraseRadius} mm</span>
@@ -3339,6 +3342,7 @@ export default function CbctViewport({
                   title="Render eraser: erase what you touch on the render (a 3D-only copy; the slices never change)"
                 />
               </PaneCluster>
+              </PaneCorner>
             )}
             {is3d && cutDrag !== null && (
               <span
@@ -3475,7 +3479,7 @@ export default function CbctViewport({
                   title={`3D box ROI ${dims} mm, ${s.nVoxels.toLocaleString()} voxels, min ${Math.round(s.minHu)} and max ${Math.round(s.maxHu)} HU. Click to move the slices to it.`}
                   style={{ ...objLabelBtn, color: '#ffb45e' }}
                 >
-                  ⧈ {s.volumeCm3 >= 1 ? s.volumeCm3.toFixed(1) : s.volumeCm3.toFixed(2)} cm³ ·{' '}
+                  3D ROI {s.volumeCm3 >= 1 ? s.volumeCm3.toFixed(1) : s.volumeCm3.toFixed(2)} cm³ ·{' '}
                   {Math.round(s.meanHu)}±{Math.round(s.sdHu)} HU
                 </button>
                 <button

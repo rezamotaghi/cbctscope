@@ -35,7 +35,7 @@ import { SIZE_NOTICE_MIB, needsSizeNotice, voxelBytes } from './sizeNotice';
 import { dropLabel, entriesOf, walkDrop } from './dropFiles';
 import { selectVolumeVerb, type SwitchOutcome } from './agentSelect';
 import { useDropOverlay } from './useDropOverlay';
-import { isChord } from './keys';
+import { isChord, modalOpen } from './keys';
 import { downloadBlob } from './exporters';
 import {
   ResearchUseDialog,
@@ -45,7 +45,8 @@ import {
 } from './WebDialogs';
 import AboutBadge from '@/components/AboutBadge';
 import SnapshotButton, { type SnapRef } from './SnapshotButton';
-import { pageStorage, rememberWindow, rememberedWindow } from './windowPreset';
+import { pageStorage, rememberPreset, windowOnOpen } from './windowPreset';
+import { EVERY_MODE_GESTURES, MODE_GESTURES, statusLegend, type GestureMode } from './gestures';
 import { PANE_BUTTONS } from './paneButtons';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { REPO_URL, RELEASES_URL, STILLS_URL } from '@/components/links';
@@ -98,21 +99,6 @@ const WL_PRESETS: Record<string, { center: number; width: number } | null> = {
 };
 
 // Tool palette (left mouse button) — order defines the 1–9 hotkeys (0 = the tenth).
-// One gesture legend per room — the header used to show the MPR text over every mode,
-// describing gestures the other rooms don't have. MPR's stays tool-aware; the universal
-// "dbl-click a slider = reset" tail is appended for all.
-const MODE_LEGEND: Record<ViewMode, (tool: string) => string> = {
-  mpr: (tool) =>
-    `Slices: wheel moves the slice, left is ${tool}, right-drag rotates the section, right and left drag zooms, middle-drag pans. 3D: left-drag rotates, right-drag cuts in, right and left drag zooms, middle-drag pans.`,
-  grid: () => 'Scout: left-drag moves the window, right-drag rotates. Tiles: wheel steps, right-drag rotates in-plane.',
-  pano: () => 'Axial: a stroke draws the arch, the wheel moves the slice. Pano: click or wheel moves the sections. Sections: right-drag tilts.',
-  tmj: () => 'Axial: drag an axis line per side, right-click deletes, the wheel moves the slice. Tiles: right-drag tilts the fan.',
-  reslice: () => 'Scout: drag a line, or click dots and double-click to finish; the wheel moves the slice. Tiles: right-drag tilts.',
-  ceph: () => 'Drag the image: horizontal turns (yaw), vertical nods (pitch). Projection presets are in the toolbar.',
-  region: () => 'Axial: drag a box, click a seed, the wheel moves the slice. Right of the planes: the vertical-range handles.',
-  stitch: () => 'Pick volume B, auto align, then fine-tune the sliders. In the color overlay, fringes show misalignment.',
-};
-
 // 'wl' rides at the END so the 1-9/0 number keys keep their historical meaning — it gets
 // its own key (W) instead of renumbering ten muscle-memory bindings.
 const TOOL_ORDER: readonly CbctToolMode[] = [
@@ -196,12 +182,6 @@ export default function CbctApp() {
   const [anon, setAnon] = useState<string | null>(null);
   const [meta, setMeta] = useState<CbctMeta | null>(null);
   const [controls, setControls] = useState<CbctControls>(defaultControls);
-  // the desktop app reopens on the last window preset (./windowPreset); the website remembers nothing new
-  useEffect(() => {
-    const voi = rememberedWindow(pageStorage(), IS_DESKTOP, WL_PRESETS);
-    if (voi !== undefined) setControls((c) => ({ ...c, voi }));
-  }, []);
-  useEffect(() => rememberWindow(pageStorage(), IS_DESKTOP, controls.voi, WL_PRESETS), [controls.voi]);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('mpr');
   const [keysOpen, setKeysOpen] = useState(false);
@@ -296,6 +276,14 @@ export default function CbctApp() {
   const current = useMemo(() => volumes.find((v) => v.anon === anon) ?? null, [volumes, anon]);
   /** the open image is a single 2D radiograph — the volumetric modes don't apply */
   const isXray = current?.kind === 'xray';
+  // the desktop app opens every CT volume on the window preset the reader last picked
+  // (./windowPreset); a radiograph opens on Auto; the website remembers nothing new
+  const currentKind = current?.kind ?? null;
+  useEffect(() => {
+    if (!anon || !currentKind) return;
+    const voi = windowOnOpen(pageStorage(), IS_DESKTOP, currentKind === 'xray', WL_PRESETS);
+    setControls((c) => ({ ...c, voi }));
+  }, [anon, currentKind]);
 
   const r3d = controls.render3d;
   const styleDef = RENDER_STYLES[r3d.style]; // undefined means the Air preset: the sliders don't apply
@@ -555,6 +543,8 @@ export default function CbctApp() {
       // Cmd, Ctrl or Alt held: the chord belongs to the browser or the app menu (open, close,
       // reload, copy, new window, print, tab switching), never to a viewer key
       if (isChord(e)) return;
+      // a modal dialogue holds the keyboard: no volume switch or tool change behind it
+      if (modalOpen()) return;
       const k = e.key.toLowerCase();
       // the MPR keys (tools, W, C, O) are GATED to the MPR room — in any other mode they
       // used to silently mutate state the reader couldn't see. R also serves the
@@ -576,8 +566,10 @@ export default function CbctApp() {
     return () => window.removeEventListener('keydown', onKey);
   }, [step, viewMode, isXray]);
 
+  /** a preset picked by the reader: applied, and on the desktop app remembered for a CT volume */
   const setVoiPreset = (name: string) => {
     setControls((c) => ({ ...c, voi: WL_PRESETS[name] ?? null }));
+    if (!isXray) rememberPreset(pageStorage(), IS_DESKTOP, name, WL_PRESETS);
   };
   const voiShown = controls.voi ?? meta?.defaultVoi ?? { center: 0, width: 1 };
   /** a window is known (set by hand, or the volume's own): until then the rail shows no number */
@@ -633,7 +625,7 @@ export default function CbctApp() {
         if (isXray && preset !== 'Auto') {
           return `preset ${preset} is HU-based: a radiograph has no HU scale (use Auto, or center/width on the 0-4095 gray scale)`;
         }
-        setControls((c) => ({ ...c, voi: WL_PRESETS[preset] ?? null }));
+        setVoiPreset(preset);
       } else if (center !== undefined || width !== undefined) {
         const cNum = Number(center ?? voiShown.center);
         const wNum = Number(width ?? voiShown.width);
@@ -676,13 +668,9 @@ export default function CbctApp() {
     return () => window.removeEventListener(MANUAL_EVENT, open);
   }, []);
 
-  /** the status line's gesture legend: this mode's, MPR's aware of the active tool */
-  const legend =
-    (isXray
-      ? 'Wheel zooms, left-drag pans, double-click or R fits.'
-      : MODE_LEGEND[viewMode](
-          controls.toolMode === 'crosshairs' ? 'a click spots the crosshairs, a drag pans' : TOOL_LABEL[controls.toolMode],
-        )) + ' Double-click a slider to reset it.';
+  /** the status line's gesture legend: at most three of this mode's, MPR's aware of the active tool */
+  const gestureMode: GestureMode = isXray ? 'xray' : viewMode;
+  const legend = statusLegend(gestureMode, controls.toolMode === 'crosshairs' ? null : TOOL_LABEL[controls.toolMode]);
 
   /** a chip in the side rail: the one button, solid accent while it is the selected one */
   const chip = (active: boolean) => ({ className: 'ctl', 'aria-pressed': active });
@@ -776,6 +764,11 @@ export default function CbctApp() {
           </button>
         </div>
       )}
+      {/* below 768 px: a phone or a narrow window can look at the phantom, not read a scan. It
+          comes first in the document so it is read first; CSS order shows it under the header. */}
+      <div className="phone-notice" role="note">
+        CBCTScope reads scans in a desktop browser. Here you can look at the built-in phantom.
+      </div>
       {/* the header: one row where the width holds it, in reading order: what this is, the
           modes, the volume, the actions, then Keys, Help, Agent and the desktop download */}
       <header className="app-header" data-testid="app-header">
@@ -1010,7 +1003,7 @@ export default function CbctApp() {
               aria-expanded={keysOpen}
               aria-haspopup="dialog"
               onClick={() => setKeysOpen((v) => !v)}
-              title="keyboard reference: this mode's keys, in words"
+              title="this mode's keys and mouse gestures, in words"
             >
               Keys
             </button>
@@ -1020,57 +1013,62 @@ export default function CbctApp() {
                 className="menu-panel"
                 role="dialog"
                 aria-label="Keys"
-                style={{ right: 0, padding: '8px 12px', lineHeight: 1.8, whiteSpace: 'nowrap' }}
+                style={{ right: 0, padding: '8px 12px', lineHeight: 1.6, width: 'min(680px, calc(100vw - 16px))' }}
               >
-                <div className="pop-head">Every mode</div>
-                <div>N / P: next / previous volume</div>
-                <div>Double-click a slider: reset it</div>
-                {isXray ? (
-                  <>
-                    <div className="pop-head" style={{ marginTop: 8 }}>
-                      2D radiograph
-                    </div>
-                    <div>R: fit the radiograph to the pane</div>
-                  </>
-                ) : viewMode === 'mpr' ? (
-                  <>
-                    <div className="pop-head" style={{ marginTop: 8 }}>
-                      MPR
-                    </div>
-                    <div>1 to 9, 0: tools (Crosshairs to 3D ROI)</div>
-                    <div>W: window/level tool</div>
-                    <div>R: reset orientation</div>
-                    <div>C: plane lines on or off</div>
-                    <div>O: overlays on or off</div>
-                    <div>V: save the current view</div>
-                    <div>Del: delete the selected object</div>
-                    <div className="pop-head" style={{ marginTop: 8 }}>
-                      3D pane
-                    </div>
-                    <div>Left-drag: rotate the render</div>
-                    <div>Right-drag: cut into the render</div>
-                    <div>Right and left drag: zoom</div>
-                    <div>Middle-drag: pan</div>
-                    <div className="pop-head" style={{ marginTop: 8 }}>
-                      Pane buttons
-                    </div>
-                    {PANE_BUTTONS.map((b) => (
-                      <div key={b.name} style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>
-                        <b.icon size={14} strokeWidth={2} aria-hidden="true" style={{ flex: 'none', alignSelf: 'center' }} />
-                        <span>
-                          {b.name}: {b.what}
-                        </span>
+                <div className="keys-cols">
+                  <div className="keys-col">
+                    <div className="pop-head">Keys</div>
+                    <div>N / P: next / previous volume</div>
+                    {isXray ? (
+                      <div>R: fit the radiograph to the pane</div>
+                    ) : viewMode === 'mpr' ? (
+                      <>
+                        <div>1 to 9, 0: tools (Crosshairs to 3D ROI)</div>
+                        <div>W: window/level tool</div>
+                        <div>R: reset orientation</div>
+                        <div>C: plane lines on or off</div>
+                        <div>O: overlays on or off</div>
+                        <div>V: save the current view</div>
+                        <div>Del: delete the selected object</div>
+                      </>
+                    ) : (
+                      <div>{VIEW_MODES.find(([m]) => m === viewMode)?.[1]} has no keys of its own.</div>
+                    )}
+                    {!isXray && viewMode === 'mpr' && (
+                      <>
+                        <div className="pop-head" style={{ marginTop: 8 }}>
+                          Pane buttons
+                        </div>
+                        {PANE_BUTTONS.map((b) => (
+                          <div key={b.name} style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>
+                            <b.icon size={14} strokeWidth={2} aria-hidden="true" style={{ flex: 'none', alignSelf: 'center' }} />
+                            <span>
+                              {b.name}: {b.what}
+                            </span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                  <div className="keys-col" data-testid="keys-mouse">
+                    <div className="pop-head">Mouse</div>
+                    {EVERY_MODE_GESTURES.map(([g, what]) => (
+                      <div key={g}>
+                        {g}: {what}
                       </div>
                     ))}
-                  </>
-                ) : (
-                  <>
-                    <div className="pop-head" style={{ marginTop: 8 }}>
-                      {VIEW_MODES.find(([m]) => m === viewMode)?.[1]}
-                    </div>
-                    <div>No keys of its own. Its mouse gestures are in the status line.</div>
-                  </>
-                )}
+                    {MODE_GESTURES[gestureMode].map((p) => (
+                      <div key={p.pane ?? 'all'}>
+                        {p.pane && <div className="keys-sub">{p.pane}</div>}
+                        {p.lines.map(([g, what]) => (
+                          <div key={g}>
+                            {g}: {what}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -1164,12 +1162,8 @@ export default function CbctApp() {
           )}
         </div>
       </header>
-      {/* below 768 px: a phone or a narrow window can look at the phantom, not read a scan */}
-      <div className="phone-notice" role="note">
-        CBCTScope reads scans in a desktop browser. Here you can look at the built-in phantom.
-      </div>
 
-      <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', order: 2 }}>
         {/* the viewer column: the agent panel, when open, docks under the viewer and pushes it up */}
         <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <main
@@ -2008,7 +2002,7 @@ export default function CbctApp() {
       {/* the status line: the case facts, the first-run line while the phantom is on screen and
           nothing of the reader's is open (it leaves by itself once an export is opened), and the
           gesture legend of this mode. Always visible, full contrast for the facts and the link. */}
-      <div className="status-line" data-testid="status-line">
+      <div className="status-line" data-testid="status-line" style={{ order: 2 }}>
         {current && (
           <span className="status-facts">
             {/* the case identity leads, the id everything else (exports, sidecars) is filed
@@ -2030,7 +2024,7 @@ export default function CbctApp() {
             </a>
           </span>
         )}
-        <span className="status-legend" title={legend}>
+        <span className="status-legend" data-testid="status-legend">
           {legend}
         </span>
       </div>

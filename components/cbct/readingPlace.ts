@@ -2,7 +2,8 @@
 // a mode switch keeps it. One world point in patient mm: the MPR crosshair centre, whose z is
 // the axial level every axial scout (Pano, TMJ, Reslice, Region) opens on. MPR at axial slice
 // 120 opens Pano on slice 120, and MPR comes back at 120 with the crosshair where it was.
-// It lives in this tab's memory only, for the open volume, and is never written anywhere.
+// It lives in this tab's memory only, for the open volume, and is never written anywhere. The
+// paired series of one acquisition (meta.pair) share one grid, so they share one place.
 
 export type Vec3 = [number, number, number];
 
@@ -17,11 +18,26 @@ export interface VolumeGeometry {
   dims: readonly number[];
   spacing: readonly number[];
   origin: readonly number[];
+  /** the paired series of the same acquisition, which shares this volume's place */
+  pair?: string | null;
 }
 
-/** the place for this volume, or null when the stored one belongs to another (or none is stored) */
-export function placeFor(place: ReadingPlace | null, anon: string): ReadingPlace | null {
-  return place && place.anon === anon ? place : null;
+/**
+ * The place for this volume (or for its paired series, one acquisition and one grid), or null
+ * when the stored one belongs to another volume or none is stored.
+ */
+export function placeFor(place: ReadingPlace | null, anon: string, pair?: string | null): ReadingPlace | null {
+  if (!place) return null;
+  return place.anon === anon || (!!pair && place.anon === pair) ? place : null;
+}
+
+/**
+ * The MPR viewport writes the crosshair centre only while it is armed for the volume on screen.
+ * The arming carries the volume id, so between the render where the id changes and the load
+ * that re-arms, a camera event from the old volume's panes writes nothing under the new id.
+ */
+export function armedPlace(armedFor: string | null, anon: string, world: Vec3 | null): ReadingPlace | null {
+  return world && armedFor !== null && armedFor === anon ? { anon, world } : null;
 }
 
 /** the axial voxel index (buffer z, 0 = the first slice in the file) of a place, clamped into the volume */
@@ -40,7 +56,7 @@ export function volumeCentre(geo: VolumeGeometry): Vec3 {
  * index, x and y stay where the crosshair was (the volume centre when there was none).
  */
 export function withAxialIndex(place: ReadingPlace | null, anon: string, geo: VolumeGeometry, z: number): ReadingPlace {
-  const prev = placeFor(place, anon)?.world ?? volumeCentre(geo);
+  const prev = placeFor(place, anon, geo.pair)?.world ?? volumeCentre(geo);
   return { anon, world: [prev[0], prev[1], geo.origin[2] + z * geo.spacing[2]] };
 }
 
@@ -67,9 +83,9 @@ export function planesIntersection(planes: readonly { normal: readonly number[];
 // ---- the tab's one place (module memory: survives a mode switch, gone with the tab)
 let current: ReadingPlace | null = null;
 
-/** the stored place for this volume, or null */
-export function getReadingPlace(anon: string): ReadingPlace | null {
-  return placeFor(current, anon);
+/** the stored place for this volume or its paired series, or null */
+export function getReadingPlace(anon: string, pair?: string | null): ReadingPlace | null {
+  return placeFor(current, anon, pair);
 }
 
 /** store the place (each reading mode writes it as the reader moves) */
@@ -84,6 +100,6 @@ export function setAxialLevel(anon: string, geo: VolumeGeometry, z: number): voi
 
 /** the axial index an axial scout opens on: the stored place, else `fallback` */
 export function initialAxialIndex(anon: string, geo: VolumeGeometry, fallback: number): number {
-  const p = getReadingPlace(anon);
+  const p = getReadingPlace(anon, geo.pair);
   return p ? axialIndexOf(p, geo) : fallback;
 }

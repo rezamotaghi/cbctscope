@@ -2,8 +2,9 @@
 
 The whole program is one screen: a header across the top, the active reading
 mode filling the middle, and a status line along the bottom. There are no
-dialogs to dismiss and no hidden panels; every control is visible at full
-contrast at all times, by design.
+hidden panels; every control is visible at full contrast at all times, by
+design. The few dialogues the program opens (section 3.3) ask one question and
+close on its answer.
 
 ## 3.1 The header
 
@@ -32,8 +33,9 @@ right:
    serves, grouped as Stitched (session stitches from the Stitch mode),
    Opened (your export, under its folder name), and Built in (the phantom).
    Each entry shows its field of view, matrix, and acquisition details where
-   present. The built-in phantom is the **Geometric test phantom**: a
-   procedural head of simple shapes for trying the controls, not a jaw. The
+   present. The built-in phantom is the **Geometric test phantom**: simple
+   geometric shapes with an arch of tooth-like cylinders, for trying the
+   controls; it is not anatomy. The
    previous and next buttons on either side of the list, or the `N` and `P`
    keys, cycle through it.
 5. **Open**: the source menu for opening and closing your own exports
@@ -43,8 +45,9 @@ right:
    2D radiographs, whose slice stacks and surface meshes have no meaning.
 7. **Snapshot**: saves what the current mode shows as a PNG (chapter 7). This
    one button serves every mode, including 2D radiographs.
-8. **Keys**: the keyboard reference for the current mode, in words (chapter
-   12).
+8. **Keys**: the complete reference for the current mode, in words: its keys,
+   its pane buttons (MPR), and under **Mouse** every mouse gesture of the mode,
+   pane by pane (chapter 12).
 9. **Help**: the reading guide for the current mode (chapter 8), this manual,
    and the **Source code repository**. The viewer serves the manual itself, so
    it needs no network. In the local app and the desktop app it opens in a
@@ -79,21 +82,23 @@ what teaches the mouse, so the header keeps to controls:
   and links **See CBCTScope on a real scan** to stills of a real,
   consented CBCT (bone only) on the project page. It leaves by itself once you
   open an export.
-- **Gesture legend** (right): a live reminder of the mouse bindings for the
-  current mode, active tool and image class, ending with "Double-click a
-  slider to reset it." On a narrow window it is cut short; the full text is in
-  the mode's guide and in chapter 12.
+- **Gesture legend** (right): at most three of the current mode's mouse
+  gestures, each as "gesture: effect", then "All gestures: Keys." In MPR the
+  left button follows the active tool. The legend is never cut short: where
+  the line cannot hold it, it wraps onto a second line. The Keys card lists
+  every gesture of the mode.
 
 Below 768 px wide (a phone, or a very narrow window) a notice above the
 viewer says that CBCTScope reads scans in a desktop browser and that here you
-can look at the built-in phantom.
+can look at the built-in phantom. A screen reader reads it before the
+header.
 
 ## 3.3 The mode area
 
 Each reading mode fills the area between the header and the status line with
 its own panes and its own control rail; the per-mode guides (chapters 8.1 to
-8.8) document them control by control, including each mode's own mouse
-gestures. Conventions that hold across modes:
+8.8) document them control by control, and the Keys card lists each mode's
+mouse gestures. Conventions that hold across modes:
 
 - **One Snapshot button** lives in the header next to Export, in the same
   place no matter which mode is open. It saves a PNG of what the current
@@ -116,12 +121,15 @@ gestures. Conventions that hold across modes:
 - **The reading place carries between modes.** The axial level and the MPR
   crosshair are shared: MPR at axial slice 120 opens Pano, TMJ, Reslice and
   Region on slice 120, and MPR comes back at 120 with the crosshair where it
-  was. The place belongs to the open volume and lives in this tab or window
-  only; it is not kept across a relaunch.
+  was, at the same x and y. The place belongs to the open volume (the paired
+  series of one acquisition count as one volume) and lives in this tab or
+  window only; another volume starts at its own default, and the place is not
+  kept across a relaunch.
 - **Disabled controls stay fully readable** and their tooltip says why they
   are unavailable; nothing dims, hides, or unmounts. The one dimming in the
   program is the backdrop behind an open dialogue, whose controls are the only
-  ones that answer until it closes; Tab stays inside the dialogue.
+  ones that answer until it closes; Tab stays inside the dialogue, and the
+  viewer's keys (`N`, `P` and the rest) wait until it closes.
 - **Pane dividers** between a mode's panes drag to resize and double-click
   back to the default split.
 - Double-click is otherwise a per-mode verb: in MPR it maximizes a pane and
@@ -154,8 +162,9 @@ stored as small text sidecars on this machine, never inside the scan
 
 `N` / `P` next and previous volume · `1` to `9` and `0` select the tool ·
 `R` reset orientation · `C` toggle plane lines · `O` toggle overlays ·
-`V` save the current view · `Del` delete the selected annotation. The full
-reference, including every mouse gesture, is chapter 12.
+`V` save the current view · `Del` delete the selected annotation. The Keys
+card lists the current mode's keys and mouse gestures; chapter 12 is the full
+reference.
 
 ## 3.7 The image panes
 
@@ -165,8 +174,8 @@ figures so they do not jitter while they change:
 
 - **Top left**: the plane, in its colour (axial red, sagittal yellow, coronal
   green), and the slice as n/N with the direction of the count, for example
-  `AXIAL 100/200 S→I`. No mouse hints sit in a pane; they are in the keys
-  card and the hint line.
+  `AXIAL 100/200 S→I`. No mouse hints sit in a pane; they are in the Keys
+  card and the status line.
 - **Bottom right**: the window the pane shows, width then level, for example
   `W 4000 L 1000`. It follows the presets, the sliders and a window drag. In
   Pano the pano's own readout follows auto-adjust.
@@ -176,7 +185,11 @@ figures so they do not jitter while they change:
   2 or 5 mm, 1, 2 or 5 cm and so on) with its length beside it. `O` hides it
   with the other overlays.
 - **Bottom left** (MPR): the HU under the cursor.
-- **Top right**: the pane's buttons.
+- **Top right**: the pane's buttons. On a pane too narrow for them (a phone
+  width) the buttons wrap onto further rows inside the pane, under the label,
+  and never leave the window.
+- **Bottom left** (3D pane, once you have cut into the render): **Clear N
+  cuts**, a text button with a scissors icon that removes every cut at once.
 
 In Pano, TMJ and Reslice the captions of the pano and of each section sit in a
 strip above the image, never over it. Measurement labels stay inside the
@@ -201,6 +214,7 @@ name:
 | Curved back arrow | **Undo erase** | 3D pane, eraser on | Undo the last eraser stroke. |
 | Curved forward arrow | **Redo erase** | 3D pane, eraser on | Redo the stroke just undone. |
 
-Three pane buttons keep their word beside the icon: **Save view** (axial
-pane, `V`), **Eraser** and **Revert** (3D pane). Grid's **Reset view** sits in
+Four pane buttons keep their words beside the icon: **Save view** (axial
+pane, `V`), **Eraser** and **Revert** (3D pane), and **Clear N cuts** (3D
+pane, bottom left, once there is a cut). Grid's **Reset view** sits in
 its toolbar.

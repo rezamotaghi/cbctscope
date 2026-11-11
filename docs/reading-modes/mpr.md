@@ -7,8 +7,9 @@
 > - **Start:** open the scan, press `R` for orthogonal planes, pick a window preset
 >   (**Bone**, **Teeth**, **Soft**, or **Auto**), click a structure to spot the crosshairs.
 > - **Three gestures:** the wheel scrolls the hovered pane; the left button runs the tool
->   (with **Crosshairs**, a click spots the crosshairs and a drag pans); right-drag rotates
->   the section. On the 3D pane, left-drag orbits and right-drag cuts in.
+>   (with **Crosshairs**, a left-click places the crosshairs and a left-drag pans);
+>   right-drag rotates the section. On the 3D pane, left-drag orbits and right-drag cuts
+>   in. The Keys card lists every gesture of the mode.
 > - **Leave it for:** a slice-by-slice survey (Grid), the dental arch (Pano), the condyles
 >   (TMJ), any other cut (Reslice), a film-like projection (Ceph), a density region
 >   (Region), two volumes of one subject (Stitch).
@@ -63,7 +64,7 @@ yellow scale bar at the bottom centre; a live HU readout under the cursor, botto
 The pane that takes the wheel carries a thin blue frame. The 3D pane's top-right buttons
 orbit the render left, right, up and down (hold to keep turning) and reset its camera.
 The crosshair and the axial level are the reading place the other modes share (section
-3.2): leave for Pano and come back, and they are where you left them.
+3.3): leave for Pano and come back, and they are where you left them.
 
 **Tool palette** ("Tool (1-9, 0)"): Crosshairs, Pan, Length, Angle, Arrow, Text, Rect
 ROI, Ellipse ROI, Freehand, 3D ROI, on hotkeys 1 through 9 and 0; W/L on `W`. Arrow and

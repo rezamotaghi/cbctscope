@@ -332,26 +332,44 @@ textarea:focus-visible,
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
-.status-legend {
-  flex: 1 1 0;
-  min-width: 240px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* the legend wraps inside its box, then onto a line of its own: never cut, never elided */
+.status-line > .status-legend {
+  flex: 1 1 320px;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
   text-align: right;
+}
+
+/* the Keys card: the keys and the mouse gestures side by side, stacked where narrow; lines wrap */
+.keys-cols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+}
+.keys-col {
+  flex: 1 1 260px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.keys-sub {
+  margin-top: var(--sp-1);
+  font-weight: var(--fw-strong);
+  color: var(--text);
 }
 @media (max-width: 767px) {
   .status-line > * {
     white-space: normal;
   }
-  .status-legend {
+  .status-line > .status-legend {
     text-align: left;
-    min-width: 0;
   }
 }
 
 /* below 768 px: the notice that a phone is for looking at the phantom, not for reading */
 .phone-notice {
   display: none;
+  order: 1; /* first in the document, shown under the header */
   padding: var(--sp-2) var(--sp-3);
   background: var(--panel-2);
   border-bottom: 1px solid var(--ctl-border);
@@ -392,4 +410,14 @@ textarea:focus-visible,
   font-size: var(--fs-meta);
   color: var(--text-dim);
   line-height: 1.5;
+}
+
+/* a pane narrower than its corner buttons (components/cbct/PaneOverlay.tsx PaneCorner): the
+   text buttons wrap their words inside the pane instead of growing past it */
+.pane-corner-narrow button {
+  white-space: normal;
+  height: auto !important;
+  min-height: var(--ctl-h-pane);
+  max-width: 100%;
+  text-align: left;
 }

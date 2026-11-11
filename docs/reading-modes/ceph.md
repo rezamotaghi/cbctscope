@@ -7,7 +7,7 @@
 >   click **auto contrast**, then choose the average projection or **MIP**.
 > - **Three gestures:** drag on the image horizontally to turn the head and vertically to
 >   tilt it; the turn and tilt sliders do the same numerically; double-click a slider to
->   zero it.
+>   zero it. The Keys card lists every gesture of the mode.
 > - **Leave it for:** any ambiguity of superimposition (MPR is one mode switch away), and
 >   landmarks, tracing, or measurements, which this mode does not have.
 

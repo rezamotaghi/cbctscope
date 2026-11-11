@@ -7,7 +7,7 @@
 >   keep the **color** overlay, run **auto align**, refine with the sliders until the
 >   colored fringes are gone, then **bake & load**.
 > - **Three gestures:** the wheel over any preview steps the compared slice; drag a slider
->   to nudge one axis; double-click a slider to zero it.
+>   to nudge one axis; double-click a slider to zero it. The Keys card lists every gesture of the mode.
 > - **Leave it for:** anything that is not a rigid difference between two scans of one
 >   subject: distortion, growth, or a different acquisition geometry cannot be corrected
 >   here.

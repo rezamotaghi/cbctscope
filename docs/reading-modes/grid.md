@@ -7,7 +7,7 @@
 >   window over the region on the scout and set the spacing so the stack covers it.
 > - **Three gestures:** on the scout, left-drag moves the section window and right-drag
 >   rotates the stack through the anatomy; the wheel, anywhere in the mode, steps the
->   window by one spacing.
+>   window by one spacing. The Keys card lists every gesture of the mode.
 > - **Leave it for:** measurements, annotations, and saved views, which live in MPR.
 
 ![Grid on the consented real CBCT: a sagittal scout with numbered section lines on the left and nine parallel axial slices through the dentition on the right, each tile labeled with its offset in mm](../media/manual/mode-grid.webp)

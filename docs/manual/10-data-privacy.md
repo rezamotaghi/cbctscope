@@ -36,7 +36,8 @@ browser to Downloads, like any file a web page saves.
 **Removing the desktop app.** The desktop app (section 2.6) does not use
 `~/.cbctscope`: its marks, the research-use acknowledgement, the agent
 settings, the window's size and position (the file `window-state.json`: four
-numbers and whether it was maximized) and the window preset's name live in
+numbers and whether it was maximized) and the name of the window preset you
+last picked (written only when you pick one) live in
 the app's own profile, with the browser engine's caches. None of it names a
 folder or a file.
 Removing the app leaves that profile behind: on macOS the folder

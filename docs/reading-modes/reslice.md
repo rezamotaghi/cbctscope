@@ -7,7 +7,7 @@
 >   path (drag a stroke, or click points: two make a line, three or more an arc),
 >   double-click to finish, then choose the **cross** or **parallel** output shape.
 > - **Three gestures:** on the scout, drag or click draws the path and the wheel scrolls;
->   right-drag on an output tile tilts the stack.
+>   right-drag on an output tile tilts the stack. The Keys card lists every gesture of the mode.
 > - **Leave it for:** measurements, which live in MPR; the dental arch (Pano) and the
 >   condyles (TMJ) have their own, specialized versions of this mode.
 

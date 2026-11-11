@@ -1,4 +1,4 @@
-// The image panes' overlay (manual section 3.6): the window readout and slice n/N in every
+// The image panes' overlay (manual section 3.7): the window readout and slice n/N in every
 // slice pane, the accent frame on the pane the pointer is in, no two overlay boxes on top of
 // each other at the minimum desktop size and at a common laptop size, and the reading place
 // carried across a mode switch.
@@ -116,6 +116,41 @@ for (const [w, h] of [
     await openMode(page, 'TMJ');
     await expect(page.locator('main [data-pane="axial"] [data-overlay="label"]')).toHaveText(/^AXIAL \d+\/\d+/, { timeout: 60_000 });
     expect(await overlapsInPanes(page), 'TMJ').toEqual([]);
+  });
+}
+
+/** the slice ordinal a pane label shows, without the plane name */
+const ordinal = async (page: Page, plane: string) =>
+  ((await slicePane(page, plane).locator('[data-overlay="label"]').textContent()) ?? '').replace(new RegExp(`^${plane} `), '');
+
+for (const mode of ['Pano', 'TMJ', 'Reslice', 'Region']) {
+  test(`the reading place carries from MPR to ${mode} and back: the axial level and the crosshair's x and y`, async ({ page }) => {
+    await page.goto('/');
+    await waitForVolume(page);
+    await expect(slicePane(page, 'AXIAL').locator('[data-overlay="label"]')).toHaveText(/^AXIAL \d+\/\d+/, { timeout: 60_000 });
+    // move all three planes: z on the axial slider, x and y on the sagittal and coronal sliders
+    const moved: Record<string, string> = {};
+    for (const [plane, presses] of [
+      ['AXIAL', 12],
+      ['SAGITTAL', 9],
+      ['CORONAL', 7],
+    ] as const) {
+      const before = await ordinal(page, plane);
+      await page.getByRole('slider', { name: `${plane} slice` }).focus();
+      for (let i = 0; i < presses; i++) await page.keyboard.press('ArrowUp');
+      await expect.poll(() => ordinal(page, plane)).not.toBe(before);
+      moved[plane] = await ordinal(page, plane);
+    }
+
+    await openMode(page, mode);
+    await expect(page.locator('main [data-pane="axial"] [data-overlay="label"]')).toHaveText(new RegExp(`^AXIAL ${moved.AXIAL.replace(/[/]/g, '\\/')}`), {
+      timeout: 60_000,
+    });
+
+    await openMode(page, 'MPR');
+    for (const plane of ['AXIAL', 'SAGITTAL', 'CORONAL']) {
+      await expect(slicePane(page, plane).locator('[data-overlay="label"]'), plane).toHaveText(`${plane} ${moved[plane]}`, { timeout: 60_000 });
+    }
   });
 }
 

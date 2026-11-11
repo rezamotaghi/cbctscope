@@ -270,6 +270,54 @@ test.describe('opening files', () => {
     await expect(researchDialog(page)).toHaveCount(0);
   });
 
+  test('the reading place stays with its volume across a volume switch', async ({ page }) => {
+    await waitForVolume(page);
+    await openFolder(page, 'series');
+    await researchDialog(page).getByRole('button', { name: 'I understand' }).click();
+    await expectCurrentLocal(page, 'series', `${N}²×${SERIES_COUNT}`);
+    const axialLabel = page.locator('main [data-pane]').filter({ has: page.locator('[data-overlay="label"]', { hasText: /^AXIAL\b/ }) }).locator('[data-overlay="label"]');
+    await expect(axialLabel).toHaveText(new RegExp(`^AXIAL \\d+/${SERIES_COUNT}\\b`), { timeout: 60_000 });
+    const fresh = (await axialLabel.textContent()) ?? '';
+    // to the phantom, move its level far from the series' default, then back to the series
+    await page.locator('header').getByRole('button', { name: 'Next volume' }).click();
+    await expect(axialLabel).toHaveText(/^AXIAL \d+\/200\b/, { timeout: 60_000 });
+    await page.getByRole('slider', { name: 'AXIAL slice' }).focus();
+    for (let i = 0; i < 30; i++) await page.keyboard.press('ArrowUp');
+    await page.locator('header').getByRole('button', { name: 'Previous volume' }).click();
+    await expect(axialLabel).toHaveText(new RegExp(`^AXIAL \\d+/${SERIES_COUNT}\\b`), { timeout: 60_000 });
+    // the series opens on its own default: nothing of the phantom's place carried over
+    await page.waitForTimeout(500);
+    await expect(axialLabel).toHaveText(fresh);
+  });
+
+  test('the desktop app keeps the picked window preset through relaunch, open and relaunch', async ({ browser, baseURL }) => {
+    const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 }, userAgent: 'Mozilla/5.0 Chrome CBCTScope/0.0.0' });
+    const app = await ctx.newPage();
+    const appProblems = guardPage(app, new URL(baseURL as string).origin);
+    const bone = app.locator('aside').getByRole('button', { name: 'Bone', exact: true });
+    await app.goto('/');
+    await waitForVolume(app);
+    await bone.click();
+    await expect(bone).toHaveAttribute('aria-pressed', 'true');
+    // relaunch: the phantom opens on Bone
+    await app.reload();
+    await waitForVolume(app);
+    await expect(bone).toHaveAttribute('aria-pressed', 'true');
+    // open a CT export: it opens on Bone too, and the open does not overwrite the name
+    await openFolder(app, 'series');
+    await researchDialog(app).getByRole('button', { name: 'I understand' }).click();
+    await expectCurrentLocal(app, 'series', `${N}²×${SERIES_COUNT}`);
+    await expect.poll(() => mainCanvasHasImage(app), { timeout: 60_000 }).toBe(true);
+    await expect(bone).toHaveAttribute('aria-pressed', 'true');
+    // relaunch again: still Bone
+    await app.reload();
+    await waitForVolume(app);
+    await expect(bone).toHaveAttribute('aria-pressed', 'true');
+    expect(await app.evaluate(() => localStorage.getItem('cbctscope-window-preset'))).toBe('Bone');
+    expect(appProblems).toEqual([]);
+    await ctx.close();
+  });
+
   test('the progress panel shows during an open and leaves when the volume is on screen', async ({ page }) => {
     // hold every assembly result back 1.5 s, so the panel is caught on screen deterministically
     await page.addInitScript(() => {
@@ -331,7 +379,7 @@ test.describe('opening files', () => {
     await expect.poll(() => mainCanvasHasImage(page), { timeout: 60_000 }).toBe(true);
 
     // one measurement, drawn the way a reader draws it: the Length tool, a drag on the first pane
-    const measureRows = page.locator('main').getByText(/^↔ \d+(\.\d+)? mm$/);
+    const measureRows = page.locator('main').getByText(/^Length \d+(\.\d+)? mm$/);
     await page.getByRole('button', { name: 'Length', exact: true }).click();
     const box = await page.locator('main canvas').first().boundingBox();
     if (!box) throw new Error('the first pane has no box');
@@ -396,7 +444,7 @@ test.describe('opening files', () => {
     await chooser.setFiles(saved);
     await expect(measureRows).toHaveCount(1, { timeout: 30_000 });
     // the restored mark is the saved one: its recomputed length is the distance of the saved handles
-    await expect(measureRows.first()).toHaveText(`↔ ${mm.toFixed(1)} mm`);
+    await expect(measureRows.first()).toHaveText(`Length ${mm.toFixed(1)} mm`);
     await page.waitForTimeout(2000);
     await expect(measureRows).toHaveCount(1);
   });

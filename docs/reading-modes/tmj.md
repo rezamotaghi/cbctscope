@@ -8,7 +8,7 @@
 >   window; the sections appear as soon as a line exists.
 > - **Three gestures:** on the scout, drag draws or moves an axis line and right-click
 >   deletes it; the wheel scrolls the scout slice; right-drag on a section tilts that
->   side's fan.
+>   side's fan. The Keys card lists every gesture of the mode.
 > - **Leave it for:** measurements, which live in MPR at the same location.
 
 ![TMJ on the consented real CBCT: the axial scout with one axis line per condyle on the left, and the right and left condyle rows in axis-corrected sections on the right](../media/manual/mode-tmj.webp)

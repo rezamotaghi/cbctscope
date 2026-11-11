@@ -2,6 +2,7 @@
 // by every reading mode, so a mode switch keeps the axial level and the crosshair.
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  armedPlace,
   axialIndexOf,
   getReadingPlace,
   initialAxialIndex,
@@ -89,5 +90,59 @@ describe('the reading place across a mode switch', () => {
     setReadingPlace({ anon: 'vol', world: [5, -7, 8] });
     expect(getReadingPlace('other')).toBeNull();
     expect(initialAxialIndex('other', geo, 90)).toBe(90);
+  });
+});
+
+describe('the paired series of one acquisition share one place', () => {
+  beforeEach(() => setReadingPlace({ anon: 'none', world: [0, 0, 0] }));
+  const geoA = { ...geo, pair: 'B' };
+  const geoB = { ...geo, pair: 'A' };
+  it('a level set on one series opens its pair on the same level, in Pano, TMJ, Reslice and Region alike', () => {
+    setReadingPlace({ anon: 'A', world: [5, -7, geo.origin[2] + 120 * geo.spacing[2]] });
+    // every axial scout reads the place through initialAxialIndex with its volume's meta
+    expect(initialAxialIndex('B', geoB, 90)).toBe(120);
+    // the pair writes its own move and keeps the crosshair's x and y
+    setAxialLevel('B', geoB, 130);
+    const p = getReadingPlace('A', 'B')!;
+    expect(p.world.slice(0, 2)).toEqual([5, -7]);
+    expect(initialAxialIndex('A', geoA, 90)).toBe(130);
+    expect(placeFor(p, 'A', 'B')).toBe(p);
+  });
+  it('a volume outside the pair starts fresh', () => {
+    setReadingPlace({ anon: 'A', world: [5, -7, 8] });
+    expect(getReadingPlace('C', null)).toBeNull();
+    expect(initialAxialIndex('C', { ...geo, pair: null }, 90)).toBe(90);
+  });
+});
+
+describe('the place across a volume switch', () => {
+  beforeEach(() => setReadingPlace({ anon: 'none', world: [0, 0, 0] }));
+  it('a scout move keeps x and y on one volume, and a switch keeps the volumes apart', () => {
+    setReadingPlace({ anon: 'vol', world: [5, -7, 8] });
+    for (const z of [10, 150, 60]) {
+      setAxialLevel('vol', geo, z);
+      const p = getReadingPlace('vol')!;
+      expect(p.world[0]).toBe(5);
+      expect(p.world[1]).toBe(-7);
+      expect(axialIndexOf(p, geo)).toBe(z);
+    }
+    // the other volume's first scout move starts from its own centre, not from vol's x and y
+    setAxialLevel('other', geo, 20);
+    const o = getReadingPlace('other')!;
+    expect(o.world.slice(0, 2)).toEqual(volumeCentre(geo).slice(0, 2));
+    expect(getReadingPlace('vol')).toBeNull();
+  });
+  it('the MPR viewport writes only while armed for the volume on screen', () => {
+    const w: [number, number, number] = [1, 2, 3];
+    // armed for vol, vol on screen: written
+    expect(armedPlace('vol', 'vol', w)).toEqual({ anon: 'vol', world: w });
+    // the render where the id changes to next: the arming still names vol, so a camera
+    // event from vol's panes writes nothing under next
+    expect(armedPlace('vol', 'next', w)).toBeNull();
+    // the load disarms, then re-arms for next once next's place is applied
+    expect(armedPlace(null, 'next', w)).toBeNull();
+    expect(armedPlace('next', 'next', w)).toEqual({ anon: 'next', world: w });
+    // planes that do not meet write nothing
+    expect(armedPlace('next', 'next', null)).toBeNull();
   });
 });

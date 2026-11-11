@@ -116,13 +116,57 @@ export function PaneTextButton({
   );
 }
 
-/** the top-right button cluster of a pane */
+/** a row of pane buttons inside a PaneCorner; it wraps onto further rows where the pane is narrow */
 export function PaneCluster({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
     <div
       data-overlay="buttons"
       onDoubleClick={(e) => e.stopPropagation()}
-      style={{ position: 'absolute', top: 4, right: 8, display: 'flex', gap: 4, alignItems: 'center', zIndex: 2, ...style }}
+      style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'inherit', gap: 4, alignItems: 'center', maxWidth: '100%', ...style }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** the pane width (px) below which the corner buttons leave the top-right corner (see PaneCorner) */
+export const PANE_CORNER_NARROW = 320;
+
+/**
+ * The pane's top-right corner, holding its button rows one under another. On a pane narrower
+ * than PANE_CORNER_NARROW (a phone width) the rows move under the pane label, start at the
+ * left edge and wrap inside the pane, so no button ever leaves the window or covers the label.
+ * The text buttons wrap their words there instead of growing past the pane.
+ */
+export function PaneCorner({ children, right = 8 }: { children: React.ReactNode; right?: number }) {
+  const ref = React.useRef<HTMLDivElement | null>(null);
+  const [narrow, setNarrow] = useState(false);
+  React.useLayoutEffect(() => {
+    const pane = ref.current?.parentElement;
+    if (!pane || typeof ResizeObserver === 'undefined') return;
+    const check = () => setNarrow(pane.clientWidth < PANE_CORNER_NARROW);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(pane);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div
+      ref={ref}
+      data-pane-corner={narrow ? 'narrow' : 'wide'}
+      className={narrow ? 'pane-corner-narrow' : undefined}
+      style={{
+        position: 'absolute',
+        top: narrow ? 24 : 4,
+        right,
+        left: narrow ? 8 : undefined,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: narrow ? 'flex-start' : 'flex-end',
+        justifyContent: narrow ? 'flex-start' : 'flex-end',
+        gap: 4,
+        zIndex: 2,
+      }}
     >
       {children}
     </div>
