@@ -5,16 +5,20 @@ import './globals.css';
 
 const ogImage = { url: OG_IMAGE.path, width: OG_IMAGE.width, height: OG_IMAGE.height, alt: SITE_NAME };
 
+/** the page title, the share card's title and the Twitter title: what this is, in one line */
+const TITLE = 'CBCTScope: CBCT and radiograph viewer in your browser';
+
 export const metadata: Metadata = {
-  title: 'CBCTScope',
+  title: TITLE,
   metadataBase: new URL(SITE_URL),
-  // the share card: one site URL constant, the README's claim, the rendered public/og.png
-  openGraph: { type: 'website', title: SITE_NAME, description: SITE_CLAIM, url: SITE_URL, siteName: SITE_NAME, images: [ogImage] },
-  twitter: { card: 'summary_large_image', title: SITE_NAME, description: SITE_CLAIM, images: [ogImage] },
+  // the share card: one site URL constant, the README's claim, the rendered public/og.png (its two
+  // lines come from components/siteCard.mjs)
+  openGraph: { type: 'website', title: TITLE, description: SITE_CLAIM, url: SITE_URL, siteName: SITE_NAME, images: [ogImage] },
+  twitter: { card: 'summary_large_image', title: TITLE, description: SITE_CLAIM, images: [ogImage] },
   description:
     process.env.NEXT_PUBLIC_CBCTSCOPE_TARGET === 'web'
       ? 'CBCT viewer in the browser: the scan is read into this tab and never uploaded. Research use only; not a medical device.'
-      : 'Local-first CBCT viewer with native AI-agent control (MCP). Research use only; not a medical device.',
+      : 'Local-first CBCT and 2D radiograph viewer. Research use only; not a medical device.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
