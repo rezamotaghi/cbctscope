@@ -1,5 +1,14 @@
 # 2 · Installation and startup
 
+## Which one do I have?
+
+- **The website** ([cbctscope.com](https://cbctscope.com)): nothing is
+  installed. The viewer runs in your browser tab; section 2.5 describes it.
+- **The desktop app** (**CBCTScope** in Applications on macOS, or installed
+  from the Windows setup file): section 2.6.
+- **The repository** (the project's code, started with a double-click starter
+  or `npm run dev`): sections 2.1 to 2.4 below. Only this form needs Node.js.
+
 ## 2.1 System requirements
 
 - **Node.js 22 or later**: the free runtime that runs the viewer. Download the
@@ -92,8 +101,8 @@ What differs from the local app:
   (section 4.6), and read into the tab. Nothing is uploaded.
 - Marks live in the browser's storage and travel as a marks file (section 7.3).
 - A volume above the size threshold (512 MiB of voxels by default) shows a
-  notice first, because the browser must hold it in memory. The local app has
-  no such limit.
+  notice first, because the browser must hold it in memory. The repository
+  viewer (section 2.3) has no such limit.
 - There is no MCP connection in a plain browser (chapter 9); the desktop app
   (section 2.6) adds it. The opt-in in-page navigation agent, on your own
   model account, works in both (section 9.6).
@@ -154,6 +163,30 @@ What differs from the repository starters (section 2.3):
 - The agent verbs `open_scan` and `pick_scan` are not available in the app:
   it has no route that takes a file path. Open the scan with **Open DICOMDIR or DICOM folder**,
   then the agent reads the catalog with `list_volumes`.
+
+**Removing the desktop app.** On macOS, quit CBCTScope and drag it from
+**Applications** to the Trash; on Windows, uninstall it in **Settings** under
+**Apps** (the portable build is simply deleted). Removing the app leaves its
+profile behind: the app's own storage, holding your marks, the research-use
+acknowledgement, the agent settings and the browser engine's caches (about
+20 MB after a first session). On macOS that is the folder
+`~/Library/Application Support/CBCTScope` and the preferences file
+`~/Library/Preferences/com.cbctscope.app.plist`; on Windows, the folder
+`%APPDATA%\CBCTScope`. To remove them as well, with the app quit: in the
+Finder, choose **Go to Folder** in the **Go** menu, enter
+`~/Library/Application Support`, and move the **CBCTScope** folder to the
+Trash, then do the same for `com.cbctscope.app.plist` in
+`~/Library/Preferences`. From Terminal, the same is
+
+```sh
+rm -rf ~/Library/"Application Support"/CBCTScope
+defaults delete com.cbctscope.app
+```
+
+On Windows, delete the folder you reach by typing `%APPDATA%\CBCTScope` into
+the Explorer address bar. Deleting the profile deletes the marks kept in it;
+save them to a marks file first (section 7.3) to keep them. No scan is ever
+stored there: scans stay where they were opened from.
 
 To build it yourself: `npm run desktop` starts it from the repository against
 `out/` (building the web target first if `out/` is missing), and

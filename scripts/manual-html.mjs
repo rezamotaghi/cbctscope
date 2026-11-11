@@ -13,7 +13,9 @@
 // works on GitHub works here; links between chapters point at the generated pages, links to
 // other repo files at the project page (a new tab, never a request), and the stills are copied
 // into media/. `?theme=dark` (the viewer's help drawer) forces the dark theme on every page it
-// reaches; without it a page follows the system setting. No inline script and no remote asset: manual.js and manual.css sit next to the
+// reaches; without it a page follows the system setting. The bar links back to the viewer, one
+// level up (manual/ sits beside it, under any base path); in the drawer the viewer is already
+// beside the page, so manual.js drops that link there. No inline script and no remote asset: manual.js and manual.css sit next to the
 // pages, so the web build's CSP (written into every exported page by build-web.mjs) holds.
 // Markdown rendering: marked (devDependency, exact version, no dependencies of its own).
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -175,6 +177,7 @@ function shell(manual, { page, title, body }) {
 <a class="brand" href="index.html">${esc(manual.title)}</a>
 <span class="chip">v${esc(manual.version)}</span>
 <span class="posture">Research use only. Not a medical device.</span>
+<a class="viewer" href="../">Open the viewer</a>
 <form class="search" role="search" action="#">
 <label for="q">Search</label>
 <input id="q" type="search" placeholder="Search the manual" autocomplete="off">

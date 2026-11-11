@@ -6,8 +6,9 @@ The safe behavior is the only behavior the software has:
 
 - Scans are read **in place** from the folder you pick. Nothing is copied,
   converted, imported, or uploaded; closing the source releases it untouched.
-- There is no hosted instance, no account, and no telemetry, and there never
-  will be. The viewer works with the network cable unplugged.
+- There is no account and no telemetry, and no instance receives scans: the
+  website is static files. The repository viewer and the desktop app work with
+  the network cable unplugged.
 - The server accepts connections only from this machine. In technical terms:
   it binds to 127.0.0.1 and rejects any request whose Host or Origin is not
   loopback, so neither another device on your network nor a hostile web page
@@ -31,6 +32,15 @@ The viewer writes exactly one folder, the app-data folder `~/.cbctscope`
 Demo mode writes neither. Deleting the folder resets the viewer completely
 and touches no scan. Snapshots and exports (chapter 7) are written by your
 browser to Downloads, like any file a web page saves.
+
+**Removing the desktop app.** The desktop app (section 2.6) does not use
+`~/.cbctscope`: its marks, the research-use acknowledgement and the agent
+settings live in the app's own profile, with the browser engine's caches.
+Removing the app leaves that profile behind: on macOS the folder
+`~/Library/Application Support/CBCTScope` and the preferences file
+`~/Library/Preferences/com.cbctscope.app.plist`, on Windows the folder
+`%APPDATA%\CBCTScope`. Delete them, with the app quit, to remove every trace;
+section 2.6 gives the steps. They hold no pixels and no scan.
 
 ## 10.3 What remains your responsibility
 
