@@ -36,7 +36,7 @@ bookmark, capture. This is a design constraint, not a disclaimer:
   leaves this computer as part of that chat, under a local host it does not
   (section 10.3).
 - A saved view is a presentation, not a finding. A view the agent saves shows
-  an **agent** badge in the objects panel (section 3.4), so you never mistake
+  an **agent** badge in the objects panel (section 3.5), so you never mistake
   it for your own bookmark.
 
 > **Caution.** Treat agent-written summaries of what it "saw" with the same
@@ -172,10 +172,12 @@ The full technical contract, including the architecture and the live check
 ## 9.6 The in-page agent
 
 The web build and the desktop app carry a navigation agent inside the page,
-for when no MCP host is at hand. The **Agent** button in the header, next to
-the research-use line, opens the agent panel as a strip under the viewer; the
-viewer moves up to make room, so the panel never covers a control, and the
-same button or **Close panel** closes it. You type a request in the panel
+for when no MCP host is at hand. The plain **Agent** button at the right end
+of the header, after **Help**, opens the agent panel as a strip under the
+viewer; the viewer moves up to make room, so the panel never covers a control.
+Until you start the setup the strip is one row: what the agent is, **Set up the
+navigation agent**, and **Close**. The same header button or the strip's one
+**Close** closes it. You type a request in the panel
 ("show the left TMJ in sagittal, bone window"), and
 a model on your own account moves the viewer with the same fifteen verbs as
 the MCP server (section 9.3), through the same verb handling in the page. It
@@ -199,10 +201,11 @@ memory (in the desktop app, this app's) and is forgotten when the tab closes
 every snapshot the agent asks for is sent to that provider or server and
 nowhere else; each snapshot is a picture of the open scan, so use
 de-identified scans; the agent only moves the camera and is not asked for
-findings, and nothing it says is a finding. **Cancel** sends nothing. While the agent is on, the header
-button reads **Agent: on**, followed by the provider, at all times, open panel
-or not, and **Switch off** (beside it and in the panel) stops it at once and
-forgets the key.
+findings, and nothing it says is a finding. **Cancel** sends nothing. While the agent is on, the strip
+reads **Agent: on**, followed by the provider, and its **Switch off** stops the
+agent at once and forgets the key. The header button then reads **Agent
+on**, so a running agent stays in sight with the strip closed; it carries no
+status while the agent is off.
 
 **Providers.** The list starts with **Model server on this computer**: a model
 server that speaks the OpenAI-compatible chat completions API with image input, with presets for llama-server
@@ -238,11 +241,11 @@ fence remains yours: the agent moves the camera, you read.
 visualisation only; never interpret, measure for a diagnosis, or state
 findings; if asked, it answers that reading the images is yours. A request
 stops after at most 12 tool calls, and **Stop** cancels the request in flight.
-While a request runs, **Stop** is also in the header, beside the agent status,
-so closing the panel never hides it. A tool call whose arguments arrive
+While a request runs, **Stop** is also in the header, beside the **Agent**
+button, so closing the panel never hides it. A tool call whose arguments arrive
 malformed is answered to the model as an error and runs nothing.
 Errors appear in the panel in plain words. `open_scan` and `pick_scan` answer
-that you open the scan yourself, with **open** or a drop on the viewer.
+that you open the scan yourself, with **Open** or a drop on the viewer.
 
 **The model server on this computer.** The agent's isolated frame calls the server, and
 its requests carry no site address (the origin `null`), on the published site
