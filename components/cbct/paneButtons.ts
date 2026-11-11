@@ -1,5 +1,5 @@
 // Every icon-only button in an image pane's corner, with the word it stands for. The panes
-// draw them from here, and the Keys card and the manual (section 3.6, checked by
+// draw them from here, and the Keys card and the manual (section 3.7, checked by
 // tests/overlayGrammar.test.ts) list them from here, so an icon never means something only a
 // hover could tell. Icons are the Lucide line set, 14 px, each with its standard meaning.
 import {

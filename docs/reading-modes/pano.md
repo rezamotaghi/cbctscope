@@ -60,7 +60,7 @@ what sits outside is not.
 **Panes.** The axial editor shows `AXIAL n/N` top left and the window bottom right. The
 pano's caption sits in a strip above it; its window readout, bottom right, follows
 auto-adjust. The cross-sections carry the window bottom right of the last one.
-Measurement labels stay inside the image on a dark halo. The pane that takes the wheel carries a thin blue frame, and the axial level is the reading place shared with the other modes (section 3.2).
+Measurement labels stay inside the image on a dark halo. The pane that takes the wheel carries a thin blue frame, and the axial level is the reading place shared with the other modes (section 3.3).
 
 **The pano canvas** carries a ruler marking arc-length in mm. Its controls:
 

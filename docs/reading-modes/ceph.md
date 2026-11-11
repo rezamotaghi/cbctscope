@@ -45,7 +45,7 @@ when you let go. The current turn and tilt are shown on the image.
 | Contrast | the shared Window section | The cephalogram is windowed by the sidebar's shared Window section, one set of center, width, and gamma controls for the whole app, so the numbers you read there are the numbers this image uses. The shared invert checkbox produces the film-negative rendering. |
 | auto contrast | button | Computes a window from the projection's own densities (the projected values are not slice HU, so the volume window is usually not the right one) and writes it into that shared section; its check mark shows only while that window is still active. |
 | reset window | button | Returns to the automatic volume window. |
-| snapshot | header button | Saves the current cephalogram with a caption carrying the volume id, the projection name, and the date. |
+| Snapshot | header button | Saves the current cephalogram with a caption carrying the volume id, the projection name, and the date. |
 
 ## A reading workflow
 

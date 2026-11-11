@@ -41,7 +41,7 @@ The lines and the scout slice persist per volume.
 
 | Control | Options or range | What it does |
 |---|---|---|
-| Panes | scout, two rows | The scout shows `AXIAL n/N` top left and the window bottom right. Each row's side name and each section's caption sit in strips above the images; the window is bottom right of each row's last section. The pane that takes the wheel carries a thin blue frame, and the axial level is the reading place shared with the other modes (section 3.2). |
+| Panes | scout, two rows | The scout shows `AXIAL n/N` top left and the window bottom right. Each row's side name and each section's caption sit in strips above the images; the window is bottom right of each row's last section. The pane that takes the wheel carries a thin blue frame, and the axial level is the reading place shared with the other modes (section 3.3). |
 | Section orientation | perpendicular to axis | Sections perpendicular to each condyle's axis, the corrected sagittal stack, labeled A (anterior) and P (posterior) at the edge midpoints. |
 | | parallel to axis | Sections parallel to the axis, the corrected coronal stack, labeled lat and med. |
 | sync sides | checkbox | Editing one side (dragging an endpoint or the whole line) mirrors it to the other side about the midline, for a symmetric starting point that can then be refined per side. A fresh draw fills the other side only when it is empty; it never replaces a placed line there, so a stray stroke cannot wipe a tuned opposite side. |

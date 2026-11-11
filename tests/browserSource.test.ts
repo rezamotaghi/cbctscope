@@ -142,7 +142,7 @@ describe('browserSource: the four export shapes', () => {
       'S2/DEEP',
       'series',
       'xray/pano',
-      'Synthetic phantom (demo)',
+      'Geometric test phantom',
     ]);
   });
 });
@@ -264,7 +264,7 @@ describe('browserSource: phantom, fused, evidence', () => {
       region: server.region,
       year: server.year,
       pair: null,
-      label: 'Synthetic phantom (demo)',
+      label: 'Geometric test phantom',
     });
     const meta = await src.meta(PHANTOM_ID);
     expect(meta).toEqual(server);
@@ -287,7 +287,7 @@ describe('browserSource: phantom, fused, evidence', () => {
     const b = await src.registerFused({ ...geo, label: 'B' }, new Int16Array(64).fill(2));
     expect(a.anon).toMatch(/^fused_[0-9a-f]{12}$/);
     const list = await src.list();
-    expect(list.map((e) => e.label)).toEqual(['B', 'A', 'pano', 'Synthetic phantom (demo)']);
+    expect(list.map((e) => e.label)).toEqual(['B', 'A', 'pano', 'Geometric test phantom']);
     expect((await src.data(b.anon))[0]).toBe(2);
     expect((await src.meta(a.anon)).region).toBe('fused');
   });

@@ -19,14 +19,14 @@ it finds compressed files (chapter 11).
 
 ## 4.2 Opening
 
-Click **📂 open** in the header:
+Click **Open** in the header:
 
-- **📁 Open DICOMDIR or DICOM folder…** for an export folder.
-- **🗄 Open a single DICOM file…** for a single file (a DICOMDIR, a multiframe
+- **Open DICOMDIR or DICOM folder…** for an export folder.
+- **Open a single DICOM file…** for a single file (a DICOMDIR, a multiframe
   volume, one slice of a series, or a 2D radiograph).
 
 The system file dialog appears; pick the export. Every volume found in it is
-listed in the volume picker, and the first one displays. The scan is read in
+listed in the volume list, and the first one displays. The scan is read in
 place: nothing is copied, converted, or imported, and closing the source
 releases it untouched.
 
@@ -37,7 +37,7 @@ releases it untouched.
 
 ## 4.3 Closing
 
-**📂 open → ✕ Close** closes the current source and returns the viewer to the
+**Close** at the end of the **Open** menu (it names the source) closes the current source and returns the viewer to the
 built-in phantom. In normal mode the viewer remembers the last opened source
 and restores it on the next start; in demo mode it never does (section 2.4).
 
@@ -46,7 +46,7 @@ and restores it on the next start; in demo mode it never does (section 2.4).
 The file dialog is native on macOS and Windows. On Linux it uses the
 desktop's dialog helper: zenity, or kdialog if zenity is absent; most
 distributions ship one of the two. If neither is installed (the viewer says
-so when you click **open**), either install zenity from your distribution's
+so when you click **Open**), either install zenity from your distribution's
 package manager, or point the running viewer at an export with one command in
 a second terminal (forward slashes work in Windows paths):
 
@@ -63,14 +63,14 @@ cursor-centered wheel zoom, left-drag pan, and double-click or `R` to fit.
 Gray values are display-normalized to a 12-bit scale at load, since
 radiographs carry no HU calibration, and MONOCHROME1 files are flipped so
 bright is always radiopaque. The volumetric reading modes and HU presets do
-not apply to radiographs; the header hint line reflects this while one is
-selected.
+not apply to radiographs; the status line's gesture legend reflects this while
+one is selected.
 
 ## 4.6 Opening in the browser (the web build)
 
-In the web build (section 2.5) the **📂 open** menu offers:
+In the web build (section 2.5) the **Open** menu offers:
 
-- **📁 Open DICOMDIR or DICOM folder** for an export folder (a DICOMDIR tree,
+- **Open DICOMDIR or DICOM folder** for an export folder (a DICOMDIR tree,
   a slice series, or multiframe files). The browser asks you to confirm that
   the site may read the folder; that confirmation is the browser's, and
   nothing is uploaded. A line under this entry says so before the picker
@@ -78,7 +78,7 @@ In the web build (section 2.5) the **📂 open** menu offers:
   the page read the files, and they stay in the tab. In the desktop app the
   line says the same of its Open sheet, and that the files stay on the
   computer.
-- **🗄 Open a single DICOM file** for one multiframe volume or one 2D
+- **Open a single DICOM file** for one multiframe volume or one 2D
   radiograph.
 
 A **drop** anywhere on the viewer opens too: drag an export folder or a file
@@ -86,7 +86,7 @@ from your file manager onto the image area, which then reads
 **Drop a DICOM folder, a DICOMDIR or a single file here**. Folders are read
 with all their subfolders. The same accepted formats apply as in section 4.1, and the files
 are recognized by their content, never by their names. In the desktop app,
-**File → Open…** does the same as the first entry.
+**Open…** in the File menu does the same as the first entry.
 
 From the moment the files are handed over until the volume is on screen, a
 progress panel covers the image area with the step it is on and the seconds
@@ -125,5 +125,5 @@ A volume above the size threshold (512 MiB of voxels by default) shows the
 **Large volume** notice before it loads: its size, and that the browser must
 hold it in memory (the tab's on the website, the app's in the desktop app),
 and that the viewer run from the repository holds it in a browser tab as well and only shows no notice. **Continue** loads it; **Cancel** leaves the viewer as it
-was. **✕ Close** works as in section 4.3, without any memory of the source
+was. **Close** works as in section 4.3, without any memory of the source
 between visits.

@@ -80,45 +80,26 @@ code {
   z-index: 10;
 }
 
-/* Supplementary thumbnails: reveal the promote affordance on hover. */
-.vp-thumb:hover {
-  outline: 2px solid var(--accent-dim) !important;
-  outline-offset: -1px;
-}
-.vp-promote-hint {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  padding: 1px 6px;
-  font-size: 10px;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.65);
-  color: var(--text-dim);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 120ms ease;
-}
-.vp-thumb:hover .vp-promote-hint {
-  opacity: 1;
-}
-
-/* Dropdown menu rows (header Source menu): keyboard-focusable buttons, hover highlight. */
+/* Menu rows (the header's Open and Help menus): keyboard-focusable, one control height. Hover
+   lifts the surface; the accent is never a hover or focus fill (it means selected). */
 .menu-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
   width: 100%;
+  min-height: var(--ctl-h);
   text-align: left;
-  padding: 6px 10px;
+  padding: 0 10px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--ctl-radius);
   background: transparent;
   color: var(--text);
   white-space: nowrap;
-  font-size: 13px;
+  font-size: var(--fs-body);
+  text-decoration: none;
 }
-.menu-item:hover,
-.menu-item:focus-visible {
-  background: var(--accent-dim);
-  outline: none;
+.menu-item:hover {
+  background: var(--lift);
 }
 
 /* Vertical slice-position slider hugging a CBCT pane's right edge. ALWAYS fully visible —
@@ -159,4 +140,256 @@ button:disabled {
 .vp-grab:active,
 .vp-grab:active * {
   cursor: grabbing !important;
+}
+
+/* ---- The reading screen's shell: header, status line, side rail, menus, dialogues ---- */
+:root {
+  --lift: #232833; /* hover: the surface lifts about 6 percent */
+  --menu-open: #2c3240; /* a menu or strip opened by this button */
+}
+
+/* keyboard focus: one 2 px accent ring, 2 px off the control, never a fill */
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* the one button: 28 px high, radius 4, padding 0 10px, a border at 3:1 or better */
+.ctl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  flex: 0 0 auto;
+  height: var(--ctl-h);
+  padding: 0 10px;
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: var(--fs-meta);
+  font-weight: var(--fw-regular);
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.ctl:hover {
+  background: var(--lift);
+}
+/* selected (a chip, a preset, a tool): solid accent, dark text */
+.ctl[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+/* a menu, popover or strip this button opened: lifted, light edge, never the accent */
+.ctl[aria-expanded='true'] {
+  background: var(--menu-open);
+  border-color: var(--text);
+}
+.ctl-wide {
+  width: 100%;
+}
+
+/* the mode switch: one segmented tab group, visibly unlike the action buttons */
+.tabs {
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: var(--ctl-h);
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
+  background: var(--bg);
+}
+.tab {
+  position: relative;
+  height: 100%;
+  padding: 0 8px;
+  border: none;
+  border-left: 1px solid var(--ctl-border);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-meta);
+  white-space: nowrap;
+}
+.tab:first-child {
+  border-left: none;
+  border-radius: 3px 0 0 3px;
+}
+.tab:last-child {
+  border-radius: 0 3px 3px 0;
+}
+.tab:hover {
+  background: var(--lift);
+}
+.tab[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--bg);
+}
+.tab:focus-visible {
+  z-index: 1;
+}
+@media (max-width: 767px) {
+  /* a phone: the group may take two lines rather than run off the screen */
+  .tabs {
+    flex-wrap: wrap;
+    height: auto;
+    max-width: 100%;
+  }
+  .tab {
+    height: calc(var(--ctl-h) - 2px);
+  }
+}
+
+/* the header: one 44 px row where the width holds it; it wraps whole groups, never a group apart */
+.app-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  min-height: var(--header-h);
+  padding: 7px var(--sp-3);
+  box-shadow: inset 0 -1px 0 var(--border); /* the edge inside the 44 px, not under it */
+  background: var(--panel);
+}
+.hgroup {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex: 0 0 auto;
+}
+.hgroup-volume {
+  flex: 1 1 180px;
+  min-width: 180px;
+  max-width: 420px;
+}
+.hselect {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--ctl-h);
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: var(--fs-meta);
+}
+.dl-short {
+  display: none;
+}
+@media (max-width: 1499px) {
+  .dl-long {
+    display: none;
+  }
+  .dl-short {
+    display: inline;
+  }
+}
+
+/* menus and popovers: a panel under their button, kept inside the viewport */
+.menu-panel {
+  position: absolute;
+  top: 100%;
+  z-index: 50;
+  margin-top: var(--sp-1);
+  max-width: calc(100vw - 16px);
+  background: var(--panel);
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  padding: var(--sp-1);
+  font-size: var(--fs-meta);
+}
+.pop-head {
+  font-size: var(--fs-meta);
+  font-weight: var(--fw-strong);
+  color: var(--text);
+  margin: 0 0 var(--sp-1);
+}
+
+/* the status line at the bottom: case facts, the first-run line, the gesture legend */
+.status-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  column-gap: var(--sp-4);
+  min-height: var(--status-h);
+  padding: 0 var(--sp-3);
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text-dim);
+  font-size: var(--fs-meta);
+  line-height: 22px;
+}
+.status-line > * {
+  white-space: nowrap;
+}
+.status-facts {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.status-legend {
+  flex: 1 1 0;
+  min-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+}
+@media (max-width: 767px) {
+  .status-line > * {
+    white-space: normal;
+  }
+  .status-legend {
+    text-align: left;
+    min-width: 0;
+  }
+}
+
+/* below 768 px: the notice that a phone is for looking at the phantom, not for reading */
+.phone-notice {
+  display: none;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--ctl-border);
+  color: var(--text);
+  font-size: var(--fs-body);
+}
+@media (max-width: 767px) {
+  .phone-notice {
+    display: block;
+  }
+}
+
+/* the side rail: every changing number in tabular figures, nothing wider than the rail */
+.rail {
+  font-variant-numeric: tabular-nums;
+  overflow-x: hidden;
+}
+.rail input[type='range'] {
+  min-width: 0;
+}
+.rail-label {
+  display: block;
+  font-size: var(--fs-meta);
+  color: var(--text-dim);
+}
+.rail-check {
+  display: flex;
+  gap: var(--sp-1);
+  align-items: center;
+  font-size: var(--fs-meta);
+  margin: var(--sp-1) 0;
+}
+.rail-head {
+  color: var(--text-dim);
+  margin-bottom: var(--sp-2);
+}
+.rail-note {
+  font-size: var(--fs-meta);
+  color: var(--text-dim);
+  line-height: 1.5;
 }

@@ -56,12 +56,14 @@ test.afterEach(() => {
 const panel = (page: Page) => page.getByTestId('agent-panel');
 const toggle = (page: Page) => page.locator('header').getByTestId('agent-status');
 
-/** open the docked panel from the header's Agent button */
+/** open the docked panel from the header's Agent button: plain, no status while off */
 async function openPanel(page: Page) {
-  await expect(toggle(page)).toHaveText('Agent: off');
+  await expect(toggle(page)).toHaveText('Agent');
+  await expect(toggle(page)).toHaveAttribute('aria-expanded', 'false');
   await expect(panel(page)).toBeHidden();
   await toggle(page).click();
   await expect(panel(page)).toBeVisible();
+  await expect(toggle(page)).toHaveAttribute('aria-expanded', 'true');
 }
 const optIn = (page: Page) => page.getByRole('dialog', { name: 'Switch on the navigation agent' });
 
@@ -80,7 +82,8 @@ async function setUpLocal(page: Page) {
 async function switchOn(page: Page) {
   await setUpLocal(page);
   await optIn(page).getByRole('button', { name: 'Switch on', exact: true }).click();
-  await expect(toggle(page)).toHaveText(`Agent: on, Model server on this computer (${fake.origin})`);
+  await expect(panel(page).getByText(`Agent: on, Model server on this computer (${fake.origin})`)).toBeVisible();
+  await expect(toggle(page)).toHaveText('Agent on');
 }
 
 async function ask(page: Page, text: string) {
@@ -89,7 +92,7 @@ async function ask(page: Page, text: string) {
 }
 
 test('the agent is off and its panel closed on load, and nothing is sent', async ({ page }) => {
-  await expect(toggle(page)).toHaveText('Agent: off');
+  await expect(toggle(page)).toHaveText('Agent');
   await expect(panel(page)).toBeHidden();
   await page.waitForTimeout(1000);
   expect(fake.requests).toEqual([]);
@@ -195,11 +198,11 @@ test('Switch off stops the request in flight and anything after it', async ({ pa
   // the fake server holds the second request (after the set_view_mode step) until released:
   // the turn is provably in flight when Switch off is clicked
   await expect.poll(() => fake.requests.length, { timeout: 30_000 }).toBe(2);
-  // the header's Switch off, beside the status, works with the panel open or closed
-  await toggle(page).click();
-  await expect(panel(page)).toBeHidden();
-  await page.locator('header').getByRole('button', { name: 'Switch off' }).click();
-  await expect(toggle(page)).toHaveText('Agent: off');
+  // Switch off lives in the strip, beside the status; the header carries none
+  await expect(page.locator('header').getByRole('button', { name: 'Switch off' })).toHaveCount(0);
+  await panel(page).getByRole('button', { name: 'Switch off' }).click();
+  await expect(panel(page).getByText('Agent: off')).toBeVisible();
+  await expect(toggle(page)).toHaveText('Agent');
   await expect(page.locator('iframe[data-testid="agent-frame"]')).toHaveCount(0); // the key went with it
   // the held answer would ask for a snapshot and a third request; it never arrives
   fake.release();
@@ -212,7 +215,9 @@ test('closing the panel mid-turn keeps Stop in the header, and it works', async 
   await switchOn(page);
   await ask(page, 'hold: show the TMJ');
   await expect.poll(() => fake.requests.length, { timeout: 30_000 }).toBe(2);
-  await panel(page).getByRole('button', { name: 'Close panel' }).click();
+  // the strip has one Close
+  await expect(panel(page).getByRole('button', { name: 'Close', exact: true })).toHaveCount(1);
+  await panel(page).getByRole('button', { name: 'Close', exact: true }).click();
   await expect(panel(page)).toHaveCount(0); // closed means unmounted, never hidden
   const stop = page.locator('header').getByTestId('agent-header-stop');
   await expect(stop).toBeVisible();
@@ -221,9 +226,10 @@ test('closing the panel mid-turn keeps Stop in the header, and it works', async 
   fake.release();
   await page.waitForTimeout(2000);
   expect(fake.requests.length).toBe(2);
-  // the agent stays on; the panel says the request stopped
-  await expect(toggle(page)).toHaveText(`Agent: on, Model server on this computer (${fake.origin})`);
+  // the agent stays on, and the header says so; the panel says the request stopped
+  await expect(toggle(page)).toHaveText('Agent on');
   await toggle(page).click();
+  await expect(panel(page).getByText(`Agent: on, Model server on this computer (${fake.origin})`)).toBeVisible();
   await expect(panel(page).getByTestId('agent-log')).toContainText('Stopped.');
 });
 
@@ -245,8 +251,10 @@ test('the open panel docks under the viewer and covers no control', async ({ pag
   const strip = await panel(page).boundingBox();
   const after = await viewer.boundingBox();
   expect(before && strip && after).toBeTruthy();
+  // until setup starts the strip is one row high
+  expect(strip!.height).toBeLessThan(64);
   // the viewer moved up to make room: it ends where the strip begins
-  expect(after!.height).toBeLessThan(before!.height - 150);
+  expect(after!.height).toBeLessThan(before!.height - strip!.height + 2);
   expect(after!.y + after!.height).toBeLessThanOrEqual(strip!.y + 1);
   const overlaps = (a: { x: number; y: number; width: number; height: number }) =>
     a.x < strip!.x + strip!.width && strip!.x < a.x + a.width && a.y < strip!.y + strip!.height && strip!.y < a.y + a.height;

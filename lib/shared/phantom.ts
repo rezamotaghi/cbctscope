@@ -14,7 +14,7 @@ import { robustVoi, type CbctListEntry, type VoxelVolume } from './dicom';
 export const PHANTOM_ID = 'demo_cbc70de0f00d';
 export const isPhantomId = (id: string) => id === PHANTOM_ID;
 /** the catalog label both sources show for the phantom row */
-export const PHANTOM_LABEL = 'Synthetic phantom (demo)';
+export const PHANTOM_LABEL = 'Geometric test phantom';
 
 const NX = 256;
 const NY = 256;
@@ -65,7 +65,7 @@ export const PHANTOM_ENTRY: CbctListEntry = {
   dims: [NX, NY, NZ],
   spacing: [SP, SP, SP],
   fov: [Math.round(NX * SP) / 10, Math.round(NZ * SP) / 10],
-  region: 'synthetic phantom',
+  region: '',
   year: '',
   pair: null,
 };

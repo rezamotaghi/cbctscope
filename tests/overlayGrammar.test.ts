@@ -67,7 +67,7 @@ describe('the pane-corner buttons', () => {
   });
   it('each is listed by name in the interface chapter of the manual', () => {
     const ch3 = read('docs/manual/03-interface.md');
-    for (const b of PANE_BUTTONS) expect(ch3, `manual 3.6 lists ${b.name}`).toContain(`**${b.name}**`);
+    for (const b of PANE_BUTTONS) expect(ch3, `manual 3.7 lists ${b.name}`).toContain(`**${b.name}**`);
   });
   it('the panes draw no arrow or rotation characters as button faces', () => {
     for (const f of ['CbctViewport', 'CbctGrid']) {

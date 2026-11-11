@@ -38,30 +38,21 @@ const box: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   background: 'var(--bg)',
-  borderRadius: 8,
+  borderRadius: 'var(--ctl-radius)',
 };
 
 const card: React.CSSProperties = {
-  minWidth: 360,
+  minWidth: 'min(360px, 100%)',
   maxWidth: 560,
-  padding: '18px 22px',
+  padding: '16px 20px',
   background: 'var(--panel)',
-  border: '1px solid var(--border)',
-  borderRadius: 8,
+  border: '1px solid var(--ctl-border)',
+  borderRadius: 'var(--ctl-radius)',
   color: 'var(--text)',
-  fontSize: 14,
+  fontSize: 'var(--fs-body)',
   display: 'flex',
   flexDirection: 'column',
-  gap: 10,
-};
-
-const cardButton: React.CSSProperties = {
-  padding: '4px 12px',
-  borderRadius: 6,
-  border: '1px solid var(--border)',
-  background: 'var(--panel-2)',
-  color: 'var(--text)',
-  fontSize: 13,
+  gap: 12,
 };
 
 export default function OpenProgressPanel({
@@ -100,14 +91,14 @@ export default function OpenProgressPanel({
             </ul>
           )}
           <div style={{ display: 'flex', gap: 8 }}>
+            <button className="ctl" onClick={onDismiss}>
+              Dismiss
+            </button>
             {onOpenAnother && (
-              <button onClick={onOpenAnother} style={{ ...cardButton, background: 'var(--accent-dim)', fontWeight: 600 }}>
+              <button className="ctl" onClick={onOpenAnother} style={{ background: 'var(--accent)', borderColor: 'var(--accent)', color: 'var(--bg)', fontWeight: 600 }}>
                 Open another folder
               </button>
             )}
-            <button onClick={onDismiss} style={cardButton}>
-              Dismiss
-            </button>
           </div>
         </div>
       </div>

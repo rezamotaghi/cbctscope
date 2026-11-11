@@ -1,8 +1,8 @@
 // The in-page agent's session, a module store read with useSyncExternalStore by the header
-// (AgentToggle: status, Stop while a request runs, Switch off) and the docked panel
-// (AgentPanel). The session outlives the panel: closing the panel unmounts it, and the request
-// in flight, its Stop and Switch off stay in the header (hard rule 4: an active control is
-// never hidden). The provider key is not here: the panel posts it to the agent frame once
+// (AgentToggle: the Agent button, which reads "Agent on" while the agent is on, and Stop while
+// a request runs) and the docked panel (AgentPanel, with the status and Switch off). The
+// session outlives the panel: closing the panel unmounts it, and the request in flight keeps
+// its Stop in the header (hard rule 4: an active control is never hidden). The provider key is not here: the panel posts it to the agent frame once
 // (agentFrame.ts) and the frame alone holds it.
 //
 // Model prose is kept apart from the log: it is shown only in the panel's labelled block

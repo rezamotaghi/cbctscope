@@ -34,7 +34,7 @@ the objects panel. `Del` (or `Backspace`) deletes the selection.
 
 The objects list, in a strip under the four MPR panes, lists every annotation
 and measurement on the current volume with its values, alongside the saved
-views (section 3.4). The eye icon hides or shows one object, the cross
+views (section 3.5). The eye icon hides or shows one object, the cross
 deletes it. Rows select, restore, and
 delete in one click.
 

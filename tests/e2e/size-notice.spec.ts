@@ -20,7 +20,7 @@ test('the size notice holds a large volume back; Cancel leaves the previous stat
   await expect(page.locator('main canvas')).toHaveCount(0);
 
   // choosing it again asks again; Continue loads it
-  const phantom = await page.locator('header select option').filter({ hasText: 'Synthetic phantom' }).getAttribute('value');
+  const phantom = await page.locator('header select option').filter({ hasText: 'Geometric test phantom' }).getAttribute('value');
   await page.locator('header select').selectOption(phantom as string);
   await expect(notice).toBeVisible();
   await notice.getByRole('button', { name: 'Continue' }).click();

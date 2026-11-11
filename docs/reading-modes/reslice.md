@@ -44,7 +44,7 @@ The path and the scout slice persist per volume.
 
 | Control | Options or range | What it does |
 |---|---|---|
-| Panes | scout, stack | The scout shows `AXIAL n/N` top left and the window bottom right; each slice's number and offset sit in a strip above it, and the window is bottom right of the last slice. The pane that takes the wheel carries a thin blue frame, and the axial level is the reading place shared with the other modes (section 3.2). |
+| Panes | scout, stack | The scout shows `AXIAL n/N` top left and the window bottom right; each slice's number and offset sit in a strip above it, and the window is bottom right of the last slice. The pane that takes the wheel carries a thin blue frame, and the axial level is the reading place shared with the other modes (section 3.3). |
 | clear path | button | Removes the whole path and returns to placing. |
 | Reset path | button | Returns the path to its position as of the last finish. |
 | Output shape | cross | Planes perpendicular to the path, marched along it. On a line this walks the line cutting across it; on a curve it steps along the arc cutting perpendicular cross-sections, as in the Pano cross-sections. |

@@ -48,25 +48,18 @@ export default function ManualDrawer({ page, onClose }: { page: string; onClose:
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          padding: '6px 8px',
+          padding: '8px',
           borderBottom: '1px solid var(--border)',
         }}
       >
-        <strong style={{ fontSize: 12 }}>User manual</strong>
+        <strong style={{ fontSize: 'var(--fs-meta)', fontWeight: 600 }}>User manual</strong>
         <button
+          className="ctl"
           onClick={onClose}
           title="close the manual; the viewer takes the width back"
-          style={{
-            marginLeft: 'auto',
-            padding: '4px 10px',
-            borderRadius: 6,
-            border: '1px solid var(--border)',
-            background: 'var(--panel-2)',
-            color: 'var(--text)',
-            fontSize: 12,
-          }}
+          style={{ marginLeft: 'auto' }}
         >
-          Close manual ✕
+          Close manual
         </button>
       </div>
       <iframe

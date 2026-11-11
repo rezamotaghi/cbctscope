@@ -5,7 +5,7 @@ is uploaded, the same local-first rule as reading.
 
 ## 7.1 Snapshots
 
-The header's **snapshot** button (next to export, same place in every mode)
+The header's **Snapshot** button (next to Export, same place in every mode)
 saves a PNG of what the current mode shows, exactly as displayed, to your
 Downloads folder. Each mode composes its own image behind that one button:
 MPR captures its visible layout with annotations, Grid its scout and tiles,
@@ -20,7 +20,7 @@ reading aid and do not crop the saved PNG.
 
 ## 7.2 The export menu
 
-**⇩ export** in the header exports the current **volume** (it is hidden for 2D
+**Export** in the header exports the current **volume** (it is hidden for 2D
 radiographs). Three formats, all computed in the browser and saved to
 Downloads:
 
@@ -57,13 +57,13 @@ itself rather than running its buttons off the bottom of the screen.
 
 In the web build (section 2.5) marks are kept in the browser's own storage,
 one record per volume, so they survive closing the tab in that browser. To
-carry them to another browser or computer, the **📂 open** menu offers:
+carry them to another browser or computer, the **Open** menu offers:
 
-- **⬇ Save marks to file** downloads the marks of the volume on screen
+- **Save marks to file** downloads the marks of the volume on screen
   (measurements, labels, saved views, 3D ROIs, pano traces) as
   `<volume id>_marks.json`. It holds labels, world-mm coordinates, and HU
   statistics, the same content as the local app's sidecar. Never pixels.
-- **⬆ Load marks from file** replaces the marks of the volume on screen with
+- **Load marks from file** replaces the marks of the volume on screen with
   a marks file saved earlier for that same scan. The viewer does not refuse a
   file by its volume id: the local app and the web build derive different ids
   for the same export, so a file saved by one loads in the other. The loaded

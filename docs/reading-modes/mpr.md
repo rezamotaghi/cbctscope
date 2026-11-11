@@ -59,7 +59,7 @@ bottom right, the window (`W 4000 L 1000`); patient-orientation letters at the e
 midpoints, computed from the live camera (they stay correct after oblique rotation); a
 yellow scale bar at the bottom centre; a live HU readout under the cursor, bottom left (a
 3 by 3 by 3 neighborhood mean); a slice slider on the right edge; and, top right, the
-**Reset view** and **Flip** buttons (section 3.6), with **Save view** in the axial pane.
+**Reset view** and **Flip** buttons (section 3.7), with **Save view** in the axial pane.
 The pane that takes the wheel carries a thin blue frame. The 3D pane's top-right buttons
 orbit the render left, right, up and down (hold to keep turning) and reset its camera.
 The crosshair and the axial level are the reading place the other modes share (section
@@ -104,7 +104,7 @@ its sampling and sharpens again on idle. Perspective projection is a separate to
 section planes and a bounding box inside the render.
 
 **Crop 3D.** Per-axis keep ranges (R to L, A to P, I to S) that crop the render only; the
-slices are unaffected. "Un-crop + clear cuts" restores the full volume.
+slices are unaffected. "Un-crop and clear cuts" restores the full volume.
 
 **Cutaway.** Right-drag on the 3D pane opens a cut plane facing the camera; dragging up
 pushes it deeper, down backs it out. Later right-drags resume the same cut from its
@@ -116,10 +116,11 @@ then does a new drag open a fresh plane facing wherever the camera is now.
 (radius 1 to 12 mm) that erases what you touch on the render. It edits a 3D-only copy of
 the voxels; the slice panes never change. Undo, redo, and revert are on the same toolbar.
 
-**My 3D presets.** Save the current render settings under a name; the star marks one as
-the default applied on app start.
+**My 3D presets.** Save the current render settings under a name; **Default** beside a
+saved preset marks it as the one applied on app start (solid blue while it is), and
+**Delete** removes it.
 
-**Snapshot and views.** "snapshot" (header) saves the visible layout (annotations
+**Snapshot and views.** **Snapshot** (header) saves the visible layout (annotations
 included) as a PNG, with each slice pane's window and scale bar. **Save view** (`V`), in
 the axial pane's top-right buttons, stores all four cameras plus window and render
 settings under a name; the objects list under the panes restores it in one click. Annotations, saved
@@ -128,7 +129,8 @@ is reopened.
 
 ## A reading workflow
 
-1. Open the scan and confirm the volume label, field of view, and voxel size in the header.
+1. Open the scan and confirm the volume label in the header's volume list, and the field of
+   view and voxel size in the status line at the bottom.
 2. Press R to start from orthogonal planes, then set the window: Bone or Teeth for the
    skeletal read, Soft for the soft tissues, Auto to return to the volume's own window.
 3. Scroll each pane through its full extent once before concentrating on any one finding,

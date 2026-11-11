@@ -148,7 +148,8 @@ can travel. Pixels never enter a sidecar.
 
 Every dialogue follows hard rule 4: full contrast, nothing hidden. Its one exception applies
 here: a scrim may dim the page behind an open dialogue, whose controls cannot be used while
-it is open.
+it is open. Tab and Shift-Tab stay inside the open dialogue, and its one primary button, the
+right-most, is the only one drawn in the accent.
 
 ## 7. The landing
 
@@ -156,8 +157,14 @@ The page opens on the phantom, as the repo's demo mode does. The source menu off
 DICOMDIR or DICOM folder" and "Open a single DICOM file" (a multiframe volume or a 2D
 radiograph); a drop anywhere on the viewer opens too ("Drop a DICOM folder, a DICOMDIR or a
 single file here"). The header carries "Research use only. Not a medical device." at all
-times, and links to the repository and, as "Download the desktop app", to the releases page.
-The manual (section 13) opens from the help menu, the one door to it on every surface.
+times; its last button, "Download the desktop app" ("Desktop app" on a narrower window), opens
+`/releases/latest` in a plain browser, and the Help menu and the About popover link the
+repository. While the phantom is on screen and nothing is open, the status line at the bottom
+says "Your scan is read in this tab and never uploaded." and links "See CBCTScope on a real
+scan" to the README's stills of a consented, bone-only real CBCT. Below 768 px wide a notice
+above the viewer says that CBCTScope reads scans in a desktop browser and that here the
+reader can look at the built-in phantom. The manual (section 13) opens from the Help menu,
+the one door to it on every surface.
 
 ## 8. Tests and gates
 
@@ -318,8 +325,8 @@ Built to the owner's decisions of 04/11/26:
   builds default to 9931, so the preset is a starting point, not a claim about the default).
   The panel docks as a strip under the viewer, opened from the header's Agent button, and
   pushes the viewer up rather than covering any control (hard rule 4). Closing the panel
-  unmounts it; a request in flight keeps its Stop in the header beside the status and Switch
-  off (the session lives in `agent/agentUi.ts`). Plain `fetch`, no SDKs, one adapter per
+  unmounts it; a request in flight keeps its Stop in the header beside the Agent button, and
+  Switch off lives in the strip (the session lives in `agent/agentUi.ts`). Plain `fetch`, no SDKs, one adapter per
   provider in `components/cbct/agent/frame/providers/`, bundled only into the agent frame
   (section 2); every cloud base address lives in `frame/providers/hosts.ts`, the one module
   `tests/noAbsoluteUrls.test.ts` allows them in, and no module outside `frame/` imports an
@@ -400,9 +407,9 @@ viewer beside `manual/`; in the drawer (below), where the viewer is already besi
 
 Two forms:
 
-1. **The pages on the site**: `manual/` beside the viewer. The help menu opens them in a
+1. **The pages on the site**: `manual/` beside the viewer. The Help menu opens them in a
    new tab.
-2. **The help drawer in the app**: in the local app and the desktop app, the help menu
+2. **The help drawer in the app**: in the local app and the desktop app, the Help menu
    opens the same pages in an iframe in a column
    at the right of the viewer's row, which narrows the viewer and covers no control, with a
    "Close manual" button. The drawer adds `?theme=dark`, so its pages stay dark beside the
