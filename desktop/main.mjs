@@ -5,10 +5,24 @@
 //
 // Hardening: context isolation, no Node in the page, the renderer sandbox, web security on,
 // no preload. Every window.open and every off-origin navigation is denied; an https: link is
-// handed to the system browser, anything else is dropped.
-import { app, BrowserWindow, dialog, Menu, session, shell } from 'electron';
+// handed to the system browser, anything else is dropped. The packaged app refuses to start
+// with a remote-debugging switch, which would hand the window to any local process.
+// The menu bar, About panel, save panel title and port dialogue come from ./native.mjs.
+import { app, BrowserWindow, dialog, Menu, nativeTheme, session, shell } from 'electron';
 import path from 'node:path';
-import { PORT_IN_USE, PortInUseError, startBridge } from './bridge.mjs';
+import { PortInUseError, startBridge } from './bridge.mjs';
+import {
+  aboutPanelOptions,
+  debugSwitchIn,
+  DEBUG_SWITCHES,
+  desktopUserAgent,
+  MANUAL_EVENT,
+  menuTemplate,
+  PORT_IN_USE,
+  PROFILE_FOLDER,
+  saveDialogTitle,
+  WEBSITE,
+} from './native.mjs';
 
 // seconds since the process started, so the log shows launch to first frame directly
 const log = (line) => console.log(`[cbctscope ${process.uptime().toFixed(2)}s] ${line}`);
@@ -16,23 +30,37 @@ const log = (line) => console.log(`[cbctscope ${process.uptime().toFixed(2)}s] $
 let bridge = null;
 let win = null;
 
-// one app, one bridge, one viewer: a second launch focuses the first window
-if (!app.requestSingleInstanceLock()) {
-  app.quit();
+// a remote-debugging switch gives full control of a window that may hold a scan, past the
+// bridge's checks and the navigation-only verbs: the packaged app quits before any window.
+// Development (npm run desktop) keeps its tools.
+const debugSwitch =
+  debugSwitchIn(process.argv) ?? DEBUG_SWITCHES.find((name) => app.commandLine.hasSwitch(name)) ?? null;
+if (app.isPackaged && debugSwitch) {
+  for (const name of DEBUG_SWITCHES) app.commandLine.removeSwitch(name);
+  log(`refusing to start: --${debugSwitch} is not allowed in the packaged app; quitting`);
+  app.exit(1);
 } else {
-  app.on('second-instance', () => {
-    if (!win) return;
-    if (win.isMinimized()) win.restore();
-    win.focus();
-  });
+  // the profile keeps the folder name it had before the app had a productName (set before the
+  // lock, which lives in the profile); an explicit --user-data-dir still wins
+  if (!app.commandLine.hasSwitch('user-data-dir')) app.setPath('userData', path.join(app.getPath('appData'), PROFILE_FOLDER));
+  // one app, one bridge, one viewer: a second launch focuses the first window
+  if (!app.requestSingleInstanceLock()) {
+    app.quit();
+  } else {
+    app.on('second-instance', () => {
+      if (!win) return;
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    });
 
-  // the page tells the shell from a browser by this token (components/cbct/shell.ts)
-  app.userAgentFallback = `${app.userAgentFallback} CBCTScope/${app.getVersion()}`;
+    // the page tells the shell from a browser by this token (components/cbct/shell.ts)
+    app.userAgentFallback = desktopUserAgent(app.userAgentFallback, app.getVersion());
 
-  app.whenReady().then(boot, (err) => {
-    console.error(err);
-    app.exit(1);
-  });
+    app.whenReady().then(boot, (err) => {
+      console.error(err);
+      app.exit(1);
+    });
+  }
 }
 
 /** the page's own folder picker, clicked with a user gesture (the menu item and its shortcut) */
@@ -44,22 +72,22 @@ function openFolder() {
     .catch(() => {});
 }
 
+/** Help: the page opens its own manual drawer, as a click in its help menu would */
+function openManual() {
+  if (!win) return;
+  win.focus();
+  void win.webContents
+    .executeJavaScript(`window.dispatchEvent(new Event(${JSON.stringify(MANUAL_EVENT)})); void 0`, true)
+    .catch(() => {});
+}
+
 function buildMenu() {
-  const isMac = process.platform === 'darwin';
-  /** @type {Electron.MenuItemConstructorOptions[]} */
-  const template = [
-    ...(isMac ? [{ role: 'appMenu' }] : []),
-    {
-      label: 'File',
-      submenu: [
-        { label: 'Open DICOMDIR or DICOM folder', accelerator: 'CmdOrCtrl+O', click: openFolder },
-        { type: 'separator' },
-        isMac ? { role: 'close' } : { role: 'quit' },
-      ],
-    },
-    { role: 'editMenu' },
-    { role: 'windowMenu' },
-  ];
+  const template = menuTemplate({
+    isMac: process.platform === 'darwin',
+    openFolder,
+    openManual,
+    openWebsite: () => void shell.openExternal(WEBSITE),
+  });
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
@@ -80,7 +108,7 @@ async function boot() {
     // no other port: the origin holds the marks, the research acknowledgement and the agent
     // settings, and a different port would silently lose them (manual sections 2.6 and 11)
     log(`port ${err.port} is in use; quitting`);
-    dialog.showMessageBoxSync({ type: 'error', title: 'CBCTScope', message: PORT_IN_USE, buttons: ['Quit'] });
+    dialog.showMessageBoxSync({ type: 'error', title: 'CBCTScope', ...PORT_IN_USE, buttons: ['Quit'] });
     app.exit(1);
     return;
   }
@@ -89,6 +117,16 @@ async function boot() {
   const allowed = new Set(['clipboard-sanitized-write', 'fullscreen', 'fileSystem']);
   session.defaultSession.setPermissionRequestHandler((_wc, permission, done) => done(allowed.has(permission)));
 
+  // a snapshot or export the page hands over: the save panel is titled for what it saves, never
+  // with the data or blob URL, and starts in Downloads with the page's file name
+  session.defaultSession.on('will-download', (_event, item) => {
+    const filename = item.getFilename();
+    item.setSaveDialogOptions({ title: saveDialogTitle(filename), defaultPath: path.join(app.getPath('downloads'), filename) });
+  });
+
+  // the app is dark: system chrome (the full-screen title area, panels, dialogues) follows it
+  nativeTheme.themeSource = 'dark';
+  app.setAboutPanelOptions(aboutPanelOptions(app.getVersion()));
   buildMenu();
   win = new BrowserWindow({
     width: 1440,

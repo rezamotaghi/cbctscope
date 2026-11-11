@@ -136,11 +136,12 @@ GitHub releases page:
   your PC**: choose **More info**, then **Run anyway** (once).
 
 **First launch.** The window opens on the synthetic phantom, as the web build
-does. **File → Open DICOMDIR or DICOM folder** (`Cmd-O` on macOS, `Ctrl-O` on Windows) or the
+does. **File → Open…** (`Cmd-O` on macOS, `Ctrl-O` on Windows) or the
 **📂 open** menu opens your own export through the system's folder dialog; the
 dialog's button may read **Upload**, which is the browser engine's standard
 wording: the files are read into the app and nothing is sent anywhere. Closing
-the window quits the app.
+the window quits the app. **Help → CBCTScope Help** opens this manual beside
+the viewer, and **View** holds Actual Size, Zoom In, Zoom Out and full screen.
 
 What differs from the repository starters (section 2.3):
 
@@ -155,8 +156,8 @@ What differs from the repository starters (section 2.3):
   address is where its marks, the research-use acknowledgement and the agent
   settings are kept, so another port would silently lose them. If another
   program already holds port 3810 (often the repository's viewer), the app
-  says "CBCTScope needs port 3810 and another program is using it (often a
-  CBCTScope dev server). Quit that program and open CBCTScope again." and
+  says "CBCTScope is already running, or another program uses its port",
+  explains that the viewer started from a terminal is the likely cause, and
   quits (section 11).
 - The app accepts connections from this computer only, exactly as the
   repository's viewer does.

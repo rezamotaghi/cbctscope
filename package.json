@@ -1,5 +1,6 @@
 {
   "name": "cbctscope",
+  "productName": "CBCTScope",
   "version": "2.0.0",
   "private": true,
   "description": "Local-first CBCT and 2D radiograph viewer. Research use only; not a medical device.",

@@ -6,7 +6,8 @@ import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { isLoopback, loopbackRefusal, PORT_IN_USE, PortInUseError, resolveStatic, startBridge } from '../desktop/bridge.mjs';
+import { isLoopback, loopbackRefusal, PortInUseError, resolveStatic, startBridge } from '../desktop/bridge.mjs';
+import { PORT_IN_USE } from '../desktop/native.mjs';
 
 let dir: string;
 let root: string;
@@ -197,9 +198,8 @@ describe('the port', () => {
     const taken = (blocker.address() as { port: number }).port;
     await expect(startBridge({ root, port: taken })).rejects.toBeInstanceOf(PortInUseError);
     await new Promise((r) => blocker.close(r));
-    expect(PORT_IN_USE).toBe(
-      'CBCTScope needs port 3810 and another program is using it (often a CBCTScope dev server). Quit that program and open CBCTScope again.',
-    );
+    expect(PORT_IN_USE.message).toBe('CBCTScope is already running, or another program uses its port');
+    expect(PORT_IN_USE.detail).toMatch(/started from a terminal/);
   });
 });
 
