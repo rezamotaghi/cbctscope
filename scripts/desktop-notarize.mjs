@@ -3,35 +3,40 @@
 // dmg (`dmg.sign: true`, the same Developer ID identity as the app) but notarises and staples
 // only the app inside it, so scripts/desktop.mjs calls notariseDmgs() on every dmg it built:
 //
-//   xcrun notarytool submit <dmg> <credentials> --wait --output-format json   (status Accepted)
+//   xcrun notarytool submit <dmg> <credentials> --wait --timeout 45m --output-format json   (status Accepted)
 //   xcrun stapler staple <dmg>
 //   xcrun stapler validate <dmg>
 //
 // The credentials follow electron-builder's own choice, in its order: APPLE_ID +
 // APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID, then APPLE_API_KEY (the path of the .p8) +
 // APPLE_API_KEY_ID + APPLE_API_ISSUER, then APPLE_KEYCHAIN_PROFILE (with APPLE_KEYCHAIN when
-// set). An unsigned build skips all of it with one line.
+// set). The Apple ID route passes the app-specific password on notarytool's command line,
+// where other local processes can read it while the submission runs; the keychain profile or
+// the API key is preferred. The built image's own signature decides whether any of it runs:
+// a dmg that no Developer ID identity signed skips all of it with one line.
 //
 //   node scripts/desktop-notarize.mjs --dry-run <file.dmg>...   prints the commands, runs none
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
-export const SKIP_UNSIGNED = 'desktop: unsigned build, so the dmg is not signed, notarised or stapled';
 export const SKIP_NO_IDENTITY = 'desktop: no Developer ID identity signed the dmg, so it is not notarised or stapled';
 
 /** why the dmg step is skipped before anything runs, or null when it goes ahead */
-export function dmgNotarySkip(env, platform) {
+export function dmgNotarySkip(platform) {
   if (platform !== 'darwin') return 'desktop: not macOS, no dmg to notarise';
-  // electron-builder finds no identity without auto discovery unless one is named
-  if (env.CSC_IDENTITY_AUTO_DISCOVERY === 'false' && !env.CSC_NAME) return SKIP_UNSIGNED;
   return null;
 }
+
+/** how long notarytool waits for Apple's answer before it gives up (the submission itself goes on) */
+export const NOTARY_TIMEOUT = '45m';
 
 /** the notarytool credential arguments electron-builder would choose, or null when none are set */
 export function notaryAuth(env) {
   if (env.APPLE_ID || env.APPLE_APP_SPECIFIC_PASSWORD) {
     const missing = ['APPLE_ID', 'APPLE_APP_SPECIFIC_PASSWORD', 'APPLE_TEAM_ID'].filter((k) => !env[k]);
     if (missing.length) throw new Error(`notarisation: ${missing.join(', ')} not set (the Apple ID route needs all three)`);
+    // the password rides on the command line, readable by other local processes while the
+    // submission runs: prefer the keychain profile or the API key
     return { route: 'apple-id', args: ['--apple-id', env.APPLE_ID, '--password', env.APPLE_APP_SPECIFIC_PASSWORD, '--team-id', env.APPLE_TEAM_ID] };
   }
   if (env.APPLE_API_KEY || env.APPLE_API_KEY_ID || env.APPLE_API_ISSUER) {
@@ -54,7 +59,7 @@ export function notaryAuth(env) {
  */
 export function dmgCommands(dmg, authArgs) {
   return [
-    ['xcrun', ['notarytool', 'submit', dmg, ...authArgs, '--wait', '--output-format', 'json']],
+    ['xcrun', ['notarytool', 'submit', dmg, ...authArgs, '--wait', '--timeout', NOTARY_TIMEOUT, '--output-format', 'json']],
     ['xcrun', ['stapler', 'staple', dmg]],
     ['xcrun', ['stapler', 'validate', dmg]],
   ];
@@ -86,7 +91,7 @@ export function isDeveloperIdSigned(dmg, run = exec) {
  */
 export function notariseDmgs(dmgs, env, { platform = process.platform, run = exec, log = console.log } = {}) {
   if (!dmgs.length) return 'none';
-  const skip = dmgNotarySkip(env, platform);
+  const skip = dmgNotarySkip(platform);
   if (skip) {
     log(skip);
     return 'skipped';
@@ -117,6 +122,11 @@ export function notariseDmgs(dmgs, env, { platform = process.platform, run = exe
       /* reported below */
     }
     if (s.status !== 0 || result?.status !== 'Accepted') {
+      if (result?.status === 'In Progress' || /time ?out|timed out/i.test(s.stderr)) {
+        throw new Error(
+          `notarisation: Apple's notary service did not answer for ${dmg} within ${NOTARY_TIMEOUT}. Nothing is wrong with the build; rerunning the job is safe.${result?.id ? ` Submission ${result.id}.` : ''}\n${s.stderr.trim()}`,
+        );
+      }
       const id = result?.id ? ` Submission ${result.id}; its log: ${showCommand(['xcrun', ['notarytool', 'log', result.id, ...auth.args]])}` : '';
       throw new Error(`notarisation: Apple did not accept ${dmg} (status ${result?.status ?? 'unknown'}, exit ${s.status}).${id}\n${s.stderr.trim()}`);
     }
@@ -137,11 +147,6 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   if (flag !== '--dry-run' || !dmgs.length) {
     console.error('usage: node scripts/desktop-notarize.mjs --dry-run <file.dmg>...');
     process.exit(2);
-  }
-  const skip = dmgNotarySkip(process.env, 'darwin');
-  if (skip) {
-    console.log(skip);
-    process.exit(0);
   }
   const auth = notaryAuth(process.env);
   if (!auth) {

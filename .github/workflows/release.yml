@@ -4,7 +4,10 @@ name: Release
 # deploys nothing. Every build job waits for the full test job (typecheck, lint, unit, the web
 # build, the end-to-end suite). The desktop jobs build with a read-only token and upload their
 # packages as workflow artifacts; one publish job, the only one with contents: write, attaches
-# them to the release. Signing and notarisation secrets reach the packaging step only.
+# them to the release. Signing and notarisation secrets reach the packaging step only. The site
+# and the installers go public together: the Pages deploy waits for the publish job, so a
+# failed desktop build leaves the site as it was instead of linking to a release without
+# installers.
 on:
   release:
     types: [published]
@@ -66,8 +69,11 @@ jobs:
         with:
           path: out
 
+  # A job whose ancestor was skipped is itself skipped unless its own `if:` says otherwise, and
+  # the mac job is skipped without signing secrets; so this asks for the two results it needs.
   deploy:
-    needs: build
+    needs: [build, publish]
+    if: ${{ always() && needs.build.result == 'success' && needs.publish.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       pages: write
@@ -107,6 +113,8 @@ jobs:
     needs: [test, desktop-gate]
     if: ${{ needs.desktop-gate.outputs.signing == 'true' }}
     runs-on: macos-latest
+    # notarytool gives up after 45 minutes (scripts/desktop-notarize.mjs); this bounds the rest
+    timeout-minutes: 90
     permissions:
       contents: read
     steps:
@@ -129,6 +137,7 @@ jobs:
         run: |
           key="$RUNNER_TEMP/AuthKey.p8"
           trap 'rm -f "$key"' EXIT
+          umask 077
           printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode > "$key"
           APPLE_API_KEY="$key" npm run desktop:build -- --mac --publish never
         env:
