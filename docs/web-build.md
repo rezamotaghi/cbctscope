@@ -191,7 +191,8 @@ the dev server.
 
 `release.yml` runs on `release: published` only: build the web target, deploy to GitHub Pages
 (every action pinned to a commit SHA; only the pages job gets `pages: write` and
-`id-token: write`), then (milestone 2) the macOS job. Until the domain is switched on, the
+`id-token: write`), then (milestone 2) the desktop jobs: the macOS one signs, notarises and
+staples the app and the dmg (section 12). Until the domain is switched on, the
 site answers at the repository's GitHub Pages address only. The `CNAME` file and the DNS
 records are a separate, deliberate commit.
 
@@ -279,17 +280,42 @@ How it is built:
   The app icon has one source, `desktop/icon/cbctscope.svg`; `npm run icon` (`scripts/icon.mjs`)
   renders the committed `icon.icns` and `icon.ico` (`mac.icon`, `win.icon`) and the web build's
   `app/icon.svg` and `app/apple-icon.png`.
+  The disk image: its volume reads "CBCTScope <version>" (`dmg.title`), the architecture stays in
+  the file name, and it opens on a dark window (the icon's ground `#141518`, its amber
+  `#f0b43a`, the interface's light grey) saying "Drag CBCTScope to Applications" over a plain
+  amber arrow from the app to the Applications link. `scripts/dmg-background.mjs`, run by
+  `npm run icon`, renders the committed `desktop/icon/dmg-background.png` and `@2x` (640 by
+  400 points, about 9 KB and 20 KB); electron-builder joins the two into one tiff and sizes the
+  window from it, and `dmg.window`, `dmg.iconSize` (112) and `dmg.contents` (icon centres
+  176, 212 and 464, 212) repeat `DMG_LAYOUT`, which `tests/dmgWindow.test.ts` keeps equal.
+  Finder draws the icon names itself, in black under the Light appearance and white under
+  Dark; the picture carries no version, so nothing in it goes stale.
   Notarisation in electron-builder 26.18.0 is driven by the environment: `mac.notarize: true`
   notarises when credentials are present and skips with a warning otherwise. Credentials:
   `APPLE_KEYCHAIN_PROFILE` (a local build without other credentials uses the profile
   `notary`), or `APPLE_API_KEY`, `APPLE_API_KEY_ID`, `APPLE_API_ISSUER` (the CI route), or
   `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`. Signing: `CSC_LINK` and
   `CSC_KEY_PASSWORD`, or a keychain identity.
+  electron-builder notarises and staples the app only; the dmg it signs (`dmg.sign: true`,
+  the same Developer ID identity, skipped when there is none) is then notarised by
+  `scripts/desktop.mjs` through `scripts/desktop-notarize.mjs`, with the credentials
+  electron-builder chose, in its order (Apple ID, then API key, then keychain profile): for
+  each dmg built, `xcrun notarytool submit <dmg> <credentials> --wait --output-format json`
+  (the build fails unless the status is Accepted, and names the submission's log command),
+  `xcrun stapler staple <dmg>`, `xcrun stapler validate <dmg>`. An unsigned build
+  (`CSC_IDENTITY_AUTO_DISCOVERY=false`, or no identity found) skips it with one line.
+  `node scripts/desktop-notarize.mjs --dry-run <dmg>` prints the commands the current
+  environment would run, the password hidden. Stapling changes the file after
+  electron-builder wrote its `.blockmap`; the app has no auto-update, so nothing reads it.
 - Pipeline: `release.yml` runs a `test` job first (typecheck, lint, unit, `build:web`, the
   end-to-end suite) that every build job needs. `desktop-mac` (macos-latest: sign, notarise,
   staple) and `desktop-win` (windows-latest, unsigned) build with `contents: read` and upload
   their dmg, zip and exe as workflow artifacts; the mac job sits behind a gate job that checks
-  for `CSC_LINK`. One `publish` job, the only one with `contents: write`, downloads the
+  for `CSC_LINK`. The mac job decodes the `APPLE_API_KEY` secret (the .p8, base64) into the
+  runner's temporary folder for the packaging step, because notarytool reads the key from a
+  file, so a missing or wrong API key now fails the job rather than shipping an image without
+  a ticket; a last step runs `xcrun stapler validate` and `spctl --assess --type open
+  --context context:primary-signature` on every dmg. One `publish` job, the only one with `contents: write`, downloads the
   artifacts and runs `gh release upload`. Signing and notarisation secrets reach the
   packaging step only. A release without the secrets deploys the site and the Windows
   packages.
@@ -309,8 +335,9 @@ Measured on the author's Mac (Apple silicon, macOS 27.2), 4 November 2026, unsig
 
 The Windows target does not build on this Mac: electron-builder's bundled `makensis` is an
 x86_64 binary and the machine has no Rosetta. The `desktop-win` job builds it on CI. Open for
-milestone 2: the first signed and notarised build with the credentials present, and the
-first-launch test on a clean user account.
+milestone 2: the first signed and notarised build with the credentials present (the dmg's own
+ticket included), a look at the dmg window under both appearances, and the first-launch test
+on a clean user account.
 
 ### Milestone 3: the in-page agent
 

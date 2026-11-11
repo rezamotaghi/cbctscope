@@ -62,8 +62,30 @@ mac:
     NSBluetoothPeripheralUsageDescription: null
     NSAudioCaptureUsageDescription: null
   artifactName: ${productName}-${version}-${arch}-mac.${ext}
+# The disk image (docs/web-build.md, section 12): the architecture is in the file name only; the
+# volume reads "CBCTScope 2.0.0". The window is scripts/dmg-background.mjs's picture (a 1x and a
+# @2x png, which electron-builder joins into one tiff and sizes the window from: `window` here
+# records that size and must equal it); the icon centres match the picture, and
+# tests/dmgWindow.test.ts keeps them equal to DMG_LAYOUT. `sign` signs the dmg with the app's
+# Developer ID identity when there is one; scripts/desktop.mjs then notarises, staples and
+# validates it.
 dmg:
   artifactName: ${productName}-${version}-${arch}.${ext}
+  title: ${productName} ${version}
+  background: desktop/icon/dmg-background.png
+  window:
+    width: 640
+    height: 400
+  iconSize: 112
+  contents:
+    - x: 176
+      y: 212
+      type: file
+    - x: 464
+      y: 212
+      type: link
+      path: /Applications
+  sign: true
 # unsigned (docs/web-build.md, section 10): SmartScreen warns on first run
 win:
   icon: desktop/icon/icon.ico
