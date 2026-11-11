@@ -253,8 +253,8 @@ How it is built:
   `/api/agent/command`, `/api/agent/events`, `/api/agent/result` with the agentBus contract,
   behind the Host, Sec-Fetch-Site and Origin checks of `middleware.ts`. Port 3810 and no
   other: the origin holds the marks, the research acknowledgement and the agent settings, so a
-  taken port shows a native dialog and the app quits (no random port since the hardening pass
-  of 04/11/26). Static files are confined to `out/` by real path, symlinks resolved.
+  taken port shows a native dialog and the app quits, never moving to another port. Static
+  files are confined to `out/` by real path, symlinks resolved.
   `tests/desktopBridge.test.ts` covers it.
 - Measured fact the plan had missed: the MCP server also reads `/api/cbct` (the catalog, for
   `list_volumes` and two resources) and `/api/cbct/<id>`. In the app the catalog lives in the
@@ -312,7 +312,7 @@ Built to the owner's decisions of 04/11/26:
 - Providers: "Model server on this computer" (an OpenAI-compatible chat completions server
   with image input on loopback), listed first, then Anthropic, OpenAI and Google Gemini; the
   panel opens on "Choose a provider" with an empty model field, and a choice fills the model
-  in (amended 11/11/26: nothing is preselected). Presets for
+  in; nothing is preselected. Presets for
   llama-server `http://127.0.0.1:8080`, Ollama `http://127.0.0.1:11434` and LM Studio
   `http://127.0.0.1:1234`; the endpoint field accepts any loopback port (current llama-server
   builds default to 9931, so the preset is a starting point, not a claim about the default).

@@ -15,8 +15,9 @@
 
 Keys are ignored while you are typing in a text field. They also answer only
 when no Cmd, Ctrl or Alt is held: with one of those held, the key goes to the
-browser or the desktop app's menu, so Cmd-O opens, Cmd-W closes a window,
-Cmd-R reloads the page and Cmd-C copies, in every mode. The tool and overlay
+browser or the desktop app's menu, in every mode: Cmd-O opens, Cmd-W closes
+a window and Cmd-C copies. In a browser, Cmd-R reloads the page; the desktop
+app has no reload. The tool and overlay
 keys act only in the MPR room, so a stray keypress in another mode cannot
 change state you cannot see there. The header's "keys" button opens this
 reference in the app. Double-clicking any slider resets it: navigation
