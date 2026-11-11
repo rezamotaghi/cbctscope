@@ -5,7 +5,7 @@ license: AGPL-3.0-or-later
 compatibility: Any agent host with the cbctscope MCP server connected and the viewer running with a browser tab open (see docs/mcp.md).
 metadata:
   author: Dr. Reza Motaghi
-  version: "2.0.0"
+  version: "2.1.0"
 ---
 
 # Reading with CBCTScope

@@ -11,8 +11,8 @@ import {
   notariseDmgs,
   notaryAuth,
   showCommand,
+  NOTARY_TIMEOUT,
   SKIP_NO_IDENTITY,
-  SKIP_UNSIGNED,
 } from '../scripts/desktop-notarize.mjs';
 
 const root = path.resolve(__dirname, '..');
@@ -30,10 +30,11 @@ const pngSize = (p: string) => {
 describe('the dmg window', () => {
   const { window: w, iconSize, app, applications } = DMG_LAYOUT;
 
-  it('electron-builder.yml repeats the layout the picture is drawn for', () => {
+  it('electron-builder.yml places the icons on the picture; its window block only documents the picture size', () => {
     expect(dmgBlock).toMatch(/^ {2}background: desktop\/icon\/dmg-background\.png$/m);
-    expect(num(/^ {4}width: (\d+)$/m)).toBe(w.width);
-    expect(num(/^ {4}height: (\d+)$/m)).toBe(w.height);
+    // electron-builder ignores dmg.window when a background is set: these keep the record honest
+    expect(num(/^ {4}width: (\d+)$/m), 'dmg.window.width documents the picture width').toBe(w.width);
+    expect(num(/^ {4}height: (\d+)$/m), 'dmg.window.height documents the picture height').toBe(w.height);
     expect(num(/^ {2}iconSize: (\d+)$/m)).toBe(iconSize);
     const entries = [...dmgBlock.matchAll(/- x: (\d+)\n\s+y: (\d+)\n\s+type: (\w+)/g)].map((m) => ({ x: +m[1], y: +m[2], type: m[3] }));
     expect(entries).toEqual([
@@ -84,11 +85,9 @@ describe('the dmg window', () => {
 describe('the dmg notarisation', () => {
   const dmg = '/x/CBCTScope-2.0.0-arm64.dmg';
 
-  it('skips off macOS and on an unsigned build, unless an identity is named', () => {
-    expect(dmgNotarySkip({}, 'linux')).toMatch(/not macOS/);
-    expect(dmgNotarySkip({ CSC_IDENTITY_AUTO_DISCOVERY: 'false' }, 'darwin')).toBe(SKIP_UNSIGNED);
-    expect(dmgNotarySkip({ CSC_IDENTITY_AUTO_DISCOVERY: 'false', CSC_NAME: 'Someone (TEAM)' }, 'darwin')).toBeNull();
-    expect(dmgNotarySkip({}, 'darwin')).toBeNull();
+  it('skips off macOS only; on macOS the signature of the built image decides', () => {
+    expect(dmgNotarySkip('linux')).toMatch(/not macOS/);
+    expect(dmgNotarySkip('darwin')).toBeNull();
   });
 
   it('chooses the credentials in electron-builder order', () => {
@@ -107,10 +106,11 @@ describe('the dmg notarisation', () => {
     expect(() => notaryAuth({ APPLE_API_KEY: '/k' })).toThrow(/APPLE_API_KEY_ID, APPLE_API_ISSUER/);
   });
 
-  it('submits and waits, staples, validates; the printed form hides the password', () => {
+  it('submits and waits at most 45 minutes, staples, validates; the printed form hides the password', () => {
+    expect(NOTARY_TIMEOUT).toBe('45m');
     const cmds = dmgCommands(dmg, ['--keychain-profile', 'notary']);
     expect(cmds.map(showCommand)).toEqual([
-      `xcrun notarytool submit ${dmg} --keychain-profile notary --wait --output-format json`,
+      `xcrun notarytool submit ${dmg} --keychain-profile notary --wait --timeout 45m --output-format json`,
       `xcrun stapler staple ${dmg}`,
       `xcrun stapler validate ${dmg}`,
     ]);
@@ -130,17 +130,28 @@ describe('the dmg notarisation', () => {
   const signed = { status: 0, stderr: 'Authority=Developer ID Application: Someone (TEAM)\n' };
   const env = { APPLE_KEYCHAIN_PROFILE: 'notary' };
 
-  it('an unsigned build logs one line and runs no notary command', () => {
+  it('an unsigned build logs one line and runs no notary command, whatever the environment says', () => {
+    const unsigned = { status: 1, stderr: 'code object is not signed at all' };
     const lines: string[] = [];
-    const f = fake({});
-    expect(notariseDmgs([dmg, dmg.replace('arm64', 'x64')], { CSC_IDENTITY_AUTO_DISCOVERY: 'false' }, { platform: 'darwin', run: f.run, log: (l: string) => lines.push(l) })).toBe('skipped');
-    expect(lines).toEqual([SKIP_UNSIGNED]);
-    expect(f.calls).toEqual([]);
+    const f = fake({ codesign: unsigned });
+    expect(notariseDmgs([dmg, dmg.replace('arm64', 'x64')], { CSC_IDENTITY_AUTO_DISCOVERY: 'false', ...env }, { platform: 'darwin', run: f.run, log: (l: string) => lines.push(l) })).toBe('skipped');
+    expect(lines).toEqual([SKIP_NO_IDENTITY]);
+    expect(f.calls.every(([c]) => c === 'codesign')).toBe(true);
     const g = fake({ codesign: { status: 1, stderr: 'code object is not signed at all' } });
     const more: string[] = [];
     expect(notariseDmgs([dmg], env, { platform: 'darwin', run: g.run, log: (l: string) => more.push(l) })).toBe('skipped');
     expect(more).toEqual([SKIP_NO_IDENTITY]);
     expect(g.calls.every(([c]) => c === 'codesign')).toBe(true);
+  });
+
+  it('an image signed under CSC_IDENTITY_AUTO_DISCOVERY=false is still notarised', () => {
+    const f = fake({ codesign: signed, 'notarytool submit': { status: 0, stdout: '{"id":"abc","status":"Accepted"}' } });
+    expect(notariseDmgs([dmg], { ...env, CSC_IDENTITY_AUTO_DISCOVERY: 'false' }, { platform: 'darwin', run: f.run, log: () => {} })).toBe('notarised');
+  });
+
+  it('a notary queue that does not answer in time fails with a message that says a rerun is safe', () => {
+    const slow = fake({ codesign: signed, 'notarytool submit': { status: 1, stdout: '{"id":"abc","status":"In Progress"}', stderr: 'Timeout of 45m reached' } });
+    expect(() => notariseDmgs([dmg], env, { platform: 'darwin', run: slow.run, log: () => {} })).toThrow(/did not answer .* within 45m.*rerunning the job is safe/s);
   });
 
   it('a signed dmg is submitted, stapled and validated in that order', () => {
@@ -165,6 +176,10 @@ describe('the dmg notarisation', () => {
     const release = read('.github/workflows/release.yml');
     expect(release).toContain('APPLE_API_KEY="$key" npm run desktop:build -- --mac --publish never');
     expect(release).toContain('xcrun stapler validate "$dmg"');
+    expect(release).toMatch(/^ {2}desktop-mac:\n(?: {4}.*\n)*? {4}timeout-minutes: 90$/m);
+    expect(release).toContain('umask 077');
+    // the site goes live only once the installers are attached
+    expect(release).toContain("  deploy:\n    needs: [build, publish]\n    if: ${{ always() && needs.build.result == 'success' && needs.publish.result == 'success' }}\n");
     for (const uses of release.match(/uses: \S+/g) ?? []) expect(uses).toMatch(/@[0-9a-f]{40}$/);
   });
 });

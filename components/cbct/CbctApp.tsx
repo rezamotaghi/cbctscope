@@ -546,8 +546,8 @@ export default function CbctApp() {
       // a modal dialogue holds the keyboard: no volume switch or tool change behind it
       if (modalOpen()) return;
       const k = e.key.toLowerCase();
-      // the MPR keys (tools, W, C, O) are GATED to the MPR room — in any other mode they
-      // used to silently mutate state the reader couldn't see. R also serves the
+      // the MPR keys (tools, W, C, O) are GATED to the MPR room: in any other mode they
+      // would silently change state the reader cannot see. R also serves the
       // radiograph's fit, so it stays live there.
       const inMpr = viewMode === 'mpr' && !isXray;
       if (k === 'n') step(1);

@@ -6,12 +6,12 @@
 > - **Start:** pick a projection preset (**Lateral L**, **Lateral R**, **PA**, or **AP**),
 >   click **Auto contrast**, then choose the average projection or **MIP**.
 > - **Three gestures:** drag on the image horizontally to turn the head and vertically to
->   tilt it; the turn and tilt sliders do the same numerically; double-click a slider to
+>   nod it; the **Turn** and **Nod** sliders do the same numerically; double-click a slider to
 >   zero it. The Keys card lists every gesture of the mode.
 > - **Leave it for:** any ambiguity of superimposition (MPR is one mode switch away), and
 >   landmarks, tracing, or measurements, which this mode does not have.
 
-![Ceph on the consented real CBCT: a lateral virtual cephalogram as a densest-only MIP after auto contrast, with the projection presets, turn and tilt controls, and the shared window in the sidebar](../media/manual/mode-ceph.webp)
+![Ceph on the consented real CBCT: a lateral virtual cephalogram as a densest-only MIP after auto contrast, with the projection presets, the Turn and Nod controls, and the shared window in the sidebar](../media/manual/mode-ceph.webp)
 
 ## What this mode is for
 
@@ -27,11 +27,11 @@ can be regenerated at exactly the same geometry from the same volume.
 | Gesture | Where | Action |
 |---|---|---|
 | Horizontal drag | the image | Turn the head about the vertical axis |
-| Vertical drag | the image | Tilt (sagittal) |
+| Vertical drag | the image | Nod the head (sagittal tilt) |
 | Double-click a slider | controls | Zero it |
 
 While dragging, the projection renders at a coarse stride and refines to full resolution
-when you let go. The current turn and tilt are shown on the image.
+when you let go. The current turn and nod are shown on the image.
 
 ## The controls
 
@@ -56,7 +56,7 @@ when you let go. The current turn and tilt are shown on the image.
 3. Choose the blend for the purpose: the average projection for the familiar
    radiographic appearance with soft-tissue outline, MIP when only the densest
    structures should survive superimposition.
-4. Use small turn and tilt corrections to compensate for head positioning in the
+4. Use small turn and nod corrections to compensate for head positioning in the
    scanner, so bilateral structures superimpose the way a positioned film would show
    them.
 5. Read the projection as you would the corresponding radiograph, keeping in mind that
@@ -65,7 +65,7 @@ when you let go. The current turn and tilt are shown on the image.
    away, and that is the advantage over a film.
 7. Adjust gamma when the midtones need lifting or compressing after the window is set.
 8. Save the PNG when the projection itself is the record; the same geometry can be
-   reproduced later from the turn and tilt readouts.
+   reproduced later from the turn and nod readouts.
 
 ## Over MCP
 

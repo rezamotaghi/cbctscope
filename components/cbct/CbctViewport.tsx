@@ -2276,11 +2276,11 @@ export default function CbctViewport({
   // guard breaks the echo loop: applyVoi re-fires the event with the values we just patched.
   //
   // ⚠ Cornerstone fires the SAME event when it ATTACHES a volume (createVolumeActor applies
-  // the volume's own default range), and `ready` flips before the volume attaches, so this
-  // listener used to mistake that for a user drag and silently overwrite whatever window the
-  // reader had set (a preset, the sliders, the histogram lines, a drag) with the volume default
-  // on EVERY return to MPR and every volume swap. It surfaced as "the window in Pano/TMJ/
-  // Reslice is not what I set" (2026-08-19): those rooms only ever showed the clobbered value.
+  // the volume's own default range), and `ready` flips before the volume attaches, so an
+  // unguarded listener would mistake that for a user drag and silently overwrite whatever window
+  // the reader had set (a preset, the sliders, the histogram lines, a drag) with the volume
+  // default on EVERY return to MPR and every volume swap; Pano, TMJ and Reslice would then show
+  // that default instead of the reader's window.
   // A VOI event is user intent ONLY while the W/L tool is the active tool AND a pointer is down
   // on a slice pane; everything else (mount, swap, our own applyVoi) is ignored.
   const wlPointerDownRef = useRef(false);
@@ -3228,7 +3228,7 @@ export default function CbctViewport({
                     background: 'rgba(20,23,29,0.92)',
                     border: '1px solid var(--ctl-border)',
                     fontSize: 'var(--fs-meta)',
-                    color: '#ffb45e',
+                    color: ROI3D_COLOUR,
                     pointerEvents: 'none',
                     whiteSpace: 'nowrap',
                   }}
@@ -3476,6 +3476,7 @@ export default function CbctViewport({
                 >
                   {roi.visible ? <Eye size={14} strokeWidth={2} aria-hidden /> : <EyeOff size={14} strokeWidth={2} aria-hidden />}
                 </button>
+                <span data-testid="roi3d-swatch" style={objSwatch(ROI3D_COLOUR)} aria-hidden />
                 <button
                   onClick={() => {
                     setSelectedUid((cur) => (cur === uid ? null : uid));
@@ -3483,7 +3484,7 @@ export default function CbctViewport({
                   }}
                   aria-pressed={selectedUid === uid}
                   title={`3D box ROI ${dims} mm, ${s.nVoxels.toLocaleString()} voxels, min ${Math.round(s.minHu)} and max ${Math.round(s.maxHu)} HU. Click to move the slices to it.`}
-                  style={selectedUid === uid ? { ...objLabelBtn, ...objLabelSelected } : { ...objLabelBtn, color: '#ffb45e' }}
+                  style={selectedUid === uid ? { ...objLabelBtn, ...objLabelSelected } : objLabelBtn}
                 >
                   3D ROI {s.volumeCm3 >= 1 ? s.volumeCm3.toFixed(1) : s.volumeCm3.toFixed(2)} cm³ ·{' '}
                   {Math.round(s.meanHu)}±{Math.round(s.sdHu)} HU
@@ -3545,6 +3546,16 @@ export default function CbctViewport({
 }
 
 // the objects strip under the panes
+/** the 3D ROI's identity colour: its hint chip on the pane and the swatch on its row */
+const ROI3D_COLOUR = '#ffb45e';
+/** an object's identity colour beside its label, the same whether the row is selected or not */
+const objSwatch = (colour: string): React.CSSProperties => ({
+  width: 10,
+  height: 10,
+  borderRadius: 2,
+  background: colour,
+  flex: '0 0 auto',
+});
 const rowHeading: React.CSSProperties = { fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', lineHeight: '20px' };
 const objRow: React.CSSProperties = {
   display: 'flex',
@@ -3584,7 +3595,7 @@ const objLabelBtn: React.CSSProperties = {
 /** the selected object: solid accent, dark text, the app's one selection signal */
 const objLabelSelected: React.CSSProperties = {
   background: 'var(--accent)',
-  color: '#0c0e12',
+  color: 'var(--bg)',
   borderRadius: 'var(--ctl-radius)',
   padding: '0 4px',
 };

@@ -852,7 +852,7 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
               style={{ width: 70 }}
             />
           </label>
-          {/* canonical section-row order (unified 2026-08-05): count, tilt, spacing,
+          {/* canonical section-row order: count, tilt, spacing,
               width, thickness. Same anatomy in Pano and Reslice. */}
           <span style={small} title="Right-drag on any tile rotates that side's whole fan in-plane (MPR gesture)">
             Tilt R {tilt.R >= 0 ? '+' : ''}{tilt.R.toFixed(0)}°, L {tilt.L >= 0 ? '+' : ''}{tilt.L.toFixed(0)}°
