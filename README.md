@@ -57,7 +57,7 @@ control; the neighboring projects, and how they differ, are under
 
 | MPR + 3D | Multi-slice grid | Curved panoramic | TMJ condyles |
 |---|---|---|---|
-| [![MPR: axial, sagittal, coronal and a bone 3D render, crosshairs on a molar, HU windowing, slab and MIP controls](docs/media/thumb-mpr.png)](docs/media/thumb-mpr.png) | [![Grid: nine parallel axial slices through the dentition with a sagittal scout, spacing and thickness controls](docs/media/thumb-grid.png)](docs/media/thumb-grid.png) | [![Pano: arch spline on the axial, curved panoramic of the arch, perpendicular cross-sections](docs/media/thumb-pano.png)](docs/media/thumb-pano.png) | [![TMJ: both condyles in axis-corrected sagittal sections, five per side, with the axis line drawn per condyle on the axial scout](docs/media/thumb-tmj.png)](docs/media/thumb-tmj.png) |
+| [![MPR: axial, sagittal, coronal and a bone 3D render, crosshairs at the skull base, the bone window, slab and MIP controls](docs/media/thumb-mpr.png)](docs/media/thumb-mpr.png) | [![Grid: nine parallel axial slices through the dentition with a sagittal scout, spacing and thickness controls](docs/media/thumb-grid.png)](docs/media/thumb-grid.png) | [![Pano: arch spline on the axial, curved panoramic of the arch, perpendicular cross-sections](docs/media/thumb-pano.png)](docs/media/thumb-pano.png) | [![TMJ: both condyles in axis-corrected sagittal sections, five per side, with the axis line drawn per condyle on the axial scout](docs/media/thumb-tmj.png)](docs/media/thumb-tmj.png) |
 
 *The four stills above are a real CBCT: a 16×16cm, 200 µm Planmeca ProMax
 volume, shown with the written consent of the patient and de-identified before
