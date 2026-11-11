@@ -62,6 +62,7 @@ import { computeRoi3dStats, Roi3dOutlines, type Roi3d } from './evidence3d';
 import DragDivider from './DragDivider';
 import { type SnapRef } from './SnapshotButton';
 import { Bookmark, Eraser as EraserIcon } from 'lucide-react';
+import { getReadingPlace, planesIntersection, setReadingPlace } from './readingPlace';
 import type { AgentReply } from './useAgentBridge';
 import {
   VP,
@@ -538,6 +539,11 @@ export default function CbctViewport({
   const sliceInfoRef = useRef<Record<string, { idx: number; n: number; dir: SliceDirection | null }>>({});
   sliceInfoRef.current = sliceInfo;
   const [markers, setMarkers] = useState<Record<string, Markers>>({});
+  // the reading place (./readingPlace): written from the crosshair centre once this volume's
+  // stored place has been applied, so the reset cameras of a fresh attach never overwrite it
+  const placeArmedRef = useRef(false);
+  const anonRef = useRef(anon);
+  anonRef.current = anon;
   const [measures, setMeasures] = useState<MeasureRow[]>([]);
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const selectedUidRef = useRef<string | null>(null);
@@ -1160,6 +1166,24 @@ export default function CbctViewport({
   const deleteSelectedRef = useRef(deleteSelected);
   deleteSelectedRef.current = deleteSelected;
 
+  // the crosshair centre (where the three slice planes meet) becomes the tab's reading place
+  const writePlace = () => {
+    const engine = engineRef.current;
+    if (!placeArmedRef.current || !engine) return;
+    try {
+      const planes = MPR_IDS.map((id) => {
+        const cam = engine.getViewport(id).getCamera();
+        return { normal: (cam.viewPlaneNormal ?? [0, 0, 0]) as number[], point: (cam.focalPoint ?? [0, 0, 0]) as number[] };
+      });
+      const world = planesIntersection(planes);
+      if (world) setReadingPlace({ anon: anonRef.current, world });
+    } catch {
+      /* pane mid-init */
+    }
+  };
+  const writePlaceRef = useRef(writePlace);
+  writePlaceRef.current = writePlace;
+
   // ---------- mount ONCE: engine + viewports + tool groups + listeners ----------
   useEffect(() => {
     let disposed = false;
@@ -1178,6 +1202,7 @@ export default function CbctViewport({
         }
         const m = markersFromCamera(vp.getCamera());
         if (m) setMarkers((s) => ({ ...s, [id]: m }));
+        writePlaceRef.current();
         updateIndicatorsRef.current(); // 3D plane markers follow the MPR cameras
       } catch {
         /* best-effort readouts */
@@ -1981,6 +2006,7 @@ export default function CbctViewport({
     (async () => {
       try {
         setProgress(0);
+        placeArmedRef.current = false;
         const entry = await loadVolumeData(anon, (f) => !stale && setProgress(Math.min(0.94, f)));
         if (stale || !engineRef.current) return;
         metaRef.current = entry.meta;
@@ -2112,6 +2138,12 @@ export default function CbctViewport({
           engineRef.current.renderViewports(MPR_IDS);
           renderAnnotationsNowRef.current(); // lines materialize only on an annotation pass
         }
+        // the reading place another mode left for this volume: the crosshair and the axial
+        // level come back where they were (a pair swap kept its cameras already)
+        const place = getReadingPlace(anon);
+        if (place && !isPairSwap) jumpPanesToWorld(place.world);
+        placeArmedRef.current = true;
+        writePlaceRef.current();
         prevAnonRef.current = anon;
         setProgress(null);
         // the render above lands on the next frame: announce after it (ends an open's panel)

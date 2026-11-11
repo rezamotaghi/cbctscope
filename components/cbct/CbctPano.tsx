@@ -44,6 +44,7 @@ import { fetchEvidence, mergeEvidence } from './evidence';
 import DragDivider from './DragDivider';
 import { snapshotPaneCanvases, type SnapRef } from './SnapshotButton';
 import { Ruler } from 'lucide-react';
+import { initialAxialIndex, setAxialLevel } from './readingPlace';
 import { sweepDeg } from './CbctGrid';
 import { renderOblique, type V3 } from './oblique';
 import { PANE_DIRECTION, bufferIndexFromPane, paneIndexFromBuffer, sliceOrdinal } from './geometry';
@@ -238,6 +239,11 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
   const [points, setPoints] = useState<ArchPoint[]>([]);
   const [stroke, setStroke] = useState<ArchPoint[] | null>(null); // live freehand stroke
   const [archZ, setArchZ] = useState(0);
+  // the axial level is the tab's reading place (./readingPlace): set from it on open, written back on every move
+  const loadedAnonRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (entry && loadedAnonRef.current === anon) setAxialLevel(anon, entry.meta, archZ);
+  }, [entry, archZ, anon]);
   const [sPos, setSPos] = useState(0); // mm along the curve (cross-section center)
   const [panoSlab, setPanoSlab] = useState(15);
   const [mip, setMip] = useState(false);
@@ -326,7 +332,8 @@ export default function CbctPano({ anon, voi, invert, gamma, onMeta, onError, sn
         const savedDone = saved?.done ?? savedPts.length >= 3; // pre-`done` saves: full curve = finished
         setPoints(savedPts);
         setArchDone(savedDone);
-        setArchZ(savedZ);
+        loadedAnonRef.current = anon;
+        setArchZ(initialAxialIndex(anon, e.meta, savedZ));
         // pre-`home` saves: the stored arch itself is the best available home
         setArchHome(saved?.home ?? (savedDone && savedPts.length >= 3 ? { points: savedPts, archZ: savedZ } : null));
         setProgress(null);

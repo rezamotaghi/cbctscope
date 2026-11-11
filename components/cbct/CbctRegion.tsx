@@ -13,6 +13,7 @@ import { VertRangeSliders } from './CbctPano';
 import DragDivider from './DragDivider';
 import { snapshotPaneCanvases, type SnapRef } from './SnapshotButton';
 import { PANE_DIRECTION, paneIndexFromBuffer, sliceOrdinal } from './geometry';
+import { initialAxialIndex, setAxialLevel } from './readingPlace';
 
 interface Props {
   anon: string;
@@ -49,6 +50,8 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
   const [entry, setEntry] = useState<VolumeEntry | null>(null);
   const [progress, setProgress] = useState<number | null>(0);
   const [axialZ, setAxialZ] = useState(0);
+  // the scout's level is the tab's reading place (./readingPlace): set from it on open, written back on every move
+  const loadedAnonRef = useRef<string | null>(null);
   const [presetKey, setPresetKey] = useState<string>('air');
   const [lo, setLo] = useState(-1024);
   const [hi, setHi] = useState(-400);
@@ -95,7 +98,8 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
         if (stale) return;
         setEntry(e);
         onMeta?.(e.meta);
-        setAxialZ(Math.round(e.meta.dims[2] * 0.5));
+        loadedAnonRef.current = anon;
+        setAxialZ(initialAxialIndex(anon, e.meta, Math.round(e.meta.dims[2] * 0.5)));
         setProgress(null);
       })
       .catch((err) => {
@@ -112,6 +116,9 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
   }, [anon]);
 
   const effVoi = useMemo(() => voi ?? entry?.meta.defaultVoi ?? { center: 300, width: 2500 }, [voi, entry]);
+  useEffect(() => {
+    if (entry && loadedAnonRef.current === anon) setAxialLevel(anon, entry.meta, axialZ);
+  }, [entry, axialZ, anon]);
   const dims = entry?.meta.dims ?? [1, 1, 1];
   const [nx, ny, nz] = dims;
 

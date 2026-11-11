@@ -14,6 +14,7 @@ import { sweepDeg } from './CbctGrid';
 import { VertRangeSliders } from './CbctPano';
 import DragDivider from './DragDivider';
 import { PANE_DIRECTION, paneIndexFromBuffer, sliceOrdinal } from './geometry';
+import { initialAxialIndex, setAxialLevel } from './readingPlace';
 
 interface Props {
   anon: string;
@@ -91,6 +92,8 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
   const [entry, setEntry] = useState<VolumeEntry | null>(null);
   const [progress, setProgress] = useState<number | null>(0);
   const [z, setZ] = useState(0);
+  // the scout's level is the tab's reading place (./readingPlace): set from it on open, written back on every move
+  const loadedAnonRef = useRef<string | null>(null);
   const [lines, setLines] = useState<Partial<Record<Side, AxisLine>>>({});
   const [sync, setSync] = useState(false);
   const [nSec, setNSec] = useState(5);
@@ -143,7 +146,8 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
         // pre-home records: the saved lines double as home on first load
         setLinesHome(saved?.home ?? saved?.lines ?? {});
         // condyles live in the upper part of a head volume — start the scout there
-        setZ(saved?.z ?? Math.round(e.meta.dims[2] * 0.72));
+        loadedAnonRef.current = anon;
+        setZ(initialAxialIndex(anon, e.meta, saved?.z ?? Math.round(e.meta.dims[2] * 0.72)));
         setProgress(null);
       })
       .catch((err) => {
@@ -176,6 +180,9 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
     () => voi ?? entry?.meta.defaultVoi ?? { center: 300, width: 2500 },
     [voi, entry],
   );
+  useEffect(() => {
+    if (entry && loadedAnonRef.current === anon) setAxialLevel(anon, entry.meta, z);
+  }, [entry, z, anon]);
   const dims = entry?.meta.dims ?? [1, 1, 1];
   const spacing = entry?.meta.spacing ?? [0.2, 0.2, 0.2];
   const sx = spacing[0];

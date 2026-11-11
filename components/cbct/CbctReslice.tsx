@@ -26,6 +26,7 @@ import { sweepDeg } from './CbctGrid';
 import { VertRangeSliders } from './CbctPano';
 import { renderOblique, type V3 } from './oblique';
 import { PANE_DIRECTION, paneIndexFromBuffer, sliceOrdinal } from './geometry';
+import { initialAxialIndex, setAxialLevel } from './readingPlace';
 
 interface Props {
   anon: string;
@@ -117,6 +118,8 @@ export default function CbctReslice({ anon, voi, invert, gamma, onMeta, onError,
   const [points, setPoints] = useState<ArchPoint[]>([]);
   const [stroke, setStroke] = useState<ArchPoint[] | null>(null);
   const [z, setZ] = useState(0);
+  // the scout's level is the tab's reading place (./readingPlace): set from it on open, written back on every move
+  const loadedAnonRef = useRef<string | null>(null);
   const [outMode, setOutMode] = useState<'cross' | 'parallel'>('cross');
   const [count, setCount] = useState(9);
   const [distance, setDistance] = useState(3);
@@ -166,7 +169,8 @@ export default function CbctReslice({ anon, voi, invert, gamma, onMeta, onError,
         const savedZ = saved?.z ?? Math.round(e.meta.dims[2] * 0.5);
         const savedDone = saved?.done ?? savedPts.length >= 2; // pre-`done` saves: a full path was finished
         setPoints(savedPts);
-        setZ(savedZ);
+        loadedAnonRef.current = anon;
+        setZ(initialAxialIndex(anon, e.meta, savedZ));
         setPathDone(savedDone);
         setPathHome(saved?.home ?? (savedDone && savedPts.length >= 2 ? { points: savedPts, z: savedZ } : null));
         setProgress(null);
@@ -200,6 +204,9 @@ export default function CbctReslice({ anon, voi, invert, gamma, onMeta, onError,
   }, [points, z, pathDone, pathHome, anon, entry]);
 
   const effVoi = useMemo(() => voi ?? entry?.meta.defaultVoi ?? { center: 300, width: 2500 }, [voi, entry]);
+  useEffect(() => {
+    if (entry && loadedAnonRef.current === anon) setAxialLevel(anon, entry.meta, z);
+  }, [entry, z, anon]);
   const dims = useMemo(() => entry?.meta.dims ?? ([1, 1, 1] as [number, number, number]), [entry]);
   const spacing = useMemo(() => entry?.meta.spacing ?? ([0.2, 0.2, 0.2] as [number, number, number]), [entry]);
   const sx = spacing[0];
