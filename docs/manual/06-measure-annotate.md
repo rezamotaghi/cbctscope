@@ -37,7 +37,9 @@ and measurement on the current volume with its values, alongside the saved
 views (section 3.5). Each row names its kind in words, as the tool palette does
 (Length, Angle, Arrow, Text, Rect ROI, Ellipse ROI, Freehand, 3D ROI), then its value. The eye icon hides or shows one object, the cross
 deletes it. Rows select, restore, and
-delete in one click.
+delete in one click. The selected row is solid blue, as every selection is. A 3D ROI row
+also carries a small orange square beside its label, the colour of the 3D ROI hint on
+the slice pane, so it stays recognisable whether or not it is selected.
 
 ## 6.4 Persistence
 

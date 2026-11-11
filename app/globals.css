@@ -194,10 +194,6 @@ textarea:focus-visible,
 .ctl-wide {
   width: 100%;
 }
-/* the same button inside an image pane: one step lower */
-.ctl.ctl-pane {
-  height: var(--ctl-h-pane);
-}
 
 /* a reading mode's own rows (components/cbct/Cbct*.tsx): the header's grammar inside the mode.
    A caption beside its slider, a checkbox with its word, every changing number in tabular figures. */
