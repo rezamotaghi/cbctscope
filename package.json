@@ -2,7 +2,7 @@
   "name": "cbctscope",
   "version": "2.0.0",
   "private": true,
-  "description": "Local-first CBCT viewer with native AI-agent control (MCP). Research use only.",
+  "description": "Local-first CBCT and 2D radiograph viewer. Research use only; not a medical device.",
   "license": "AGPL-3.0-or-later",
   "author": "Dr. Reza Motaghi (https://rezamotaghi.com)",
   "main": "desktop/main.mjs",

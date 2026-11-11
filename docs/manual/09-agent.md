@@ -7,8 +7,9 @@ CBCTScope ships a server for the
 by which AI assistants operate external tools. Any MCP-capable agent host
 (Claude Code, Claude Desktop, and others) can drive the viewer: open a scan,
 switch reading modes, set the window, step through slices, restore a saved
-view, take snapshots to look at. In practice you can tell an assistant "open
-the case in this folder, teeth window, pano mode" and watch the viewer follow.
+view, take snapshots to look at. For example, the request "open the case in
+this folder, teeth window, pano mode" opens the case, sets the Teeth window
+and switches to Pano.
 
 > **Note.** Agent control over MCP needs the local app or the desktop app (chapter 2).
 > The desktop app (section 2.6) carries the same bridge on the same port,

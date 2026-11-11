@@ -143,7 +143,9 @@ can travel. Pixels never enter a sidecar.
   memory, the line that the local app has no such limit, "Continue" and "Cancel".
 - Agent opt-in: milestone 3.
 
-Every dialogue follows hard rule 4: full contrast, nothing dimmed or hidden.
+Every dialogue follows hard rule 4: full contrast, nothing hidden. Its one exception applies
+here: a scrim may dim the page behind an open dialogue, whose controls cannot be used while
+it is open.
 
 ## 7. The landing
 
@@ -151,8 +153,8 @@ The page opens on the phantom, as the repo's demo mode does. The source menu off
 DICOMDIR or DICOM folder" and "Open a single DICOM file" (a multiframe volume or a 2D
 radiograph); a drop anywhere on the viewer opens too ("Drop a DICOM folder, a DICOMDIR or a
 single file here"). The header carries "Research use only. Not a medical device." at all
-times, and links to the repository, to the manual as "Manual" (section 13), and, as
-"Download the desktop app", to the releases page.
+times, and links to the repository and, as "Download the desktop app", to the releases page.
+The manual (section 13) opens from the help menu, the one door to it on every surface.
 
 ## 8. Tests and gates
 
@@ -372,6 +374,10 @@ point at the generated pages, links to other repo files at the project page in a
 the stills are copied into `manual/media/`. The search box filters `search-index.json` in the
 page. No inline script and no remote asset, so the export's CSP meta tag, written into these
 pages like every other, holds; every address is relative, so the `/cbctscope` base path holds.
+
+Every page's header carries the posture line and an "Open the viewer" link, one level up to the
+viewer beside `manual/`; in the drawer (below), where the viewer is already beside the page,
+`manual.js` drops that link.
 
 Two forms:
 

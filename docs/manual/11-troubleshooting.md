@@ -31,6 +31,14 @@
   with `Ctrl-C`, or quit the other program, then open CBCTScope again. The app
   never moves to another port, because its marks and settings belong to the
   address `http://127.0.0.1:3810`.
+- **macOS asks whether you are sure you want to open CBCTScope** the first
+  time the desktop app opens ("is an app downloaded from the Internet. Are you
+  sure you want to open it?"): this is Gatekeeper's standard first-open
+  prompt for any downloaded app. The macOS build is signed and notarised by
+  Apple; choose **Open**. macOS asks once.
+- **Windows shows "Windows protected your PC"** when the desktop app first
+  starts: the Windows build is unsigned. Choose **More info**, then **Run
+  anyway** (once; section 2.6).
 - **The browser shows a connection error at localhost:3810**: the viewer is
   not running. Start it (section 2.3) and reload the tab.
 
@@ -66,15 +74,17 @@
 - **A huge volume is slow**: close other volumes, read in demo mode with
   nothing else open, and prefer the draft or standard quality for STL export.
 
-## The web build
+## The web build and the desktop app
 
-- **The Large volume notice appears**: the volume's voxels exceed the size
-  threshold (section 4.6). The browser must hold the whole volume in memory,
-  and a tab has less room than the local app. Close other tabs and continue,
-  or read it in the local app, which has no such limit.
+- **The Large volume notice appears** (in the web build and in the desktop
+  app): the volume's voxels exceed the size threshold (section 4.6). The
+  browser engine must hold the whole volume in memory, and a tab or the
+  desktop app has less room than the repository viewer. Close other tabs or
+  volumes and continue, or read it in the repository viewer (section 2.3),
+  which has no such limit.
 - **The tab slows down, reloads, or shows "Aw, Snap" or "out of memory" on a
-  large volume**: the browser ran out of memory for this tab. Use the local
-  app (chapter 2) for that volume.
+  large volume**: the browser ran out of memory for this tab. Use the
+  repository viewer (section 2.3) for that volume.
 - **Open DICOMDIR or DICOM folder offers no folder choice, or a drop opens nothing**: the
   browser lacks folder reading. Chrome and Edge support both the folder picker
   and dropped folders; Firefox and Safari support the folder picker, and their

@@ -102,6 +102,13 @@ pre code {
   border-radius: 6px;
   padding: 1px 7px;
 }
+.viewer {
+  font-size: 13px;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1px 7px;
+}
 .search {
   margin-left: auto;
   display: flex;
