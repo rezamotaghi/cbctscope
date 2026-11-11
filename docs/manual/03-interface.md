@@ -8,11 +8,13 @@ close on its answer.
 
 ## 3.1 The header
 
-![The header on the built-in phantom, numbered left to right: the name and what it is, the version button, the research-use badge, the mode tabs, the volume list, Open, Export, Snapshot, Keys, Help, and Agent](../media/manual/header.webp)
+![The header of the local app on the built-in phantom, numbered 1 to 9 left to right: the name with what it is and the version button, the research-use badge, the mode tabs, the volume list, Open, Export, Snapshot, Keys, and Help](../media/manual/header.webp)
 
 The header is one row on a wide screen and wraps onto a second row, whole
-groups at a time, when the window is narrower than its controls. From left to
-right:
+groups at a time, when the window is narrower than its controls. The still
+shows the local app, so it carries callouts 1 to 9; Agent (10) and the desktop
+download (11) join them on the website and, for Agent, in the desktop app. From
+left to right:
 
 1. **CBCTScope**, with what it is under the name:
    **CBCT and radiograph viewer**. Beside it, the **version button** (for example `v2.0.0`).

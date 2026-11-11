@@ -34,5 +34,12 @@ phantom with the numbered callouts that match the list in chapter 3;
 `mode-<mode>.webp` shows each mode on the consented, de-identified real CBCT
 that the README stills also use (AGENTS.md hard rule 3: bone-only 3D, the
 cephalogram as densest-only MIP so no soft-tissue profile is projected). The
-script's header at the top documents the run. Recapture after any change to
-the header or to a mode's layout, in the same commit as the change.
+script's header at the top documents the run. The per-volume parameters for
+the real CBCT live beside that volume, outside the repo, in
+`manual-shots-v2.json` (`--params`). They hold no screen coordinates: slice
+levels are the pane's own count, and every point is a fraction of the image in
+a numbered pane (`node scripts/manual-shots.mjs measure` lists the panes), so
+a layout change needs no recalibration. The older `manual-shots.json` beside
+it carries CSS pixels of the v1.6 layout and no longer fits the script.
+Recapture after any change to the header or to a mode's layout, in the same
+commit as the change.

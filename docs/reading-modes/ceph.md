@@ -37,7 +37,7 @@ when you let go. The current turn and tilt are shown on the image.
 
 | Control | Options or range | What it does |
 |---|---|---|
-| Pane | the cephalogram | The projection's name and its turn and nod sit top left, the window bottom right. |
+| Pane | the cephalogram | The projection's name sits top left, followed by its turn and nod once either is off zero; the window reads bottom right. |
 | Projection presets | Lateral L, Lateral R, PA, AP | Lateral L is the profile looking from the left, Lateral R the profile looking from the right, PA the front (postero-anterior), AP the front (antero-posterior). Picking a preset zeroes the rotation sliders. |
 | MIP (densest-only) | checkbox | Unchecked, the projection is the average along each ray, the film-like look with every structure summed; checked, only the densest structure per ray survives, a bone-forward look. |
 | turn | -180 to 180 degrees | Rotation about the vertical axis. |
