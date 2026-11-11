@@ -101,8 +101,12 @@ this app on this computer in the desktop app:
    first frame shows.
 
 When nothing in the files opens, the panel says so and stays until you
-dismiss it: **No DICOM volume found in 3,412 files**, followed by what the
-scan saw, for example files with a compressed transfer syntax (re-export with
+dismiss it. Its first line says what went wrong in plain words and what to
+do, for example **These files are not DICOM images. Export from your CBCT
+software as DICOM, with compression off.** (chapter 11 lists the cases);
+**Open another folder** beside **Dismiss** opens the picker again. Under the
+first line comes the technical reason: **No DICOM volume found in 3,412
+files**, followed by what the scan saw, for example files with a compressed transfer syntax (re-export with
 compression off), a CT series with too few slices to be a CBCT volume (at
 least 30), or files without the DICM magic bytes (not DICOM at all). The scan
 reads at most 8,000 files, skipping hidden folders and anything deeper than

@@ -304,8 +304,13 @@ test.describe('opening files', () => {
     await openFolder(page, 'junk');
     const none = page.getByTestId('open-none');
     await expect(none).toBeVisible({ timeout: 30_000 });
+    // line 1: plain words and the action; the technical reason after it
+    await expect(none.locator('div').first()).toHaveText(
+      'These files are not DICOM images. Export from your CBCT software as DICOM, with compression off.',
+    );
     await expect(none).toContainText('No DICOM volume found in 2 files');
     await expect(none).toContainText('no DICM magic bytes, not DICOM: 2 files');
+    await expect(none.getByRole('button', { name: 'Open another folder' })).toBeVisible();
     await expect(page.getByTestId('open-progress')).toHaveCount(0);
     await expect(researchDialog(page)).toHaveCount(0);
     await none.getByRole('button', { name: 'Dismiss' }).click();

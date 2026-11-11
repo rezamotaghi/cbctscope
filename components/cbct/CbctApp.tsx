@@ -414,7 +414,7 @@ export default function CbctApp() {
       if (isCanceled(r)) return; // the reader dismissed the dialog: not an error
       if (!r.ok) {
         if (live() && r.scanned !== undefined) {
-          return setOpenPanel({ kind: 'none', error: r.error, reasons: r.reasons ?? [] });
+          return setOpenPanel({ kind: 'none', error: r.error, reasons: r.reasons ?? [], headline: r.headline });
         }
         if (live()) setOpenPanel(null);
         return setError(r.error);
@@ -1208,7 +1208,14 @@ export default function CbctApp() {
             </div>
           )}
           {IS_WEB && openPanel && !(openPanel.kind === 'busy' && pendingSize) && (
-            <OpenProgressPanel state={openPanel} onDismiss={() => setOpenPanel(null)} />
+            <OpenProgressPanel
+              state={openPanel}
+              onDismiss={() => setOpenPanel(null)}
+              onOpenAnother={() => {
+                setOpenPanel(null);
+                folderInputRef.current?.click();
+              }}
+            />
           )}
           {marksBusy ? (
             <div style={{ color: 'var(--text)', padding: 24 }}>loading marks…</div>
