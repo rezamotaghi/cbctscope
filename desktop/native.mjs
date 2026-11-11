@@ -15,7 +15,7 @@ export const PROFILE_FOLDER = 'cbctscope';
 
 export const WEBSITE = 'https://cbctscope.com';
 
-/** the event the page's manual drawer listens for (components/cbct/ManualDrawer.tsx) */
+/** the event the page listens for to open its manual drawer (components/cbct/CbctApp.tsx) */
 export const MANUAL_EVENT = 'cbctscope:manual';
 
 // ---------------------------------------------------------------- launch switches

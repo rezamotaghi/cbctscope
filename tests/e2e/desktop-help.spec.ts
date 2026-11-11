@@ -1,5 +1,5 @@
 // The desktop app's Help menu (desktop/native.mjs) opens the manual drawer by a window event
-// the page answers through its own help menu (components/cbct/ManualDrawer.tsx). The shell's
+// CbctApp answers by setting the drawer's state, as its help menu does. The shell's
 // user-agent token is the only difference the page sees, so a context with that token stands in
 // for the app; on the website the same event opens nothing.
 import { expect, test } from '@playwright/test';
@@ -14,8 +14,9 @@ test('the desktop Help menu event opens the manual drawer', async ({ browser, ba
   await page.goto('/');
   await waitForVolume(page);
   await page.evaluate((name) => window.dispatchEvent(new Event(name)), MANUAL_EVENT);
-  await expect(page.getByTestId('manual-drawer')).toBeVisible();
-  await expect(page.locator('iframe[title="CBCTScope user manual"]')).toHaveAttribute('src', /^manual\/index\.html\?theme=dark/);
+  const drawer = page.getByTestId('manual-drawer');
+  await expect(drawer).toBeVisible();
+  await expect(drawer.locator('iframe')).toHaveAttribute('src', /^manual\/index\.html\?theme=dark/);
   // a second request while it is open keeps one drawer
   await page.evaluate((name) => window.dispatchEvent(new Event(name)), MANUAL_EVENT);
   await expect(page.getByTestId('manual-drawer')).toHaveCount(1);
