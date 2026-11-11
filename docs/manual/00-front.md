@@ -1,12 +1,15 @@
 # CBCTScope User Manual
 
 **A complete, local-first CBCT and 2D radiograph viewer, built by a
-board-certified oral and maxillofacial radiologist. The first CBCT reading viewer with native AI-agent control, built on the rule the benchmarks now confirm: the agent moves the camera, the human reads.**
+board-certified oral and maxillofacial radiologist.**
+
+It can also be driven by an AI agent over MCP, under one rule: the agent moves
+the camera, the human reads.
 
 | | |
 |---|---|
 | Software version | 2.0.0 |
-| Manual revision | October 2026 |
+| Manual revision | November 2026 |
 | Author | Dr. Reza Motaghi, oral and maxillofacial radiologist |
 | Project page | <https://github.com/rezamotaghi/cbctscope> |
 | Contact | <https://rezamotaghi.com/contact> |
