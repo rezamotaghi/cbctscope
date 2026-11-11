@@ -973,7 +973,7 @@ export default function CbctViewport({
     try {
       smooth = await getSmooth3d(anonNow, { meta, scalar });
     } catch (e) {
-      console.warn('3d smoothing failed — keeping the original substrate', e);
+      console.warn('3d smoothing failed, keeping the original substrate', e);
       return;
     }
     // re-guard: the volume, the toggle, or the eraser may have moved during the blur
@@ -996,7 +996,7 @@ export default function CbctViewport({
       reclipRef.current();
       vp.render();
     } catch (e) {
-      console.warn('smooth substrate attach failed — keeping the original', e);
+      console.warn('smooth substrate attach failed, keeping the original', e);
     }
   };
   const ensureSmoothSubstrateRef = useRef(ensureSmoothSubstrate);
@@ -2162,7 +2162,7 @@ export default function CbctViewport({
         console.error('[cbct] load failed', err);
         if (!stale) {
           setProgress(null);
-          onError?.('volume load failed — see console');
+          onError?.('volume load failed: see the console');
         }
       }
     })();
@@ -3064,7 +3064,7 @@ export default function CbctViewport({
               <button
                 onClick={() => resetPaneView(c.id)}
                 onDoubleClick={(e) => e.stopPropagation()}
-                title="reset view — re-fit this pane's zoom & pan (orientation and window untouched; R squares up all panes)"
+                title="reset view: re-fit this pane's zoom & pan (orientation and window untouched; R squares up all panes)"
                 style={{
                   position: 'absolute',
                   top: 2,
@@ -3267,7 +3267,7 @@ export default function CbctViewport({
                 ))}
                 <button
                   onClick={home3d}
-                  title="reset view — re-home the 3D camera (window and slices untouched)"
+                  title="reset view: re-home the 3D camera (window and slices untouched)"
                   style={{
                     width: 26,
                     height: 24,
@@ -3302,7 +3302,7 @@ export default function CbctViewport({
               >
                 <button
                   onClick={() => setEraseMode((m) => !m)}
-                  title="render eraser: erase what you touch on the render (a 3D-only copy — the slices NEVER change)"
+                  title="render eraser: erase what you touch on the render (a 3D-only copy; the slices NEVER change)"
                   style={{
                     height: 24,
                     padding: '0 8px',
@@ -3387,7 +3387,7 @@ export default function CbctViewport({
                       disabled={eraseInfo.undo === 0 && eraseInfo.redo === 0}
                       title={
                         eraseInfo.undo || eraseInfo.redo
-                          ? 'revert every erase — the full volume returns to the render'
+                          ? 'revert every erase: the full volume returns to the render'
                           : 'nothing erased yet'
                       }
                       style={{
@@ -3483,7 +3483,7 @@ export default function CbctViewport({
               } else if (e.key === 'Escape') setNamingView(null);
             }}
             onBlur={() => setNamingView(null)}
-            title="name this view — Enter saves, Esc cancels"
+            title="name this view. Enter saves, Esc cancels."
             style={{
               height: 24,
               width: 160,
@@ -3498,7 +3498,7 @@ export default function CbctViewport({
         ) : (
           <button
             onClick={startNamingView}
-            title="save the current view — all four cameras + window + render settings, under a name (V)"
+            title="save the current view: all four cameras + window + render settings, under a name (V)"
             style={{
               height: 24,
               padding: '0 10px',
@@ -3540,7 +3540,7 @@ export default function CbctViewport({
           }}
         >
           <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: 0.4 }}>
-            OBJECTS — click: show it on the slices · Del: delete selected
+            OBJECTS. Click one to show it on the slices; Del deletes the selected one.
           </div>
           {measures.map((m) => (
             <div
@@ -3640,7 +3640,7 @@ export default function CbctViewport({
                     setSelectedUid((cur) => (cur === uid ? null : uid));
                     jumpPanesToWorld(roi.center);
                   }}
-                  title={`3D box ROI ${dims} mm · ${s.nVoxels.toLocaleString()} voxels · min ${Math.round(s.minHu)} / max ${Math.round(s.maxHu)} HU — click: jump the slices to it`}
+                  title={`3D box ROI ${dims} mm · ${s.nVoxels.toLocaleString()} voxels · min ${Math.round(s.minHu)} / max ${Math.round(s.maxHu)} HU. Click to jump the slices to it.`}
                   style={{
                     background: 'none',
                     border: 'none',
@@ -3678,7 +3678,7 @@ export default function CbctViewport({
           })}
           {views.length > 0 && (
             <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: 0.4, marginTop: 2 }}>
-              VIEWS — click: restore that exact presentation
+              VIEWS. Click one to restore that exact presentation.
             </div>
           )}
           {views.map((v) => (

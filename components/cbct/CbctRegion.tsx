@@ -102,7 +102,7 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
         console.error('[cbct-region] load failed', err);
         if (!stale) {
           setProgress(null);
-          onError?.('volume load failed — see console');
+          onError?.('volume load failed: see the console');
         }
       });
     return () => {
@@ -157,23 +157,23 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
         const box = growBox();
         if (seed[2] < box.z0 || seed[2] > box.z1) {
           setResult(null);
-          setHint('the seed is outside the vertical range — pull the range handles to include it');
+          setHint('the seed is outside the vertical range. Pull the range handles to include it.');
           return;
         }
         if (seed[0] < box.x0 || seed[0] > box.x1 || seed[1] < box.y0 || seed[1] > box.y1) {
           setResult(null);
-          setHint('the seed is outside the box — click inside it, or clear the box');
+          setHint('the seed is outside the box. Click inside it, or clear the box.');
           return;
         }
         const res = growRegion(entry, seed, Math.min(lo, hi), Math.max(lo, hi), box, smooth);
         setResult(res);
-        setHint(res ? null : 'the seed voxel is outside the HU range — click on the target tissue, or widen the range');
+        setHint(res ? null : 'the seed voxel is outside the HU range. Click on the target tissue, or widen the range.');
       } catch (err) {
         // a grow-time crash is recoverable — the volume, box, and handles are intact;
         // a different seed/range typically works, so this must never nuke the pane
         console.error('[cbct-region] grow failed', err);
         setResult(null);
-        setHint('region grow failed — try a different seed, a smaller box, or a narrower range');
+        setHint('region grow failed. Try a different seed, a smaller box, or a narrower range.');
       } finally {
         setBusy(false);
       }
@@ -628,14 +628,14 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
           ))}
           <label
             style={{ ...small, display: 'flex', gap: 4, alignItems: 'center' }}
-            title="morphological closing on the grown mask — fills pinholes and hairline gaps (slower)"
+            title="morphological closing on the grown mask: fills pinholes and hairline gaps (slower)"
           >
             <input type="checkbox" checked={smooth} onChange={(e) => setSmooth(e.target.checked)} /> smooth
           </label>
           <button
             style={chip(false)}
             disabled={!box2d}
-            title="delete the bounding box — the seed and mask stay, regrown against the whole slice footprint"
+            title="delete the bounding box. The seed and mask stay, regrown against the whole slice footprint"
             onClick={() => setBox2d(null)}
           >
             clear box
@@ -643,7 +643,7 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
           <button
             style={chip(false)}
             disabled={!seed}
-            title="clear the seed + mask — the box stays for the next seed"
+            title="clear the seed and mask. The box stays for the next seed."
             onClick={() => setSeed(null)}
           >
             clear seed
@@ -680,7 +680,7 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
           </label>
           <span
             style={small}
-            title="the grow's vertical bounds — set them with the two handles right of the planes; the dashed green lines on sagittal/coronal show where they sit"
+            title="the grow's vertical bounds: set them with the two handles right of the planes; the dashed green lines on sagittal/coronal show where they sit"
           >
             vertical range {Math.round(zFrac[0] * 100)}–{Math.round(zFrac[1] * 100)}%
           </span>
@@ -748,14 +748,14 @@ export default function CbctRegion({ anon, voi, invert, gamma, onMeta, onError, 
                 {stat('mean HU', `${result.meanHU.toFixed(0)} ± ${result.sdHU.toFixed(0)}`)}
                 {stat('range HU', `${result.minHU.toFixed(0)} … ${result.maxHU.toFixed(0)}`)}
                 {stat('narrowest', `${result.narrowestAreaMm2.toFixed(1)} mm²`)}
-                {result.capped && <div style={{ ...small, color: 'var(--warn)' }}>⚠ hit the 4M-voxel cap — tighten the box or range</div>}
+                {result.capped && <div style={{ ...small, color: 'var(--warn)' }}>⚠ hit the 4M-voxel cap: tighten the box or range</div>}
               </>
             ) : (
               <div style={{ ...small, whiteSpace: 'normal', lineHeight: 1.5 }}>
                 Pick a density preset, draw a box around the target, then click a seed inside it.
                 Corners resize the box, its inside drags it, right-click deletes it; the two
                 handles right of the planes bound the grow vertically (dashed lines show them).
-                For an airway: air preset, a box around the pharynx, seed in the black column — the
+                For an airway: air preset, a box around the pharynx, seed in the black column. The
                 graph below is its area at each height, narrowest slice flagged.
               </div>
             )}

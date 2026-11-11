@@ -150,7 +150,7 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
         console.error('[cbct-tmj] load failed', err);
         if (!stale) {
           setProgress(null);
-          onError?.('volume load failed — see console');
+          onError?.('volume load failed: see the console');
         }
       });
     return () => {
@@ -712,7 +712,7 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
         <div style={sliderRow}>
           <button
             style={chip(mode === 'perp')}
-            title="sections PERPENDICULAR to each condyle's axis (corrected sagittal — the classic TMJ read)"
+            title="sections PERPENDICULAR to each condyle's axis (corrected sagittal, the classic TMJ read)"
             onClick={() => setMode('perp')}
           >
             ⊥ axis
@@ -724,7 +724,7 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
           >
             ∥ axis
           </button>
-          <label style={{ ...small, display: 'flex', gap: 4, alignItems: 'center' }} title="editing one side mirrors the line to the other about the midline; a fresh draw fills the other side only if it is empty — it never replaces a placed line there">
+          <label style={{ ...small, display: 'flex', gap: 4, alignItems: 'center' }} title="editing one side mirrors the line to the other about the midline; a fresh draw fills the other side only if it is empty, and never replaces a placed line there">
             <input type="checkbox" checked={sync} onChange={(e) => setSync(e.target.checked)} /> sync sides
           </label>
           <button
@@ -744,8 +744,8 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
             disabled={!linesHome.R && !linesHome.L}
             title={
               !linesHome.R && !linesHome.L
-                ? 'nothing to reset — draw an axis line first'
-                : "restore both axis lines to where they were drawn — exploratory nudges roll back (the pano's reset arch)"
+                ? 'nothing to reset: draw an axis line first'
+                : "restore both axis lines to where they were drawn. Exploratory nudges roll back (the pano's reset arch)"
             }
             onClick={() => setLines({ ...linesHome })}
           >
@@ -754,8 +754,8 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
         </div>
         <div style={{ ...small, whiteSpace: 'normal', lineHeight: 1.5 }}>
           Drag one line along each condyle head (lateral pole → medial pole). Sections are cut
-          against each side&apos;s own axis, so the joint is read in ITS plane — not the
-          scanner&apos;s. ⊥ axis = corrected sagittal · ∥ axis = corrected coronal.
+          against each side&apos;s own axis, so the joint is read in ITS plane, not the
+          scanner&apos;s. ⊥ axis is corrected sagittal; ∥ axis is corrected coronal.
         </div>
       </div>
 
@@ -824,7 +824,7 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
           <VertRangeSliders zFrac={zFrac} setZFrac={setZFrac} />
         </div>
         <div style={sliderRow}>
-          <label style={{ ...small, display: 'flex', gap: 6, alignItems: 'center' }} title="odd counts only — keeps one section exactly on the condyle axis">
+          <label style={{ ...small, display: 'flex', gap: 6, alignItems: 'center' }} title="odd counts only, so one section stays exactly on the condyle axis">
             sections {nSec}
             <input
               type="range"
@@ -848,7 +848,7 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
             title={
               Math.abs(tilt.R) > 0.01 || Math.abs(tilt.L) > 0.01
                 ? 'both fans back upright (0°)'
-                : 'already upright — right-drag a tile to tilt its fan'
+                : 'already upright: right-drag a tile to tilt its fan'
             }
             onClick={() => setTilt({ R: 0, L: 0 })}
           >
@@ -880,7 +880,7 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
               style={{ flex: 1 }}
             />
           </label>
-          <label style={{ ...small, flex: 1, display: 'flex', gap: 6, alignItems: 'center' }} title="average this many mm across each section — a thicker, quieter cut">
+          <label style={{ ...small, flex: 1, display: 'flex', gap: 6, alignItems: 'center' }} title="average this many mm across each section, for a thicker, quieter cut">
             thickness {secThickness.toFixed(1)} mm
             <input
               type="range"
@@ -895,13 +895,13 @@ export default function CbctTmj({ anon, voi, invert, gamma, onMeta, onError, sna
           </label>
         </div>
         <div style={sliderRow}>
-          <span style={small} title="crop the sections vertically — the handles moved to the right edge of the sections (pano-style)">
+          <span style={small} title="crop the sections vertically. The handles moved to the right edge of the sections (pano-style)">
             vertical range {Math.round(zFrac[0] * 100)}–{Math.round(zFrac[1] * 100)}%
           </span>
           <button
             style={chip(false)}
             disabled={!entry}
-            title="reset the reading position — both fans upright + the condyle-default vertical range (lines, section params, and pane splits untouched)"
+            title="reset the reading position: both fans upright + the condyle-default vertical range (lines, section params, and pane splits untouched)"
             onClick={() => {
               setTilt({ R: 0, L: 0 });
               setZFrac([0.25, 1]);

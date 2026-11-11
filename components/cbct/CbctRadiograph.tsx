@@ -206,7 +206,7 @@ export default function CbctRadiograph({
       setHint(null);
     } catch (e) {
       console.error('[cbct-radiograph] save failed', e);
-      setHint('PNG save failed — the view is untouched, try again');
+      setHint('PNG save failed. The view is untouched; try again.');
     }
   };
 

@@ -91,7 +91,7 @@ export default function CbctCeph({ anon, voi, invert, gamma, onMeta, onError, on
         console.error('[cbct-ceph] load failed', err);
         if (!stale) {
           setProgress(null);
-          onError?.('volume load failed — see console');
+          onError?.('volume load failed: see the console');
         }
       });
     return () => {
@@ -202,7 +202,7 @@ export default function CbctCeph({ anon, voi, invert, gamma, onMeta, onError, on
       setHint(null);
     } catch (e) {
       console.error('[cbct-ceph] save failed', e);
-      setHint('PNG save failed — the view is untouched, try again');
+      setHint('PNG save failed. The view is untouched; try again.');
     }
   };
 
@@ -250,7 +250,7 @@ export default function CbctCeph({ anon, voi, invert, gamma, onMeta, onError, on
         <label style={{ display: 'inline-flex', gap: 5, alignItems: 'center', fontSize: 12 }}>
           <input type="checkbox" checked={mip} onChange={(e) => setMip(e.target.checked)} /> MIP (densest-only)
         </label>
-        <button style={chip(autoActive)} onClick={runAuto} title="pick a window from the projection's own densities — writes the shared Window section (✓ while that window is still active)">
+        <button style={chip(autoActive)} onClick={runAuto} title="pick a window from the projection's own densities. It writes the shared Window section (✓ while that window is still active)">
           auto contrast{autoActive ? ' ✓' : ''}
         </button>
         <button style={chip(false)} onClick={() => onVoi?.(null)} title="back to the volume's Auto window (gamma is the sidebar slider)">
