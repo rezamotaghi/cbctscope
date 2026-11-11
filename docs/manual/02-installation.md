@@ -137,12 +137,22 @@ GitHub releases page:
   your PC**: choose **More info**, then **Run anyway** (once).
 
 **First launch.** The window opens on the synthetic phantom, as the web build
-does. **File → Open…** (`Cmd-O` on macOS, `Ctrl-O` on Windows) or the
+does, at 1440 by 900 pixels (smaller on a smaller screen); it never goes below
+1024 by 700, the size the header and four panes are laid out for. **File → Open…** (`Cmd-O` on macOS, `Ctrl-O` on Windows) or the
 **📂 open** menu opens your own export through the system's folder dialog; the
 dialog's button may read **Upload**, which is the browser engine's standard
 wording: the files are read into the app and nothing is sent anywhere. Closing
 the window quits the app. **Help → CBCTScope Help** opens this manual beside
 the viewer, and **View** holds Actual Size, Zoom In, Zoom Out and full screen.
+
+**What the app remembers.** Between launches the app remembers the window's
+size and position (and whether it was maximized) and the window preset
+(Auto, Bone, Teeth or Soft), in its own profile: a small file
+`window-state.json` holding those four numbers and the flag, and the preset's
+name in the app's storage. It keeps no folder name, file name or anything
+from a scan, and a window whose screen is gone opens centred again. The
+reading place (slice and crosshair, section 3.2) is kept between modes, not
+across a relaunch. The website remembers none of this.
 
 What differs from the repository starters (section 2.3):
 
@@ -170,8 +180,9 @@ What differs from the repository starters (section 2.3):
 **Applications** to the Trash; on Windows, uninstall it in **Settings** under
 **Apps** (the portable build is simply deleted). Removing the app leaves its
 profile behind: the app's own storage, holding your marks, the research-use
-acknowledgement, the agent settings and the browser engine's caches (about
-20 MB after a first session). On macOS that is the folder
+acknowledgement, the agent settings, the window's size and position and the
+window preset, and the browser engine's caches (about 20 MB after a first
+session). On macOS that is the folder
 `~/Library/Application Support/cbctscope` and the preferences file
 `~/Library/Preferences/com.cbctscope.app.plist`; on Windows, the folder
 `%APPDATA%\cbctscope`. To remove them as well, with the app quit: in the

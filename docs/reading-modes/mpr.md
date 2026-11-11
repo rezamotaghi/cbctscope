@@ -50,13 +50,20 @@ in the viewer is a specialization; when in doubt, start in MPR.
 
 ## The controls
 
-**Panes.** The screen is a 2 by 2 grid: AXIAL, SAGITTAL, CORONAL, 3D. Each slice pane
-shows its slice counter with the direction the count runs (`622/801 S→I`: slice 1 is the
-most superior; coronal counts P→A, sagittal R→L; the letters follow the live camera, so
-an obliqued pane reports the direction it actually scrolls along), patient-orientation
-letters computed from the live camera (they stay correct after oblique rotation), a live
-HU readout under the cursor (a 3 by 3 by 3 neighborhood mean), a slice slider on the
-right edge, and a flip button that mirrors the viewing direction.
+**Panes.** The screen is a 2 by 2 grid: AXIAL, SAGITTAL, CORONAL, 3D, with the
+objects list in a strip under it once there is something to list. Each slice pane shows,
+top left, its plane and slice counter with the direction the count runs (`622/801 S→I`:
+slice 1 is the most superior; coronal counts P→A, sagittal R→L; the letters follow the
+live camera, so an obliqued pane reports the direction it actually scrolls along);
+bottom right, the window (`W 4000 L 1000`); patient-orientation letters at the edge
+midpoints, computed from the live camera (they stay correct after oblique rotation); a
+yellow scale bar at the bottom centre; a live HU readout under the cursor, bottom left (a
+3 by 3 by 3 neighborhood mean); a slice slider on the right edge; and, top right, the
+**Reset view** and **Flip** buttons (section 3.6), with **Save view** in the axial pane.
+The pane that takes the wheel carries a thin blue frame. The 3D pane's top-right buttons
+orbit the render left, right, up and down (hold to keep turning) and reset its camera.
+The crosshair and the axial level are the reading place the other modes share (section
+3.2): leave for Pano and come back, and they are where you left them.
 
 **Tool palette** ("Tool (1-9, 0)"): Crosshairs, Pan, Length, Angle, Arrow, Text, Rect
 ROI, Ellipse ROI, Freehand, 3D ROI, on hotkeys 1 through 9 and 0; W/L on `W`. Arrow and
@@ -101,10 +108,11 @@ slices are unaffected. "Un-crop + clear cuts" restores the full volume.
 
 **Cutaway.** Right-drag on the 3D pane opens a cut plane facing the camera; dragging up
 pushes it deeper, down backs it out. Later right-drags resume the same cut from its
-current depth; backing out past zero removes it (so does the scissors chip), and only
+current depth; backing out past zero removes it (so does the **Clear cuts** button,
+bottom left of the 3D pane), and only
 then does a new drag open a fresh plane facing wherever the camera is now.
 
-**Render eraser.** The "eraser" button on the 3D pane turns left-drag into a brush
+**Render eraser.** The **Eraser** button on the 3D pane turns left-drag into a brush
 (radius 1 to 12 mm) that erases what you touch on the render. It edits a 3D-only copy of
 the voxels; the slice panes never change. Undo, redo, and revert are on the same toolbar.
 
@@ -112,8 +120,9 @@ the voxels; the slice panes never change. Undo, redo, and revert are on the same
 the default applied on app start.
 
 **Snapshot and views.** "snapshot" (header) saves the visible layout (annotations
-included) as a PNG. "save view (V)" stores all four cameras plus window and render
-settings under a name; the objects panel restores it in one click. Annotations, saved
+included) as a PNG, with each slice pane's window and scale bar. **Save view** (`V`), in
+the axial pane's top-right buttons, stores all four cameras plus window and render
+settings under a name; the objects list under the panes restores it in one click. Annotations, saved
 views, and 3D ROIs persist per volume in the evidence sidecar and return when the volume
 is reopened.
 

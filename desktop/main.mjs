@@ -7,8 +7,10 @@
 // no preload. Every window.open and every off-origin navigation is denied; an https: link is
 // handed to the system browser, anything else is dropped. The packaged app refuses to start
 // with a remote-debugging switch, which would hand the window to any local process.
-// The menu bar, About panel, save panel title and port dialogue come from ./native.mjs.
-import { app, BrowserWindow, dialog, Menu, nativeTheme, session, shell } from 'electron';
+// The menu bar, About panel, save panel title, port dialogue and the window's remembered size
+// and position come from ./native.mjs.
+import { app, BrowserWindow, dialog, Menu, nativeTheme, screen, session, shell } from 'electron';
+import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { PortInUseError, startBridge } from './bridge.mjs';
 import {
@@ -18,10 +20,14 @@ import {
   desktopUserAgent,
   MANUAL_EVENT,
   menuTemplate,
+  MIN_WINDOW,
   PORT_IN_USE,
   PROFILE_FOLDER,
   saveDialogTitle,
   WEBSITE,
+  WINDOW_STATE_FILE,
+  windowBoundsFor,
+  windowStateToSave,
 } from './native.mjs';
 
 // seconds since the process started, so the log shows launch to first frame directly
@@ -91,6 +97,23 @@ function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+/** the window's size and position from the last session (numbers only; see native.mjs) */
+const windowStatePath = () => path.join(app.getPath('userData'), WINDOW_STATE_FILE);
+function readWindowState() {
+  try {
+    return JSON.parse(readFileSync(windowStatePath(), 'utf8'));
+  } catch {
+    return null; // first launch, or a damaged file: the default size, centred
+  }
+}
+function writeWindowState(w) {
+  try {
+    writeFileSync(windowStatePath(), JSON.stringify(windowStateToSave(w.getNormalBounds(), w.isMaximized())));
+  } catch (err) {
+    log(`window size not remembered: ${err.message}`);
+  }
+}
+
 const isHttps = (url) => {
   try {
     return new URL(url).protocol === 'https:';
@@ -128,11 +151,13 @@ async function boot() {
   nativeTheme.themeSource = 'dark';
   app.setAboutPanelOptions(aboutPanelOptions(app.getVersion()));
   buildMenu();
+  const place = windowBoundsFor(readWindowState(), screen.getAllDisplays().map((d) => d.workArea));
   win = new BrowserWindow({
-    width: 1440,
-    height: 900,
-    minWidth: 900,
-    minHeight: 600,
+    width: place.width,
+    height: place.height,
+    ...(place.x !== undefined && place.y !== undefined ? { x: place.x, y: place.y } : {}),
+    minWidth: MIN_WINDOW.width,
+    minHeight: MIN_WINDOW.height,
     show: false,
     backgroundColor: '#0b0d10',
     title: 'CBCTScope',
@@ -170,8 +195,11 @@ async function boot() {
 
   win.once('ready-to-show', () => {
     log('first frame (ready-to-show)');
+    if (place.maximized) win.maximize();
     win.show();
   });
+  // remembered on close, for the next launch: size, position, maximized
+  win.on('close', () => writeWindowState(win));
   win.on('closed', () => {
     win = null;
   });

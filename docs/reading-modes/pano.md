@@ -32,7 +32,7 @@ the course of the mandibular canal traced in three dimensions.
 | Drag a dot | axial editor, once FINISHED | Refine the arch |
 | Drag the line itself | axial editor, once FINISHED | Move the whole arch |
 | Double-click or right-click a dot | axial editor, once FINISHED | Delete that dot |
-| Wheel | axial editor | Scroll the slice; the caption counts like the MPR axial pane (`AXIAL 622/801 S→I`, slice 1 at the top of the head), so a slice number carries between modes unchanged |
+| Wheel | axial editor | Scroll the slice; the pane label counts like the MPR axial pane (`AXIAL 622/801 S→I`, slice 1 at the top of the head), so a slice number carries between modes unchanged |
 | Click or wheel | pano | Move the cross-section position along the arch |
 | Right-drag | any cross-section | Rotate the section fan (tilt), with a live degree chip |
 | Click | pano, while tracing | Add a point to the trace |
@@ -57,6 +57,11 @@ the pano actually samples, centered on the rendered layer (radius shift and the 
 bend included) and closed at the arch ends. What sits between the curves is in the pano;
 what sits outside is not.
 
+**Panes.** The axial editor shows `AXIAL n/N` top left and the window bottom right. The
+pano's caption sits in a strip above it; its window readout, bottom right, follows
+auto-adjust. The cross-sections carry the window bottom right of the last one.
+Measurement labels stay inside the image on a dark halo. The pane that takes the wheel carries a thin blue frame, and the axial level is the reading place shared with the other modes (section 3.2).
+
 **The pano canvas** carries a ruler marking arc-length in mm. Its controls:
 
 | Control | Range or options | What it does |
@@ -80,8 +85,9 @@ what sits outside is not.
 | thickness | 0 to 10 mm | Averaged along the arch |
 | mirror | toggle | Flips which side of the arch faces left in every section |
 
-Each section is numbered to match its line on the axial editor and on the pano, and
-labeled with its arc position in mm.
+Each section is numbered to match its line on the axial editor and on the pano; its
+caption, in a strip above the image, gives its arc position in mm, the centre section's
+in bold yellow.
 
 **Section rotation.** Right-drag on any cross-section rotates the section fan, the same
 sweep gesture as the MPR and grid rotations, with a live degree chip. The tilt drives the

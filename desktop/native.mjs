@@ -1,6 +1,6 @@
 // What the desktop app shows through the operating system rather than the page: the menu bar,
-// the About panel, the save panel's title, the port-in-use dialogue, plus the launch checks
-// that run before any window exists. Pure data and functions, no Electron import, so
+// the About panel, the save panel's title, the port-in-use dialogue, the window's remembered
+// place, plus the launch checks that run before any window exists. Pure data and functions, no Electron import, so
 // tests/desktopNative.test.ts reads them without a display; desktop/main.mjs wires them up.
 
 /** the name macOS and Windows show (menus, About, the user agent); package.json productName */
@@ -80,6 +80,83 @@ export const PORT_IN_USE = {
     'Press Ctrl-C in that terminal window, or quit the other program, then open CBCTScope again. ' +
     'The app always uses the same port, so your marks and settings stay where they are.',
 };
+
+// ---------------------------------------------------------------- the window's place
+/** the smallest window the one-row header and four panes hold in */
+export const MIN_WINDOW = { width: 1024, height: 700 };
+/** the first launch's size, centred */
+export const DEFAULT_WINDOW = { width: 1440, height: 900 };
+/**
+ * The one file the app writes about itself, in its profile folder: the window's size and
+ * position and whether it was maximized. Numbers only; never a folder, a file name or anything
+ * from a scan (the window preset is kept by the page, in the same profile).
+ */
+export const WINDOW_STATE_FILE = 'window-state.json';
+
+const num = (v) => typeof v === 'number' && Number.isFinite(v);
+
+/**
+ * What to remember when the window closes: its normal (unmaximized) bounds, rounded, and the
+ * maximized flag. Nothing else goes into the file.
+ * @param {{ x: number, y: number, width: number, height: number }} bounds win.getNormalBounds()
+ * @param {boolean} maximized win.isMaximized()
+ */
+export function windowStateToSave(bounds, maximized) {
+  return {
+    x: Math.round(bounds.x),
+    y: Math.round(bounds.y),
+    width: Math.round(bounds.width),
+    height: Math.round(bounds.height),
+    maximized: Boolean(maximized),
+  };
+}
+
+/**
+ * The window to open, from what was saved and the displays there are now. A saved window comes
+ * back where it was when its top strip (where the title bar sits) still lies on a display,
+ * clamped to the minimum size and to that display; otherwise, and on a first launch or a
+ * damaged file, the default size centred (no x and y: Electron centres it), never larger than
+ * the biggest display.
+ * @param {unknown} saved the parsed file, or anything else
+ * @param {{ x: number, y: number, width: number, height: number }[]} workAreas each display's work area
+ * @returns {{ width: number, height: number, x?: number, y?: number, maximized: boolean }}
+ */
+export function windowBoundsFor(saved, workAreas) {
+  const areas = (Array.isArray(workAreas) ? workAreas : []).filter((a) => a && num(a.x) && num(a.y) && num(a.width) && num(a.height));
+  const biggest = areas.reduce((m, a) => (!m || a.width * a.height > m.width * m.height ? a : m), null) ?? DEFAULT_WINDOW;
+  const fallback = {
+    width: Math.max(MIN_WINDOW.width, Math.min(DEFAULT_WINDOW.width, biggest.width)),
+    height: Math.max(MIN_WINDOW.height, Math.min(DEFAULT_WINDOW.height, biggest.height)),
+    maximized: false,
+  };
+  const s = /** @type {Record<string, unknown>} */ (saved && typeof saved === 'object' ? saved : {});
+  if (!num(s.x) || !num(s.y) || !num(s.width) || !num(s.height)) return fallback;
+  const maximized = s.maximized === true;
+  const x = /** @type {number} */ (s.x);
+  const y = /** @type {number} */ (s.y);
+  // the display holding the most of the window's top strip (40 px tall, the title bar's place)
+  const strip = { x, y, width: /** @type {number} */ (s.width), height: 40 };
+  let home = null;
+  let best = 0;
+  for (const a of areas) {
+    const w = Math.min(strip.x + strip.width, a.x + a.width) - Math.max(strip.x, a.x);
+    const h = Math.min(strip.y + strip.height, a.y + a.height) - Math.max(strip.y, a.y);
+    if (w >= 100 && h >= 20 && w * h > best) {
+      best = w * h;
+      home = a;
+    }
+  }
+  if (!home) return fallback;
+  const width = Math.max(MIN_WINDOW.width, Math.min(/** @type {number} */ (s.width), home.width));
+  const height = Math.max(MIN_WINDOW.height, Math.min(/** @type {number} */ (s.height), home.height));
+  return {
+    width,
+    height,
+    x: Math.round(Math.max(home.x, Math.min(x, home.x + home.width - width))),
+    y: Math.round(Math.max(home.y, Math.min(y, home.y + home.height - height))),
+    maximized,
+  };
+}
 
 // ---------------------------------------------------------------- the menu bar
 /**

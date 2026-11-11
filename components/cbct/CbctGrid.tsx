@@ -15,6 +15,9 @@ import { PANE_DIRECTION, bufferIndexFromPane, paneIndexFromBuffer } from './geom
 import type { AgentReply } from './useAgentBridge';
 import DragDivider from './DragDivider';
 import { type SnapRef } from './SnapshotButton';
+import { RotateCcw } from 'lucide-react';
+import { ActiveFrame, PaneLabel, WlReadout, overlayText, useActivePane } from './PaneOverlay';
+import { PLANE_COLOR, drawHaloLabel } from './overlayGrammar';
 import type { VolumeEntry } from './volumeData';
 
 type Plane = 'axial' | 'sagittal' | 'coronal';
@@ -189,6 +192,8 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
   const stepVox = Math.max(1, Math.round(spacingMm / voxMm));
   const slabVox = Math.max(1, Math.round(thickMm / voxMm));
   const maxOff = entry ? Math.floor(extentAlong(basis.n, entry.meta.dims) / 2) - 1 : 0;
+  const gridVoi = entry ? (voi ?? entry.meta.defaultVoi) : null;
+  const { active: activePane, bind: bindPane } = useActivePane<'scout' | 'stack'>('stack');
   const lowerHu = (voi?.center ?? entry?.meta.defaultVoi.center ?? 0) - (voi?.width ?? entry?.meta.defaultVoi.width ?? 1) / 2;
   const upperHu = (voi?.center ?? entry?.meta.defaultVoi.center ?? 0) + (voi?.width ?? entry?.meta.defaultVoi.width ?? 1) / 2;
 
@@ -262,7 +267,7 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
         if (k % labelEvery === 0) {
           const lx = Math.max(2, Math.min(w - 12, p0[0] + (p1[0] - p0[0]) * 0.04));
           const ly = Math.max(9, Math.min(h - 2, p0[1] + (p1[1] - p0[1]) * 0.04 - 2));
-          ctx.fillText(String(k + 1), lx, ly);
+          drawHaloLabel(ctx, String(k + 1), lx, ly, LINE_COLOR);
         }
       });
     });
@@ -501,7 +506,7 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
             <button
               key={p}
               style={btn(plane === p)}
-              title={`cut ${p} slices (switching planes straightens the stack; ↺ does the same in place)`}
+              title={`cut ${p} slices (switching planes straightens the stack; Reset view does the same in place)`}
               onClick={() => {
                 if (p === plane) return; // re-clicking the active plane must not wipe a tuned oblique
                 const wasRotated = basis !== INIT_BASIS[plane] || scoutBasis !== SCOUT_BASIS[plane];
@@ -528,11 +533,12 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
           ))}
         </span>
         <button
-          style={{ ...btn(false), fontSize: 14, lineHeight: 1 }}
+          style={{ ...btn(false), display: 'inline-flex', alignItems: 'center', gap: 4 }}
           onClick={() => resetOrientation(plane)}
-          title="reset view: back to the straight orthogonal stack, window recentered"
+          title="Reset view: back to the straight orthogonal stack, window recentred"
         >
-          ↺
+          <RotateCcw size={14} strokeWidth={2} aria-hidden />
+          Reset view
         </button>
         {/* these live in the TOP toolbar by explicit design preference — do not
             re-standardize this pane's slider placement into a bottom row */}
@@ -589,6 +595,7 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
 
       <div ref={wrapRef} style={{ flex: 1, minHeight: 0, display: 'flex', gap: 6, position: 'relative' }}>
         <div
+          {...bindPane('scout')}
           style={{
             flex: `0 0 ${scoutPct}%`,
             minWidth: 150,
@@ -598,6 +605,7 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
           }}
           onContextMenu={(e) => e.preventDefault()}
         >
+          <ActiveFrame on={activePane === 'scout'} />
           <canvas
             ref={refCanvasRef}
             onPointerDown={onScoutDown}
@@ -607,20 +615,9 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
             style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', cursor: 'crosshair', touchAction: 'none' }}
             title="scout. Left-drag moves the section window. Right-drag rotates the image, and the grid re-cuts through the turned anatomy."
           />
-          <span
-            style={{
-              position: 'absolute',
-              top: 4,
-              left: 8,
-              fontSize: 10,
-              letterSpacing: 0.5,
-              color: 'var(--text-dim)',
-              textShadow: '0 1px 2px #000',
-              pointerEvents: 'none',
-            }}
-          >
-            {SCOUT_NAME[plane]} · left-drag = move window · right-drag = rotate
-          </span>
+          {/* the scout's plane only: the gestures live in the Keys card and the status line */}
+          <PaneLabel name={SCOUT_NAME[plane]} color={PLANE_COLOR[SCOUT_NAME[plane].toLowerCase() as Plane]} slice="scout" />
+          <WlReadout voi={gridVoi} />
         </div>
         {/* draggable scout|stack pane line (always visible; double-click = default width) */}
         <DragDivider
@@ -643,7 +640,9 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
           }}
         />
         <div
+          {...bindPane('stack')}
           style={{
+            position: 'relative',
             flex: 1,
             minHeight: 0,
             minWidth: 0,
@@ -659,6 +658,7 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
           onPointerUp={onDragEnd}
           onPointerCancel={onDragEnd}
         >
+          <ActiveFrame on={activePane === 'stack'} />
           {offsets.map((off, k) => (
             <div key={k} style={{ position: 'relative', minHeight: 0, minWidth: 0, background: 'var(--viewport-bg)', borderRadius: 4 }}>
               <canvas
@@ -667,35 +667,13 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
                 }}
                 style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
               />
-              <span
-                style={{
-                  position: 'absolute',
-                  top: 3,
-                  left: 6,
-                  fontSize: 10,
-                  color: 'var(--text-dim)',
-                  textShadow: '0 1px 2px #000',
-                  fontVariantNumeric: 'tabular-nums',
-                  pointerEvents: 'none',
-                }}
-              >
+              <span data-overlay="label" style={{ ...overlayText, top: 2, left: 6 }}>
                 {(off * voxMm).toFixed(1)} mm
               </span>
-              <span
-                style={{
-                  position: 'absolute',
-                  top: 3,
-                  right: 6,
-                  fontSize: 10,
-                  fontWeight: 600,
-                  color: LINE_COLOR,
-                  textShadow: '0 1px 2px #000',
-                  fontVariantNumeric: 'tabular-nums',
-                  pointerEvents: 'none',
-                }}
-              >
+              <span data-overlay="label" style={{ ...overlayText, top: 2, right: 6, fontWeight: 600, color: LINE_COLOR }}>
                 {k + 1}
               </span>
+              {k === offsets.length - 1 && <WlReadout voi={gridVoi} style={{ right: 6, bottom: 2 }} />}
             </div>
           ))}
         </div>
@@ -717,7 +695,7 @@ export default function CbctGrid({ anon, voi, invert, gamma, onMeta, onError, sn
               whiteSpace: 'nowrap',
             }}
           >
-            {chip} · ↺ = straight stack
+            {chip}. Reset view straightens the stack.
           </span>
         )}
         {progress !== null && (

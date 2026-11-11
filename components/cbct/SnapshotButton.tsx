@@ -95,7 +95,19 @@ export async function snapshotPaneCanvases(
     }
   }
 
-  ctx.fillStyle = '#aeb6c6';
+  // captions that sit in a strip above a pane (data-snap-caption) ride along at their place
+  for (const el of Array.from(root.querySelectorAll<HTMLElement>('[data-snap-caption]'))) {
+    const r = el.getBoundingClientRect();
+    const text = el.textContent?.trim();
+    if (r.width < 2 || !text) continue;
+    const cs = getComputedStyle(el);
+    ctx.fillStyle = cs.color;
+    ctx.font = `${cs.fontWeight} ${parseFloat(cs.fontSize) * scale}px system-ui, sans-serif`;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, (r.left - rootR.left) * scale, (r.top - rootR.top + r.height / 2) * scale, r.width * scale);
+  }
+
+  ctx.fillStyle = '#9aa3b2';
   ctx.font = `${12 * scale}px system-ui, sans-serif`;
   ctx.textBaseline = 'bottom';
   ctx.fillText(footer, 6 * scale, out.height - 5 * scale);

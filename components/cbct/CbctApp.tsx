@@ -45,6 +45,7 @@ import {
 } from './WebDialogs';
 import AboutBadge from '@/components/AboutBadge';
 import SnapshotButton, { type SnapRef } from './SnapshotButton';
+import { pageStorage, rememberWindow, rememberedWindow } from './windowPreset';
 import { BookOpen, FolderOpen, Keyboard } from 'lucide-react';
 
 interface ListEntry {
@@ -193,6 +194,12 @@ export default function CbctApp() {
   const [anon, setAnon] = useState<string | null>(null);
   const [meta, setMeta] = useState<CbctMeta | null>(null);
   const [controls, setControls] = useState<CbctControls>(defaultControls);
+  // the desktop app reopens on the last window preset (./windowPreset); the website remembers nothing new
+  useEffect(() => {
+    const voi = rememberedWindow(pageStorage(), IS_DESKTOP, WL_PRESETS);
+    if (voi !== undefined) setControls((c) => ({ ...c, voi }));
+  }, []);
+  useEffect(() => rememberWindow(pageStorage(), IS_DESKTOP, controls.voi, WL_PRESETS), [controls.voi]);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('mpr');
   const [keysOpen, setKeysOpen] = useState(false);

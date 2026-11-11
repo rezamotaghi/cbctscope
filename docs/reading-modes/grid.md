@@ -35,8 +35,8 @@ The tiles themselves are display-only.
 
 | Control | Options or range | What it does |
 |---|---|---|
-| Plane | axial, sagittal, coronal | The initial cutting direction. Switching planes straightens a rotated stack (announced briefly in the on-screen chip) but keeps your window position along the new axis; re-clicking the already-active plane does nothing, so a tuned oblique cannot be wiped by a stray click. The ↺ button straightens in place. |
-| Grid size | 2x2, 3x3, 4x4, 4x6 | The tiles on screen. Each tile is labeled with its offset in mm from the stack center and a tile number that matches the numbered section lines on the scout. |
+| Plane | axial, sagittal, coronal | The initial cutting direction. Switching planes straightens a rotated stack (announced briefly in the on-screen chip) but keeps your window position along the new axis; re-clicking the already-active plane does nothing, so a tuned oblique cannot be wiped by a stray click. The **Reset view** button straightens in place. |
+| Grid size | 2x2, 3x3, 4x4, 4x6 | The tiles on screen. Each tile is labeled with its offset in mm from the stack center and a tile number that matches the numbered section lines on the scout; the window reads bottom right of the scout and of the last tile, and the pane that takes the wheel carries a thin blue frame. |
 | spacing | 0.5 to 10 mm | The distance between consecutive slices in the stack. |
 | thickness | 0.1 to 10 mm | The slab averaged into each slice; the MIP checkbox takes the brightest voxel across the slab instead of the average. |
 | reset orientation | button | Back to the straight orthogonal stack after any rotation. |

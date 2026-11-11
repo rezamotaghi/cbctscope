@@ -34,8 +34,11 @@ and touches no scan. Snapshots and exports (chapter 7) are written by your
 browser to Downloads, like any file a web page saves.
 
 **Removing the desktop app.** The desktop app (section 2.6) does not use
-`~/.cbctscope`: its marks, the research-use acknowledgement and the agent
-settings live in the app's own profile, with the browser engine's caches.
+`~/.cbctscope`: its marks, the research-use acknowledgement, the agent
+settings, the window's size and position (the file `window-state.json`: four
+numbers and whether it was maximized) and the window preset's name live in
+the app's own profile, with the browser engine's caches. None of it names a
+folder or a file.
 Removing the app leaves that profile behind: on macOS the folder
 `~/Library/Application Support/cbctscope` and the preferences file
 `~/Library/Preferences/com.cbctscope.app.plist`, on Windows the folder
