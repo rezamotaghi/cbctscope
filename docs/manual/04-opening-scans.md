@@ -116,12 +116,14 @@ much else.
 The first time a real scan is opened in a browser profile, the
 **Research use only** dialogue explains that this is not a medical device,
 that the agent moves the camera and the human reads, and that nothing leaves
-the tab (on the website) or this computer (in the desktop app). **I understand** dismisses it for good in that profile. The phantom
+the tab (on the website) or this computer (in the desktop app), except the
+agent's snapshots of the view, which go to the model you chose once you switch
+the agent on. **I understand** dismisses it for good in that profile. The phantom
 never shows it.
 
 A volume above the size threshold (512 MiB of voxels by default) shows the
 **Large volume** notice before it loads: its size, and that the browser must
 hold it in memory (the tab's on the website, the app's in the desktop app),
-and that the viewer run from the repository has no such limit. **Continue** loads it; **Cancel** leaves the viewer as it
+and that the viewer run from the repository holds it in a browser tab as well and only shows no notice. **Continue** loads it; **Cancel** leaves the viewer as it
 was. **✕ Close** works as in section 4.3, without any memory of the source
 between visits.

@@ -72,7 +72,7 @@ function openFolder() {
     .catch(() => {});
 }
 
-/** Help: the page opens its own manual drawer, as a click in its help menu would */
+/** Help: the page opens its manual drawer at the index page, through the state its help menu sets */
 function openManual() {
   if (!win) return;
   win.focus();

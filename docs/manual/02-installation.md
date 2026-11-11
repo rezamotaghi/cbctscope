@@ -102,7 +102,8 @@ What differs from the local app:
 - Marks live in the browser's storage and travel as a marks file (section 7.3).
 - A volume above the size threshold (512 MiB of voxels by default) shows a
   notice first, because the browser must hold it in memory. The repository
-  viewer (section 2.3) has no such limit.
+  viewer (section 2.3) holds the volume in a browser tab as well; it shows no
+  notice.
 - There is no MCP connection in a plain browser (chapter 9); the desktop app
   (section 2.6) adds it. The opt-in in-page navigation agent, on your own
   model account, works in both (section 9.6).

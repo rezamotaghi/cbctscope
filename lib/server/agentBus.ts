@@ -62,7 +62,7 @@ export function dispatchCommand(
   timeoutMs = AGENT_TIMEOUT_MS,
 ): Promise<{ ok: boolean; result?: unknown; error?: string }> {
   if (!subscribers.size) {
-    return Promise.resolve({ ok: false, error: 'no viewer connected — open the app in a browser first' });
+    return Promise.resolve({ ok: false, error: 'no viewer connected: open the app in a browser first' });
   }
   const id = crypto.randomBytes(8).toString('hex');
   const cmd: AgentCommand = { id, verb, args };

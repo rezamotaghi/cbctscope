@@ -16,6 +16,7 @@
 import dicomParser from 'dicom-parser';
 import { TAG, ippZ } from '../shared/dicom';
 import {
+  EXPORT_AGAIN,
   HEAD_BYTES,
   HEAD_RETRY_BYTES,
   labelOf,
@@ -82,9 +83,9 @@ export interface RefusalCounts {
   /** files refused for any reason but their modality (unreadable, thumbnails, bad geometry) */
   otherwiseRefused: number;
   capped: boolean;
+  /** files the walk skipped before reading them: hidden, or deeper than MAX_WALK_DEPTH folders */
+  skipped: number;
 }
-
-const EXPORT_AGAIN = 'Export from your CBCT software as DICOM, with compression off.';
 
 /**
  * The refusal's first line: plain words and what to do, before the technical reason. The most
@@ -93,6 +94,10 @@ const EXPORT_AGAIN = 'Export from your CBCT software as DICOM, with compression 
  */
 export function refusalHeadline(c: RefusalCounts): string {
   if (c.capped) return `This folder holds more than ${fmtCount(MAX_WALK_FILES)} files. Open the export folder itself.`;
+  // nothing was read at all: every file sat in a hidden folder or below the walk's depth
+  if (c.total === 0 && c.skipped > 0) {
+    return `Every file here is hidden or more than ${MAX_WALK_DEPTH} folders deep, and the viewer skips those. Open the folder that holds the export itself.`;
+  }
   // every refused file was refused for its modality alone
   if (c.otherModality > 0 && c.noMagic + c.compressed + c.shortSeries + c.oversize + c.otherwiseRefused === 0) {
     return `These files are from another kind of scanner (${c.modalities.join(', ')}), not a CBCT export.`;
@@ -440,6 +445,7 @@ export async function scanFiles(
       oversize: why.oversize,
       otherwiseRefused: why.unreadable + why.small + why.badGeometry,
       capped,
+      skipped: skippedHidden,
     });
     return { ok: false, error: `No DICOM volume found in ${filesN(total)}`, scanned: total, reasons, headline };
   }

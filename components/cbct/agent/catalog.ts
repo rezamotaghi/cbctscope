@@ -48,6 +48,21 @@ export function provider(id: ProviderId): ProviderInfo {
   return PROVIDERS.find((p) => p.id === id) ?? PROVIDERS[0];
 }
 
+/** what the setup lacks before the opt-in dialogue may open, in plain words; '' when nothing */
+export function switchOnProblem(s: { providerId: ProviderId | ''; key: string; model: string; endpoint: string }): string {
+  if (s.providerId === '') return 'Choose a provider first: a model server on this computer, or a cloud provider.';
+  const info = provider(s.providerId);
+  if (info.needsKey && !s.key.trim()) return `Enter your ${info.label} API key.`;
+  // every provider is sent the model's name, a model server on this computer as well
+  if (!s.model.trim()) {
+    return s.providerId === 'local' ? 'Enter a model name: the name of the model your model server has loaded.' : 'Enter a model name.';
+  }
+  if (s.providerId === 'local' && !isLoopbackEndpoint(s.endpoint)) {
+    return "The model server's address must be http://127.0.0.1:<port> or http://localhost:<port>.";
+  }
+  return '';
+}
+
 /** a local endpoint the policy allows: plain http on a loopback host, any port */
 export function isLoopbackEndpoint(url: string): boolean {
   try {

@@ -215,7 +215,7 @@ test.describe('opening files', () => {
     const web = researchDialog(page);
     await expect(web).toBeVisible({ timeout: 30_000 });
     await expect(web).toContainText('The agent moves the camera; the human reads.');
-    await expect(web).toContainText('Nothing leaves this tab.');
+    await expect(web).toContainText("Nothing leaves this tab, except the agent's snapshots of the view, which go to the model you chose once you switch the agent on.");
     await expect(web).not.toContainText('this computer');
 
     // the desktop app: the same build under the shell's user-agent token
@@ -231,7 +231,7 @@ test.describe('opening files', () => {
     const desk = researchDialog(app);
     await expect(desk).toBeVisible({ timeout: 30_000 });
     await expect(desk).toContainText('The agent moves the camera; the human reads.');
-    await expect(desk).toContainText('Nothing leaves this computer. The scan is read from your disk into this app.');
+    await expect(desk).toContainText("Nothing leaves this computer, except the agent's snapshots of the view, which go to the model you chose once you switch the agent on. The scan is read from your disk into this app.");
     await expect(desk).not.toContainText('this tab');
     expect(appProblems).toEqual([]);
     await ctx.close();

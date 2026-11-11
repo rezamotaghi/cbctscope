@@ -1,6 +1,6 @@
 // The size notice of the web build (docs/web-build.md, section 6): before a volume whose voxel
 // bytes exceed the threshold loads, the reader is told the browser must hold it in memory and
-// chooses Continue or Cancel. The local app has no such limit and never asks.
+// chooses Continue or Cancel. The local app holds the volume in a tab as well; it only never asks.
 
 export const DEFAULT_SIZE_NOTICE_MIB = 512;
 

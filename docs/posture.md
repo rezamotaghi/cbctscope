@@ -14,10 +14,12 @@ the rules marked (test); the others are checked by the author of a change.
 3. **The agent comes once, with its rule.** Where a surface introduces the agent, one plain
    sentence carries the rule: the agent moves the camera, the human reads.
 4. **One priority claim, hedged (test).** "First" as a claim of priority appears at most
-   once across the README and the manual front page, in body text, never in a bold line,
-   always as "to our knowledge, the first purpose-built CBCT reading viewer with native
-   AI-agent control", linked to the comparison in the README's "Why this exists". Outside
-   the repository (the GitHub About, the project page) there is no priority claim.
+   once in the README's body text (and nowhere else in the README or the manual front page)
+   and at most once in the CITATION.cff abstract, which feeds the Zenodo record; always as
+   "to our knowledge, the first purpose-built CBCT reading viewer with native AI-agent
+   control", and in the README linked to the comparison in "Why this exists". It never
+   appears in a title (the CITATION.cff title included), a bold line, a card, the GitHub
+   About or the project page.
 5. **The agent control sits at the end.** In the viewer's header it comes after every
    reading control, at full contrast like every other control.
 6. **The first image shows reading.** The README and any share image lead with a reading

@@ -34,8 +34,8 @@
 - **macOS asks whether you are sure you want to open CBCTScope** the first
   time the desktop app opens ("is an app downloaded from the Internet. Are you
   sure you want to open it?"): this is Gatekeeper's standard first-open
-  prompt for any downloaded app. The macOS build is signed and notarised by
-  Apple; choose **Open**. macOS asks once.
+  prompt for any downloaded app. The macOS build on the releases page is
+  signed and notarised by Apple; choose **Open**. macOS asks once.
 - **Windows shows "Windows protected your PC"** when the desktop app first
   starts: the Windows build is unsigned. Choose **More info**, then **Run
   anyway** (once; section 2.6).
@@ -44,9 +44,13 @@
 
 ## Opening scans
 
-- **"found N compressed DICOM file(s), only uncompressed exports are
-  supported"**: re-export from your CBCT unit's software with compression
-  off, then open the new export.
+- **"These DICOM files are compressed. Export from your CBCT software as
+  DICOM, with compression off."** (the repository viewer, followed by "Found
+  N compressed DICOM file(s): only uncompressed exports are supported."):
+  re-export from your CBCT unit's software with compression off, then open
+  the new export. The repository viewer's other refusals take the same shape,
+  plain words first and the technical reason after them: "These files hold
+  no complete CBCT volume" and "These files are not DICOM images".
 - **"These files are not DICOM images. Export from your CBCT software as
   DICOM, with compression off."** (the web build and the desktop app): the
   panel's first line says what went wrong and what to do; the line under it,
@@ -58,7 +62,9 @@
   of scanner (XA), not a CBCT export" when every file came from another
   modality, with no compression advice, because compression is not the
   problem; "This folder holds more than 8,000 files. Open the export folder
-  itself." when the scan stopped at its limit.
+  itself." when the scan stopped at its limit; "Every file here is hidden or
+  more than 8 folders deep, and the viewer skips those. Open the folder that
+  holds the export itself." when the scan read no file at all.
 - **"not a DICOM file (or a compressed/foreign format)"**: the picked file is
   not uncompressed DICOM. Pick a `.dcm` slice, a DICOMDIR, or a multiframe
   file from a fresh uncompressed export.
@@ -84,13 +90,15 @@
 
 - **The Large volume notice appears** (in the web build and in the desktop
   app): the volume's voxels exceed the size threshold (section 4.6). The
-  browser engine must hold the whole volume in memory, and a tab or the
-  desktop app has less room than the repository viewer. Close other tabs or
-  volumes and continue, or read it in the repository viewer (section 2.3),
-  which has no such limit.
+  browser engine must hold the whole volume in memory. Close other tabs or
+  volumes and continue. The repository viewer (section 2.3) holds the volume
+  in a browser tab as well and needs the same memory; it only shows no
+  notice.
 - **The tab slows down, reloads, or shows "Aw, Snap" or "out of memory" on a
-  large volume**: the browser ran out of memory for this tab. Use the
-  repository viewer (section 2.3) for that volume.
+  large volume**: the browser ran out of memory for this tab. Close other
+  tabs, volumes and programs, then open the volume again; the repository
+  viewer (section 2.3) holds it in a tab too, so it needs the same free
+  memory.
 - **Open DICOMDIR or DICOM folder offers no folder choice, or a drop opens nothing**: the
   browser lacks folder reading. Chrome and Edge support both the folder picker
   and dropped folders; Firefox and Safari support the folder picker, and their

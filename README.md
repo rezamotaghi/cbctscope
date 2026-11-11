@@ -4,7 +4,7 @@
 board-certified oral and maxillofacial radiologist.**
 
 It can also be driven by an AI agent over MCP, under one rule: the agent moves
-the camera, the human reads.
+the camera and never produces findings; the human reads.
 
 [![DOI: 10.5281/zenodo.21431452](docs/media/doi-badge.svg)](https://doi.org/10.5281/zenodo.21431452)
 
@@ -41,8 +41,9 @@ complete standalone viewer.
 
 Through a built-in [MCP](https://modelcontextprotocol.io) server, an agent
 can open scans, switch reading modes, set the window, move through slices,
-and take snapshots, and nothing more. The agent moves the camera. The human
-reads. That split was the design from the first commit. To our knowledge,
+and take snapshots, and nothing more: it never produces findings. The agent
+moves the camera. The human reads. That split was the design from the first
+commit. To our knowledge,
 CBCTScope is the first purpose-built CBCT reading viewer with native AI-agent
 control; the neighboring projects, and how they differ, are under
 [Why this exists](#why-this-exists).
@@ -141,7 +142,7 @@ first launch both modes show the phantom.
 - **The start command warns that port 3810 is in use**: the viewer is already
   running in another window. One is enough: just open http://localhost:3810,
   or stop the older one first.
-- **"found N compressed DICOM file(s)"** when opening a scan: the viewer reads
+- **"These DICOM files are compressed"** when opening a scan: the viewer reads
   uncompressed DICOM only. Re-export from your scanner software with
   compression off.
 
@@ -160,7 +161,7 @@ contact any host but its own and the model providers of the in-page agent
 below, which receive nothing unless you switch the agent on. Marks are kept in the browser's own
 storage and travel as a marks file (**Save marks to file** / **Load marks from
 file**). The browser must hold the whole volume in memory, so a large volume
-shows a notice first; the repository viewer has no such limit. AI-agent control (MCP)
+shows a notice first; the repository viewer holds it in a tab as well and shows no notice. AI-agent control (MCP)
 needs the local app or the desktop app. Build it yourself with `npm run build:web`
 (writes `out/`). The user manual is served by the viewer itself, on the site and in the
 app, from **help ▾**.

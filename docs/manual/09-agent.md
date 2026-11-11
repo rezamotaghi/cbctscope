@@ -187,8 +187,9 @@ nothing to anyone until you switch it on. **Set up the navigation agent**
 opens with no provider chosen: **Provider** reads **Choose a provider** and the
 model field is empty until you pick one. Choose the provider first, then check
 the model name and give your API key; **Switch on…** before a provider is chosen
-only answers "Choose a provider first", in the panel. Once one is chosen,
-**Switch on…**
+only answers "Choose a provider first", in the panel, and with an empty model
+field, for any provider including a model server on this computer, it
+answers "Enter a model name". Once the setup is complete, **Switch on…**
 shows a dialogue, **Switch on the navigation agent**, that names the provider
 and states what follows: the agent runs on your own model account with that
 provider, or, for a model server on this computer, "The agent runs on the

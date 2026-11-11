@@ -27,7 +27,7 @@ import CbctStitch from './CbctStitch';
 import { useAgentBridge } from './useAgentBridge';
 import { agentTransport } from './agentChannel';
 import AgentPanel, { AgentToggle } from './agent/AgentPanel';
-import ManualDrawer, { guidePage, manualHref } from './ManualDrawer';
+import ManualDrawer, { guidePage, MANUAL_EVENT, manualHref } from './ManualDrawer';
 import { AGENT_AVAILABLE, IS_DESKTOP } from './shell';
 import { IS_WEB, isCanceled, source } from './source';
 import { EVIDENCE_SCHEMA, parseMarksFile, type EvidenceFile } from './evidence';
@@ -654,6 +654,17 @@ export default function CbctApp() {
   // the manual (docs/web-build.md, section 13): the website opens its pages in a new tab; the
   // repo build and the desktop app show them in the help drawer beside the viewer
   const manualInTab = IS_WEB && !inShell;
+  // the desktop app's Help menu: its window event opens the drawer at the manual's index page,
+  // through the same state the help menu sets (a second request keeps the one drawer)
+  useEffect(() => {
+    if (!IS_DESKTOP) return;
+    const open = () => {
+      setManualPage('index.html');
+      setHelpMenu(false);
+    };
+    window.addEventListener(MANUAL_EVENT, open);
+    return () => window.removeEventListener(MANUAL_EVENT, open);
+  }, []);
 
   const btn = (active: boolean): React.CSSProperties => ({
     padding: '4px 10px',

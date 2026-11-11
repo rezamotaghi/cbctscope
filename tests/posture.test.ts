@@ -2,7 +2,8 @@
 // is an optional way to move its camera. The first sentence of every surface that says what
 // the software is must name the viewer, never AI; and "first" as a priority claim appears at
 // most once, hedged, in body text. These words crept in over several releases, so a test holds
-// the line instead of a reread before each one.
+// the line instead of a reread before each one. CITATION.cff feeds the Zenodo record, so its
+// title carries no claim and its abstract at most the one hedged sentence.
 //
 // app/layout.tsx is read as text, not imported: its metadata may name a literal, a constant
 // from components/site.ts, or a target ternary, and each form is resolved here.
@@ -34,6 +35,23 @@ const sentences = (text: string) => plain(text).split(/(?<=[.!?])\s+/).filter(Bo
 const firstSentence = (text: string) => sentences(text)[0] ?? '';
 const aiWordsIn = (s: string) => AI_WORDS.map((re) => re.exec(s)?.[0]).filter((w): w is string => Boolean(w));
 const isPriorityClaim = (s: string) => PRIORITY.some((re) => re.test(s));
+/** every priority claim in a text, counted where it stands, so two in one sentence count twice */
+const priorityClaims = (text: string) => PRIORITY.flatMap((re) => [...plain(text).matchAll(new RegExp(re.source, 'gi'))].map((m) => m[0]));
+
+/** a CITATION.cff field: a quoted one-line value, or a folded block (`>-`) of indented lines */
+function cffField(cff: string, key: string): string {
+  const line = new RegExp(`^${key}:[ \\t]*(.*)$`, 'm').exec(cff);
+  if (!line) return '';
+  const head = line[1].trim();
+  if (!/^[>|]/.test(head)) return head.replace(/^"(.*)"$/, '$1');
+  const rest = cff.slice(line.index + line[0].length + 1).split('\n');
+  const block: string[] = [];
+  for (const l of rest) {
+    if (l.trim() !== '' && !/^\s/.test(l)) break;
+    block.push(l.trim());
+  }
+  return block.join(' ').replace(/\s+/g, ' ').trim();
+}
 
 /** the first paragraph after a markdown file's H1 */
 function leadParagraph(md: string): string {
@@ -117,7 +135,7 @@ function metadataStrings(key: 'title' | 'description'): string[] {
 
 // ---------------------------------------------------------------- the surfaces
 function surfaces(): [string, string][] {
-  const cff = /^title:\s*"(.*)"\s*$/m.exec(read('CITATION.cff'))?.[1] ?? '';
+  const cff = cffField(read('CITATION.cff'), 'title');
   const pkg = (JSON.parse(read('package.json')) as { description?: string }).description ?? '';
   const bundle = (JSON.parse(read('mcp/manifest.json')) as { description?: string }).description ?? '';
   return [
@@ -143,6 +161,10 @@ describe('posture: the viewer comes first (docs/posture.md)', () => {
     expect(isPriorityClaim('A complete, local-first CBCT and 2D radiograph viewer.')).toBe(false);
     expect(isPriorityClaim("The first start downloads the viewer's components once.")).toBe(false);
     expect(isPriorityClaim('To our knowledge, CBCTScope is the first purpose-built CBCT reading viewer.')).toBe(true);
+    expect(priorityClaims('The first CBCT viewer. Also the first agent-driven reading viewer.')).toHaveLength(2);
+    const cff = 'title: "A viewer"\nabstract: >-\n  One line\n  and the next.\nversion: 1.0.0\n';
+    expect(cffField(cff, 'title')).toBe('A viewer');
+    expect(cffField(cff, 'abstract')).toBe('One line and the next.');
   });
 
   it('every surface was found and read', () => {
@@ -176,5 +198,20 @@ describe('posture: the viewer comes first (docs/posture.md)', () => {
       }
     }
     expect(claims.length, `more than one priority claim:\n${claims.join('\n')}`).toBeLessThanOrEqual(1);
+  });
+
+  it('CITATION.cff: the title carries no claim; the abstract at most one, hedged', () => {
+    const cff = read('CITATION.cff');
+    const title = cffField(cff, 'title');
+    const abstract = cffField(cff, 'abstract');
+    expect(title, 'CITATION.cff title not found').not.toBe('');
+    expect(abstract, 'CITATION.cff abstract not found').not.toBe('');
+    expect(priorityClaims(title), 'a priority claim in the CITATION.cff title').toEqual([]);
+    expect(title, 'the CITATION.cff title says "first"').not.toMatch(/(?<![\w-])first(?![\w-])/i);
+    const claims = priorityClaims(abstract);
+    expect(claims.length, `more than one priority claim in the abstract: ${claims.join(' | ')}`).toBeLessThanOrEqual(1);
+    for (const s of sentences(abstract).filter(isPriorityClaim)) {
+      expect(s, 'the abstract\'s priority claim must be hedged').toMatch(/to our knowledge/i);
+    }
   });
 });

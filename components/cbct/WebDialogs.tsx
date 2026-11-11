@@ -72,8 +72,8 @@ export function ResearchUseDialog({ onAcknowledge }: { onAcknowledge: () => void
         </p>
         <p style={{ margin: '0 0 14px' }}>
           {IS_DESKTOP
-            ? 'Nothing leaves this computer. The scan is read from your disk into this app.'
-            : 'Nothing leaves this tab. The scan is read from your disk into this tab and is not uploaded anywhere.'}
+            ? "Nothing leaves this computer, except the agent's snapshots of the view, which go to the model you chose once you switch the agent on. The scan is read from your disk into this app."
+            : "Nothing leaves this tab, except the agent's snapshots of the view, which go to the model you chose once you switch the agent on. The scan is read from your disk into this tab and is not uploaded anywhere."}
         </p>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <button style={button(true)} onClick={onAcknowledge} autoFocus>
@@ -110,7 +110,7 @@ export function SizeNoticeDialog({
             ? 'This app must hold the whole volume in memory. On a computer with little free memory it may slow down or stop.'
             : 'The browser must hold the whole volume in memory. On a computer with little free memory the tab may slow down or stop.'}
         </p>
-        <p style={{ margin: '0 0 14px' }}>The viewer run from the repository has no such limit.</p>
+        <p style={{ margin: '0 0 14px' }}>The viewer run from the repository holds the whole volume in a browser tab as well; it only shows no notice.</p>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button style={button(false)} onClick={onCancel}>
             Cancel

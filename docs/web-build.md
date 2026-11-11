@@ -49,7 +49,7 @@ nothing.
   offered an interpretation. CBCTScope does not display readings; ask for a view, not an
   opinion." The guard is a word filter, not a judge; the fence remains the clinician's.
 - The demo volume is the synthetic phantom only. No real image enters the repo or the build.
-- The local app has no size ceiling. The web build shows a notice before a large volume loads.
+- The local app holds the whole volume in a browser tab as well, and shows no notice. The web build shows a notice before a large volume loads.
 
 ## 3. The build target
 
@@ -137,11 +137,13 @@ can travel. Pixels never enter a sidecar.
 
 - Research use. Opens the first time a real volume is opened in a browser profile. Title
   "Research use only". Body: not a medical device; the agent moves the camera, the human
-  reads; nothing leaves this tab (in the desktop app: this computer, read into this app). One
+  reads; nothing leaves this tab (in the desktop app: this computer, read into this app), except the
+  agent's snapshots of the view, which go to the chosen model once the reader switches it on. One
   button, "I understand". Remembered in localStorage.
 - Size notice. Before a volume whose voxel bytes exceed `NEXT_PUBLIC_CBCTSCOPE_SIZE_NOTICE_MIB`
   (build-time, default 512) is loaded: the size, the fact that the browser must hold it in
-  memory, the line that the viewer run from the repository has no such limit, "Continue" and "Cancel".
+  memory, the line that the viewer run from the repository holds it in a tab as well and only shows no
+  notice, "Continue" and "Cancel".
 - Agent opt-in: milestone 3.
 
 Every dialogue follows hard rule 4: full contrast, nothing hidden. Its one exception applies
@@ -251,8 +253,8 @@ How it is built:
   `/api/agent/command`, `/api/agent/events`, `/api/agent/result` with the agentBus contract,
   behind the Host, Sec-Fetch-Site and Origin checks of `middleware.ts`. Port 3810 and no
   other: the origin holds the marks, the research acknowledgement and the agent settings, so a
-  taken port shows a native dialog and the app quits (no random port since the hardening pass
-  of 04/11/26). Static files are confined to `out/` by real path, symlinks resolved.
+  taken port shows a native dialog and the app quits, never moving to another port. Static
+  files are confined to `out/` by real path, symlinks resolved.
   `tests/desktopBridge.test.ts` covers it.
 - Measured fact the plan had missed: the MCP server also reads `/api/cbct` (the catalog, for
   `list_volumes` and two resources) and `/api/cbct/<id>`. In the app the catalog lives in the
@@ -310,7 +312,7 @@ Built to the owner's decisions of 04/11/26:
 - Providers: "Model server on this computer" (an OpenAI-compatible chat completions server
   with image input on loopback), listed first, then Anthropic, OpenAI and Google Gemini; the
   panel opens on "Choose a provider" with an empty model field, and a choice fills the model
-  in (amended 11/11/26: nothing is preselected). Presets for
+  in; nothing is preselected. Presets for
   llama-server `http://127.0.0.1:8080`, Ollama `http://127.0.0.1:11434` and LM Studio
   `http://127.0.0.1:1234`; the endpoint field accepts any loopback port (current llama-server
   builds default to 9931, so the preset is a starting point, not a claim about the default).

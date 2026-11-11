@@ -215,6 +215,22 @@ describe('browserSource: refusals and guards', () => {
     expect(under.ok).toBe(true);
   });
 
+  it('a folder whose only DICOM files are hidden or too deep gets its own headline', async () => {
+    const at = (rel: string) => {
+      const f = new File([radiographBytes()], rel.split('/').pop()!);
+      Object.defineProperty(f, 'webkitRelativePath', { value: rel });
+      return f;
+    };
+    const deep = `export/${Array.from({ length: 9 }, (_, i) => `d${i}`).join('/')}/pano.dcm`;
+    const r = await source().open({ kind: 'files', files: [at('export/.cache/pano.dcm'), at(deep)] });
+    expect(r).toMatchObject({ ok: false, scanned: 0 });
+    if (!r.ok) {
+      expect(r.headline).toMatch(/^Every file here is hidden or more than 8 folders deep/);
+      expect(r.headline).not.toMatch(/compression/);
+      expect(r.reasons).toEqual(['hidden, or deeper than 8 folders, skipped: 2 files']);
+    }
+  });
+
   it('skips a volume over the 1.5 GB guard without allocating it', async () => {
     // a header claiming 4096 x 4096 x 50 frames (1.68 GB of voxels) over 2 bytes of pixel data
     const big = new File([multiframeBytes({ rows: 4096, cols: 4096, frames: 50, pixelBytes: new Uint8Array(2) })], 'big.dcm');
@@ -319,6 +335,7 @@ describe('the refusal headline: plain words and an action first', () => {
     oversize: 0,
     otherwiseRefused: 0,
     capped: false,
+    skipped: 0,
   };
   it('files that are not DICOM', () => {
     expect(refusalHeadline({ ...none, noMagic: 10 })).toBe(
@@ -337,6 +354,13 @@ describe('the refusal headline: plain words and an action first', () => {
   });
   it('another modality mixed with other refusals falls through to the general advice', () => {
     expect(refusalHeadline({ ...none, otherModality: 3, modalities: ['MR'], otherwiseRefused: 2 })).toMatch(/^No CBCT volume could be read/);
+  });
+  it('every file hidden or too deep: says so, with no compression advice', () => {
+    const h = refusalHeadline({ ...none, total: 0, skipped: 40 });
+    expect(h).toBe('Every file here is hidden or more than 8 folders deep, and the viewer skips those. Open the folder that holds the export itself.');
+    expect(h).not.toMatch(/compression/);
+    // a hidden file beside files that were read (a .DS_Store) leaves the read files' cause in charge
+    expect(refusalHeadline({ ...none, noMagic: 10, skipped: 1 })).toMatch(/^These files are not DICOM images\./);
   });
   it('a short series, an oversized volume, a capped walk', () => {
     expect(refusalHeadline({ ...none, shortSeries: 1 })).toMatch(/^These files hold no complete CBCT volume\./);
