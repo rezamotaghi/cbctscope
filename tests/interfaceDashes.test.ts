@@ -11,7 +11,7 @@ import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 const root = process.cwd();
-const EM_DASH = '—';
+const EM_DASH = '\u2014';
 
 function files(dir: string): string[] {
   const out: string[] = [];
@@ -25,13 +25,13 @@ function files(dir: string): string[] {
 
 const NAMED: Record<string, string> = {
   mdash: EM_DASH,
-  ndash: '–',
+  ndash: '\u2013',
   amp: '&',
   lt: '<',
   gt: '>',
   quot: '"',
   apos: "'",
-  nbsp: ' ',
+  nbsp: '\u00a0',
 };
 
 /** HTML character references as JSX reads them: named, decimal and hexadecimal */
@@ -73,7 +73,7 @@ export function dashesIn(file: string, text: string): string[] {
 
 describe('interface strings carry no em dash', () => {
   it('the check sees strings and JSX text, and skips comments', () => {
-    const sample = `// a comment — exempt\nconst a = 'one — two';\nconst b = <p>three — four</p>;\nconst c = \`x — \${a}\`;\n`;
+    const sample = `// a comment \u2014 exempt\nconst a = 'one \u2014 two';\nconst b = <p>three \u2014 four</p>;\nconst c = \`x \u2014 \${a}\`;\n`;
     expect(dashesIn('sample.tsx', sample)).toHaveLength(3);
   });
 
