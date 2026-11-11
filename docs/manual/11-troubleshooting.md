@@ -62,7 +62,9 @@
   of scanner (XA), not a CBCT export" when every file came from another
   modality, with no compression advice, because compression is not the
   problem; "This folder holds more than 8,000 files. Open the export folder
-  itself." when the scan stopped at its limit.
+  itself." when the scan stopped at its limit; "Every file here is hidden or
+  more than 8 folders deep, and the viewer skips those. Open the folder that
+  holds the export itself." when the scan read no file at all.
 - **"not a DICOM file (or a compressed/foreign format)"**: the picked file is
   not uncompressed DICOM. Pick a `.dcm` slice, a DICOMDIR, or a multiframe
   file from a fresh uncompressed export.
