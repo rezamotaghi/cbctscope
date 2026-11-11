@@ -350,7 +350,7 @@ test.describe('opening files', () => {
     await page.locator('header').getByRole('button', { name: 'Open', exact: true }).click();
     const [download] = await Promise.all([
       page.waitForEvent('download'),
-      page.getByRole('button', { name: /Save marks to file/ }).click(),
+      page.getByRole('menuitem', { name: 'Save marks to file' }).click(),
     ]);
     expect(download.suggestedFilename()).toBe(`${id}_marks.json`);
     const saved = path.join(tmp, 'saved-marks.json');
@@ -391,7 +391,7 @@ test.describe('opening files', () => {
     await page.locator('header').getByRole('button', { name: 'Open', exact: true }).click();
     const [chooser] = await Promise.all([
       page.waitForEvent('filechooser'),
-      page.getByRole('button', { name: /Load marks from file/ }).click(),
+      page.getByRole('menuitem', { name: 'Load marks from file' }).click(),
     ]);
     await chooser.setFiles(saved);
     await expect(measureRows).toHaveCount(1, { timeout: 30_000 });

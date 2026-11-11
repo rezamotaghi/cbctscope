@@ -100,7 +100,8 @@ const WL_PRESETS: Record<string, { center: number; width: number } | null> = {
 // describing gestures the other rooms don't have. MPR's stays tool-aware; the universal
 // "dbl-click a slider = reset" tail is appended for all.
 const MODE_LEGEND: Record<ViewMode, (tool: string) => string> = {
-  mpr: (tool) => `Wheel: slice. Left: ${tool}. Right-drag rotates the section, right and left drag zooms, middle-drag pans.`,
+  mpr: (tool) =>
+    `Slices: wheel moves the slice, left is ${tool}, right-drag rotates the section, right and left drag zooms, middle-drag pans. 3D: left-drag rotates, right-drag cuts in, right and left drag zooms, middle-drag pans.`,
   grid: () => 'Scout: left-drag moves the window, right-drag rotates. Tiles: wheel steps, right-drag rotates in-plane.',
   pano: () => 'Axial: a stroke draws the arch, the wheel moves the slice. Pano: click or wheel moves the sections. Sections: right-drag tilts.',
   tmj: () => 'Axial: drag an axis line per side, right-click deletes, the wheel moves the slice. Tiles: right-drag tilts the fan.',
@@ -1035,6 +1036,15 @@ export default function CbctApp() {
                     <div>O: overlays on or off</div>
                     <div>V: save the current view</div>
                     <div>Del: delete the selected object</div>
+                    <div className="pop-head" style={{ marginTop: 8 }}>
+                      3D pane
+                    </div>
+                    <div>Left-drag: rotate the render</div>
+                    <div>Right-drag: cut into the render</div>
+                    <div>Right and left drag: zoom</div>
+                    <div>Middle-drag: pan</div>
+                    {/* PANE BUTTONS: the pane-corner buttons (icon, name, what) are listed here once
+                        components/cbct/paneButtons.ts (PANE_BUTTONS) is merged in */}
                   </>
                 ) : (
                   <>
