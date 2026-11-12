@@ -12,13 +12,18 @@
 //    verified on Next 15.5, so no sidelining of app/api or middleware.ts is needed).
 // 3. Writes the CSP meta tag (components/webCsp.mjs) into every exported HTML page, right
 //    after the charset so it precedes every script, with one 'sha256-...' source per inline
-//    script of that page. No 'unsafe-inline' for scripts.
+//    script of that page. No 'unsafe-inline' for scripts. A JSON-LD data block
+//    (type="application/ld+json", the structured data of the home and About pages) is never
+//    executed, so it gets no hash: the policy allows exactly the scripts that run.
 // 4. Writes agent-frame.html (scripts/agent-frame.mjs), the sandboxed page the in-page agent's
 //    provider calls run in, with its own policy.
+// 5. Writes sitemap.xml and robots.txt (scripts/sitemap.mjs) from the pages the export holds,
+//    every address the production one whatever the base path.
 import { spawn } from 'node:child_process';
 import { webCsp } from '../components/webCsp.mjs';
 import { writeManual } from './manual-html.mjs';
 import { AGENT_FRAME_FILE, writeAgentFrame } from './agent-frame.mjs';
+import { writeSitemap } from './sitemap.mjs';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -66,7 +71,9 @@ function htmlFiles(dir) {
 
 const encode = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
 
-const INLINE_SCRIPT_RE = /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi;
+const INLINE_SCRIPT_RE = /<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>/gi;
+/** a data block the browser never executes (JSON-LD): no hash, so script-src stays exact */
+const DATA_BLOCK_RE = /\btype="application\/ld\+json"/i;
 const CHARSET_RE = /<meta charSet="utf-8"\s*\/?>/i;
 
 /** write the CSP meta tag, with this page's inline-script hashes, first in <head> */
@@ -74,8 +81,8 @@ function addCsp(html) {
   if (/http-equiv="Content-Security-Policy"/i.test(html)) throw new Error('the page already carries a CSP meta tag');
   const hashes = new Set();
   for (const m of html.matchAll(INLINE_SCRIPT_RE)) {
-    if (!m[1]) continue;
-    hashes.add(`'sha256-${createHash('sha256').update(m[1], 'utf8').digest('base64')}'`);
+    if (!m[2] || DATA_BLOCK_RE.test(m[1])) continue;
+    hashes.add(`'sha256-${createHash('sha256').update(m[2], 'utf8').digest('base64')}'`);
   }
   const tag = `<meta http-equiv="Content-Security-Policy" content="${encode(webCsp([...hashes]))}"/>`;
   const charset = CHARSET_RE.exec(html);
@@ -110,6 +117,8 @@ for (const file of htmlFiles(outPath)) {
 }
 const frameBytes = await writeAgentFrame(outPath);
 console.log(`build:web: ${outDir}/${AGENT_FRAME_FILE} written (${frameBytes} bytes)`);
+const listed = writeSitemap(outPath);
+console.log(`build:web: ${outDir}/sitemap.xml lists ${listed} pages; robots.txt written`);
 if (!existsSync(path.join(outPath, '.nojekyll'))) {
   console.error('build:web: out/.nojekyll is missing (public/.nojekyll lets GitHub Pages serve _next/)');
   process.exit(1);

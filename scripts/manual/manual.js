@@ -4,7 +4,7 @@
 // It also carries the drawer's theme: ?theme=dark marks the page dark before it paints (this
 // script loads in <head>, without defer) and keeps the flag on every link to another page of
 // the manual, so the drawer stays dark as the reader moves on; there it also drops the bar's
-// "Open the viewer" link, since the viewer is already beside the drawer. And the phone-width
+// "Open the viewer" links (the bar's and the footer's), since the viewer is already beside the drawer. And the phone-width
 // "Contents" button opens and closes the list of chapters.
 var DARK = /(?:^|[?&])theme=dark(?:&|$)/.test(location.search);
 if (DARK) document.documentElement.classList.add('theme-dark');
@@ -19,8 +19,9 @@ function keepTheme(href) {
 document.addEventListener('DOMContentLoaded', function () {
   if (DARK) {
     // the drawer sits beside the viewer: a link to it would load a second viewer into the drawer
-    var viewer = document.querySelector('.bar .viewer');
-    if (viewer) viewer.parentNode.removeChild(viewer);
+    Array.prototype.forEach.call(document.querySelectorAll('.bar .viewer, .foot .viewer-link'), function (viewer) {
+      viewer.parentNode.removeChild(viewer);
+    });
     Array.prototype.forEach.call(document.querySelectorAll('a[href]'), function (a) {
       a.setAttribute('href', keepTheme(a.getAttribute('href')));
     });

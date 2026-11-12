@@ -1,27 +1,133 @@
 {
   "title": "CBCTScope User Manual",
-  "note": "Chapter order for the future help-menu and PDF builds. Paths are repo-relative. The reading-mode guides double as chapters 8.1-8.8; they are not duplicated into docs/manual/. tests/manual.test.ts checks that every listed file exists and that no manual chapter is missing from this list.",
+  "description": "The user manual of CBCTScope, a free CBCT and 2D radiograph viewer by Dr. Reza Motaghi: installing it, opening scans, display, measuring, exporting, and a reading guide for each of its eight modes.",
+  "note": "Chapter order for the future help-menu and PDF builds. Paths are repo-relative. The reading-mode guides double as chapters 8.1-8.8; they are not duplicated into docs/manual/. tests/manual.test.ts checks that every listed file exists and that no manual chapter is missing from this list. pageTitle and description become the page's HTML title and meta description only (the question the page answers, in sentence case); the headings and chapter numbers stay in the markdown, and every entry needs both.",
   "chapters": [
-    { "file": "docs/manual/00-front.md", "title": "Front matter" },
-    { "file": "docs/manual/01-overview.md", "title": "1 · Overview" },
-    { "file": "docs/manual/02-installation.md", "title": "2 · Installation and startup" },
-    { "file": "docs/manual/03-interface.md", "title": "3 · The interface" },
-    { "file": "docs/manual/04-opening-scans.md", "title": "4 · Opening images" },
-    { "file": "docs/manual/05-display.md", "title": "5 · Display and windowing" },
-    { "file": "docs/manual/06-measure-annotate.md", "title": "6 · Measuring and annotating" },
-    { "file": "docs/manual/07-exporting.md", "title": "7 · Exporting" },
-    { "file": "docs/manual/08-reading-modes.md", "title": "8 · Reading modes" },
-    { "file": "docs/reading-modes/mpr.md", "title": "8.1 · MPR" },
-    { "file": "docs/reading-modes/grid.md", "title": "8.2 · Grid" },
-    { "file": "docs/reading-modes/pano.md", "title": "8.3 · Pano" },
-    { "file": "docs/reading-modes/tmj.md", "title": "8.4 · TMJ" },
-    { "file": "docs/reading-modes/reslice.md", "title": "8.5 · Reslice" },
-    { "file": "docs/reading-modes/ceph.md", "title": "8.6 · Ceph" },
-    { "file": "docs/reading-modes/region.md", "title": "8.7 · Region" },
-    { "file": "docs/reading-modes/stitch.md", "title": "8.8 · Stitch" },
-    { "file": "docs/manual/09-agent.md", "title": "9 · AI-agent control" },
-    { "file": "docs/manual/10-data-privacy.md", "title": "10 · Data storage and privacy" },
-    { "file": "docs/manual/11-troubleshooting.md", "title": "11 · Troubleshooting" },
-    { "file": "docs/manual/12-shortcuts.md", "title": "12 · Keyboard and mouse reference" }
+    {
+      "file": "docs/manual/00-front.md",
+      "title": "Front matter",
+      "pageTitle": "CBCTScope user manual: intended use, licence and citation",
+      "description": "What CBCTScope is for and what it is not: research software for viewing CBCT volumes and dental radiographs, not a medical device. How to read the manual, the licence and how to cite it."
+    },
+    {
+      "file": "docs/manual/01-overview.md",
+      "title": "1 · Overview",
+      "pageTitle": "What CBCTScope is: a local-first CBCT and radiograph viewer",
+      "description": "The ideas behind CBCTScope: scans stay on your computer, one instrument with eight reading modes, volumes and 2D radiographs, and the built-in phantom for learning without patient data."
+    },
+    {
+      "file": "docs/manual/02-installation.md",
+      "title": "2 · Installation and startup",
+      "pageTitle": "How to install and start CBCTScope on Mac, Windows or in the browser",
+      "description": "The three ways to run CBCTScope: the website with nothing installed, the desktop app for macOS and Windows, and the repository with Node.js. System requirements, starting and stopping."
+    },
+    {
+      "file": "docs/manual/03-interface.md",
+      "title": "3 · The interface",
+      "pageTitle": "The CBCTScope screen: header, menus, status line and image panes",
+      "description": "A tour of the CBCTScope screen: every header control and menu, the status line, the mode area, the window controls, the objects panel and the image panes."
+    },
+    {
+      "file": "docs/manual/04-opening-scans.md",
+      "title": "4 · Opening images",
+      "pageTitle": "How to open a CBCT scan: DICOM folders, DICOMDIR, discs and USB sticks",
+      "description": "Which DICOM exports CBCTScope opens and how: a folder, a DICOMDIR or a single file, by menu or by drop, 2D radiographs, a scan received on a disc or USB stick, and compressed exports."
+    },
+    {
+      "file": "docs/manual/05-display.md",
+      "title": "5 · Display and windowing",
+      "pageTitle": "How to set the density window on a CBCT: presets, slab and MIP",
+      "description": "Setting window width and level on a CBCT volume: the presets, manual control with the mouse, slab thickness and maximum intensity projection, resetting, and why CBCT density values are approximate."
+    },
+    {
+      "file": "docs/manual/06-measure-annotate.md",
+      "title": "6 · Measuring and annotating",
+      "pageTitle": "How to measure distances, angles and density on a CBCT",
+      "description": "The measuring and annotation tools on the MPR slice panes: lengths in millimetres, angles, arrows and labels, density statistics in raw HU, selecting and deleting, and how marks are kept."
+    },
+    {
+      "file": "docs/manual/07-exporting.md",
+      "title": "7 · Exporting",
+      "pageTitle": "How to export images from a CBCT: snapshots, PNG stacks, NIfTI and STL",
+      "description": "Saving what you see as a PNG snapshot, exporting the volume as a PNG slice stack, a NIfTI volume or an STL surface mesh, and saving or loading your marks as a file."
+    },
+    {
+      "file": "docs/manual/08-reading-modes.md",
+      "title": "8 · Reading modes",
+      "pageTitle": "CBCT reading modes: which view shows which part of the scan",
+      "description": "The eight reading modes of CBCTScope side by side: MPR, Grid, Pano, TMJ, Reslice, Ceph, Region and Stitch, what each view shows, and where to start."
+    },
+    {
+      "file": "docs/reading-modes/mpr.md",
+      "title": "8.1 · MPR",
+      "pageTitle": "How to read a CBCT in three planes (MPR)",
+      "description": "Reading a CBCT in axial, sagittal and coronal slices with linked crosshairs and a 3D render: gestures, controls, a reading workflow, measuring in true millimetres, and the limits."
+    },
+    {
+      "file": "docs/reading-modes/grid.md",
+      "title": "8.2 · Grid",
+      "pageTitle": "How to review a CBCT slice by slice in a multi-slice grid",
+      "description": "Many parallel slices of a CBCT on one screen at a chosen spacing and slab thickness, along any plane or an oblique direction: gestures, controls, a reading workflow and the limits."
+    },
+    {
+      "file": "docs/reading-modes/pano.md",
+      "title": "8.3 · Pano",
+      "pageTitle": "How to get a panoramic view from a CBCT and trace the mandibular canal",
+      "description": "Drawing the dental arch on an axial slice to reconstruct a curved panoramic with cross-sections at any point, tracing the mandibular canal in three dimensions, and the limits."
+    },
+    {
+      "file": "docs/reading-modes/tmj.md",
+      "title": "8.4 · TMJ",
+      "pageTitle": "How to view both TMJs on a CBCT in axis-corrected sections",
+      "description": "Both temporomandibular joints side by side, each cut against its own condylar axis rather than the scanner's planes: gestures, controls, a reading workflow and the limits."
+    },
+    {
+      "file": "docs/reading-modes/reslice.md",
+      "title": "8.5 · Reslice",
+      "pageTitle": "How to cut CBCT slices along any line or curve (reslice)",
+      "description": "Drawing a straight line or a curve on the axial scout to generate a fresh stack of slices along it, for structures the fixed planes do not follow: controls, workflow and limits."
+    },
+    {
+      "file": "docs/reading-modes/ceph.md",
+      "title": "8.6 · Ceph",
+      "pageTitle": "How to make a virtual cephalogram from a CBCT",
+      "description": "Projecting the whole CBCT volume flat along one direction into a 2D image that reads like a cephalometric or skull radiograph, reproducible at the same geometry: controls, workflow and limits."
+    },
+    {
+      "file": "docs/reading-modes/region.md",
+      "title": "8.7 · Region",
+      "pageTitle": "How to measure the airway or another region on a CBCT by density",
+      "description": "Growing a connected region by density from a seed point, with its volume, density statistics and cross-sectional area by height, the upper airway being the usual case; and the limits."
+    },
+    {
+      "file": "docs/reading-modes/stitch.md",
+      "title": "8.8 · Stitch",
+      "pageTitle": "How to stitch two CBCT scans of the same patient into one volume",
+      "description": "Registering two CBCT volumes of the same subject and merging them into one larger volume that reads in every mode, when the region of interest spans both scans; and the limits."
+    },
+    {
+      "file": "docs/manual/09-agent.md",
+      "title": "9 · AI-agent control",
+      "pageTitle": "How to drive CBCTScope from another program, navigation only",
+      "description": "Letting another program move the viewer's camera with navigation-only commands that never produce findings. Setup, the fifteen verbs, resources and prompts, and the opt-in agent in the page."
+    },
+    {
+      "file": "docs/manual/10-data-privacy.md",
+      "title": "10 · Data storage and privacy",
+      "pageTitle": "Where CBCTScope keeps your data, and what never leaves your computer",
+      "description": "What CBCTScope writes to disk and where, what stays in the browser tab, and what remains your responsibility with patient data. Also what is sent when the optional agent is switched on."
+    },
+    {
+      "file": "docs/manual/11-troubleshooting.md",
+      "title": "11 · Troubleshooting",
+      "pageTitle": "CBCTScope troubleshooting: scans that will not open, display and startup",
+      "description": "Fixes for common problems: a scan that will not open or is compressed, display issues, starting the app, the website and the desktop app. Also the agent connection."
+    },
+    {
+      "file": "docs/manual/12-shortcuts.md",
+      "title": "12 · Keyboard and mouse reference",
+      "pageTitle": "CBCTScope keyboard shortcuts and mouse gestures",
+      "description": "Every key and mouse gesture of CBCTScope in one place: the keys that work anywhere, the MPR slice panes, the 3D pane and the 2D radiograph view."
+    }
   ]
 }

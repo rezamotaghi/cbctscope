@@ -373,3 +373,18 @@ main {
     max-width: 50%;
   }
 }
+
+/* the footer of every page: the author line (to the About page), the viewer, the legal page */
+.foot {
+  margin-top: 32px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--text-2);
+}
+.foot p {
+  margin: 0 0 6px;
+}
+.foot a + a {
+  margin-left: 16px;
+}

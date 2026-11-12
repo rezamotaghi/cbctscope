@@ -68,6 +68,23 @@ test('the phantom renders under the /cbctscope base path', async ({ page, baseUR
   expect(problems).toEqual([]);
 });
 
+test('under the base path the site pages load and every canonical names the production address', async ({ request }) => {
+  for (const [served, canonical] of [
+    [`${BASE_PATH}/`, 'https://cbctscope.com'],
+    [`${BASE_PATH}/about`, 'https://cbctscope.com/about'],
+    [`${BASE_PATH}/legal`, 'https://cbctscope.com/legal'],
+    [`${BASE_PATH}/manual/mpr.html`, 'https://cbctscope.com/manual/mpr.html'],
+  ]) {
+    const res = await request.get(served);
+    expect(res.status(), served).toBe(200);
+    const links = [...(await res.text()).matchAll(/<link rel="canonical" href="([^"]+)"/g)].map((m) => m[1]);
+    expect(links, served).toEqual([canonical]);
+  }
+  const sitemap = await (await request.get(`${BASE_PATH}/sitemap.xml`)).text();
+  expect(sitemap).toContain('<loc>https://cbctscope.com/about</loc>');
+  expect(sitemap).not.toContain(`cbctscope.com${BASE_PATH}`);
+});
+
 test('the manual loads under the /cbctscope base path', async ({ page, baseURL }) => {
   const origin = new URL(baseURL as string).origin;
   const problems = guardPage(page, origin);
