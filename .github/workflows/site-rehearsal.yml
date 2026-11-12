@@ -30,11 +30,15 @@ jobs:
         run: npm run build:web
         env:
           NEXT_PUBLIC_BASE_PATH: ''
+      # the Vercel CLI lives in deploy/, with its own lockfile, outside the app's dependencies
+      - name: Install the Vercel CLI
+        run: npm ci
+        working-directory: deploy
       - name: Lay out the prebuilt deployment
         run: node scripts/vercel-output.mjs out "$RUNNER_TEMP/site"
       - name: Deploy a preview
         run: |
-          npm exec --no -- vercel deploy --prebuilt --cwd "$RUNNER_TEMP/site" > "$RUNNER_TEMP/deploy.txt"
+          deploy/node_modules/.bin/vercel deploy --prebuilt --cwd "$RUNNER_TEMP/site" > "$RUNNER_TEMP/deploy.txt"
           cat "$RUNNER_TEMP/deploy.txt"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

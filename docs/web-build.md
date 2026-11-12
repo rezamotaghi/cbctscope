@@ -267,9 +267,15 @@ How `deploy` ships the site (`release.yml`):
    deployment in the Build Output API v3 form: `.vercel/output/static/` is a byte copy of
    `out/`, and `.vercel/output/config.json` holds the routes, the overrides and the 404 route
    below. The folder is outside the checkout, so nothing else leaves the runner.
-3. `npm exec --no -- vercel deploy --prebuilt --prod --cwd "$RUNNER_TEMP/site"` uploads it.
-   The Vercel CLI is the devDependency pinned to one exact version in `package.json` and the
-   lockfile. Nothing is built on Vercel. The token and the two ids (`VERCEL_TOKEN`,
+3. `deploy/node_modules/.bin/vercel deploy --prebuilt --prod --cwd "$RUNNER_TEMP/site"`
+   uploads it. The Vercel CLI lives in `deploy/`, a folder of its own: a private
+   `package.json` that pins the one exact `vercel` version and nothing else, and its own
+   committed lockfile, installed by `npm ci` in that folder only. It is not in the app's
+   dependency tree, so contributors and the other jobs never install it, and its transitive
+   tree stays off the app's audit surface; Dependabot watches the folder on its own. The
+   folder sits at the root beside `mcp/`, the other npm package with its own lockfile, so it
+   follows the same pattern; electron-builder's `files` allowlist leaves it out, and
+   `tsconfig.json` excludes it. Nothing is built on Vercel. The token and the two ids (`VERCEL_TOKEN`,
    `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, repository secrets) reach this step only;
    `VERCEL_TELEMETRY_DISABLED=1` keeps the CLI from reporting its use. The job needs no
    permission beyond reading the repository.

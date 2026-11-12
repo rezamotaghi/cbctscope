@@ -140,7 +140,7 @@ describe('the workflows', () => {
     expect(release.on).toEqual({ release: { types: ['published'] } });
     const deploy = runs(release, 'deploy');
     expect(deploy).toContain('node scripts/vercel-output.mjs out "$RUNNER_TEMP/site"');
-    expect(deploy).toContain('npm exec --no -- vercel deploy --prebuilt --prod --cwd "$RUNNER_TEMP/site"');
+    expect(deploy).toContain('deploy/node_modules/.bin/vercel deploy --prebuilt --prod --cwd "$RUNNER_TEMP/site"');
     expect(deploy).toContain('node scripts/site-check.mjs --base https://cbctscope.com --out out');
     // the check comes after the deploy, which comes after the layout
     const names = steps(release, 'deploy').map((s) => s.name);
@@ -177,20 +177,39 @@ describe('the workflows', () => {
   it('the rehearsal is started by hand and deploys a preview, never production', () => {
     expect(rehearsal.on).toEqual({ workflow_dispatch: null });
     const text = runs(rehearsal, 'rehearse');
-    expect(text).toContain('npm exec --no -- vercel deploy --prebuilt --cwd "$RUNNER_TEMP/site"');
+    expect(text).toContain('deploy/node_modules/.bin/vercel deploy --prebuilt --cwd "$RUNNER_TEMP/site"');
     expect(text).not.toMatch(/--prod|--environment/);
     expect(text).toContain('node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out');
     expect(steps(rehearsal, 'rehearse').find((s) => s.name === 'Build the web target')?.env).toEqual({ NEXT_PUBLIC_BASE_PATH: '' });
   });
 
-  it('every action is pinned to a commit SHA, and the Vercel CLI to one exact version in the lockfile', () => {
+  it('every action is pinned to a commit SHA, and the Vercel CLI to one exact version in deploy/, outside the app', () => {
     for (const f of ['release.yml', 'site-rehearsal.yml']) {
       for (const uses of read(`.github/workflows/${f}`).match(/uses: \S+/g) ?? []) expect(uses, f).toMatch(/@[0-9a-f]{40}$/);
     }
-    const pkg = JSON.parse(read('package.json')) as { devDependencies: Record<string, string> };
-    expect(pkg.devDependencies.vercel).toMatch(/^\d+\.\d+\.\d+$/);
-    const lock = JSON.parse(read('package-lock.json')) as { packages: Record<string, { version: string }> };
-    expect(lock.packages['node_modules/vercel'].version).toBe(pkg.devDependencies.vercel);
+    type Pkg = { private?: boolean; dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
+    const app = JSON.parse(read('package.json')) as Pkg;
+    expect({ ...app.dependencies, ...app.devDependencies }).not.toHaveProperty('vercel');
+    const appLock = JSON.parse(read('package-lock.json')) as { packages: Record<string, unknown> };
+    expect(appLock.packages).not.toHaveProperty('node_modules/vercel');
+    const tool = JSON.parse(read('deploy/package.json')) as Pkg;
+    expect(tool.private).toBe(true);
+    expect(tool.dependencies).toBeUndefined();
+    expect(Object.keys(tool.devDependencies ?? {})).toEqual(['vercel']);
+    expect(tool.devDependencies?.vercel).toMatch(/^\d+\.\d+\.\d+$/);
+    const toolLock = JSON.parse(read('deploy/package-lock.json')) as { packages: Record<string, { version: string }> };
+    expect(toolLock.packages['node_modules/vercel'].version).toBe(tool.devDependencies?.vercel);
+    // both workflows install the CLI from deploy/ and run it from there
+    for (const [wf, job] of [
+      [release, 'deploy'],
+      [rehearsal, 'rehearse'],
+    ] as const) {
+      const install = steps(wf, job).find((s) => s.name === 'Install the Vercel CLI') as (Step & { 'working-directory'?: string }) | undefined;
+      expect(install?.run).toBe('npm ci');
+      expect(install?.['working-directory']).toBe('deploy');
+    }
+    // electron-builder packages an allowlist that leaves deploy/ out
+    expect(read('electron-builder.yml')).not.toMatch(/deploy\//);
     for (const f of ['release.yml', 'site-rehearsal.yml']) expect(read(`.github/workflows/${f}`), f).not.toMatch(/npx\s+vercel|npm (i|install) -g|vercel@/);
   });
 });
