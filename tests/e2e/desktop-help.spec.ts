@@ -24,6 +24,29 @@ test('the desktop Help menu event opens the manual drawer', async ({ browser, ba
   await ctx.close();
 });
 
+test('in the desktop app the Help menu shows About and Legal notice in the drawer', async ({ browser, baseURL }) => {
+  const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 }, userAgent: 'Mozilla/5.0 Chrome CBCTScope/0.0.0' });
+  const page = await ctx.newPage();
+  const problems = guardPage(page, new URL(baseURL as string).origin);
+  await page.goto('/');
+  await waitForVolume(page);
+  const help = page.locator('header').getByRole('button', { name: 'Help', exact: true });
+  for (const [label, src, heading] of [
+    ['About CBCTScope', 'about', 'About CBCTScope'],
+    ['Legal notice', 'legal', 'Legal notice and privacy'],
+  ]) {
+    await help.click();
+    await page.getByRole('menu', { name: 'Help' }).getByRole('menuitem', { name: label }).click();
+    const drawer = page.getByTestId('manual-drawer');
+    await expect(drawer.locator('iframe')).toHaveAttribute('src', src);
+    await expect(page.frameLocator('[data-testid="manual-drawer"] iframe').getByRole('heading', { level: 1, name: heading })).toBeVisible();
+    await drawer.getByRole('button', { name: 'Close page' }).click();
+    await expect(drawer).toHaveCount(0);
+  }
+  expect(problems).toEqual([]);
+  await ctx.close();
+});
+
 test('on the website the event opens no drawer and no tab', async ({ page, context }) => {
   await page.goto('/');
   await waitForVolume(page);

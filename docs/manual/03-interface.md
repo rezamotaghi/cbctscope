@@ -19,8 +19,9 @@ left to right:
 1. **CBCTScope**, with what it is under the name:
    **CBCT and radiograph viewer**. Beside it, the **version button** (for example `v2.1.0`).
    Clicking it opens a short panel naming the software, its version, its
-   author, its research-use status, and a link to the source code repository;
-   Escape or a click outside closes it. Quote the version from here when
+   author, its research-use status, a link to the About page (**About CBCTScope
+   and how to cite it**) and a link to the source code repository; Escape or a
+   click outside closes it. Quote the version from here when
    reporting a problem or citing the software.
 2. **Research use only. Not a medical device.** (the desktop app and the local
    app say **Not for diagnosis.**) A permanent badge, not a dismissible
@@ -51,11 +52,19 @@ left to right:
    its pane buttons (MPR), and under **Mouse** every mouse gesture of the mode,
    pane by pane (chapter 12).
 9. **Help**: the reading guide for the current mode (chapter 8), this manual,
-   and the **Source code repository**. The viewer serves the manual itself, so
+   **About CBCTScope**, **Cite this software**, **Legal notice**, and the
+   **Source code repository**. The viewer serves the manual itself, so
    it needs no network. In the local app and the desktop app it opens in a
    drawer at the right edge that narrows the viewer and covers no control,
    with the manual's contents and search; **Close manual** gives the width
-   back. On the website it opens in a new browser tab. The links inside the
+   back. On the website it opens in a new browser tab. **About CBCTScope**
+   (what the software is, who made it, how to cite it, the licence and a
+   privacy summary) and **Legal notice** (the legal notice, privacy, research
+   use, licence and warranty) open the same way: in the drawer, with
+   **Close page**, or in a new tab on the website. **Cite this software** opens a small
+   dialogue with a reference line and a BibTeX entry, both taken from the
+   repository's citation file, each with a copy button that copies it to the
+   clipboard when clicked; **Close** or Escape closes it. The links inside the
    manual to other pages of the project open only when you click them; the
    viewer itself never contacts the network (chapter 10).
 10. **Agent** (the website and the desktop app): opens the strip of the

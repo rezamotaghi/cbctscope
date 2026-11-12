@@ -174,7 +174,13 @@ right-most, is the only one drawn in the accent.
 
 ## 7. The landing
 
-The page opens on the phantom, as the repo's demo mode does. The source menu offers "Open
+Before any script runs, the exported home page already holds text (section 14): a heading,
+what CBCTScope is and who made it, that scans are read in the tab and never uploaded, that it
+is research software and not a medical device, and plain links to the manual, the eight
+reading guides, the About and legal pages, the source and the author's project page. It is
+the loading state of the client-only viewer, so the viewer takes its place once its code has
+loaded, and nothing on the reading screen changes. The page opens on the phantom, as the
+repo's demo mode does. The source menu offers "Open
 DICOMDIR or DICOM folder" and "Open a single DICOM file" (a multiframe volume or a 2D
 radiograph); a drop anywhere on the viewer opens too ("Drop a DICOM folder, a DICOMDIR or a
 single file here"). The header carries "Research use only. Not a medical device." at all
@@ -186,7 +192,8 @@ apart, then "All downloads and release notes" links `/releases/latest`. The visi
 system comes first, read from the user agent when the menu opens; no entry is hidden and the
 Mac's chip is never guessed. Every entry is a link the reader clicks; opening the menu
 requests nothing. The Help menu and the About popover link the
-repository. While the phantom is on screen and nothing is open, the status line at the bottom
+repository; the Help menu also opens **About CBCTScope**, **Cite this software** and
+**Legal notice**, and the About popover links the About page (section 14). While the phantom is on screen and nothing is open, the status line at the bottom
 says "Your scan is read in this tab and never uploaded." and links "See CBCTScope on a real
 scan" to the README's stills of a consented, bone-only real CBCT. Below 768 px wide a notice
 above the viewer says that CBCTScope reads scans in a desktop browser and that here the
@@ -516,3 +523,55 @@ Tests: `tests/manualHtml.test.ts` (one page per entry, every internal link and a
 resolves, every still exists, no em dash, the search index covers every heading, the drawer's
 addresses); `tests/e2e/web.spec.ts` and `tests/e2e/base-path.spec.ts` load `manual/` from the
 export with no off-origin request.
+
+## 14. The site's text pages and the files for crawlers
+
+What the site serves to a reader without scripts and to a crawler, all static, all from the
+one site address (`components/siteAddress.mjs`: `SITE_URL`, `https://cbctscope.com`, and
+`CONTACT_EMAIL` beside it), nothing requested from another origin:
+
+- **The home page before the viewer.** `app/page.tsx` is a server component: it renders the
+  viewer through `components/HomeViewer.tsx` (client-only, `ssr: false`), whose loading state
+  is `components/SiteIntro.tsx`, so `out/index.html` carries the heading, the three sentences
+  and the links of `components/sitePages.ts` before any script runs, in the app's colours at
+  full contrast. Without JavaScript, a `noscript` block puts the line that the viewer needs
+  JavaScript and the manual does not in place of the loading line, above the same links. It
+  does so with one inline style that reveals that line (it is in the intro, hidden by
+  default) rather than with markup of its own: an engine that parses `noscript` as markup
+  while still hiding it, as Chromium does when a test switches scripts off, applies the
+  style all the same.
+- **`/about`** (`app/about/page.tsx`): what CBCTScope is, who made it, how to cite it, the
+  licence, the privacy summary, links to the manual and the source. **`/legal`**
+  (`app/legal/page.tsx`): the legal notice (the Impressum and the disclosure under section 25
+  of the Mediengesetz: name, Vienna, Austria, the site's purpose, the contact address; no
+  street address), privacy, research use, licence and warranty. Both share
+  `components/SitePage.tsx`; every address in them is relative, so the base path holds. In the
+  local app and the desktop app the Help menu shows them in the drawer beside the viewer
+  (`SITE_PAGES` in `ManualDrawer.tsx`); on the website it opens them in a new tab.
+- **Cite this software.** One source, `CITATION.cff`: `lib/server/citation.ts` reads it while
+  the pages render and `components/citation.ts` derives the reference line (authors, year,
+  title, version, the DOI as a link) and a BibTeX entry. The Help menu's dialogue
+  (`components/cbct/CiteDialog.tsx`) and the About page show both, each with a copy button
+  that writes the clipboard on a click. The DOI is the one the file names: the version-bump
+  commit resets it to the concept DOI and the site is built from the release tag, so every
+  published build cites the concept DOI.
+- **Structured data.** The home and About pages carry one JSON-LD `WebApplication`
+  (`components/jsonLd.ts`): name, the site claim, category, systems, free, licence, the version
+  from `package.json`, the address, the repository, the DOI, and the author as a `Person` with
+  his site, ORCID and GitHub profile. No ratings, reviews or medical types. The block is a data
+  block the browser never executes, so `scripts/build-web.mjs` gives it no `script-src` hash.
+- **`sitemap.xml` and `robots.txt`**, written by `scripts/sitemap.mjs` after the export from
+  the pages it holds (home, about, legal, every manual page; not the 404 page or the agent
+  frame); robots.txt allows everything and names the sitemap. **Canonical links**: one per
+  page, always the production address, also in a build made under a base path (Next's
+  `alternates.canonical` for the app's pages, `scripts/manual-html.mjs` for the manual's).
+- **The manual's pages** take their HTML title and meta description from `pageTitle` and
+  `description` in `docs/manual/manifest.json` (the question the page answers; the headings and
+  chapter numbers stay in the markdown), and a footer with the author line, linking the About
+  page, and links to the viewer and the legal page.
+
+These addresses are links and identifiers, never requests: `tests/noAbsoluteUrls.test.ts` lists
+each one. `tests/siteExport.test.ts` parses the export (the served text and links of the home
+page, the parts of /about and /legal, the sitemap against the pages, one canonical per page, no
+hash for the data block); `tests/e2e/site.spec.ts` drives the Help menu's three entries and the
+page without JavaScript, with no off-origin request.

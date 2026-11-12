@@ -1,8 +1,8 @@
 // The public site's address and one-line claim, in one place: the share card (Open Graph and
-// Twitter metadata in app/layout.tsx) names them. A link for people and crawlers, never a
-// request the page makes (tests/noAbsoluteUrls.test.ts allows this constant here only).
+// Twitter metadata in app/layout.tsx) names them. The address and the contact address live in
+// components/siteAddress.mjs, so the build scripts read the same constants.
 
-export const SITE_URL = 'https://cbctscope.com';
+export { CONTACT_EMAIL, SITE_URL, canonicalUrl } from './siteAddress.mjs';
 
 export const SITE_NAME = 'CBCTScope';
 

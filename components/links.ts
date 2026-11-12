@@ -9,3 +9,21 @@ export const RELEASES_URL = 'https://github.com/rezamotaghi/cbctscope/releases/l
 
 /** the consented, bone-only stills of a real scan: the first-run status line's link */
 export const STILLS_URL = `${REPO_URL}#the-interface-at-a-glance`;
+
+/** the licence text in the repository: the About and legal pages */
+export const LICENSE_URL = `${REPO_URL}/blob/main/LICENSE`;
+
+/** the author's own site, and his page on this project (CITATION.cff names the site) */
+export const AUTHOR_URL = 'https://rezamotaghi.com';
+export const AUTHOR_PROJECT_URL = 'https://rezamotaghi.com/cbctscope';
+
+/** the author's ORCID record, as CITATION.cff states it, and his GitHub profile, as REPO_URL shows it */
+export const AUTHOR_ORCID = 'https://orcid.org/0009-0005-3194-1879';
+export const AUTHOR_GITHUB = 'https://github.com/rezamotaghi';
+
+/** the DOI resolver: a citation's DOI as a link the reader clicks (components/citation.ts) */
+export const DOI_RESOLVER = 'https://doi.org/';
+
+/** the legal page's links: the host's own privacy statement and the Austrian data protection authority */
+export const GITHUB_PRIVACY_URL = 'https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement';
+export const DSB_URL = 'https://www.dsb.gv.at';
