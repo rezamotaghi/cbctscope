@@ -21,6 +21,7 @@ const ALLOWED = new Set([
   'https://rezamotaghi.com/cbctscope', // AUTHOR_PROJECT_URL
   'https://orcid.org/0009-0005-3194-1879', // AUTHOR_ORCID (CITATION.cff)
   'https://github.com/rezamotaghi', // AUTHOR_GITHUB (the repository's owner)
+  'https://radigrade.com', // RADIGRADE_URL: linked from the About page's author paragraph only
   'https://doi.org/', // DOI_RESOLVER: the citation's DOI as a link
   'https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement', // GITHUB_PRIVACY_URL
   'https://www.dsb.gv.at', // DSB_URL
@@ -40,6 +41,7 @@ const LINK_CONSTANTS = [
   'AUTHOR_PROJECT_URL',
   'AUTHOR_ORCID',
   'AUTHOR_GITHUB',
+  'RADIGRADE_URL',
   'DOI_RESOLVER',
   'GITHUB_PRIVACY_URL',
   'DSB_URL',

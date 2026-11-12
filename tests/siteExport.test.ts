@@ -98,7 +98,13 @@ describe.skipIf(!built)('the exported site', () => {
       expect(text, s).toContain(s);
     }
     expectAuthorLink(html, 'Dr. Reza Motaghi');
-    expect(text).toContain('imaging AI. ORCID:');
+    expect(flatText(html)).toContain('develops, evaluates and trains imaging AI. He is the creator of Radigrade, a registered protocol for grading AI-written radiograph reports. ORCID:');
+    const radigrade = anchorsNamed(html, 'Radigrade').filter((x) => x.href === 'https://radigrade.com');
+    expect(radigrade).toHaveLength(1);
+    expect(radigrade[0].text).toBe('Radigrade');
+    expect(radigrade[0].target).toBe('_blank');
+    expect(radigrade[0].rel).toBe('noopener noreferrer');
+    expect(hrefs(html).filter((h) => h.includes('radigrade'))).toEqual(['https://radigrade.com']);
     expect(text).not.toContain('his own site');
     const links = hrefs(html);
     for (const h of ['https://rezamotaghi.com', 'legal', 'manual/index.html', 'https://github.com/rezamotaghi/cbctscope', 'https://github.com/rezamotaghi/cbctscope/blob/main/LICENSE']) {
@@ -152,6 +158,13 @@ describe.skipIf(!built)('the exported site', () => {
       const about = anchorsNamed(foot, 'About CBCTScope');
       expect(about.map((a) => a.href), file).toEqual(['../about']);
       expect(hrefs(foot), file).toEqual(expect.arrayContaining(['../', '../legal']));
+    }
+  });
+
+  it('Radigrade is named on the About page only', () => {
+    for (const { file } of sitePages(out)) {
+      if (file === 'about.html') continue;
+      expect(read(file), file).not.toMatch(/radigrade/i);
     }
   });
 
