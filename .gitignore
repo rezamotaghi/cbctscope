@@ -6,6 +6,8 @@
 /out/
 /out-small/
 /out-base/
+# the prebuilt deployment (scripts/vercel-output.mjs) and any local Vercel link
+/.vercel/
 /test-results/
 /playwright-report/
 

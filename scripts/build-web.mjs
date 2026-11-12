@@ -119,8 +119,4 @@ const frameBytes = await writeAgentFrame(outPath);
 console.log(`build:web: ${outDir}/${AGENT_FRAME_FILE} written (${frameBytes} bytes)`);
 const listed = writeSitemap(outPath);
 console.log(`build:web: ${outDir}/sitemap.xml lists ${listed} pages; robots.txt written`);
-if (!existsSync(path.join(outPath, '.nojekyll'))) {
-  console.error('build:web: out/.nojekyll is missing (public/.nojekyll lets GitHub Pages serve _next/)');
-  process.exit(1);
-}
 console.log(`build:web: ${outDir}/ ready, CSP hashes for ${total} inline scripts across ${pages} pages`);

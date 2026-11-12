@@ -1,0 +1,47 @@
+name: Site rehearsal
+
+# Started by hand only (docs/web-build.md, section 9). It runs the release job's site path
+# against a Vercel preview deployment, never production: the web target built for the root,
+# the prebuilt deployment laid out by scripts/vercel-output.mjs, `vercel deploy --prebuilt`
+# without --prod, then scripts/site-check.mjs against the preview's address (byte identity,
+# the three response headers, every address in the sitemap, the 404). Previews sit behind
+# Deployment Protection, so the check sends the Protection Bypass for Automation secret.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-rehearsal
+  cancel-in-progress: false
+
+jobs:
+  rehearse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build the web target
+        run: npm run build:web
+        env:
+          NEXT_PUBLIC_BASE_PATH: ''
+      - name: Lay out the prebuilt deployment
+        run: node scripts/vercel-output.mjs out "$RUNNER_TEMP/site"
+      - name: Deploy a preview
+        run: |
+          npm exec --no -- vercel deploy --prebuilt --cwd "$RUNNER_TEMP/site" > "$RUNNER_TEMP/deploy.txt"
+          cat "$RUNNER_TEMP/deploy.txt"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TELEMETRY_DISABLED: '1'
+      - name: Check the preview as served
+        run: node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out --attempts 1
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
