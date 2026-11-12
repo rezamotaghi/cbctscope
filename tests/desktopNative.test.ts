@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
   aboutPanelOptions,
   APP_NAME,
+  AUTHOR_SITE,
   debugSwitchIn,
   desktopUserAgent,
   MANUAL_EVENT,
@@ -18,7 +19,9 @@ import {
   WINDOW_STATE_FILE,
   windowBoundsFor,
   windowStateToSave,
+  WEBSITE,
 } from '../desktop/native.mjs';
+import { AUTHOR_URL, SITE_URL } from '../components/siteAddress.mjs';
 import { FORBIDDEN_USAGE } from '../scripts/desktop-after-pack.mjs';
 
 const root = path.resolve(__dirname, '..');
@@ -97,7 +100,9 @@ describe('About, the save panel, the port dialogue', () => {
   it('About reads the version once, the copyright, the research line and the website', () => {
     const a = aboutPanelOptions(pkg.version);
     expect(a).toMatchObject({ applicationName: 'CBCTScope', applicationVersion: pkg.version, version: '', copyright: '© 2026 Reza Motaghi' });
-    expect(a.credits).toBe('Research software. Not a medical device.\nhttps://cbctscope.com');
+    expect(a.credits).toBe('Research software. Not a medical device.\nhttps://cbctscope.com\nhttps://rezamotaghi.com');
+    expect(AUTHOR_SITE).toBe(AUTHOR_URL);
+    expect(WEBSITE).toBe(SITE_URL);
   });
   it('the save panel is titled for what it saves', () => {
     expect(saveDialogTitle('demo_ab12-snap-2026.png')).toBe('Save snapshot');

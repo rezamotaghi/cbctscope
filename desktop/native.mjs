@@ -15,6 +15,9 @@ export const PROFILE_FOLDER = 'cbctscope';
 
 export const WEBSITE = 'https://cbctscope.com';
 
+/** the author's site, as components/siteAddress.mjs AUTHOR_URL (desktop/ is packaged without components/; tests/desktopNative.test.ts pins the two equal) */
+export const AUTHOR_SITE = 'https://rezamotaghi.com';
+
 /** the event the page listens for to open its manual drawer (components/cbct/CbctApp.tsx) */
 export const MANUAL_EVENT = 'cbctscope:manual';
 
@@ -52,7 +55,7 @@ export function desktopUserAgent(fallback, version) {
 }
 
 // ---------------------------------------------------------------- About
-/** the About panel: the version once, the copyright, the research-use line, the website */
+/** the About panel: the version once, the copyright, the research-use line, the website, the author's site (plain text: the options give no way to make a link clickable) */
 export function aboutPanelOptions(version) {
   return {
     applicationName: APP_NAME,
@@ -60,7 +63,7 @@ export function aboutPanelOptions(version) {
     // macOS prints "Version <applicationVersion> (<version>)"; empty keeps the version once
     version: '',
     copyright: '© 2026 Reza Motaghi',
-    credits: `Research software. Not a medical device.\n${WEBSITE}`,
+    credits: `Research software. Not a medical device.\n${WEBSITE}\n${AUTHOR_SITE}`,
     website: WEBSITE,
   };
 }

@@ -40,6 +40,12 @@ test('in the desktop app the Help menu shows About and Legal notice in the drawe
     const drawer = page.getByTestId('manual-drawer');
     await expect(drawer.locator('iframe')).toHaveAttribute('src', src);
     await expect(page.frameLocator('[data-testid="manual-drawer"] iframe').getByRole('heading', { level: 1, name: heading })).toBeVisible();
+    if (src === 'about') {
+      // the author's name leaves the drawer through a new-window request, which the app sends to the system browser
+      const author = page.frameLocator('[data-testid="manual-drawer"] iframe').locator('main').getByRole('link', { name: 'Dr. Reza Motaghi', exact: true });
+      await expect(author).toHaveAttribute('href', 'https://rezamotaghi.com');
+      await expect(author).toHaveAttribute('target', '_blank');
+    }
     await drawer.getByRole('button', { name: 'Close page' }).click();
     await expect(drawer).toHaveCount(0);
   }

@@ -224,6 +224,18 @@ test('no control anywhere on the page carries an emoji, a pictograph or an arrow
   expect(await scan(), 'with the objects list').toEqual([]);
 });
 
+test('the version popover names the author as a link to his site', async ({ page }) => {
+  await page.goto('/');
+  await waitForVolume(page);
+  await page.locator('header').getByRole('button', { name: /^v\d/ }).click();
+  const popover = page.getByRole('dialog', { name: 'About CBCTScope' });
+  const author = popover.getByRole('link', { name: 'Dr. Reza Motaghi', exact: true });
+  await expect(author).toHaveCount(1);
+  await expect(author).toHaveAttribute('href', 'https://rezamotaghi.com');
+  await expect(author).toHaveAttribute('target', '_blank');
+  await expect(author).toHaveAttribute('rel', 'noopener noreferrer');
+});
+
 test('Escape and a click on the image close every menu and popover; arrows move through a menu', async ({ page }) => {
   await load(page, 1440);
   const header = page.locator('header');
