@@ -6,7 +6,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { Info } from 'lucide-react';
 import pkg from '@/package.json';
-import { REPO_URL } from './links';
+import { AUTHOR_URL, REPO_URL } from './links';
 import { useDismiss, useKeepInViewport } from './cbct/menus';
 
 /**
@@ -39,7 +39,11 @@ export default function AboutBadge({ product, onOpenAbout }: { product: string; 
           <div style={{ fontSize: 'var(--fs-body)', fontWeight: 600 }}>{product}</div>
           <div style={{ color: 'var(--text-dim)', marginBottom: 8 }}>v{pkg.version}</div>
           <div style={{ fontStyle: 'italic', marginBottom: 8 }}>Radiology software by the people who sign the reports.</div>
-          <div>Dr. Reza Motaghi</div>
+          <div>
+            <a href={AUTHOR_URL} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text)', textDecoration: 'underline' }}>
+              Dr. Reza Motaghi
+            </a>
+          </div>
           <div style={{ color: 'var(--text-dim)' }}>Oral &amp; Maxillofacial Radiologist</div>
           <div style={{ color: 'var(--text-dim)', marginTop: 8 }}>Research software, not a medical device. AGPL-3.0.</div>
           <div style={{ marginTop: 8 }}>

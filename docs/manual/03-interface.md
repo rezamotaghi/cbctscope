@@ -19,7 +19,7 @@ left to right:
 1. **CBCTScope**, with what it is under the name:
    **CBCT and radiograph viewer**. Beside it, the **version button** (for example `v2.1.0`).
    Clicking it opens a short panel naming the software, its version, its
-   author, its research-use status, a link to the About page (**About CBCTScope
+   author (his name is a link to his site), its research-use status, a link to the About page (**About CBCTScope
    and how to cite it**) and a link to the source code repository; Escape or a
    click outside closes it. Quote the version from here when
    reporting a problem or citing the software.
