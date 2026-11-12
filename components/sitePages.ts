@@ -9,6 +9,9 @@ import { AUTHOR_PROJECT_URL, REPO_URL } from './links';
 export const AUTHOR_NAME = 'Dr. Reza Motaghi';
 export const AUTHOR_CREDENTIAL = 'oral and maxillofacial radiologist';
 
+/** the name as the home page's first sentence spells it (it carries the link to his site) */
+export const HOME_AUTHOR_NAME = 'Reza Motaghi';
+
 /** the home page before the viewer mounts: what it is and who made it */
 export const HOME_LEAD =
   'CBCTScope is a CBCT and 2D radiograph viewer made by Reza Motaghi, a board-certified oral and maxillofacial radiologist.';

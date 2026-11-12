@@ -2,7 +2,7 @@
 // of the Mediengesetz), privacy, the research-use status, and the licence and warranty. These
 // parts and nothing more; no street address (the owner's decision), no promotional sentence.
 import SitePage from '@/components/SitePage';
-import { DSB_URL, GITHUB_PRIVACY_URL, LICENSE_URL } from '@/components/links';
+import { AUTHOR_URL, DSB_URL, GITHUB_PRIVACY_URL, LICENSE_URL } from '@/components/links';
 import { CONTACT_EMAIL } from '@/components/site';
 import { pageMetadata } from '@/components/siteMeta';
 import { LEGAL_DESCRIPTION, LEGAL_PURPOSE, LEGAL_TITLE } from '@/components/sitePages';
@@ -20,7 +20,12 @@ export default function Legal() {
       <h3>Impressum and disclosure under section 25 of the Mediengesetz (Austria)</h3>
       <p>{LEGAL_PURPOSE}</p>
       <ul>
-        <li>Media owner and publisher: Reza Motaghi</li>
+        <li>
+          Media owner and publisher:{' '}
+          <a href={AUTHOR_URL} target="_blank" rel="noopener noreferrer">
+            Reza Motaghi
+          </a>
+        </li>
         <li>Vienna, Austria</li>
         <li>Contact: {mail}</li>
       </ul>

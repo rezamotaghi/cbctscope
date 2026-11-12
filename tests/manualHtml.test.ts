@@ -104,7 +104,8 @@ describe('the manual as pages', () => {
       expect(canon, p).toEqual([p === 'index.html' ? 'https://cbctscope.com/manual/' : `https://cbctscope.com/manual/${p}`]);
       expect(page, p).toMatch(/<meta name="description" content="[^"]{50,}">/);
       const foot = /<footer class="foot">[\s\S]*?<\/footer>/.exec(page)?.[0] ?? '';
-      expect(foot, `${p}: the author line links the About page`).toContain('<a href="../about">By Dr. Reza Motaghi, oral and maxillofacial radiologist</a>');
+      expect(foot, `${p}: the author line links his name to his site`).toContain('By <a href="https://rezamotaghi.com" target="_blank" rel="noopener noreferrer">Dr. Reza Motaghi</a>, oral and maxillofacial radiologist');
+      expect(foot, `${p}: a link to the About page`).toContain('<a href="../about">About CBCTScope</a>');
       expect(foot, `${p}: a link back to the viewer`).toContain('href="../"');
       expect(foot, `${p}: a link to the legal page`).toContain('href="../legal"');
     }

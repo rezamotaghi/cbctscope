@@ -25,7 +25,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSyn
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Marked } from 'marked';
-import { canonicalUrl } from '../components/siteAddress.mjs';
+import { AUTHOR_URL, canonicalUrl } from '../components/siteAddress.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(here, '..');
@@ -66,8 +66,9 @@ export function plain(md) {
     .trim();
 }
 
-/** the footer's author line, linking to the About page (the manual's front page names him the same way) */
-export const AUTHOR_LINE = 'By Dr. Reza Motaghi, oral and maxillofacial radiologist';
+/** the footer's author line: his name links to his site, the About page has its own link beside it */
+export const AUTHOR_NAME = 'Dr. Reza Motaghi';
+export const AUTHOR_LINE = `By <a href="${AUTHOR_URL}" target="_blank" rel="noopener noreferrer">${AUTHOR_NAME}</a>, oral and maxillofacial radiologist`;
 
 /** the page file a manifest entry becomes: its markdown file's name, .html */
 export const pageName = (file) => path.posix.basename(file).replace(/\.md$/, '.html');
@@ -206,8 +207,8 @@ ${tocList(manual, page).replace('<ol class="toc-list">', '<ol class="toc-list" i
 <section id="results" class="results" aria-live="polite" hidden></section>
 ${body}
 <footer class="foot">
-<p><a href="../about">${esc(AUTHOR_LINE)}</a>. Research use only. Not a medical device.</p>
-<p><a class="viewer-link" href="../">Open the viewer</a> <a href="../legal">Legal notice and privacy</a></p>
+<p>${AUTHOR_LINE}. Research use only. Not a medical device.</p>
+<p><a class="viewer-link" href="../">Open the viewer</a> <a href="../about">About CBCTScope</a> <a href="../legal">Legal notice and privacy</a></p>
 </footer>
 </main>
 </div>
