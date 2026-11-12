@@ -11,6 +11,10 @@
 //   npm run mcp:smoke                      (both eras; pick_scan skipped: it opens a modal dialog)
 //   npm run mcp:smoke -- --era=2025-11-25  (one era only; or --era=2026-07-28)
 //   npm run mcp:smoke -- --pick            (also opens the native dialog; cancel it by hand)
+// Saved views: the test saves under one fixed name, "smoke check". Saving under a name that
+// already exists adds another view (it does not replace), so each walk still leaves one
+// "smoke check" view in the profile: a default run leaves two, a single-era run one. The name
+// never varies, so they are easy to delete by hand; goto_view by name resolves to the first.
 import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { fileURLToPath } from 'node:url';
@@ -83,7 +87,7 @@ async function walk(first) {
   check('viewer_state carries slices for all three panes', ['axial', 'sagittal', 'coronal'].every((p) => st.slices?.[p]));
 
   // ---- saved views, agent-marked
-  const name = `smoke ${Date.now().toString(36)}`;
+  const name = 'smoke check';
   st = state(await call('save_view', { name }));
   const views = (await call('list_views')).structuredContent.views;
   const mine = views.find((v) => v.name === name);
