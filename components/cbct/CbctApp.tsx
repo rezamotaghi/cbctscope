@@ -33,6 +33,7 @@ import { IS_WEB, isCanceled, source } from './source';
 import { EVIDENCE_SCHEMA, parseMarksFile, type EvidenceFile } from './evidence';
 import { SIZE_NOTICE_MIB, needsSizeNotice, voxelBytes } from './sizeNotice';
 import { dropLabel, entriesOf, walkDrop } from './dropFiles';
+import { chooseFolder, usesDirectoryPicker, walkHandle } from './folderPicker';
 import { selectVolumeVerb, type SwitchOutcome } from './agentSelect';
 import { useDropOverlay } from './useDropOverlay';
 import { isChord, modalOpen } from './keys';
@@ -441,22 +442,37 @@ export default function CbctApp() {
     },
     [openWith],
   );
-  const onDropFiles = useCallback(
-    async (dt: DataTransfer) => {
-      const entries = entriesOf(dt); // synchronous: the items die after the drop handler
-      if (!entries.length) return;
-      const token = beginOpen(); // the panel shows while the drop is walked, before the count is known
+  /** a drop or a picked folder handle: walked into files, then the one loader */
+  const openWalked = useCallback(
+    async (walk: () => Promise<{ files: File[]; stopped: string | null; label: string }>, what: string) => {
+      const token = beginOpen(); // the panel shows while the tree is walked, before the count is known
       try {
-        const { files, stopped } = await walkDrop(entries);
-        if (files.length) await openWith({ kind: 'files', files, label: dropLabel(entries), ...(stopped ? { walkStopped: stopped } : {}) }, token);
+        const { files, stopped, label } = await walk();
+        if (files.length) await openWith({ kind: 'files', files, label, ...(stopped ? { walkStopped: stopped } : {}) }, token);
         else if (openTokenRef.current === token) setOpenPanel(null);
       } catch (e) {
         if (openTokenRef.current === token) setOpenPanel(null);
-        setError(`could not read the dropped files: ${String(e)}`);
+        setError(`could not read ${what}: ${String(e)}`);
       }
     },
     [openWith, beginOpen],
   );
+  const onDropFiles = useCallback(
+    async (dt: DataTransfer) => {
+      const entries = entriesOf(dt); // synchronous: the items die after the drop handler
+      if (!entries.length) return;
+      await openWalked(async () => ({ ...(await walkDrop(entries)), label: dropLabel(entries) }), 'the dropped files');
+    },
+    [openWalked],
+  );
+  /** the folder item: the directory picker where offered (no "upload" confirmation), else the classic input */
+  const onOpenFolder = useCallback(async () => {
+    setSrcMenu(false);
+    const choice = await chooseFolder(typeof window === 'undefined' ? null : window, IS_DESKTOP);
+    if (choice.kind === 'canceled') return; // the reader closed the picker: nothing happens
+    if (choice.kind === 'classic') return folderInputRef.current?.click();
+    await openWalked(() => walkHandle(choice.handle), 'the chosen folder');
+  }, [openWalked]);
   const drop = useDropOverlay(IS_WEB, (dt) => void onDropFiles(dt));
 
   const onCloseSource = useCallback(async () => {
@@ -653,6 +669,8 @@ export default function CbctApp() {
   }, agentTransport); // the in-page agent's queue on every surface, plus the loopback bridge in the repo and the desktop app
   // the desktop app, read after hydration (the exported HTML is rendered without a navigator)
   const inShell = useSyncExternalStore(noSubscribe, () => IS_DESKTOP, () => false);
+  // the folder item's entrance, known only in the browser (the static export renders the classic line)
+  const dirPicker = useSyncExternalStore(noSubscribe, () => usesDirectoryPicker(window, IS_DESKTOP), () => false);
   // the manual (docs/web-build.md, section 13): the website opens its pages in a new tab; the
   // repo build and the desktop app show them in the help drawer beside the viewer
   const manualInTab = IS_WEB && !inShell;
@@ -679,7 +697,8 @@ export default function CbctApp() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       {IS_WEB && (
         <>
-          {/* the web build's pickers: a folder (webkitdirectory, set on mount), one file, a marks file */}
+          {/* the web build's pickers: a folder (webkitdirectory, set on mount; the fallback where the
+              directory picker is absent, and the desktop app's), one file, a marks file */}
           <input
             ref={folderInputRef}
             type="file"
@@ -902,18 +921,17 @@ export default function CbctApp() {
                     className="menu-item"
                     role="menuitem"
                     title="A CBCT export folder: a DICOMDIR tree, a slice series, or multiframe files"
-                    onClick={() => {
-                      setSrcMenu(false);
-                      folderInputRef.current?.click();
-                    }}
+                    onClick={() => void onOpenFolder()}
                   >
                     Open DICOMDIR or DICOM folder
                   </button>
-                  {/* the picker's own button may read "Upload": say what it means before it appears */}
+                  {/* what the browser will ask, before it asks: the classic input's button may read "Upload" */}
                   <div style={{ padding: '0 10px 8px', color: 'var(--text)', lineHeight: 1.5, maxWidth: 300, whiteSpace: 'normal' }}>
                     {inShell
                       ? "The Open sheet may say 'Upload': that is its word for letting this app read the files. They stay on this computer."
-                      : "Your browser may say 'upload': that is its word for letting this page read the files. They stay in this tab."}
+                      : dirPicker
+                        ? 'Your browser asks to let this page read the folder; the files stay in this tab.'
+                        : "Your browser may say 'upload': that is its word for letting this page read the files. They stay in this tab."}
                   </div>
                   <button
                     className="menu-item"
@@ -1198,7 +1216,7 @@ export default function CbctApp() {
               onDismiss={() => setOpenPanel(null)}
               onOpenAnother={() => {
                 setOpenPanel(null);
-                folderInputRef.current?.click();
+                void onOpenFolder();
               }}
             />
           )}

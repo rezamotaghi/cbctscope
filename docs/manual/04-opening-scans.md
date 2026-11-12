@@ -73,10 +73,16 @@ In the web build (section 2.5) the **Open** menu offers:
 - **Open DICOMDIR or DICOM folder** for an export folder (a DICOMDIR tree,
   a slice series, or multiframe files). The browser asks you to confirm that
   the site may read the folder; that confirmation is the browser's, and
-  nothing is uploaded. A line under this entry says so before the picker
-  opens: the browser's button may read "upload", which is its word for letting
-  the page read the files, and they stay in the tab. In the desktop app the
-  line says the same of its Open sheet, and that the files stay on the
+  nothing is uploaded. In Chrome, Edge, Arc and other Chromium browsers that
+  offer it, the entry opens the browser's folder picker with read access only,
+  and the line under the entry reads **Your browser asks to let this page read
+  the folder; the files stay in this tab.** The page asks for nothing more and
+  does not keep the folder for next time; the picker only reopens in the
+  folder you chose last. Elsewhere (Safari, Firefox, Brave) the entry opens
+  the classic file picker, and the line says that the browser may say
+  "upload", which is its word for letting the page read the files, and that
+  they stay in the tab. In the desktop app the entry opens its Open sheet, and
+  the line says the same of that sheet, and that the files stay on the
   computer.
 - **Open a single DICOM file** for one multiframe volume or one 2D
   radiograph.

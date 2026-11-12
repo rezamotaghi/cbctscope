@@ -1,5 +1,5 @@
 // The web build end to end (docs/web-build.md, section 8), against out/ on a static server.
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { N, SERIES_COUNT, makeTempDir, removeTempDir, writeFixtures } from '../fixtures/dicomWriter';
@@ -186,6 +186,8 @@ test.describe('opening files', () => {
     if (tmp) removeTempDir(tmp);
   });
 
+  const PICKER_LINE = 'Your browser asks to let this page read the folder; the files stay in this tab.';
+  const CLASSIC_LINE = "Your browser may say 'upload': that is its word for letting this page read the files. They stay in this tab.";
   const volumeSelect = (page: Page) => page.locator('header select');
   const researchDialog = (page: Page) => page.getByRole('dialog', { name: 'Research use only' });
 
@@ -209,10 +211,12 @@ test.describe('opening files', () => {
   }
 
   test('the privacy sentences name the target they run on: this tab on the website, this computer in the desktop app', async ({ page, browser, baseURL }) => {
-    // the website: the open menu prepares for the browser's "upload" wording, the dialogue says tab
+    // the website (Chromium, which offers the directory picker): the open menu says what the
+    // browser will ask, the dialogue says tab; the classic input's "upload" line is the fallback's
     await waitForVolume(page);
     await page.locator('header').getByRole('button', { name: 'Open', exact: true }).click();
-    await expect(page.getByText("Your browser may say 'upload': that is its word for letting this page read the files. They stay in this tab.")).toBeVisible();
+    await expect(page.getByText(PICKER_LINE)).toBeVisible();
+    await expect(page.getByText(CLASSIC_LINE)).toHaveCount(0);
     await page.keyboard.press('Escape');
     await openFolder(page, 'series');
     const web = researchDialog(page);
@@ -447,6 +451,177 @@ test.describe('opening files', () => {
     await expect(measureRows.first()).toHaveText(`Length ${mm.toFixed(1)} mm`);
     await page.waitForTimeout(2000);
     await expect(measureRows).toHaveCount(1);
+  });
+
+  // The directory picker entrance (docs/web-build.md, section 5). window.showDirectoryPicker is
+  // stubbed before load with a fake handle over the same fixture files, so no native dialog
+  // opens; window.__picker records each call and sets what the next one does.
+  type FakeNode = { kind: 'file'; name: string; b64: string } | { kind: 'directory'; name: string; children: FakeNode[] };
+  function fakeTree(dir: string): FakeNode {
+    const children = readdirSync(dir, { withFileTypes: true }).map((e): FakeNode => {
+      const full = path.join(dir, e.name);
+      return e.isDirectory() ? fakeTree(full) : { kind: 'file', name: e.name, b64: readFileSync(full).toString('base64') };
+    });
+    return { kind: 'directory', name: path.basename(dir), children };
+  }
+
+  async function stubPicker(page: Page) {
+    const folders = Object.fromEntries(['series', 'mf', 'junk'].map((f) => [f, fakeTree(path.join(tmp, f))]));
+    await page.addInitScript((tree: Record<string, FakeNode>) => {
+      type Handle = { kind: string; name: string; getFile?: () => Promise<File>; values?: () => AsyncGenerator<Handle> };
+      const build = (n: FakeNode): Handle =>
+        n.kind === 'file'
+          ? { kind: 'file', name: n.name, getFile: async () => new File([Uint8Array.from(atob(n.b64), (c) => c.charCodeAt(0))], n.name) }
+          : {
+              kind: 'directory',
+              name: n.name,
+              values: async function* () {
+                for (const c of n.children) yield build(c);
+              },
+            };
+      const state = { calls: [] as unknown[], mode: 'ok', folder: 'series' };
+      Object.assign(window, { __picker: state });
+      Object.defineProperty(window, 'showDirectoryPicker', {
+        configurable: true,
+        value: async (options: unknown) => {
+          state.calls.push(options);
+          if (state.mode === 'abort') throw new DOMException('The user aborted a request.', 'AbortError');
+          if (state.mode === 'error') throw new DOMException('The request is not allowed.', 'SecurityError');
+          return build(tree[state.folder]);
+        },
+      });
+    }, folders);
+    await page.reload();
+    await waitForVolume(page);
+  }
+  const setPicker = (page: Page, mode: 'ok' | 'abort' | 'error', folder = 'series') =>
+    page.evaluate(([m, f]) => Object.assign((window as unknown as { __picker: { mode: string; folder: string } }).__picker, { mode: m, folder: f }), [mode, folder]);
+  const pickerCalls = (page: Page) => page.evaluate(() => (window as unknown as { __picker: { calls: unknown[] } }).__picker.calls);
+  async function clickFolderItem(page: Page) {
+    await page.locator('header').getByRole('button', { name: 'Open', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Open DICOMDIR or DICOM folder' }).click();
+  }
+  /** every file chooser the classic input opens */
+  const choosers = (page: Page) => {
+    const seen: string[] = [];
+    page.on('filechooser', () => seen.push('filechooser'));
+    return seen;
+  };
+
+  test('the fixture folder opens through the directory picker: the same volume, dialogues and order as the input', async ({ page }) => {
+    // hold every assembly result back 1.5 s, so the progress panel is caught before the dialogue
+    await page.addInitScript(() => {
+      const W = window.Worker;
+      window.Worker = class extends W {
+        set onmessage(fn: ((e: MessageEvent) => void) | null) {
+          super.onmessage = fn
+            ? (e: MessageEvent) => {
+                const d = e.data as { type?: string };
+                if (d?.type === 'done') setTimeout(() => fn.call(this, e), 1500);
+                else fn.call(this, e);
+              }
+            : null;
+        }
+      };
+    });
+    await stubPicker(page);
+    const seen = choosers(page);
+    await page.locator('header').getByRole('button', { name: 'Open', exact: true }).click();
+    await expect(page.getByText(PICKER_LINE)).toBeVisible();
+    await page.getByRole('menuitem', { name: 'Open DICOMDIR or DICOM folder' }).click();
+
+    // the progress panel, then the research dialogue, then the volume, as through the input
+    const panel = page.getByTestId('open-progress');
+    await expect(panel).toBeVisible({ timeout: 10_000 });
+    await expect(panel).toContainText(/Assembling the volume: \d+ %/);
+    await expect(researchDialog(page)).toBeVisible({ timeout: 30_000 });
+    await expect(researchDialog(page)).toHaveCount(1);
+    await researchDialog(page).getByRole('button', { name: 'I understand' }).click();
+    await expect(panel).toHaveCount(0, { timeout: 30_000 });
+    const pickedId = await expectCurrentLocal(page, 'series', `${N}²×${SERIES_COUNT}`);
+    await expect.poll(() => mainCanvasHasImage(page), { timeout: 60_000 }).toBe(true);
+
+    // read access, a stable id, no start folder; the classic input never opened
+    expect(await pickerCalls(page)).toEqual([{ id: 'cbctscope-dicom-folder', mode: 'read' }]);
+    expect(seen).toEqual([]);
+
+    // the multiframe folder through the picker, then the series through the input: the same id
+    await setPicker(page, 'ok', 'mf');
+    await clickFolderItem(page);
+    await expectCurrentLocal(page, 'volume', `${N}²×${N}`);
+    await openFolder(page, 'series');
+    expect(await expectCurrentLocal(page, 'series', `${N}²×${SERIES_COUNT}`)).toBe(pickedId);
+    await expect(researchDialog(page)).toHaveCount(0);
+    expect(problems).toEqual([]);
+  });
+
+  test('a folder with no DICOM volume says the same through the directory picker, and Open another folder reopens it', async ({ page }) => {
+    await stubPicker(page);
+    await setPicker(page, 'ok', 'junk');
+    await clickFolderItem(page);
+    const none = page.getByTestId('open-none');
+    await expect(none).toBeVisible({ timeout: 30_000 });
+    await expect(none.locator('div').first()).toHaveText(
+      'These files are not DICOM images. Export from your CBCT software as DICOM, with compression off.',
+    );
+    await expect(none).toContainText('No DICOM volume found in 2 files');
+    await expect(none).toContainText('no DICM magic bytes, not DICOM: 2 files');
+    await expect(researchDialog(page)).toHaveCount(0);
+    await setPicker(page, 'ok', 'series');
+    await none.getByRole('button', { name: 'Open another folder' }).click();
+    await expect(researchDialog(page)).toBeVisible({ timeout: 30_000 });
+    await researchDialog(page).getByRole('button', { name: 'I understand' }).click();
+    await expectCurrentLocal(page, 'series', `${N}²×${SERIES_COUNT}`);
+    expect(await pickerCalls(page)).toHaveLength(2);
+  });
+
+  test("the directory picker's cancel does nothing; any other failure opens the classic input", async ({ page }) => {
+    await stubPicker(page);
+    const seen = choosers(page);
+    const before = await volumeSelect(page).inputValue();
+
+    // cancel: no chooser, no panel, no error, the same volume, the menu closed
+    await setPicker(page, 'abort');
+    await clickFolderItem(page);
+    await page.waitForTimeout(1000);
+    expect(seen).toEqual([]);
+    await expect(page.getByTestId('open-progress')).toHaveCount(0);
+    await expect(page.getByTestId('open-none')).toHaveCount(0);
+    await expect(page.getByText(/could not read/)).toHaveCount(0);
+    await expect(page.getByRole('menu', { name: 'Open' })).toHaveCount(0);
+    await expect(volumeSelect(page)).toHaveValue(before);
+
+    // a refusal: the classic input opens instead, and the folder opens through it
+    await setPicker(page, 'error');
+    await page.locator('header').getByRole('button', { name: 'Open', exact: true }).click();
+    const [chooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.getByRole('menuitem', { name: 'Open DICOMDIR or DICOM folder' }).click(),
+    ]);
+    await chooser.setFiles(path.join(tmp, 'series'));
+    await expect(researchDialog(page)).toBeVisible({ timeout: 30_000 });
+    await researchDialog(page).getByRole('button', { name: 'I understand' }).click();
+    await expectCurrentLocal(page, 'series', `${N}²×${SERIES_COUNT}`);
+    expect(await pickerCalls(page)).toHaveLength(2);
+  });
+
+  test('without the directory picker the menu shows the upload line and the item opens the classic input', async ({ page }) => {
+    await page.addInitScript(() => {
+      delete (Window.prototype as { showDirectoryPicker?: unknown }).showDirectoryPicker;
+      delete (window as { showDirectoryPicker?: unknown }).showDirectoryPicker;
+    });
+    await page.reload();
+    await waitForVolume(page);
+    expect(await page.evaluate(() => 'showDirectoryPicker' in window)).toBe(false);
+    await page.locator('header').getByRole('button', { name: 'Open', exact: true }).click();
+    await expect(page.getByText(CLASSIC_LINE)).toBeVisible();
+    await expect(page.getByText(PICKER_LINE)).toHaveCount(0);
+    const [chooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.getByRole('menuitem', { name: 'Open DICOMDIR or DICOM folder' }).click(),
+    ]);
+    await chooser.setFiles(path.join(tmp, 'series'));
+    await expect(researchDialog(page)).toBeVisible({ timeout: 30_000 });
   });
 });
 

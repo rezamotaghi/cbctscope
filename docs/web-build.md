@@ -125,6 +125,21 @@ blocks. Volume ids stay `local_<12 hex>`, derived from a hash of the series iden
 survive a reopen. The File System Access API is an enhancement in Chromium only, never a
 requirement.
 
+The folder item has two entrances and one loader (`components/cbct/folderPicker.ts`).
+Chromium's `<input webkitdirectory>` follows the pick with its own "Upload N files to this
+site?" confirmation (`FileSelectHelper::OnListDone` in `chrome/browser/file_select_helper.cc`
+shows it only for `SELECT_UPLOAD_FOLDER`, the folder chooser's mode); to a clinician it reads
+as the opposite of what happens. So where `window.showDirectoryPicker` exists in a secure
+context (Chrome, Edge, Arc; not Brave, which ships it off, nor Firefox or Safari), checked by
+feature detection at click time, the item opens it with `{ id: 'cbctscope-dicom-folder',
+mode: 'read' }`: read access only, no `startIn`, the handle never stored, nothing requested
+again. The handle is seen as drop entries and walked by the drop walker, so the scan gets the
+same `File[]` with the same relative paths, limits and stop reason; `getFile()` returns
+snapshots and bytes are read only by the scan and the worker. The reader's cancel
+(`AbortError`) does nothing; no picker, or any other error, opens the classic input as
+before. The desktop app keeps the classic input: its Open sheet has not been checked with the
+directory picker. A drop never shows the confirmation, which lives in the chooser path only.
+
 Shared code: the pure helpers of `lib/server/dicom.ts` and the phantom move to `lib/shared/`,
 written against `Uint8Array` (a `Buffer` is one, so the server keeps working); `lib/server/`
 re-exports them. The phantom is generated in the worker on first open and cached in the tab.
@@ -145,6 +160,11 @@ can travel. Pixels never enter a sidecar.
   memory, the line that the viewer run from the repository holds it in a tab as well and only shows no
   notice, "Continue" and "Cancel".
 - Agent opt-in: milestone 3.
+- The browser's own prompts when a folder is opened are not ours and cannot be reworded. The
+  line under the folder item prepares for them: where the directory picker is used, "Your
+  browser asks to let this page read the folder; the files stay in this tab."; where the
+  classic input is used, the line that the browser may say "upload" and that the files stay in
+  this tab; in the desktop app, the same of its Open sheet and this computer.
 
 Every dialogue follows hard rule 4: full contrast, nothing hidden. Its one exception applies
 here: a scrim may dim the page behind an open dialogue, whose controls cannot be used while
