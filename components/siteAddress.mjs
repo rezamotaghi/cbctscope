@@ -17,7 +17,7 @@ export const CONTACT_EMAIL = 'contact@cbctscope.com';
 
 /**
  * The canonical address of a page of the site: always the production address, whatever base
- * path a build was made under (the staging build's pages name cbctscope.com too). The home
+ * path a build was made under (a sub-path build's pages name cbctscope.com too). The home
  * page is the bare address, as Next writes its canonical link.
  * @param {string} pathname the page's path from the site root, starting with a slash
  * @returns {string}

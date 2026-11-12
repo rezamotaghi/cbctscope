@@ -24,6 +24,7 @@ export const AUTHOR_GITHUB = 'https://github.com/rezamotaghi';
 /** the DOI resolver: a citation's DOI as a link the reader clicks (components/citation.ts) */
 export const DOI_RESOLVER = 'https://doi.org/';
 
-/** the legal page's links: the host's own privacy statement and the Austrian data protection authority */
+/** the legal page's links: the site host's and the installers' host's own privacy statements, and the Austrian data protection authority */
+export const VERCEL_PRIVACY_URL = 'https://vercel.com/legal/privacy-policy';
 export const GITHUB_PRIVACY_URL = 'https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement';
 export const DSB_URL = 'https://www.dsb.gv.at';

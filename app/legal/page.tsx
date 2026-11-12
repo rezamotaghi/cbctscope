@@ -2,7 +2,7 @@
 // of the Mediengesetz), privacy, the research-use status, and the licence and warranty. These
 // parts and nothing more; no street address (the owner's decision), no promotional sentence.
 import SitePage from '@/components/SitePage';
-import { AUTHOR_URL, DSB_URL, GITHUB_PRIVACY_URL, LICENSE_URL } from '@/components/links';
+import { AUTHOR_URL, DSB_URL, GITHUB_PRIVACY_URL, LICENSE_URL, VERCEL_PRIVACY_URL } from '@/components/links';
 import { CONTACT_EMAIL } from '@/components/site';
 import { pageMetadata } from '@/components/siteMeta';
 import { LEGAL_DESCRIPTION, LEGAL_PURPOSE, LEGAL_TITLE } from '@/components/sitePages';
@@ -40,8 +40,13 @@ export default function Legal() {
         the browser removes them.
       </p>
       <p>
-        The site is hosted on GitHub Pages. GitHub&apos;s servers receive your IP address and the details of each request, as
-        any web host does, and GitHub handles them under its own{' '}
+        The site is hosted by Vercel Inc. To deliver it, Vercel processes your IP address and the details of each request, in
+        the United States among other places, under the EU-US Data Privacy Framework and standard contractual clauses, as its
+        own{' '}
+        <a href={VERCEL_PRIVACY_URL} target="_blank" rel="noopener noreferrer">
+          privacy policy
+        </a>{' '}
+        states. The desktop app&apos;s installers are downloaded from GitHub, which handles those requests under its own{' '}
         <a href={GITHUB_PRIVACY_URL} target="_blank" rel="noopener noreferrer">
           privacy statement
         </a>

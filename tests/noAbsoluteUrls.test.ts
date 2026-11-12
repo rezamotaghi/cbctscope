@@ -24,6 +24,7 @@ const ALLOWED = new Set([
   'https://radigrade.com', // RADIGRADE_URL: linked from the About page's author paragraph only
   'https://doi.org/', // DOI_RESOLVER: the citation's DOI as a link
   'https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement', // GITHUB_PRIVACY_URL
+  'https://vercel.com/legal/privacy-policy', // VERCEL_PRIVACY_URL
   'https://www.dsb.gv.at', // DSB_URL
   'https://schema.org', // the JSON-LD vocabulary (components/jsonLd.ts): an identifier, never requested
 ]);
@@ -44,6 +45,7 @@ const LINK_CONSTANTS = [
   'RADIGRADE_URL',
   'DOI_RESOLVER',
   'GITHUB_PRIVACY_URL',
+  'VERCEL_PRIVACY_URL',
   'DSB_URL',
 ];
 

@@ -55,8 +55,8 @@ site. A push deploys nothing.
 
 `npm run build:web` sets `CBCTSCOPE_TARGET=web` and `NEXT_PUBLIC_CBCTSCOPE_TARGET=web` and
 writes `out/`. In that target `next.config.mjs` sets `output: 'export'`, `images.unoptimized`,
-`basePath` from `NEXT_PUBLIC_BASE_PATH` (empty for the domain, `/cbctscope` for the staging
-address on GitHub Pages), and `pageExtensions: ['tsx']` so that the route handlers (`route.ts`)
+`basePath` from `NEXT_PUBLIC_BASE_PATH` (empty for the domain, which the release builds;
+`/cbctscope` for a build served from a sub-path, kept working by the end-to-end suite), and `pageExtensions: ['tsx']` so that the route handlers (`route.ts`)
 and `middleware.ts` are not part of the target; static export supports neither. If
 `pageExtensions` does not exclude the middleware file in practice, the build script sidelines
 `app/api` and `middleware.ts` for the duration of the build and restores them. The exported
@@ -211,7 +211,7 @@ End-to-end (Playwright, Chromium, against `out/` on a static server): the phanto
 (the canvas is not blank); the fixture folder opens through the directory input; every view
 mode mounts; the research-use dialogue appears once; the size notice appears on a
 low-threshold test build; no off-origin request happens; the two sidecar actions round-trip;
-a build with the staging base path (`/cbctscope`, served under that prefix only) renders the
+a build with the base path (`/cbctscope`, served under that prefix only) renders the
 phantom, starts the assembly worker and compiles a codec WASM from under the prefix.
 
 Budget: the first measured bundle size becomes the budget with ten percent headroom, recorded
@@ -227,7 +227,8 @@ the dev server.
 this order:
 
 1. `test`: typecheck, lint, unit, the web build, the end-to-end suite.
-2. In parallel after it: `build` (the web target for Pages), `desktop-win`, and
+2. In parallel after it: `build` (the web target for the root of the domain, uploaded as the
+   `site` artifact), `desktop-win`, and
    `desktop-gate` then `desktop-mac` (signs, notarises and staples the app and the dmg,
    section 12; skipped without the signing secrets).
 3. `publish` attaches the installers to the release, once `desktop-win` succeeded and
@@ -243,10 +244,9 @@ this order:
    the dmg itself, so a byte copy carries it); the Windows job copies the setup exe after
    packaging and runs `cmp`. A release without the mac secrets carries no mac files, fixed
    names included, so the two Mac entries answer 404 on that release.
-4. `deploy` puts the site on GitHub Pages only after `build` and `publish` succeeded (the only
-   job with `pages: write` and `id-token: write`). The site and the installers go public
-   together: a failed desktop build leaves the site as it was, never linking to a release
-   without installers.
+4. `deploy` puts the site on Vercel only after `build` and `publish` succeeded, and checks it
+   (below). The site and the installers go public together: a failed desktop build leaves the
+   site as it was, never linking to a release without installers.
 
 On release day a human checks, in a browser, that the release carries the six installer files
 (three versioned, three fixed) and that each of the menu's three direct links starts the
@@ -254,9 +254,85 @@ download of the file it names. The direct links cannot be exercised before the f
 that carries the fixed names; until then they answer 404, and "All downloads and release
 notes" still reaches every file.
 
-Until the domain is switched on, the
-site answers at the repository's GitHub Pages address only. The `CNAME` file and the DNS
-records are a separate, deliberate commit.
+### The site on Vercel
+
+The release job is the site's one trigger. The Vercel project is not connected to the
+repository: **do not connect it through Vercel's Git integration**, or every push would
+deploy. Installers stay GitHub release assets; only the pages are on Vercel.
+
+How `deploy` ships the site (`release.yml`):
+
+1. It downloads the `site` artifact into `out/`, the files `build` made.
+2. `node scripts/vercel-output.mjs out "$RUNNER_TEMP/site"` lays them out as a prebuilt
+   deployment in the Build Output API v3 form: `.vercel/output/static/` is a byte copy of
+   `out/`, and `.vercel/output/config.json` holds the routes, the overrides and the 404 route
+   below. The folder is outside the checkout, so nothing else leaves the runner.
+3. `npm exec --no -- vercel deploy --prebuilt --prod --cwd "$RUNNER_TEMP/site"` uploads it.
+   The Vercel CLI is the devDependency pinned to one exact version in `package.json` and the
+   lockfile. Nothing is built on Vercel. The token and the two ids (`VERCEL_TOKEN`,
+   `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, repository secrets) reach this step only;
+   `VERCEL_TELEMETRY_DISABLED=1` keeps the CLI from reporting its use. The job needs no
+   permission beyond reading the repository.
+4. `node scripts/site-check.mjs --base https://cbctscope.com --out out` fails the job unless
+   every address in `out/sitemap.xml`, plus `/sitemap.xml`, `/robots.txt` and the agent
+   frame, answers 200 with no redirect and serves its file in `out/` byte for byte, with the
+   three headers below; and a missing address answers 404 with `404.html`. Byte identity is
+   the proof that nothing was injected: no analytics, no speed-insights script, no toolbar. A
+   run is retried twice, 15 s apart, so the domain can settle on the new deployment.
+
+What `config.json` sets:
+
+- Response headers on every address, on top of the page's own CSP meta tag, which stays
+  exactly as `build-web` writes it, because it also protects the desktop app:
+  `Content-Security-Policy: frame-ancestors 'none'` (a second policy that only adds the one
+  directive a meta tag cannot carry), `X-Frame-Options: DENY` (the same for browsers without
+  CSP level 2) and `X-Content-Type-Options: nosniff` (each file is used only as the type it is
+  served with). The agent frame is the one page the site frames itself, so it gets
+  `frame-ancestors 'self'` and `SAMEORIGIN`. No Referrer-Policy is set: outbound links keep
+  the browser's default and carry the origin.
+- Addresses: Next writes `about.html` and `legal.html`; `overrides` serves them at `/about`
+  and `/legal`, their canonical addresses, without a redirect. The manual keeps its `.html`
+  addresses as the sitemap lists them, so a blanket `cleanUrls`, which would redirect them,
+  is not used. `/` and `/manual/` are their folders' `index.html`.
+- A miss answers 404 with the export's `404.html` (an error-phase route).
+
+The host's own request statistics are the only visitor numbers; no script runs in the page
+to count anyone.
+
+**The rehearsal.** `.github/workflows/site-rehearsal.yml`, started by hand from the Actions
+tab, runs the same build, layout and check against a **preview** deployment (`vercel deploy
+--prebuilt` without `--prod`) and its own address. Previews sit behind Vercel's Deployment
+Protection, so the check sends the Protection Bypass for Automation secret
+(`VERCEL_AUTOMATION_BYPASS_SECRET`) in the `x-vercel-protection-bypass` header, and no other
+header: if Vercel injects its toolbar into the preview, the byte check fails and names it.
+
+**The owner's one-time setup**, before the first release that deploys:
+
+1. In the Vercel Pro team, create the project **without importing a Git repository**:
+   `vercel project create cbctscope --scope <team>`, then, in an empty folder outside the
+   repository, `vercel link --yes --project cbctscope --scope <team>`, which writes
+   `.vercel/project.json` with the `orgId` and `projectId` needed below. The framework preset
+   and build settings do not matter: a prebuilt deployment skips them.
+2. Leave **Analytics** (Web Analytics) and **Speed Insights** off. Both work only when the
+   site carries their script, which it does not; enabling Web Analytics also adds routes
+   under `/_vercel/insights/`, so keep it off.
+3. Settings, General, **Vercel Toolbar**: set Pre-Production Deployments and Production
+   Deployments to **Off** (and the same in the team's settings if the team default is on).
+4. Settings, Deployment Protection: keep **Standard Protection** (previews protected, the
+   production domain public) and create a secret under **Protection Bypass for Automation**.
+5. GitHub, the repository's Settings, Secrets and variables, Actions: add `VERCEL_TOKEN` (an
+   access token, made in the Vercel account's Tokens page, scoped to the team),
+   `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` (the `orgId` and `projectId` from step 1), and
+   `VERCEL_AUTOMATION_BYPASS_SECRET` (the secret from step 4; the rehearsal alone reads it).
+6. Run **Site rehearsal** from the Actions tab, before adding the domain. Vercel makes a new
+   project's first deployment a production one whatever the flag, so the first run deploys
+   to the project's own `vercel.app` address only; run it a second time to rehearse a true
+   preview. Both must pass.
+7. Settings, Domains: add `cbctscope.com` (and `www.cbctscope.com`, redirecting to it).
+8. At Porkbun, change only the site's address records: for `cbctscope.com` an **A** record
+   with the value shown in the Vercel dashboard, for `www` a **CNAME** with the value shown
+   there, removing any older A, AAAA or CNAME records for those two names. The mail records
+   (the two MX records and the SPF TXT record) stay as they are.
 
 ## 10. Milestones
 
@@ -282,8 +358,9 @@ gains one layout line for `lib/browser/` and `lib/shared/` inside its byte cap.
 
 ### Milestone 1, confirmed at review
 
-- Host: GitHub Pages, deployed from the release event, no new vendor. Cloudflare Pages is the
-  alternative if real response headers are wanted later.
+- Host: Vercel (the owner's decision of 12/11/26, before the first public launch), in place of
+  GitHub Pages: real response headers, and the host's own request statistics with no script
+  in the page. Deployed by the CLI from the release job only (section 9).
 - Sidecars in IndexedDB plus a marks file, not downloads only.
 - Size notice threshold 512 MiB of voxels, unmeasured; the builder measures Chromium's limit
   with a synthetic volume and records the number here.
@@ -387,7 +464,7 @@ How it is built:
   fixed name and checks each copy the same way (section 9); the Windows job copies its setup exe
   to its fixed name. One `publish` job, the only one with `contents: write`, downloads the
   artifacts and runs `gh release upload`. Signing and notarisation secrets reach the
-  packaging step only. The Pages `deploy` job needs `publish`, so the site goes live only
+  packaging step only. The `deploy` job needs `publish`, so the site goes live only
   once the installers are attached. A release without the mac secrets skips the mac job; the
   Windows job, `publish` and the site deploy still run, and the release carries the Windows
   packages only.
@@ -478,10 +555,10 @@ Built to the owner's decisions of 04/11/26:
 
 ### Known limitations, hardening pass of 04/11/26
 
-- Framing. A CSP delivered in a meta tag cannot carry `frame-ancestors`, and GitHub Pages
-  sends no response headers, so another site may frame the published viewer. No
-  frame-busting script is used. Remedy: a host that sets headers
-  (`Content-Security-Policy: frame-ancestors 'none'`), for example Cloudflare Pages.
+- Framing. A CSP delivered in a meta tag cannot carry `frame-ancestors`. The website now
+  sends it as a response header (`frame-ancestors 'none'` and `X-Frame-Options: DENY`,
+  section 9), so no other site may frame the published viewer. No frame-busting script is
+  used.
 
 ## 13. The manual
 

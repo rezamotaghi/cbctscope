@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // npm run test:e2e: the web build's end-to-end suite (docs/web-build.md, section 8).
 // Expects out/ from `npm run build:web`. Builds the low-threshold variant (size notice at
-// 1 MiB, so the phantom trips it) into out-small/ and the staging variant (base path
-// /cbctscope, as release.yml builds it for the GitHub Pages address) into out-base/, then runs
-// Playwright against all three.
+// 1 MiB, so the phantom trips it) into out-small/ and the base-path variant (/cbctscope, the
+// support for serving the site from a sub-path) into out-base/, then runs Playwright against
+// all three.
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';

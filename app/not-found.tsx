@@ -1,5 +1,5 @@
 // The page for an address the site does not have: the viewer's dark ground and type, one title,
-// and a link back to the viewer (next/link adds the base path on the staging address).
+// and a link back to the viewer (next/link adds the base path in a sub-path build).
 import type { Metadata } from 'next';
 import Link from 'next/link';
 

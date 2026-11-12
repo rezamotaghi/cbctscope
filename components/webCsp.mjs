@@ -1,6 +1,6 @@
-// The Content Security Policy of the web build (docs/web-build.md, section 2). GitHub Pages
-// sends no custom headers, so the policy rides in a meta tag that scripts/build-web.mjs writes
-// into every exported page, first in <head> after the charset, so it governs every script.
+// The Content Security Policy of the web build (docs/web-build.md, section 2). The same files
+// serve the website and the desktop app, so the policy rides in the files: a meta tag that
+// scripts/build-web.mjs writes into every exported page, first in <head> after the charset, so it governs every script.
 // connect-src is the network half of "nothing leaves the tab": the viewer's page may fetch its
 // own origin and nothing else. The opt-in in-page agent's provider calls run in a separate
 // static page, agent-frame.html (scripts/agent-frame.mjs), loaded in an

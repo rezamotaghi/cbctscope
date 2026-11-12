@@ -125,8 +125,11 @@ describe.skipIf(!built)('the exported site', () => {
       'contact@cbctscope.com',
       'Privacy',
       'no cookies',
-      'GitHub Pages',
+      'hosted by Vercel Inc.',
       'IP address',
+      'EU-US Data Privacy Framework',
+      'standard contractual clauses',
+      'installers are downloaded from GitHub',
       'model provider you chose',
       'GDPR',
       'Datenschutzbehörde',
@@ -141,6 +144,8 @@ describe.skipIf(!built)('the exported site', () => {
     expectAuthorLink(html, 'Reza Motaghi');
     expect(hrefs(html)).toEqual(expect.arrayContaining(['mailto:contact@cbctscope.com', 'https://www.dsb.gv.at', 'https://github.com/rezamotaghi/cbctscope/blob/main/LICENSE']));
     expect(hrefs(html).some((h) => h.startsWith('https://docs.github.com/'))).toBe(true);
+    expect(hrefs(html)).toContain('https://vercel.com/legal/privacy-policy');
+    expect(text).not.toContain('GitHub Pages');
     // no street address: no street word followed by a number, no postcode before Vienna or Wien
     expect(text).not.toMatch(/\b\w*(?:straße|strasse|gasse|platz|weg|street|road|avenue)\s*\d/i);
     expect(text).not.toMatch(/\b\d{4}\s+(?:Vienna|Wien)\b/);
