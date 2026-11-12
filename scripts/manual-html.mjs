@@ -15,13 +15,17 @@
 // into media/. `?theme=dark` (the viewer's help drawer) forces the dark theme on every page it
 // reaches; without it a page follows the system setting. The bar links back to the viewer, one
 // level up (manual/ sits beside it, under any base path); in the drawer the viewer is already
-// beside the page, so manual.js drops that link there. No inline script and no remote asset: manual.js and manual.css sit next to the
+// beside the page, so manual.js drops that link there. Every page carries a meta description and
+// a title from its manifest entry (pageTitle, description: the question the page answers; the
+// headings in the markdown stay as they are), the canonical production address, and a footer
+// with the author line (to the About page), the viewer and the legal page. No inline script and no remote asset: manual.js and manual.css sit next to the
 // pages, so the web build's CSP (written into every exported page by build-web.mjs) holds.
 // Markdown rendering: marked (devDependency, exact version, no dependencies of its own).
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Marked } from 'marked';
+import { canonicalUrl } from '../components/siteAddress.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(here, '..');
@@ -61,6 +65,9 @@ export function plain(md) {
     .replace(/\s+/g, ' ')
     .trim();
 }
+
+/** the footer's author line, linking to the About page (the manual's front page names him the same way) */
+export const AUTHOR_LINE = 'By Dr. Reza Motaghi, oral and maxillofacial radiologist';
 
 /** the page file a manifest entry becomes: its markdown file's name, .html */
 export const pageName = (file) => path.posix.basename(file).replace(/\.md$/, '.html');
@@ -147,7 +154,7 @@ export function loadManual(root = ROOT) {
     return { ...entry, index, page: pageName(entry.file), html, headings, sections, links };
   });
 
-  return { title: manifest.title, version, revision, chapters, media };
+  return { title: manifest.title, description: manifest.description ?? '', version, revision, chapters, media };
 }
 
 // ---------------------------------------------------------------- the page template
@@ -162,13 +169,19 @@ function tocList(manual, currentPage) {
   return `<ol class="toc-list">\n${items}\n</ol>`;
 }
 
-function shell(manual, { page, title, body }) {
+function shell(manual, { page, title, description, body }) {
+  // the canonical address: always the production one (components/siteAddress.mjs); the index
+  // is the folder, as the sitemap lists it
+  const canonical = canonicalUrl(page === 'index.html' ? '/manual/' : `/manual/${page}`);
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
+<meta name="description" content="${esc(description)}">
+<meta name="author" content="Reza Motaghi">
+<link rel="canonical" href="${esc(canonical)}">
 <link rel="stylesheet" href="manual.css">
 <script src="manual.js"></script>
 </head>
@@ -192,6 +205,10 @@ ${tocList(manual, page).replace('<ol class="toc-list">', '<ol class="toc-list" i
 <main>
 <section id="results" class="results" aria-live="polite" hidden></section>
 ${body}
+<footer class="foot">
+<p><a href="../about">${esc(AUTHOR_LINE)}</a>. Research use only. Not a medical device.</p>
+<p><a class="viewer-link" href="../">Open the viewer</a> <a href="../legal">Legal notice and privacy</a></p>
+</footer>
 </main>
 </div>
 </body>
@@ -206,9 +223,11 @@ function chapterPage(manual, c) {
 ${prev ? `<a class="prev" href="${esc(prev.page)}" rel="prev"><span>Previous</span>${esc(prev.title)}</a>` : `<a class="prev" href="index.html" rel="prev"><span>Previous</span>Contents</a>`}
 ${next ? `<a class="next" href="${esc(next.page)}" rel="next"><span>Next</span>${esc(next.title)}</a>` : '<span></span>'}
 </nav>`;
+  if (!c.pageTitle || !c.description) throw new Error(`manual: ${c.file} has no pageTitle or description in manifest.json`);
   return shell(manual, {
     page: c.page,
-    title: `${c.title} · ${manual.title}`,
+    title: `${c.pageTitle} · CBCTScope manual`,
+    description: c.description,
     body: `<article class="doc">\n${c.html}</article>\n${pager}`,
   });
 }
@@ -218,6 +237,7 @@ function indexPage(manual) {
   return shell(manual, {
     page: 'index.html',
     title: manual.title,
+    description: manual.description,
     body: `<article class="doc">
 <h1 id="top">${esc(manual.title)}</h1>
 <p class="meta">Software version <strong>${esc(manual.version)}</strong> · Manual revision <strong>${esc(manual.revision)}</strong></p>

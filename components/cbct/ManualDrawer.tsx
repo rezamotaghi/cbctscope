@@ -14,8 +14,19 @@ export function guidePage(viewMode: string, isXray: boolean): string {
 /** the address of a manual page, relative to the viewer's page, so a base path holds */
 export const manualHref = (page: string) => `manual/${page}`;
 
-/** the drawer's address: the same page with ?theme=dark, so it matches the viewer beside it */
+/**
+ * The site's own pages the drawer can also show (the Help menu's About and Legal notice in the
+ * local app and the desktop app, where a new tab is not available): their address beside the
+ * viewer, and the drawer's label. They are drawn in the viewer's colours on every surface.
+ */
+export const SITE_PAGES: Record<string, string> = { about: 'About CBCTScope', legal: 'Legal notice' };
+
+/** the drawer label of a site page, or undefined for a manual page */
+const sitePage = (page: string) => (Object.prototype.hasOwnProperty.call(SITE_PAGES, page) ? SITE_PAGES[page] : undefined);
+
+/** the drawer's address: a manual page with ?theme=dark, so it matches the viewer beside it, or a site page */
 export function drawerSrc(page: string): string {
+  if (sitePage(page)) return page;
   const [file, hash] = page.split('#');
   return `${manualHref(file)}?theme=dark${hash ? `#${hash}` : ''}`;
 }
@@ -29,9 +40,10 @@ export function drawerSrc(page: string): string {
 export const MANUAL_EVENT = 'cbctscope:manual';
 
 export default function ManualDrawer({ page, onClose }: { page: string; onClose: () => void }) {
+  const site = sitePage(page);
   return (
     <aside
-      aria-label="User manual"
+      aria-label={site ?? 'User manual'}
       data-testid="manual-drawer"
       style={{
         flex: '0 0 auto',
@@ -52,18 +64,18 @@ export default function ManualDrawer({ page, onClose }: { page: string; onClose:
           borderBottom: '1px solid var(--border)',
         }}
       >
-        <strong style={{ fontSize: 'var(--fs-meta)', fontWeight: 600 }}>User manual</strong>
+        <strong style={{ fontSize: 'var(--fs-meta)', fontWeight: 600 }}>{site ?? 'User manual'}</strong>
         <button
           className="ctl"
           onClick={onClose}
-          title="close the manual; the viewer takes the width back"
+          title={site ? 'close this page; the viewer takes the width back' : 'close the manual; the viewer takes the width back'}
           style={{ marginLeft: 'auto' }}
         >
-          Close manual
+          {site ? 'Close page' : 'Close manual'}
         </button>
       </div>
       <iframe
-        title="CBCTScope user manual"
+        title={site ? `CBCTScope: ${site}` : 'CBCTScope user manual'}
         src={drawerSrc(page)}
         style={{ flex: 1, minHeight: 0, width: '100%', border: 0, background: 'var(--bg)' }}
       />

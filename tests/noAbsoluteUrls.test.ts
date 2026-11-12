@@ -15,10 +15,35 @@ const ALLOWED = new Set([
   'https://github.com/rezamotaghi/cbctscope', // REPO_URL in components/links.ts (Help menu, About)
   'https://github.com/rezamotaghi/cbctscope/releases/latest', // RELEASES_URL in components/links.ts (the desktop app)
   'http://www.w3.org/2000/svg', // the SVG namespace of a snapshot's annotation layer, not a request
-  'https://cbctscope.com', // SITE_URL in components/site.ts: the share card's address, never requested
+  'https://cbctscope.com', // SITE_URL in components/siteAddress.mjs: the share card's and the canonical address, never requested
+  // links the reader clicks on the home page's text, the About and legal pages (components/links.ts)
+  'https://rezamotaghi.com', // AUTHOR_URL
+  'https://rezamotaghi.com/cbctscope', // AUTHOR_PROJECT_URL
+  'https://orcid.org/0009-0005-3194-1879', // AUTHOR_ORCID (CITATION.cff)
+  'https://github.com/rezamotaghi', // AUTHOR_GITHUB (the repository's owner)
+  'https://doi.org/', // DOI_RESOLVER: the citation's DOI as a link
+  'https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement', // GITHUB_PRIVACY_URL
+  'https://www.dsb.gv.at', // DSB_URL
+  'https://schema.org', // the JSON-LD vocabulary (components/jsonLd.ts): an identifier, never requested
 ]);
-// installerUrl (components/downloads.ts) builds the download menu's links from RELEASES_URL
-const LINK_CONSTANTS = ['REPO_URL', 'RELEASES_URL', 'STILLS_URL', 'installerUrl'];
+// installerUrl (components/downloads.ts) builds the download menu's links from RELEASES_URL;
+// canonicalUrl (components/siteAddress.mjs) builds the canonical addresses from SITE_URL
+const LINK_CONSTANTS = [
+  'REPO_URL',
+  'RELEASES_URL',
+  'STILLS_URL',
+  'installerUrl',
+  'SITE_URL',
+  'canonicalUrl',
+  'LICENSE_URL',
+  'AUTHOR_URL',
+  'AUTHOR_PROJECT_URL',
+  'AUTHOR_ORCID',
+  'AUTHOR_GITHUB',
+  'DOI_RESOLVER',
+  'GITHUB_PRIVACY_URL',
+  'DSB_URL',
+];
 
 /** the cloud providers' API bases: in the agent frame's code only (it runs sandboxed, with its own CSP) */
 const AGENT_HOSTS_FILE = path.join('components', 'cbct', 'agent', 'frame', 'providers', 'hosts.ts');

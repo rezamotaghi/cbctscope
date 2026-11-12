@@ -8,7 +8,9 @@ the rules marked (test); the others are checked by the author of a change.
    sentence case on a control, and never an assistant, a copilot or an AI helper.
 2. **No AI words in a first sentence (test).** The first sentence of the page title, the
    page and share descriptions, the README bold line, the manual front page, the
-   CITATION.cff title, and the package.json and MCP bundle descriptions names the viewer
+   CITATION.cff title, the package.json and MCP bundle descriptions, the home page's text
+   before the viewer, the About and legal pages (title, description, first sentence), and
+   each manual page's title and description names the viewer
    and, where there is room, its author. It contains none of: AI, agent, model, LLM, MCP,
    or a vendor or model name.
 3. **The agent comes once, with its rule.** Where a surface introduces the agent, one plain

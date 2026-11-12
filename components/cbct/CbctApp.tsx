@@ -45,6 +45,8 @@ import {
   researchAcknowledged,
 } from './WebDialogs';
 import AboutBadge from '@/components/AboutBadge';
+import type { Citation } from '@/components/citation';
+import CiteDialog from './CiteDialog';
 import SnapshotButton, { type SnapRef } from './SnapshotButton';
 import { pageStorage, rememberPreset, windowOnOpen } from './windowPreset';
 import { EVERY_MODE_GESTURES, MODE_GESTURES, statusLegend, type GestureMode } from './gestures';
@@ -179,7 +181,7 @@ function volLabel(v: ListEntry): string {
     .join(' · ');
 }
 
-export default function CbctApp() {
+export default function CbctApp({ citation }: { citation?: Citation }) {
   const [volumes, setVolumes] = useState<ListEntry[]>([]);
   const [anon, setAnon] = useState<string | null>(null);
   const [meta, setMeta] = useState<CbctMeta | null>(null);
@@ -215,6 +217,7 @@ export default function CbctApp() {
   const [helpMenu, setHelpMenu] = useState(false);
   /** the manual page the help drawer shows, or null when it is closed (repo build and desktop app) */
   const [manualPage, setManualPage] = useState<string | null>(null);
+  const [citeOpen, setCiteOpen] = useState(false);
   const helpMenuRef = useRef<HTMLDivElement | null>(null);
   const [picking, setPicking] = useState(false);
   const srcMenuRef = useRef<HTMLDivElement | null>(null);
@@ -694,6 +697,30 @@ export default function CbctApp() {
     return () => window.removeEventListener(MANUAL_EVENT, open);
   }, []);
 
+  /**
+   * A Help menu entry for one of the site's own pages (/about, /legal): a new tab on the website,
+   * like the manual; the drawer beside the viewer in the local app and the desktop app, where a
+   * new tab is not available. The address is relative, so a base path holds.
+   */
+  const siteLink = (page: 'about' | 'legal', label: string, title: string) =>
+    manualInTab ? (
+      <a className="menu-item" role="menuitem" href={page} target="_blank" rel="noopener" title={title} onClick={() => setHelpMenu(false)}>
+        {label}
+      </a>
+    ) : (
+      <button
+        className="menu-item"
+        role="menuitem"
+        title={title}
+        onClick={() => {
+          setManualPage(page);
+          setHelpMenu(false);
+        }}
+      >
+        {label}
+      </button>
+    );
+
   /** the status line's gesture legend: at most three of this mode's, MPR's aware of the active tool */
   const gestureMode: GestureMode = isXray ? 'xray' : viewMode;
   const legend = statusLegend(gestureMode, controls.toolMode === 'crosshairs' ? null : TOOL_LABEL[controls.toolMode]);
@@ -804,7 +831,7 @@ export default function CbctApp() {
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: '14px' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <strong style={{ fontSize: 'var(--fs-body)', fontWeight: 600 }}>CBCTScope</strong>
-              <AboutBadge product="CBCTScope" />
+              <AboutBadge product="CBCTScope" onOpenAbout={manualInTab ? undefined : () => setManualPage('about')} />
             </span>
             <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>CBCT and radiograph viewer</span>
           </div>
@@ -1104,9 +1131,10 @@ export default function CbctApp() {
             )}
           </div>
           {/* Help: this mode's reading guide (manual chapter 8), the user manual, as pages this
-              viewer's own origin serves (manual/, rendered from docs/ at build time), and the
-              repository. The website opens the pages in a new tab; the repo build and the
-              desktop app in the drawer beside the viewer. Nothing is fetched from anywhere else. */}
+              viewer's own origin serves (manual/, rendered from docs/ at build time), then the
+              About page, the Cite dialogue, the legal page, and the repository. The website opens
+              the pages in a new tab; the repo build and the desktop app in the drawer beside the
+              viewer. Nothing is fetched from anywhere else. */}
           <div ref={helpMenuRef} style={{ position: 'relative' }}>
             <button
               className="ctl"
@@ -1160,6 +1188,21 @@ export default function CbctApp() {
                   ),
                 )}
                 <div role="separator" style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+                {siteLink('about', 'About CBCTScope', 'what CBCTScope is, who made it, how to cite it, the licence')}
+                {citation && (
+                  <button
+                    className="menu-item"
+                    role="menuitem"
+                    title="the reference and a BibTeX entry, from the repository's CITATION.cff, with copy buttons"
+                    onClick={() => {
+                      setHelpMenu(false);
+                      setCiteOpen(true);
+                    }}
+                  >
+                    Cite this software
+                  </button>
+                )}
+                {siteLink('legal', 'Legal notice', 'who publishes this site, privacy, research use, licence and warranty')}
                 <a
                   className="menu-item"
                   role="menuitem"
@@ -2074,6 +2117,7 @@ export default function CbctApp() {
         </aside>
         {/* the user manual's drawer: a column of this row, so it narrows the viewer and covers nothing */}
         {manualPage !== null && <ManualDrawer page={manualPage} onClose={() => setManualPage(null)} />}
+        {citeOpen && citation && <CiteDialog citation={citation} onClose={() => setCiteOpen(false)} />}
       </div>
       {/* the status line: the case facts, the first-run line while the phantom is on screen and
           nothing of the reader's is open (it leaves by itself once an export is opened), and the

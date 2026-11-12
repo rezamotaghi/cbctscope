@@ -186,6 +186,45 @@ describe('user manual tracks the app (docs/manual/)', () => {
     }
   });
 
+  it('every manual page has its own HTML title and meta description in the manifest', () => {
+    // pageTitle and description become the page's <title> and meta description only
+    // (scripts/manual-html.mjs): the question the page answers, in sentence case, plain words
+    const manifest = JSON.parse(read('docs/manual/manifest.json')) as {
+      description?: string;
+      chapters: { file: string; title: string; pageTitle?: string; description?: string }[];
+    };
+    expect((manifest.description ?? '').length, 'the manual index needs a description').toBeGreaterThan(50);
+    const titles = new Set<string>();
+    for (const c of manifest.chapters) {
+      const t = c.pageTitle ?? '';
+      const d = c.description ?? '';
+      expect(t, `${c.file} needs a pageTitle in manifest.json`).not.toBe('');
+      expect(d, `${c.file} needs a description in manifest.json`).not.toBe('');
+      expect(t.length, `${c.file}: pageTitle is too long for a search result`).toBeLessThanOrEqual(75);
+      expect(d.length, `${c.file}: description length`).toBeGreaterThanOrEqual(60);
+      expect(d.length, `${c.file}: description length`).toBeLessThanOrEqual(200);
+      expect(t[0], `${c.file}: pageTitle starts with a capital`).toMatch(/[A-Z]/);
+      expect(d, `${c.file}: description is full sentences`).toMatch(/\.$/);
+      // sentence case: after the first word, a capitalised word is a name or an abbreviation
+      const NAMES = /^(CBCTScope|CBCT|DICOM|DICOMDIR|USB|MPR|TMJ|TMJs|PNG|NIfTI|STL|HU|MIP|Mac|Windows|Node\.js|BibTeX|Dr\.|Reza|Motaghi|Pano|Grid|Reslice|Ceph|Region|Stitch)$/;
+      for (const w of t.split(/[\s:,()]+/).slice(1).filter(Boolean)) {
+        if (/^[A-Z]/.test(w)) expect(w, `${c.file}: pageTitle is in sentence case`).toMatch(NAMES);
+      }
+      expect(`${t} ${d}`, `${c.file}: an em or en dash`).not.toMatch(/[—–]/);
+      expect(titles.has(t), `${c.file}: pageTitle repeats another page's`).toBe(false);
+      titles.add(t);
+    }
+  });
+
+  it('the Help menu entries for the site pages and the citation are documented', () => {
+    const chapter = read('docs/manual/03-interface.md');
+    for (const label of ['About CBCTScope', 'Cite this software', 'Legal notice', 'Close page']) {
+      const src = label === 'Close page' ? read('components/cbct/ManualDrawer.tsx') : appSrc;
+      expect(src, `the Help menu label "${label}" was removed or renamed`).toContain(label);
+      expect(chapter, `03-interface.md must name "${label}"`).toContain(`**${label}**`);
+    }
+  });
+
   it('the front page and the citation file state the current version', () => {
     const version = (JSON.parse(read('package.json')) as { version: string }).version;
     expect(read('docs/manual/00-front.md'), `00-front.md must state version ${version}`).toContain(version);

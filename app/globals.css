@@ -462,3 +462,98 @@ textarea:focus-visible,
   max-width: 100%;
   text-align: left;
 }
+
+/* The site's reading pages (components/SitePage.tsx: /about and /legal) and the home page's
+   text before the viewer mounts (components/SiteIntro.tsx): the viewer's ground, type and
+   accent, full contrast, plain links. They scroll like documents. */
+body > div.site {
+  height: auto;
+  min-height: 100%;
+}
+body > div.site-intro {
+  min-height: 0;
+  padding-bottom: 12px;
+}
+.site {
+  display: flex;
+  justify-content: center;
+  padding: 24px 16px 40px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.site-col {
+  width: 100%;
+  max-width: 720px;
+}
+.site h1 {
+  font-size: 22px;
+  margin: 0 0 12px;
+}
+.site h2 {
+  font-size: 17px;
+  margin: 28px 0 8px;
+}
+.site h3 {
+  font-size: 14px;
+  margin: 16px 0 4px;
+}
+.site p,
+.site ul {
+  margin: 0 0 12px;
+}
+.site-nav,
+.site-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: var(--fs-body);
+}
+.site-nav {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+}
+.site-nav .site-name {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+  margin-right: auto;
+}
+.site-foot {
+  border-top: 1px solid var(--border);
+  margin-top: 32px;
+  padding-top: 12px;
+  color: var(--text-dim);
+}
+.site-links {
+  columns: 2 220px;
+  padding-left: 18px;
+}
+.site-nojs {
+  display: none;
+}
+.site-posture {
+  color: var(--warn);
+}
+.site pre,
+.cite-pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--ctl-radius);
+  padding: 8px 10px;
+  font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0 0 8px;
+  color: var(--text);
+}
+.cite-ref {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--ctl-radius);
+  padding: 8px 10px;
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}

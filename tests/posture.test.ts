@@ -10,6 +10,15 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import {
+  ABOUT_DESCRIPTION,
+  ABOUT_LEAD,
+  ABOUT_TITLE,
+  HOME_LEAD,
+  LEGAL_DESCRIPTION,
+  LEGAL_PURPOSE,
+  LEGAL_TITLE,
+} from '../components/sitePages';
 
 const root = process.cwd();
 const read = (p: string) => readFileSync(path.join(root, p), 'utf8');
@@ -146,6 +155,31 @@ function surfaces(): [string, string][] {
     ['CITATION.cff title', cff],
     ['package.json description', pkg],
     ['mcp/manifest.json description', bundle],
+    // the site's text pages (components/sitePages.ts): the home page before the viewer, /about, /legal
+    ['home page lead (before the viewer mounts)', HOME_LEAD],
+    ['/about title', ABOUT_TITLE],
+    ['/about description', ABOUT_DESCRIPTION],
+    ['/about first sentence', ABOUT_LEAD],
+    ['/legal title', LEGAL_TITLE],
+    ['/legal description', LEGAL_DESCRIPTION],
+    ['/legal first sentence', LEGAL_PURPOSE],
+    // the manual pages' HTML titles and meta descriptions (docs/manual/manifest.json)
+    ...manualPageSurfaces(),
+  ];
+}
+
+/** every manual page's pageTitle and description, and the manual's own description */
+function manualPageSurfaces(): [string, string][] {
+  const manifest = JSON.parse(read('docs/manual/manifest.json')) as {
+    description?: string;
+    chapters: { file: string; pageTitle?: string; description?: string }[];
+  };
+  return [
+    ['docs/manual/manifest.json description', manifest.description ?? ''],
+    ...manifest.chapters.flatMap((c): [string, string][] => [
+      [`${c.file} pageTitle`, c.pageTitle ?? ''],
+      [`${c.file} description`, c.description ?? ''],
+    ]),
   ];
 }
 

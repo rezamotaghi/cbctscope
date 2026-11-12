@@ -17,8 +17,13 @@ import { describe, expect, it } from 'vitest';
  *
  * Re-measured 2026-11-11 after the stills and thumbnails were recaptured at v2.1.0 (the nine WebP
  * stills 2_135_454 bytes): 10_608_180 bytes, of which manual/ is 2_520_629.
+ *
+ * Re-measured 2026-11-12 after the site's text pages joined the export (docs/web-build.md,
+ * section 14: /about and /legal with their RSC payloads, the home page's text before the
+ * viewer, sitemap.xml and robots.txt, the manual pages' descriptions and footers, the disc
+ * section of chapter 4): 10_712_976 bytes, of which manual/ is 2_547_143.
  */
-const MEASURED = 10_608_180;
+const MEASURED = 10_712_976;
 const BUDGET = Math.round(MEASURED * 1.1);
 
 const out = path.join(process.cwd(), 'out');

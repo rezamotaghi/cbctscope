@@ -48,7 +48,8 @@ describe('the manual as pages', () => {
     for (const p of pages) {
       for (const m of html(p).matchAll(/<a [^>]*href="([^"]+)"/g)) {
         const href = m[1];
-        if (/^[a-z]+:/i.test(href)) continue;
+        // other origins, and the site's pages beside manual/ (../, ../about, ../legal: checked against the export in tests/siteExport.test.ts)
+        if (/^[a-z]+:/i.test(href) || href.startsWith('../')) continue;
         const [file, hash] = href.split('#');
         const target = file || p;
         if (!existsSync(path.join(out, target))) broken.push(`${p}: ${href}`);
@@ -88,8 +89,32 @@ describe('the manual as pages', () => {
       const page = html(p);
       expect(page, p).toMatch(/<meta charset="utf-8">/i);
       expect(page, `${p} has an inline script`).not.toMatch(/<script(?![^>]*\bsrc=)[^>]*>/i);
-      for (const m of page.matchAll(/<(?:script|link|img)[^>]*(?:src|href)="([^"]+)"/g)) expect(m[1], p).not.toMatch(/^[a-z]+:|^\/\//i);
+      // every loaded asset is relative; the canonical link names the production address on purpose and loads nothing
+      for (const m of page.matchAll(/<(?:script|link(?! rel="canonical")|img)[^>]*(?:src|href)="([^"]+)"/g)) expect(m[1], p).not.toMatch(/^[a-z]+:|^\/\//i);
     }
+  });
+
+  it('every page has a meta description, one canonical production address, and the footer: author, viewer, legal page', () => {
+    const entries = JSON.parse(readFileSync(path.join(root, 'docs/manual/manifest.json'), 'utf8')) as {
+      chapters: { file: string; pageTitle: string; description: string }[];
+    };
+    for (const p of pages) {
+      const page = html(p);
+      const canon = [...page.matchAll(/<link rel="canonical" href="([^"]+)">/g)].map((m) => m[1]);
+      expect(canon, p).toEqual([p === 'index.html' ? 'https://cbctscope.com/manual/' : `https://cbctscope.com/manual/${p}`]);
+      expect(page, p).toMatch(/<meta name="description" content="[^"]{50,}">/);
+      const foot = /<footer class="foot">[\s\S]*?<\/footer>/.exec(page)?.[0] ?? '';
+      expect(foot, `${p}: the author line links the About page`).toContain('<a href="../about">By Dr. Reza Motaghi, oral and maxillofacial radiologist</a>');
+      expect(foot, `${p}: a link back to the viewer`).toContain('href="../"');
+      expect(foot, `${p}: a link to the legal page`).toContain('href="../legal"');
+    }
+    // the manifest's title and description become the page's, the headings stay the markdown's
+    for (const c of entries.chapters) {
+      const page = html(pageName(c.file));
+      expect(page).toContain(`<title>${c.pageTitle.replace(/&/g, '&amp;')} · CBCTScope manual</title>`);
+      expect(page).toContain(`<meta name="description" content="${c.description.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}">`);
+    }
+    expect(html('mpr.html')).toContain('<h1 id="mpr">MPR</h1>');
   });
 
   it('the index page states the version and the manual revision', () => {
