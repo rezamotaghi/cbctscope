@@ -9,6 +9,9 @@ export const SITE_URL = 'https://cbctscope.com';
 /** the author's own site: linked from his name on the home page, About, legal and manual pages (components/links.ts re-exports it) */
 export const AUTHOR_URL = 'https://rezamotaghi.com';
 
+/** the author's registered protocol for grading AI-written radiograph reports: linked from the About page's author paragraph only */
+export const RADIGRADE_URL = 'https://radigrade.com';
+
 /** the one contact address, named on the legal page */
 export const CONTACT_EMAIL = 'contact@cbctscope.com';
 

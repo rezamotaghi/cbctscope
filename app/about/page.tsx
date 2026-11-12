@@ -4,7 +4,7 @@
 import CitationBlock from '@/components/CitationBlock';
 import SitePage from '@/components/SitePage';
 import { jsonLdText, softwareJsonLd } from '@/components/jsonLd';
-import { AUTHOR_ORCID, AUTHOR_URL, LICENSE_URL, REPO_URL } from '@/components/links';
+import { AUTHOR_ORCID, AUTHOR_URL, LICENSE_URL, RADIGRADE_URL, REPO_URL } from '@/components/links';
 import { pageMetadata } from '@/components/siteMeta';
 import { ABOUT_DESCRIPTION, ABOUT_LEAD, ABOUT_TITLE } from '@/components/sitePages';
 import { readCitation } from '@/lib/server/citation';
@@ -41,7 +41,11 @@ export default function About() {
           Dr. Reza Motaghi
         </a>
         , a board-certified oral and maxillofacial radiologist, who reads with it. He reads oral and maxillofacial imaging
-        every day and also develops, evaluates and trains imaging AI. ORCID:{' '}
+        every day and also develops, evaluates and trains imaging AI. He is the creator of{' '}
+        <a href={RADIGRADE_URL} target="_blank" rel="noopener noreferrer">
+          Radigrade
+        </a>
+        , a registered protocol for grading AI-written radiograph reports. ORCID:{' '}
         <a href={AUTHOR_ORCID} target="_blank" rel="noopener noreferrer">
           0009-0005-3194-1879
         </a>
