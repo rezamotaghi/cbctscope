@@ -338,7 +338,3 @@ cite it (see
 
 [AGPL-3.0-or-later](LICENSE). Free to use, study, and modify. If you build a product or
 service on this code, its source must be open under the same terms.
-
-For uses the AGPL does not fit (closed-source products, commercial integration), a
-separate commercial license is available: reach me through the contact page at
-[rezamotaghi.com/contact](https://rezamotaghi.com/contact).
