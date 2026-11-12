@@ -3,8 +3,9 @@
 // read without building anything.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { inflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { DMG_LAYOUT, DMG_SENTENCE, dmgBackgroundSvg, iconColours } from '../scripts/dmg-background.mjs';
+import { DMG_LAYOUT, DMG_SENTENCE, LABEL_GROUND, dmgBackgroundSvg, iconColours } from '../scripts/dmg-background.mjs';
 import {
   dmgCommands,
   dmgNotarySkip,
@@ -26,6 +27,45 @@ const pngSize = (p: string) => {
   const b = readFileSync(path.join(root, p));
   return { width: b.readUInt32BE(16), height: b.readUInt32BE(20) };
 };
+
+/** an 8-bit, non-interlaced RGB or RGBA PNG decoded to rows of [r, g, b] (node:zlib only) */
+const decodePng = (p: string) => {
+  const b = readFileSync(path.join(root, p));
+  const width = b.readUInt32BE(16);
+  const height = b.readUInt32BE(20);
+  const [depth, type, , , interlace] = b.subarray(24, 29);
+  if (depth !== 8 || (type !== 2 && type !== 6) || interlace !== 0) throw new Error(`${p}: unexpected PNG format`);
+  const bpp = type === 6 ? 4 : 3;
+  const idat: Buffer[] = [];
+  for (let o = 8; o < b.length; ) {
+    const len = b.readUInt32BE(o);
+    if (b.toString('latin1', o + 4, o + 8) === 'IDAT') idat.push(b.subarray(o + 8, o + 8 + len));
+    o += 12 + len;
+  }
+  const raw = inflateSync(Buffer.concat(idat));
+  const stride = width * bpp;
+  const out = Buffer.alloc(stride * height);
+  for (let y = 0; y < height; y++) {
+    const filter = raw[y * (stride + 1)];
+    const line = raw.subarray(y * (stride + 1) + 1, (y + 1) * (stride + 1));
+    for (let i = 0; i < stride; i++) {
+      const a = i >= bpp ? out[y * stride + i - bpp] : 0;
+      const up = y > 0 ? out[(y - 1) * stride + i] : 0;
+      const c = y > 0 && i >= bpp ? out[(y - 1) * stride + i - bpp] : 0;
+      const pa = Math.abs(up - c), pb = Math.abs(a - c), pc = Math.abs(a + up - 2 * c);
+      const pred = [0, a, up, (a + up) >> 1, pa <= pb && pa <= pc ? a : pb <= pc ? up : c][filter];
+      out[y * stride + i] = (line[i] + pred) & 255;
+    }
+  }
+  return { width, height, at: (x: number, y: number) => [0, 1, 2].map((k) => out[y * stride + x * bpp + k]) };
+};
+
+/** WCAG relative luminance and contrast ratio */
+const luminance = ([r, g, b]: number[]) => {
+  const lin = (v: number) => ((v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+};
+const contrast = (l1: number, l2: number) => (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
 
 describe('the dmg window', () => {
   const { window: w, iconSize, app, applications } = DMG_LAYOUT;
@@ -59,6 +99,30 @@ describe('the dmg window', () => {
   it('the committed pictures are the window at 1x and 2x', () => {
     expect(pngSize('desktop/icon/dmg-background.png')).toEqual(w);
     expect(pngSize('desktop/icon/dmg-background@2x.png')).toEqual({ width: w.width * 2, height: w.height * 2 });
+  });
+
+  it('the ground behind each file name reads 4.5:1 or better against black and against white', () => {
+    // Finder draws the names black under Light and white under Dark; the picture serves both
+    const hex = (c: string) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+    expect(contrast(luminance(hex(LABEL_GROUND)), 0)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(luminance(hex(LABEL_GROUND)), 1)).toBeGreaterThanOrEqual(4.5);
+    const margin = 6;
+    for (const [file, scale] of [['desktop/icon/dmg-background.png', 1], ['desktop/icon/dmg-background@2x.png', 2]] as const) {
+      const png = decodePng(file);
+      for (const [name, l] of Object.entries(DMG_LAYOUT.labels)) {
+        const x0 = Math.floor((l.x - l.width / 2 - margin) * scale);
+        const x1 = Math.ceil((l.x + l.width / 2 + margin) * scale);
+        const y0 = Math.floor((l.y - l.height / 2 - margin) * scale);
+        const y1 = Math.ceil((l.y + l.height / 2 + margin) * scale);
+        let worst = Infinity;
+        for (let y = y0; y < y1; y++)
+          for (let x = x0; x < x1; x++) {
+            const lum = luminance(png.at(x, y));
+            worst = Math.min(worst, contrast(lum, 0), contrast(lum, 1));
+          }
+        expect(worst, `${file}, ${name} label`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
   });
 
   it('the picture says the one sentence, in the icon colours, with no version', () => {

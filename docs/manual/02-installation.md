@@ -158,8 +158,8 @@ installer has none), so either download is the same app.
 - macOS: `CBCTScope-<version>-arm64.dmg` for Apple silicon,
   `CBCTScope-<version>-x64.dmg` for an Intel Mac (a `.zip` of each is there
   too). Open the dmg: a dark window titled **CBCTScope** and the
-  version number shows the app and the **Applications** folder, with the
-  line "Drag CBCTScope to Applications". Drag **CBCTScope** onto **Applications**, then
+  version number shows the app and the **Applications** folder, their names
+  on a grey band, with the line "Drag CBCTScope to Applications". Drag **CBCTScope** onto **Applications**, then
   eject the disk image. Both the app and the disk image itself are signed
   and notarised by Apple, with the ticket attached, so macOS checks them
   even offline and asks only its usual question for an app downloaded from
