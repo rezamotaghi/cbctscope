@@ -113,8 +113,16 @@ What differs from the local app:
   model account, works in both (section 9.6).
 - The header reads **Research use only. Not a medical device.** at all times.
   Its last button, **Download the desktop app** (on a narrower window,
-  **Desktop app**), opens the latest release (`/releases/latest` on the
-  project's GitHub page), with the installers. **Help** opens this manual,
+  **Desktop app**), opens a menu of direct downloads from the latest
+  release: **Mac with Apple silicon**, **Mac with Intel** and **Windows**
+  (the installer), then the line "Which Mac? Apple menu, About This Mac.
+  Chip: Apple M1 or later is Apple silicon. Processor: Intel is Intel.",
+  then **All downloads and release notes**, the release page
+  (`/releases/latest` on the project's GitHub page). Your own system's entries come first (the Macs on
+  macOS, Windows on Windows); every entry is always there. Clicking an entry
+  starts the download in your browser; opening the menu contacts nothing.
+  The menu moves with the arrow keys and closes with Escape, like the other
+  menus (section 3.1). **Help** opens this manual,
   served by the site itself, in a new tab, and links the source code
   repository; in the desktop app it opens the manual drawer instead
   (section 3.1).
@@ -131,8 +139,15 @@ bridge built in: no Node.js, no terminal, no browser tab to keep open. It runs
 the same browser engine the web build is tested on (Chromium, through
 Electron), so every reading mode behaves the same.
 
-**Download.** Every release that carries it lists the files on the project's
-GitHub releases page:
+**Download.** The website's **Download the desktop app** menu (section 2.5)
+links each installer directly. Every release that carries the app lists its
+files on the project's GitHub releases page, each installer twice: under its
+versioned name below, and under a fixed name that is the same in every
+release, which the menu's links use: `CBCTScope-mac-arm64.dmg`,
+`CBCTScope-mac-x64.dmg` and `CBCTScope-windows-setup.exe`. The two names hold
+the same file, byte for byte: the fixed name is a copy of the signed,
+notarised and stapled file, made after those steps, so either download is
+the same signed app.
 
 - macOS: `CBCTScope-<version>-arm64.dmg` for Apple silicon,
   `CBCTScope-<version>-x64.dmg` for an Intel Mac (a `.zip` of each is there

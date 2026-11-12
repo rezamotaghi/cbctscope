@@ -51,6 +51,7 @@ import { EVERY_MODE_GESTURES, MODE_GESTURES, statusLegend, type GestureMode } fr
 import { PANE_BUTTONS } from './paneButtons';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { REPO_URL, RELEASES_URL, STILLS_URL } from '@/components/links';
+import { downloadEntries } from '@/components/downloads';
 import { onMenuButtonKeyDown, onMenuKeyDown, useDismiss, useKeepInViewport } from './menus';
 
 interface ListEntry {
@@ -264,15 +265,22 @@ export default function CbctApp() {
   const srcPanelRef = useRef<HTMLDivElement | null>(null);
   const helpPanelRef = useRef<HTMLDivElement | null>(null);
   const keysPanelRef = useRef<HTMLDivElement | null>(null);
+  /** the header's download menu (plain browser only): the installers, the visitor's system first */
+  const [dlMenu, setDlMenu] = useState(false);
+  const dlMenuRef = useRef<HTMLDivElement | null>(null);
+  const dlPanelRef = useRef<HTMLDivElement | null>(null);
   const closeSrc = useCallback(() => setSrcMenu(false), []);
   const closeHelp = useCallback(() => setHelpMenu(false), []);
   const closeKeys = useCallback(() => setKeysOpen(false), []);
+  const closeDl = useCallback(() => setDlMenu(false), []);
   useDismiss(srcMenu, closeSrc, srcMenuRef);
   useDismiss(helpMenu, closeHelp, helpMenuRef);
   useDismiss(keysOpen, closeKeys, keysRef);
+  useDismiss(dlMenu, closeDl, dlMenuRef);
   useKeepInViewport(srcMenu, srcPanelRef);
   useKeepInViewport(helpMenu, helpPanelRef);
   useKeepInViewport(keysOpen, keysPanelRef);
+  useKeepInViewport(dlMenu, dlPanelRef);
 
   const current = useMemo(() => volumes.find((v) => v.anon === anon) ?? null, [volumes, anon]);
   /** the open image is a single 2D radiograph — the volumetric modes don't apply */
@@ -1169,19 +1177,64 @@ export default function CbctApp() {
           {/* the opt-in in-page navigation agent (web build and desktop app): the plain Agent
               button opens its strip under the viewer */}
           {IS_WEB && <AgentToggle />}
-          {/* the desktop app's installers, offered in a plain browser only */}
+          {/* the desktop app's installers, offered in a plain browser only: a menu of direct
+              links (components/downloads.ts), the visitor's own system first, read from the user
+              agent when the menu opens (it never opens in the static export). Every entry is a
+              link the reader clicks; opening the menu requests nothing. */}
           {IS_WEB && !inShell && (
-            <a
-              className="ctl"
-              href={RELEASES_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Download the desktop app"
-              title="the desktop app for macOS and Windows, with agent control over MCP, on the latest release"
-            >
-              <span className="dl-long">Download the desktop app</span>
-              <span className="dl-short">Desktop app</span>
-            </a>
+            <div ref={dlMenuRef} style={{ position: 'relative' }}>
+              <button
+                className="ctl"
+                aria-expanded={dlMenu}
+                aria-haspopup="menu"
+                aria-label="Download the desktop app"
+                onClick={() => setDlMenu((v) => !v)}
+                onKeyDown={(e) => onMenuButtonKeyDown(e, dlMenu, setDlMenu, dlPanelRef)}
+                title="the desktop app for macOS and Windows, with agent control over MCP: direct downloads from the latest release"
+              >
+                <span className="dl-long">Download the desktop app</span>
+                <span className="dl-short">Desktop app</span>
+              </button>
+              {dlMenu && (
+                <div
+                  ref={dlPanelRef}
+                  className="menu-panel"
+                  role="menu"
+                  aria-label="Download the desktop app"
+                  onKeyDown={onMenuKeyDown}
+                  style={{ right: 0, minWidth: 260 }}
+                >
+                  {downloadEntries(navigator.userAgent).map((entry) =>
+                    entry.kind === 'note' ? (
+                      <div
+                        key="note"
+                        data-testid="download-note"
+                        style={{ padding: '4px 10px 8px', color: 'var(--text)', lineHeight: 1.5, maxWidth: 300, whiteSpace: 'normal' }}
+                      >
+                        {entry.text}
+                      </div>
+                    ) : (
+                      <React.Fragment key={entry.href}>
+                        {entry.href === RELEASES_URL && (
+                          <div role="separator" style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+                        )}
+                        <a
+                          className="menu-item"
+                          role="menuitem"
+                          href={entry.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={entry.title}
+                          onClick={() => setDlMenu(false)}
+                        >
+                          {entry.label}
+                        </a>
+                      </React.Fragment>
+                    ),
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </header>

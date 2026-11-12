@@ -4,7 +4,7 @@
 /** the source code: the Help menu and the About popover */
 export const REPO_URL = 'https://github.com/rezamotaghi/cbctscope';
 
-/** the desktop app's installers: the header's download button, plain browser only */
+/** the latest release, every file and its notes: the header's download menu (components/downloads.ts), plain browser only */
 export const RELEASES_URL = 'https://github.com/rezamotaghi/cbctscope/releases/latest';
 
 /** the consented, bone-only stills of a real scan: the first-run status line's link */

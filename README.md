@@ -179,7 +179,9 @@ app has the same panel next to its MCP bridge (manual section 9.6).
 **The desktop app** is the same web build in its own window with the agent
 bridge built in, so no Node.js and no browser tab: download the macOS dmg
 (signed and notarised) or the Windows installer from the
-[releases page](https://github.com/rezamotaghi/cbctscope/releases). The MCP
+[releases page](https://github.com/rezamotaghi/cbctscope/releases). On the
+website, the header's **Download the desktop app** menu offers the same signed
+files as direct downloads, your own system first. The MCP
 setup below works with it unchanged (manual section 2.6).
 
 ## Opening your own scan

@@ -21,10 +21,16 @@ test('the posture line is in the header', async ({ page }) => {
   await expect(page.getByText('Research use only. Not a medical device.')).toBeVisible();
 });
 
-test('the header ends with the desktop app download, pointing at the latest release', async ({ page }) => {
-  const link = page.locator('header').getByRole('link', { name: 'Download the desktop app', exact: true });
-  await expect(link).toBeVisible();
-  await expect(link).toHaveAttribute('href', 'https://github.com/rezamotaghi/cbctscope/releases/latest');
+test('the header ends with the desktop app download menu, whose last entry is the latest release', async ({ page }) => {
+  const button = page.locator('header').getByRole('button', { name: 'Download the desktop app', exact: true });
+  await expect(button).toBeVisible();
+  await expect(button).toHaveAttribute('aria-haspopup', 'menu');
+  await button.click();
+  await expect(page.getByRole('menu', { name: 'Download the desktop app' }).getByRole('menuitem').last()).toHaveAttribute(
+    'href',
+    'https://github.com/rezamotaghi/cbctscope/releases/latest',
+  );
+  await page.keyboard.press('Escape');
   // the last control of the header row
   const last = await page.locator('header a, header button, header select').last().getAttribute('aria-label');
   expect(last).toBe('Download the desktop app');

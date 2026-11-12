@@ -55,7 +55,7 @@ for (const width of [1024, 1280, 1440, 1600]) {
     const next = (await page.getByRole('button', { name: 'Next volume' }).boundingBox())!;
     expect(Math.abs(prev.y - next.y)).toBeLessThan(2);
     // the download is the header's last control, labelled in full only where it fits
-    const dl = header.getByRole('link', { name: 'Download the desktop app' });
+    const dl = header.getByRole('button', { name: 'Download the desktop app' });
     await expect(dl).toBeVisible();
     expect(await dl.innerText()).toBe(width >= 1500 ? 'Download the desktop app' : 'Desktop app');
   });
@@ -200,7 +200,7 @@ test('no control anywhere on the page carries an emoji, a pictograph or an arrow
       return hits;
     });
   expect(await scan()).toEqual([]);
-  for (const name of ['Open', 'Help', 'Keys', 'Agent']) {
+  for (const name of ['Open', 'Help', 'Keys', 'Agent', 'Download the desktop app']) {
     await page.locator('header').getByRole('button', { name, exact: true }).click();
     expect(await scan(), `with ${name} open`).toEqual([]);
     await page.keyboard.press('Escape');

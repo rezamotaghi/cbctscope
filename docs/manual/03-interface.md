@@ -13,7 +13,7 @@ close on its answer.
 The header is one row on a wide screen and wraps onto a second row, whole
 groups at a time, when the window is narrower than its controls. The still
 shows the local app, so it carries callouts 1 to 9; Agent (10) and the desktop
-download (11) join them on the website and, for Agent, in the desktop app. From
+download menu (11) join them on the website and, for Agent, in the desktop app. From
 left to right:
 
 1. **CBCTScope**, with what it is under the name:
@@ -63,8 +63,11 @@ left to right:
     on** while the agent is on and carries no status otherwise; the strip names
     the provider and holds **Switch off**.
 11. **Download the desktop app** (the website in a plain browser only; it
-    reads **Desktop app** on a narrower window): the latest release, with the
-    installers for macOS and Windows (section 2.6).
+    reads **Desktop app** on a narrower window): a menu of direct downloads
+    from the latest release: **Mac with Apple silicon**, **Mac with Intel**,
+    **Windows**, a line on telling the two Macs apart, and **All downloads
+    and release notes** (sections 2.5 and 2.6). Your own system's entries
+    come first.
 
 Every menu and popover closes with Escape or a click anywhere outside it,
 the image included; the arrow keys move through a menu's entries. Keyboard

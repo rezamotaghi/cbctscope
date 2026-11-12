@@ -178,8 +178,14 @@ The page opens on the phantom, as the repo's demo mode does. The source menu off
 DICOMDIR or DICOM folder" and "Open a single DICOM file" (a multiframe volume or a 2D
 radiograph); a drop anywhere on the viewer opens too ("Drop a DICOM folder, a DICOMDIR or a
 single file here"). The header carries "Research use only. Not a medical device." at all
-times; its last button, "Download the desktop app" ("Desktop app" on a narrower window), opens
-`/releases/latest` in a plain browser, and the Help menu and the About popover link the
+times; its last button, "Download the desktop app" ("Desktop app" on a narrower window), shown
+in a plain browser only, opens a menu built like Open and Help (`components/downloads.ts`):
+"Mac with Apple silicon", "Mac with Intel" and "Windows" link
+`/releases/latest/download/<fixed name>` (section 9), then a plain line on telling the Macs
+apart, then "All downloads and release notes" links `/releases/latest`. The visitor's own
+system comes first, read from the user agent when the menu opens; no entry is hidden and the
+Mac's chip is never guessed. Every entry is a link the reader clicks; opening the menu
+requests nothing. The Help menu and the About popover link the
 repository. While the phantom is on screen and nothing is open, the status line at the bottom
 says "Your scan is read in this tab and never uploaded." and links "See CBCTScope on a real
 scan" to the README's stills of a consented, bone-only real CBCT. Below 768 px wide a notice
@@ -218,11 +224,28 @@ this order:
    `desktop-gate` then `desktop-mac` (signs, notarises and staples the app and the dmg,
    section 12; skipped without the signing secrets).
 3. `publish` attaches the installers to the release, once `desktop-win` succeeded and
-   `desktop-mac` succeeded or was skipped.
+   `desktop-mac` succeeded or was skipped. Each installer goes up twice: under its versioned
+   name (`CBCTScope-<version>-arm64.dmg`, `-x64.dmg`, `-setup.exe`; the manual cites these),
+   and under a fixed name, the same in every release, that the header's download menu links
+   through GitHub's `/releases/latest/download/<name>`: `CBCTScope-mac-arm64.dmg`,
+   `CBCTScope-mac-x64.dmg`, `CBCTScope-windows-setup.exe` (defined once in
+   `components/downloads.ts`; `tests/downloads.test.ts` fails if `release.yml` names others).
+   The fixed names are byte copies made in the build jobs, never a rebuild: the mac job copies
+   each dmg only after it is signed, notarised, stapled and checked, then runs `cmp`,
+   `xcrun stapler validate` and `spctl --assess` on each copy (a stapled ticket is written into
+   the dmg itself, so a byte copy carries it); the Windows job copies the setup exe after
+   packaging and runs `cmp`. A release without the mac secrets carries no mac files, fixed
+   names included, so the two Mac entries answer 404 on that release.
 4. `deploy` puts the site on GitHub Pages only after `build` and `publish` succeeded (the only
    job with `pages: write` and `id-token: write`). The site and the installers go public
    together: a failed desktop build leaves the site as it was, never linking to a release
    without installers.
+
+On release day a human checks, in a browser, that the release carries the six installer files
+(three versioned, three fixed) and that each of the menu's three direct links starts the
+download of the file it names. The direct links cannot be exercised before the first release
+that carries the fixed names; until then they answer 404, and "All downloads and release
+notes" still reaches every file.
 
 Until the domain is switched on, the
 site answers at the repository's GitHub Pages address only. The `CNAME` file and the DNS
@@ -353,7 +376,9 @@ How it is built:
   the step ends), because notarytool reads the key from a
   file, so a missing or wrong API key now fails the job rather than shipping an image without
   a ticket; a last step runs `xcrun stapler validate` and `spctl --assess --type open
-  --context context:primary-signature` on every dmg. One `publish` job, the only one with `contents: write`, downloads the
+  --context context:primary-signature` on every dmg, and a step after it copies each dmg to its
+  fixed name and checks each copy the same way (section 9); the Windows job copies its setup exe
+  to its fixed name. One `publish` job, the only one with `contents: write`, downloads the
   artifacts and runs `gh release upload`. Signing and notarisation secrets reach the
   packaging step only. The Pages `deploy` job needs `publish`, so the site goes live only
   once the installers are attached. A release without the mac secrets skips the mac job; the
