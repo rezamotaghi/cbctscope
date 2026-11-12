@@ -162,6 +162,10 @@ describe('user manual tracks the app (docs/manual/)', () => {
       [appSrc, 'Not a medical device.', 'docs/manual/02-installation.md'],
       [appSrc, 'Source code repository', 'docs/manual/03-interface.md'],
       [read('components/links.ts'), '/releases/latest', 'docs/manual/02-installation.md'],
+      // the header's download menu (components/downloads.ts): its entries, its note, its fixed names
+      ...['Mac with Apple silicon', 'Mac with Intel', 'All downloads and release notes', 'Which Mac? Apple menu, About This Mac.', 'CBCTScope-mac-arm64.dmg', 'CBCTScope-mac-x64.dmg', 'CBCTScope-windows-setup.exe'].map(
+        (s) => [read('components/downloads.ts'), s, 'docs/manual/02-installation.md'] as [string, string, string],
+      ),
       [dialogs, 'Research use only', 'docs/manual/04-opening-scans.md'],
       [dialogs, 'I understand', 'docs/manual/04-opening-scans.md'],
       [dialogs, 'Large volume', 'docs/manual/04-opening-scans.md'],

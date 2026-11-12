@@ -180,7 +180,7 @@ const PLANS = {
       "header .tabs",
       "header .hgroup-volume",
       ['button', 'Open'], ['button', 'Export'], ['button', 'Snapshot'], ['button', 'Keys'], ['button', 'Help'],
-      ['button', 'Agent'], ['a', 'Download the desktop app'],
+      ['button', 'Agent'], ['button', 'Download the desktop app'],
     ];
     // a fresh load: the still shows the first-run state (the phantom, the first-run line)
     await p.send('Page.navigate', { url: URL_ });

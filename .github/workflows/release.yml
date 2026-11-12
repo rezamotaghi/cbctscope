@@ -153,6 +153,22 @@ jobs:
             xcrun stapler validate "$dmg"
             spctl --assess --type open --context context:primary-signature -v "$dmg"
           done
+      # The download menu's direct links (components/downloads.ts) need names that are the same
+      # in every release. Each fixed name is a byte copy of the versioned dmg, made only now that
+      # it is signed, notarised, stapled and checked, never a rebuild: the stapled ticket is
+      # written into the dmg itself, so the copy carries it. cmp proves the bytes are the same;
+      # stapler and spctl check each copy as they checked the original.
+      - name: Copy the dmgs to their fixed names
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          copy() {
+            cp "$1" "$2"
+            cmp "$1" "$2"
+            xcrun stapler validate "$2"
+            spctl --assess --type open --context context:primary-signature -v "$2"
+          }
+          copy "dist-desktop/CBCTScope-${version}-arm64.dmg" "dist-desktop/CBCTScope-mac-arm64.dmg"
+          copy "dist-desktop/CBCTScope-${version}-x64.dmg" "dist-desktop/CBCTScope-mac-x64.dmg"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: desktop-mac
@@ -187,6 +203,13 @@ jobs:
         run: npm run desktop:build -- --win --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      # the download menu's direct link: a byte copy of the versioned installer under the name
+      # that is the same in every release (components/downloads.ts), never a rebuild
+      - name: Copy the installer to its fixed name
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          cp "dist-desktop/CBCTScope-${version}-setup.exe" "dist-desktop/CBCTScope-windows-setup.exe"
+          cmp "dist-desktop/CBCTScope-${version}-setup.exe" "dist-desktop/CBCTScope-windows-setup.exe"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: desktop-win
