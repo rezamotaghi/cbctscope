@@ -36,12 +36,12 @@ export default function About() {
 
       <h2>Who made it</h2>
       <p>
-        CBCTScope is made by Dr. Reza Motaghi, a board-certified oral and maxillofacial radiologist, who reads with it. He
-        reads oral and maxillofacial imaging every day and also develops, evaluates and trains imaging AI, as{' '}
+        CBCTScope is made by{' '}
         <a href={AUTHOR_URL} target="_blank" rel="noopener noreferrer">
-          his own site
-        </a>{' '}
-        describes. ORCID:{' '}
+          Dr. Reza Motaghi
+        </a>
+        , a board-certified oral and maxillofacial radiologist, who reads with it. He reads oral and maxillofacial imaging
+        every day and also develops, evaluates and trains imaging AI. ORCID:{' '}
         <a href={AUTHOR_ORCID} target="_blank" rel="noopener noreferrer">
           0009-0005-3194-1879
         </a>

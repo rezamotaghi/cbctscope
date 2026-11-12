@@ -6,6 +6,9 @@
 
 export const SITE_URL = 'https://cbctscope.com';
 
+/** the author's own site: linked from his name on the home page, About, legal and manual pages (components/links.ts re-exports it) */
+export const AUTHOR_URL = 'https://rezamotaghi.com';
+
 /** the one contact address, named on the legal page */
 export const CONTACT_EMAIL = 'contact@cbctscope.com';
 

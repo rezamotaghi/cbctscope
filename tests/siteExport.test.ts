@@ -35,6 +35,24 @@ function servedText(html: string): string {
     .trim();
 }
 
+/** a fragment's text with its tags dropped and nothing put in their place, so a sentence broken by a link reads whole */
+const flatText = (html: string) => decode(html.replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim();
+
+/** the anchors whose text contains a name, as [href, target, rel] */
+const anchorsNamed = (html: string, name: string) =>
+  [...html.replace(/<script[\s\S]*?<\/script>/gi, '').matchAll(/<a ([^>]*)>([\s\S]*?)<\/a>/g)]
+    .filter((m) => decode(m[2].replace(/<[^>]+>/g, '')).includes(name))
+    .map((m) => ({ href: decode(/href="([^"]*)"/.exec(m[1])?.[1] ?? ''), target: /target="([^"]*)"/.exec(m[1])?.[1], rel: /rel="([^"]*)"/.exec(m[1])?.[1], text: decode(m[2].replace(/<[^>]+>/g, '')) }));
+
+/** the author's name is a link to his site, opened as the other outbound links are; the text is the name alone */
+function expectAuthorLink(html: string, name: string) {
+  const a = anchorsNamed(html, 'Reza Motaghi').filter((x) => x.href === 'https://rezamotaghi.com');
+  expect(a.length, `an anchor to https://rezamotaghi.com reading ${name}`).toBeGreaterThan(0);
+  expect(a[0].text).toBe(name);
+  expect(a[0].target).toBe('_blank');
+  expect(a[0].rel).toBe('noopener noreferrer');
+}
+
 /** the hrefs of the page's links, outside scripts */
 const hrefs = (html: string) => [...html.replace(/<script[\s\S]*?<\/script>/gi, '').matchAll(/<a [^>]*href="([^"]*)"/g)].map((m) => decode(m[1]));
 
@@ -42,8 +60,10 @@ describe.skipIf(!built)('the exported site', () => {
   it('the served home page carries the author, the three sentences and every link before any script runs', () => {
     const html = read('index.html');
     const text = servedText(html);
-    for (const s of ['CBCTScope', 'Reza Motaghi', HOME_LEAD, HOME_PRIVACY_WEB, HOME_RESEARCH, HOME_NOSCRIPT]) expect(text).toContain(s);
+    for (const s of ['CBCTScope', 'Reza Motaghi', HOME_PRIVACY_WEB, HOME_RESEARCH, HOME_NOSCRIPT]) expect(text).toContain(s);
+    expect(flatText(html.slice(html.indexOf('<body')).replace(/<script[\s\S]*?<\/script>/gi, ''))).toContain(HOME_LEAD);
     expect(html).toMatch(/<h1>CBCTScope<\/h1>/);
+    expectAuthorLink(html, 'Reza Motaghi');
     const links = hrefs(html);
     for (const l of HOME_LINKS) expect(links, `the link to ${l.label}`).toContain(l.href);
     // the manual, the eight guides, About, legal, the source and the author's page
@@ -77,6 +97,9 @@ describe.skipIf(!built)('the exported site', () => {
     for (const s of ['About CBCTScope', 'Who made it', 'board-certified oral and maxillofacial radiologist', 'How to cite it', 'BibTeX', 'Licence', 'AGPL-3.0-or-later', 'Privacy', 'never uploaded']) {
       expect(text, s).toContain(s);
     }
+    expectAuthorLink(html, 'Dr. Reza Motaghi');
+    expect(text).toContain('imaging AI. ORCID:');
+    expect(text).not.toContain('his own site');
     const links = hrefs(html);
     for (const h of ['https://rezamotaghi.com', 'legal', 'manual/index.html', 'https://github.com/rezamotaghi/cbctscope', 'https://github.com/rezamotaghi/cbctscope/blob/main/LICENSE']) {
       expect(links, h).toContain(h);
@@ -109,12 +132,27 @@ describe.skipIf(!built)('the exported site', () => {
     ]) {
       expect(text, s).toContain(s);
     }
+    expectAuthorLink(html, 'Reza Motaghi');
     expect(hrefs(html)).toEqual(expect.arrayContaining(['mailto:contact@cbctscope.com', 'https://www.dsb.gv.at', 'https://github.com/rezamotaghi/cbctscope/blob/main/LICENSE']));
     expect(hrefs(html).some((h) => h.startsWith('https://docs.github.com/'))).toBe(true);
     // no street address: no street word followed by a number, no postcode before Vienna or Wien
     expect(text).not.toMatch(/\b\w*(?:straße|strasse|gasse|platz|weg|street|road|avenue)\s*\d/i);
     expect(text).not.toMatch(/\b\d{4}\s+(?:Vienna|Wien)\b/);
     expect(text).not.toMatch(/[—]/);
+  });
+
+  it('every manual page footer links the author name to his site, then the About page, the viewer and the legal page', () => {
+    const pages = sitePages(out).filter((p) => p.file.startsWith('manual/'));
+    expect(pages.length).toBeGreaterThan(0);
+    for (const { file } of pages) {
+      const html = read(file);
+      const foot = /<footer class="foot">[\s\S]*?<\/footer>/.exec(html)?.[0] ?? '';
+      expectAuthorLink(foot, 'Dr. Reza Motaghi');
+      expect(flatText(foot), file).toContain('By Dr. Reza Motaghi, oral and maxillofacial radiologist');
+      const about = anchorsNamed(foot, 'About CBCTScope');
+      expect(about.map((a) => a.href), file).toEqual(['../about']);
+      expect(hrefs(foot), file).toEqual(expect.arrayContaining(['../', '../legal']));
+    }
   });
 
   it('sitemap.xml lists every exported page and nothing else; robots.txt names it', () => {

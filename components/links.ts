@@ -14,7 +14,7 @@ export const STILLS_URL = `${REPO_URL}#the-interface-at-a-glance`;
 export const LICENSE_URL = `${REPO_URL}/blob/main/LICENSE`;
 
 /** the author's own site, and his page on this project (CITATION.cff names the site) */
-export const AUTHOR_URL = 'https://rezamotaghi.com';
+export { AUTHOR_URL } from './siteAddress.mjs';
 export const AUTHOR_PROJECT_URL = 'https://rezamotaghi.com/cbctscope';
 
 /** the author's ORCID record, as CITATION.cff states it, and his GitHub profile, as REPO_URL shows it */
