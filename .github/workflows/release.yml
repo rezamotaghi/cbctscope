@@ -75,7 +75,7 @@ jobs:
   # headers.
   deploy:
     needs: [build, publish]
-    if: ${{ always() && needs.build.result == 'success' && needs.publish.result == 'success' }}
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.publish.result == 'success' }}
     runs-on: ubuntu-latest
     # the environment's secrets reach this job only, and only for a release tag
     environment: production

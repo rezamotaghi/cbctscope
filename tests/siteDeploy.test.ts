@@ -192,7 +192,7 @@ describe('the workflows', () => {
   });
 
   it('a cancelled or failed run never deploys, and both deploying jobs have a time limit', () => {
-    expect(release.jobs.deploy.if).toBe("${{ always() && needs.build.result == 'success' && needs.publish.result == 'success' }}");
+    expect(release.jobs.deploy.if).toBe("${{ !cancelled() && needs.build.result == 'success' && needs.publish.result == 'success' }}");
     expect(release.jobs.deploy['timeout-minutes' as keyof Job]).toBe(30);
     expect(rehearsal.jobs.rehearse['timeout-minutes' as keyof Job]).toBe(45);
   });

@@ -243,7 +243,7 @@ describe('the dmg notarisation', () => {
     expect(release).toMatch(/^ {2}desktop-mac:\n(?: {4}.*\n)*? {4}timeout-minutes: 90$/m);
     expect(release).toContain('umask 077');
     // the site goes live only once the installers are attached
-    expect(release).toContain("  deploy:\n    needs: [build, publish]\n    if: ${{ always() && needs.build.result == 'success' && needs.publish.result == 'success' }}\n");
+    expect(release).toContain("  deploy:\n    needs: [build, publish]\n    if: ${{ !cancelled() && needs.build.result == 'success' && needs.publish.result == 'success' }}\n");
     for (const uses of release.match(/uses: \S+/g) ?? []) expect(uses).toMatch(/@[0-9a-f]{40}$/);
   });
 });
