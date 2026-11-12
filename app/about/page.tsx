@@ -68,8 +68,8 @@ export default function About() {
       <h2>Privacy</h2>
       <p>
         Scans you open are read in your browser tab, or on your computer in the desktop app, and are never uploaded; the
-        site sets no cookies and runs no analytics. The site is hosted on GitHub Pages, whose servers receive your IP
-        address as any web host does; the <a href="legal">legal notice</a> has the details.
+        site sets no cookies and runs no analytics. The site is hosted by Vercel, whose servers receive your IP address
+        as any web host does; the <a href="legal">legal notice</a> has the details.
       </p>
 
       <h2>More</h2>

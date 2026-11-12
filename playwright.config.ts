@@ -1,13 +1,13 @@
 // The web build's end-to-end suite (docs/web-build.md, section 8): Chromium only, against the
 // static export on a loopback static server. Run through `npm run test:e2e`, which also builds
 // the low-threshold variant into out-small/ for the size-notice test and the base-path
-// variant into out-base/ (served under /cbctscope) for the staging-address test.
+// variant into out-base/ (served under /cbctscope) for the base-path test.
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 4173;
 const SMALL_PORT = 4174;
 const BASE_PORT = 4175;
-/** the staging address's base path (release.yml builds the Pages site with it) */
+/** the base path of the sub-path build (the release builds the site for the root) */
 const BASE_PATH = '/cbctscope';
 
 export default defineConfig({

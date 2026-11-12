@@ -22,8 +22,9 @@ function htmlFiles(dir, base = dir) {
 }
 
 /**
- * The site path of an exported HTML file: Next's pages without the extension (GitHub Pages
- * serves about.html at /about), an index as its folder, the manual's static pages as they are.
+ * The site path of an exported HTML file: Next's pages without the extension (the host serves
+ * about.html at /about, scripts/vercel-output.mjs), an index as its folder, the manual's static
+ * pages as they are.
  * @param {string} rel
  */
 export function sitePath(rel) {

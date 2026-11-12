@@ -95,8 +95,8 @@ On first launch both modes show the built-in phantom.
 ## 2.5 The web build
 
 The viewer also runs in a browser with nothing installed: the **web build**,
-deployed to the project's GitHub Pages site by every published release. It is
-static files only, with no server behind it. It needs only a current desktop
+deployed to cbctscope.com by every published release. It is static files only,
+with no server behind it. It needs only a current desktop
 browser with WebGL2; Chrome or Edge read folders most reliably (chapter 11).
 
 What differs from the local app:

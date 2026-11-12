@@ -4,9 +4,9 @@
 //
 //   node scripts/serve-out.mjs [dir=out] [port=4173] [--prefix /cbctscope]
 //
-// --prefix serves the export under a path, the way GitHub Pages serves the staging address
-// (https://<owner>.github.io/cbctscope/): a build made with NEXT_PUBLIC_BASE_PATH=/cbctscope
-// answers at /cbctscope/..., and anything outside the prefix is a 404.
+// --prefix serves the export under a path, the way a host serves a site from a sub-path: a
+// build made with NEXT_PUBLIC_BASE_PATH=/cbctscope answers at /cbctscope/..., and anything
+// outside the prefix is a 404.
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import path from 'node:path';

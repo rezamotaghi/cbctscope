@@ -1,11 +1,14 @@
 # dependencies
 /node_modules
+/deploy/node_modules/
 
 # next.js build output
 /.next/
 /out/
 /out-small/
 /out-base/
+# the prebuilt deployment (scripts/vercel-output.mjs) and any local Vercel link
+/.vercel/
 /test-results/
 /playwright-report/
 
@@ -41,3 +44,5 @@ evidence/
 
 # desktop app packages (npm run desktop:build); binaries ship as release assets only
 /dist-desktop/
+# the release's site artifact, unzipped for the check of the public address
+/site-release/

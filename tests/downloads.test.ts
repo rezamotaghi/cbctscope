@@ -143,7 +143,7 @@ describe('release.yml attaches the installers under the fixed names', () => {
     expect(perms).toEqual({
       test: null,
       build: null,
-      deploy: { pages: 'write', 'id-token': 'write' },
+      deploy: null,
       'desktop-gate': null,
       'desktop-mac': { contents: 'read' },
       'desktop-win': { contents: 'read' },
