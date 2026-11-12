@@ -162,9 +162,10 @@ can travel. Pixels never enter a sidecar.
 - Agent opt-in: milestone 3.
 - The browser's own prompts when a folder is opened are not ours and cannot be reworded. The
   line under the folder item prepares for them: where the directory picker is used, "Your
-  browser asks to let this page read the folder; the files stay in this tab."; where the
-  classic input is used, the line that the browser may say "upload" and that the files stay in
-  this tab; in the desktop app, the same of its Open sheet and this computer.
+  browser will ask to let this page view and copy the files. It reads them into this tab and
+  sends them nowhere."; where the classic input is used, the line that the browser may say
+  "upload" and that the files stay in this tab; in either plain-browser case a second line,
+  "Or drop the folder on the viewer: the browser asks nothing."; in the desktop app, the same of its Open sheet and this computer.
 
 Every dialogue follows hard rule 4: full contrast, nothing hidden. Its one exception applies
 here: a scrim may dim the page behind an open dialogue, whose controls cannot be used while

@@ -930,9 +930,14 @@ export default function CbctApp() {
                     {inShell
                       ? "The Open sheet may say 'Upload': that is its word for letting this app read the files. They stay on this computer."
                       : dirPicker
-                        ? 'Your browser asks to let this page read the folder; the files stay in this tab.'
+                        ? 'Your browser will ask to let this page view and copy the files. It reads them into this tab and sends them nowhere.'
                         : "Your browser may say 'upload': that is its word for letting this page read the files. They stay in this tab."}
                   </div>
+                  {!inShell && (
+                    <div style={{ padding: '0 10px 8px', color: 'var(--text)', lineHeight: 1.5, maxWidth: 300, whiteSpace: 'normal' }}>
+                      Or drop the folder on the viewer: the browser asks nothing.
+                    </div>
+                  )}
                   <button
                     className="menu-item"
                     role="menuitem"

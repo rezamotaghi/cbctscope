@@ -103,12 +103,15 @@
   browser lacks folder reading. Chrome and Edge support both the folder picker
   and dropped folders; Firefox and Safari support the folder picker, and their
   support for dropped folders varies. Use **Open DICOMDIR or DICOM folder** in Chrome or Edge.
-- **The browser asks whether to upload the folder**: that is the browser's
-  standard wording for letting a page read files. The files are read into the
-  tab; nothing is sent anywhere (section 10.5). Brave, and any Chromium
-  browser without the newer folder picker, still shows it after **Open
-  DICOMDIR or DICOM folder**. Dropping the folder on the viewer avoids it,
-  and Chrome, Edge, Arc and Safari do not show it (section 4.6).
+- **The browser asks about the folder**: that is the browser's own wording,
+  not ours. Chrome, Edge and Arc ask **Allow this site to view and copy
+  files?** (it "will be able to view and make its own copies of files in" the
+  folder; **Don't Allow** or **Allow**). Brave and Firefox, which use the
+  classic input, ask **Upload N files to this site?** with an **Upload**
+  button where they are Chromium-based. Dropping the folder on the viewer
+  shows no confirmation, and neither does Safari (section 4.6). In every case
+  the files are read into the tab's memory and nothing is sent anywhere
+  (section 10.5).
 - **Marks are missing in another browser**: marks live in each browser's own
   storage. Carry them with **Save marks to file** and **Load marks from file**
   (section 7.3).

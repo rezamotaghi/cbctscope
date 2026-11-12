@@ -71,17 +71,22 @@ one is selected.
 In the web build (section 2.5) the **Open** menu offers:
 
 - **Open DICOMDIR or DICOM folder** for an export folder (a DICOMDIR tree,
-  a slice series, or multiframe files). The browser asks you to confirm that
-  the site may read the folder; that confirmation is the browser's, and
-  nothing is uploaded. In Chrome, Edge, Arc and other Chromium browsers that
-  offer it, the entry opens the browser's folder picker with read access only,
-  and the line under the entry reads **Your browser asks to let this page read
-  the folder; the files stay in this tab.** The page asks for nothing more and
-  does not keep the folder for next time; the picker only reopens in the
-  folder you chose last. Elsewhere (Safari, Firefox, Brave) the entry opens
-  the classic file picker, and the line says that the browser may say
-  "upload", which is its word for letting the page read the files, and that
-  they stay in the tab. In the desktop app the entry opens its Open sheet, and
+  a slice series, or multiframe files). The confirmation the browser shows is
+  the browser's own wording. In Chrome, Edge and Arc the entry opens the
+  browser's folder picker with read access only; the browser asks **Allow this
+  site to view and copy files?**, says the site "will be able to view and make
+  its own copies of files in" the folder, and offers **Don't Allow** and
+  **Allow**. The line under the entry reads **Your browser will ask to let this
+  page view and copy the files. It reads them into this tab and sends them
+  nowhere.** The page asks for nothing more and does not keep the folder for
+  next time; the picker only reopens in the folder you chose last. In Brave
+  and Firefox the entry opens the classic file picker; Chromium-based browsers
+  such as Brave then ask **Upload N files to this site?** with an **Upload**
+  button, and the line says that the browser may say "upload", which is its
+  word for letting the page read the files, and that they stay in the tab.
+  Safari asks nothing. In both plain-browser cases a second line reads **Or
+  drop the folder on the viewer: the browser asks nothing.** In every case the
+  files are read into the tab's memory and nothing is sent anywhere. In the desktop app the entry opens its Open sheet, and
   the line says the same of that sheet, and that the files stay on the
   computer.
 - **Open a single DICOM file** for one multiframe volume or one 2D
