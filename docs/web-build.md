@@ -345,14 +345,16 @@ How it is built:
   The disk image: its volume reads "CBCTScope <version>" (`dmg.title`), the architecture stays in
   the file name, and it opens on a dark window (the icon's ground `#141518`, its amber
   `#f0b43a`, the interface's light grey) saying "Drag CBCTScope to Applications" over a plain
-  amber arrow from the app to the Applications link. `scripts/dmg-background.mjs`, run by
+  amber arrow from the app to the Applications link, with both names on one mid grey band. `scripts/dmg-background.mjs`, run by
   `npm run icon`, renders the committed `desktop/icon/dmg-background.png` and `@2x` (640 by
   400 points, about 9 KB and 20 KB); electron-builder joins the two into one tiff and sizes the
   window from it (electron-builder ignores `dmg.window` when a background is set, so that block
   only documents the picture's size), and `dmg.window`, `dmg.iconSize` (112) and
   `dmg.contents` (icon centres 176, 212 and 464, 212) repeat `DMG_LAYOUT`, which `tests/dmgWindow.test.ts` keeps equal.
   Finder draws the icon names itself, in black under the Light appearance and white under
-  Dark; the picture carries no version, so nothing in it goes stale.
+  Dark, and the picture cannot know which: so each name sits on a mid grey (`#757577`, 4.57:1
+  against black and 4.60:1 against white), and the test checks every pixel behind each name in
+  the committed PNGs. The picture carries no version, so nothing in it goes stale.
   Notarisation in electron-builder 26.18.0 is driven by the environment: `mac.notarize: true`
   notarises when credentials are present and skips with a warning otherwise. Credentials:
   `APPLE_KEYCHAIN_PROFILE` (a local build without other credentials uses the profile
