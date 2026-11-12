@@ -178,10 +178,11 @@ app has the same panel next to its MCP bridge (manual section 9.6).
 
 **The desktop app** is the same web build in its own window with the agent
 bridge built in, so no Node.js and no browser tab: download the macOS dmg
-(signed and notarised) or the Windows installer from the
+(signed and notarised by Apple) or the Windows installer (unsigned, so Windows
+shows its SmartScreen notice once) from the
 [releases page](https://github.com/rezamotaghi/cbctscope/releases). On the
-website, the header's **Download the desktop app** menu offers the same signed
-files as direct downloads, your own system first. The MCP
+website, the header's **Download the desktop app** menu offers the same files
+as direct downloads, your own system first. The MCP
 setup below works with it unchanged (manual section 2.6).
 
 ## Opening your own scan
@@ -338,7 +339,3 @@ cite it (see
 
 [AGPL-3.0-or-later](LICENSE). Free to use, study, and modify. If you build a product or
 service on this code, its source must be open under the same terms.
-
-For uses the AGPL does not fit (closed-source products, commercial integration), a
-separate commercial license is available: reach me through the contact page at
-[rezamotaghi.com/contact](https://rezamotaghi.com/contact).

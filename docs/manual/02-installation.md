@@ -145,9 +145,9 @@ files on the project's GitHub releases page, each installer twice: under its
 versioned name below, and under a fixed name that is the same in every
 release, which the menu's links use: `CBCTScope-mac-arm64.dmg`,
 `CBCTScope-mac-x64.dmg` and `CBCTScope-windows-setup.exe`. The two names hold
-the same file, byte for byte: the fixed name is a copy of the signed,
-notarised and stapled file, made after those steps, so either download is
-the same signed app.
+the same file, byte for byte: the fixed name is a copy of the finished file,
+made after the macOS signing, notarising and stapling steps (the Windows
+installer has none), so either download is the same app.
 
 - macOS: `CBCTScope-<version>-arm64.dmg` for Apple silicon,
   `CBCTScope-<version>-x64.dmg` for an Intel Mac (a `.zip` of each is there

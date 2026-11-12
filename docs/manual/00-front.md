@@ -47,6 +47,4 @@ troubleshooting, and the keyboard and mouse reference.
 CBCTScope is free software under the AGPL-3.0-or-later license. If you use it
 in research, please cite it: the citation record is the `CITATION.cff` file in
 the repository, and the archived releases carry DOI
-[10.5281/zenodo.21431452](https://doi.org/10.5281/zenodo.21431452). For uses
-the AGPL does not fit, a commercial license is available through the contact
-page above.
+[10.5281/zenodo.21431452](https://doi.org/10.5281/zenodo.21431452).
