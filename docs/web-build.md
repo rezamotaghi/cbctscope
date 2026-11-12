@@ -275,16 +275,26 @@ How `deploy` ships the site (`release.yml`):
    tree stays off the app's audit surface; Dependabot watches the folder on its own. The
    folder sits at the root beside `mcp/`, the other npm package with its own lockfile, so it
    follows the same pattern; electron-builder's `files` allowlist leaves it out, and
-   `tsconfig.json` excludes it. Nothing is built on Vercel. The token and the two ids (`VERCEL_TOKEN`,
-   `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, repository secrets) reach this step only;
-   `VERCEL_TELEMETRY_DISABLED=1` keeps the CLI from reporting its use. The job needs no
-   permission beyond reading the repository.
-4. `node scripts/site-check.mjs --base https://cbctscope.com --out out` fails the job unless
-   every address in `out/sitemap.xml`, plus `/sitemap.xml`, `/robots.txt` and the agent
-   frame, answers 200 with no redirect and serves its file in `out/` byte for byte, with the
-   three headers below; and a missing address answers 404 with `404.html`. Byte identity is
-   the proof that nothing was injected: no analytics, no speed-insights script, no toolbar. A
-   run is retried twice, 15 s apart, so the domain can settle on the new deployment.
+   `tsconfig.json` excludes it. Nothing is built on Vercel. The job runs in the GitHub
+   environment `production`, whose secrets (`VERCEL_TOKEN`, `VERCEL_ORG_ID`,
+   `VERCEL_PROJECT_ID`, `VERCEL_AUTOMATION_BYPASS_SECRET`) no other job can read; the first
+   three reach this step only. `VERCEL_TELEMETRY_DISABLED=1` keeps the CLI from reporting its
+   use. Only the CLI's stdout is captured, and it must be exactly one https address, the new
+   deployment's own; anything else fails the job and prints what was captured. No documented
+   flag forces plain output (`--json` and `--non-interactive` switch to JSON whose shape the
+   docs do not give), so the default mode is used and the strict parse is the guard. The job
+   needs no permission beyond reading the repository and stops after 30 minutes.
+4. `node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out` checks that
+   deployment at its own address (Deployment Protection covers it, so the bypass secret goes
+   along), which works before and after the domain's address records point at Vercel. It
+   fails the job unless every file in `out/` and every address in `out/sitemap.xml` answers
+   200 with no redirect, serves its file byte for byte with the Content-Type its extension
+   needs (`text/html`, `application/javascript` or `text/javascript`, `text/css`,
+   `application/wasm`, and so on; an extension the check has no type for fails its unit test),
+   and carries the three headers below; and a missing address answers 404 with `404.html`.
+   Byte identity is the proof that nothing was injected: no analytics, no speed-insights
+   script, no toolbar. Each request gives up after 20 s; a 401 or 403 is reported once, as a
+   missing or wrong bypass secret.
 
 What `config.json` sets:
 
@@ -307,38 +317,56 @@ to count anyone.
 
 **The rehearsal.** `.github/workflows/site-rehearsal.yml`, started by hand from the Actions
 tab, runs the same build, layout and check against a **preview** deployment (`vercel deploy
---prebuilt` without `--prod`) and its own address. Previews sit behind Vercel's Deployment
-Protection, so the check sends the Protection Bypass for Automation secret
-(`VERCEL_AUTOMATION_BYPASS_SECRET`) in the `x-vercel-protection-bypass` header, and no other
-header: if Vercel injects its toolbar into the preview, the byte check fails and names it.
+--prebuilt` without `--prod`) and its own address, in the GitHub environment `rehearsal`,
+stopping after 45 minutes. The check refuses `cbctscope.com` and `www.cbctscope.com` as its
+address, so a rehearsal never checks production. Previews sit behind Vercel's Deployment
+Protection, so the check sends the Protection Bypass for Automation secret in the
+`x-vercel-protection-bypass` header, and no other header: if Vercel injects its toolbar into
+the preview, the byte check fails and names it.
 
-**The owner's one-time setup**, before the first release that deploys:
+**The owner's one-time setup.** The order matters: the site becomes public only through a
+release, after its check passed, and only when the address records change at the end.
 
 1. In the Vercel Pro team, create the project **without importing a Git repository**:
    `vercel project create cbctscope --scope <team>`, then, in an empty folder outside the
    repository, `vercel link --yes --project cbctscope --scope <team>`, which writes
    `.vercel/project.json` with the `orgId` and `projectId` needed below. The framework preset
    and build settings do not matter: a prebuilt deployment skips them.
-2. Leave **Analytics** (Web Analytics) and **Speed Insights** off. Both work only when the
-   site carries their script, which it does not; enabling Web Analytics also adds routes
-   under `/_vercel/insights/`, so keep it off.
-3. Settings, General, **Vercel Toolbar**: set Pre-Production Deployments and Production
-   Deployments to **Off** (and the same in the team's settings if the team default is on).
-4. Settings, Deployment Protection: keep **Standard Protection** (previews protected, the
-   production domain public) and create a secret under **Protection Bypass for Automation**.
-5. GitHub, the repository's Settings, Secrets and variables, Actions: add `VERCEL_TOKEN` (an
-   access token, made in the Vercel account's Tokens page, scoped to the team),
-   `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` (the `orgId` and `projectId` from step 1), and
-   `VERCEL_AUTOMATION_BYPASS_SECRET` (the secret from step 4; the rehearsal alone reads it).
-6. Run **Site rehearsal** from the Actions tab, before adding the domain. Vercel makes a new
-   project's first deployment a production one whatever the flag, so the first run deploys
-   to the project's own `vercel.app` address only; run it a second time to rehearse a true
-   preview. Both must pass.
-7. Settings, Domains: add `cbctscope.com` (and `www.cbctscope.com`, redirecting to it).
-8. At Porkbun, change only the site's address records: for `cbctscope.com` an **A** record
-   with the value shown in the Vercel dashboard, for `www` a **CNAME** with the value shown
-   there, removing any older A, AAAA or CNAME records for those two names. The mail records
-   (the two MX records and the SPF TXT record) stay as they are.
+2. Project settings: leave **Analytics** (Web Analytics) and **Speed Insights** off (both
+   work only when the site carries their script, which it does not; enabling Web Analytics
+   also adds routes under `/_vercel/insights/`). Under General, **Vercel Toolbar**, set
+   Pre-Production Deployments and Production Deployments to **Off** (and the same in the
+   team's settings if the team default is on). Under Deployment Protection keep **Standard
+   Protection** (every deployment's own address protected, the production domain public) and
+   create a secret under **Protection Bypass for Automation**.
+3. GitHub, the repository's Settings, Environments: create `production` and `rehearsal`.
+   For each, under Deployment branches and tags choose **Selected branches and tags**:
+   `production` gets one rule of Ref type **Tag** with the name pattern `v*` (the release
+   tags; the rule is matched against the run's `GITHUB_REF`, and patterns use Ruby's
+   `File.fnmatch`, where a wildcard does not match `/`); `rehearsal` gets one rule of Ref
+   type **Branch** with the name `main`.
+4. Store the secrets as **environment secrets**, never as repository secrets: in both
+   environments `VERCEL_TOKEN` (an access token, made in the Vercel account's Tokens page,
+   scoped to the team), `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` (the `orgId` and `projectId`
+   from step 1), and `VERCEL_AUTOMATION_BYPASS_SECRET` (the secret from step 2; the release's
+   check reads it too, because a deployment's own address is protected).
+5. Run **Site rehearsal** from the Actions tab, twice; both must pass. Vercel makes a new
+   project's first deployment a production one whatever the flag, so the first run becomes
+   the project's production deployment on its `vercel.app` address. That is harmless while no
+   domain points at the project; the second run rehearses a true preview.
+6. Settings, Domains: add `cbctscope.com` (and `www.cbctscope.com`, redirecting to it) while
+   Porkbun's address records still point elsewhere, so nothing answers there from Vercel yet.
+7. Publish the release. Its job attaches the installers, deploys production and checks the
+   deployment; it must pass.
+8. Only then, at Porkbun, change the site's address records: for `cbctscope.com` an **A**
+   record with the value shown in the Vercel dashboard, for `www` a **CNAME** with the value
+   shown there, removing any older A, AAAA or CNAME records for those two names. The mail
+   records (the two MX records and the SPF TXT record) stay as they are.
+9. Once the domain shows as configured in Vercel, check the public address against the files
+   the release deployed: download the `site` artifact from the release's workflow run (kept
+   30 days), unzip it into a folder, say `site-release/`, and run, from the repository,
+   `node scripts/site-check.mjs --base https://cbctscope.com --out site-release`. It retries
+   twice, 15 s apart, while the records settle; it must end with "serves all".
 
 ## 10. Milestones
 

@@ -41,8 +41,8 @@ export default function Legal() {
       </p>
       <p>
         The site is hosted by Vercel Inc. To deliver it, Vercel processes your IP address and the details of each request, in
-        the United States among other places, under the EU-US Data Privacy Framework and standard contractual clauses, as its
-        own{' '}
+        the United States among other places, under the EU-US Data Privacy Framework and, where required, standard contractual
+        clauses, as its own{' '}
         <a href={VERCEL_PRIVACY_URL} target="_blank" rel="noopener noreferrer">
           privacy policy
         </a>{' '}
