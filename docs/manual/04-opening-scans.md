@@ -15,7 +15,8 @@ CBCTScope reads **uncompressed DICOM**, in any of these shapes:
 Every CBCT unit's software can produce such an export; the option is usually
 named *export DICOM* or similar. If your export was written with compression,
 re-export with compression off; the viewer will name the problem precisely if
-it finds compressed files (chapter 11).
+it finds compressed files (chapter 11). A scan received on a disc or a USB
+stick: section 4.7.
 
 ## 4.2 Opening
 
@@ -138,3 +139,32 @@ hold it in memory (the tab's on the website, the app's in the desktop app),
 and that the viewer run from the repository holds it in a browser tab as well and only shows no notice. **Continue** loads it; **Cancel** leaves the viewer as it
 was. **Close** works as in section 4.3, without any memory of the source
 between visits.
+
+## 4.7 A CBCT on a disc or a USB stick
+
+A CBCT handed over on a CD, a DVD or a USB stick is usually a DICOMDIR export
+(section 4.1): a file named `DICOMDIR` at the top, the index of the export,
+with one or more folders beside it that hold the image files. Those files often
+have short names and no extension; the viewer recognizes them by their
+content, so their names do not matter.
+
+1. **Copy it first.** Copy everything on the disc or stick, the `DICOMDIR` file
+   and the folders beside it, into one new folder on your computer. A copy on
+   your own disk reads faster than a disc and stays there when the disc or the
+   stick is removed. Name the folder without patient identifiers, since the
+   viewer shows its name as the label of the scan (section 4.2).
+2. **Open the copy.** Open the new folder with **Open DICOMDIR or DICOM
+   folder** (sections 4.2 and 4.6), or drop it on the viewer. In the
+   repository viewer you can also pick the `DICOMDIR` file itself with **Open
+   a single DICOM file…**. Every volume found in the export is listed in the
+   volume list.
+3. **If the export is compressed.** CBCTScope opens uncompressed DICOM only.
+   When the panel says **These DICOM files are compressed**, the files on the
+   disc were written with compression, and the viewer cannot read them. Export
+   the scan again, uncompressed, from the software that made the disc, or ask
+   whoever made it for an uncompressed DICOM export (chapter 11).
+
+Many discs also carry a viewer program from the maker of the CBCT unit, and
+some start it on their own when the disc is inserted. That program is the
+vendor's own software and is separate from CBCTScope, which neither needs it
+nor runs it. Copy the DICOM files as above and open them here.
