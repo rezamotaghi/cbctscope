@@ -3,12 +3,12 @@
 // and the two workflows that use them: the release job deploys production only after the
 // installers are attached, the rehearsal deploys a preview only, and the Vercel secrets reach
 // the deploy steps alone.
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { bodyProblem, checkList, deploymentUrl, headerProblems, sitemapPaths } from '../scripts/site-check.mjs';
+import { CONTENT_TYPES, bodyProblem, checkList, contentTypeProblem, deploymentUrl, exportFiles, headerProblems, protectionMessage, refuseProduction, sitemapPaths } from '../scripts/site-check.mjs';
 import { FRAME_HEADERS, SITE_HEADERS, headersFor, vercelConfig, writeVercelOutput } from '../scripts/vercel-output.mjs';
 
 const root = path.resolve(__dirname, '..');
@@ -84,10 +84,36 @@ describe('the prebuilt deployment (scripts/vercel-output.mjs)', () => {
 });
 
 describe('the post-deploy check (scripts/site-check.mjs)', () => {
-  it('reads the deployment address from what vercel deploy printed', () => {
+  it('takes the deployment address only when the CLI printed exactly one https address', () => {
     expect(deploymentUrl('https://cbctscope-abc123-team.vercel.app\n')).toBe('https://cbctscope-abc123-team.vercel.app');
-    expect(deploymentUrl('{"inspectorUrl":"https://vercel.com/team/cbctscope/x","url":"https://cbctscope-x.vercel.app"}')).toBe('https://cbctscope-x.vercel.app');
-    expect(() => deploymentUrl('Error: no token')).toThrow(/no https address/);
+    for (const bad of ['', 'Error: no token', 'https://a.vercel.app\nhttps://b.vercel.app', '{"url":"https://cbctscope-x.vercel.app"}', 'http://a.vercel.app']) {
+      expect(() => deploymentUrl(bad), bad).toThrow(/not exactly one https address/);
+    }
+  });
+
+  it('a rehearsal refuses the public domain as its address', () => {
+    expect(() => refuseProduction('https://cbctscope.com')).toThrow(/must not check cbctscope.com/);
+    expect(() => refuseProduction('https://www.cbctscope.com/')).toThrow(/production address/);
+    expect(() => refuseProduction('https://cbctscope.vercel.app', ['cbctscope.vercel.app'])).toThrow(/production address/);
+    expect(() => refuseProduction('https://cbctscope-abc123-team.vercel.app')).not.toThrow();
+  });
+
+  it('reports a protection wall once, naming the bypass secret', () => {
+    expect(protectionMessage(29)).toBe("29 addresses answered 401 or 403: the deployment is behind Vercel's Deployment Protection, and VERCEL_AUTOMATION_BYPASS_SECRET is missing or wrong");
+  });
+
+  it('expects a Content-Type for every extension the real export holds, and fails a file type it does not know', () => {
+    const real = path.join(root, 'out');
+    if (existsSync(path.join(real, 'index.html'))) {
+      for (const f of exportFiles(real)) expect(CONTENT_TYPES, f).toHaveProperty(path.extname(f).toLowerCase());
+    }
+    expect(contentTypeProblem('a.wasm', 'application/wasm')).toBeNull();
+    expect(contentTypeProblem('a.js', 'application/javascript; charset=utf-8')).toBeNull();
+    expect(contentTypeProblem('a.html', 'text/html; charset=utf-8')).toBeNull();
+    expect(contentTypeProblem('a.wasm', 'application/octet-stream')).toBe('Content-Type is "application/octet-stream", expected application/wasm');
+    expect(contentTypeProblem('a.js', null)).toMatch(/missing/);
+    expect(contentTypeProblem('a.avif', 'image/avif')).toMatch(/no Content-Type is expected for \.avif/);
+    for (const ext of ['.html', '.js', '.css', '.wasm', '.json', '.xml', '.txt', '.webp', '.png', '.svg', '.ico']) expect(CONTENT_TYPES).toHaveProperty(ext);
   });
 
   it('turns the sitemap into site paths and refuses an address on another host', () => {
@@ -96,18 +122,24 @@ describe('the post-deploy check (scripts/site-check.mjs)', () => {
     expect(() => sitemapPaths('<urlset></urlset>')).toThrow(/no address/);
   });
 
-  it('checks every sitemap address against its file, plus the crawler files, the agent frame and a 404', () => {
+  it('checks every sitemap address and every file of the export at the address it is served from, and a 404', () => {
     expect(checkList(out)).toEqual([
       { path: '/', file: 'index.html', status: 200 },
       { path: '/about', file: 'about.html', status: 200 },
       { path: '/legal', file: 'legal.html', status: 200 },
       { path: '/manual/', file: 'manual/index.html', status: 200 },
       { path: '/manual/mpr.html', file: 'manual/mpr.html', status: 200 },
-      { path: '/sitemap.xml', file: 'sitemap.xml', status: 200 },
-      { path: '/robots.txt', file: 'robots.txt', status: 200 },
+      { path: '/404.html', file: '404.html', status: 200 },
+      { path: '/_next/static/chunks/main.js', file: '_next/static/chunks/main.js', status: 200 },
+      { path: '/_not-found.html', file: '_not-found.html', status: 200 },
       { path: '/agent-frame.html', file: 'agent-frame.html', status: 200 },
+      { path: '/index.html', file: 'index.html', status: 200 },
+      { path: '/manual/index.html', file: 'manual/index.html', status: 200 },
+      { path: '/robots.txt', file: 'robots.txt', status: 200 },
+      { path: '/sitemap.xml', file: 'sitemap.xml', status: 200 },
       { path: '/this-address-does-not-exist', file: '404.html', status: 404 },
     ]);
+    expect(exportFiles(out)).toHaveLength(Object.keys(files).length);
   });
 
   it('names each missing or different header', () => {
@@ -141,10 +173,13 @@ describe('the workflows', () => {
     const deploy = runs(release, 'deploy');
     expect(deploy).toContain('node scripts/vercel-output.mjs out "$RUNNER_TEMP/site"');
     expect(deploy).toContain('deploy/node_modules/.bin/vercel deploy --prebuilt --prod --cwd "$RUNNER_TEMP/site"');
-    expect(deploy).toContain('node scripts/site-check.mjs --base https://cbctscope.com --out out');
+    expect(deploy).toContain('node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out');
+    // stdout only goes to the file the check reads
+    expect(deploy).toContain('> "$RUNNER_TEMP/deploy.txt"');
+    expect(deploy).not.toMatch(/2>&1|&>/);
     // the check comes after the deploy, which comes after the layout
     const names = steps(release, 'deploy').map((s) => s.name);
-    expect(names.indexOf('Check the site as served')).toBeGreaterThan(names.indexOf('Deploy to production'));
+    expect(names.indexOf('Check the deployment as served')).toBeGreaterThan(names.indexOf('Deploy to production'));
     expect(names.indexOf('Deploy to production')).toBeGreaterThan(names.indexOf('Lay out the prebuilt deployment'));
   });
 
@@ -154,6 +189,25 @@ describe('the workflows', () => {
     expect(release.permissions).toEqual({ contents: 'read' });
     expect(release.jobs.deploy.permissions).toBeUndefined();
     expect(rehearsal.permissions).toEqual({ contents: 'read' });
+  });
+
+  it('a cancelled or failed run never deploys, and both deploying jobs have a time limit', () => {
+    expect(release.jobs.deploy.if).toBe("${{ always() && needs.build.result == 'success' && needs.publish.result == 'success' }}");
+    expect(release.jobs.deploy['timeout-minutes' as keyof Job]).toBe(30);
+    expect(rehearsal.jobs.rehearse['timeout-minutes' as keyof Job]).toBe(45);
+  });
+
+  it('the deploying jobs run in their GitHub environments, and no other job names a Vercel secret', () => {
+    expect(release.jobs.deploy.environment).toBe('production');
+    expect(rehearsal.jobs.rehearse.environment).toBe('rehearsal');
+    for (const [wf, keep] of [
+      [release, 'deploy'],
+      [rehearsal, 'rehearse'],
+    ] as const) {
+      for (const [name, j] of Object.entries(wf.jobs)) {
+        if (name !== keep) expect(JSON.stringify(j), name).not.toMatch(/VERCEL_/);
+      }
+    }
   });
 
   it('the Vercel secrets reach the deploy steps only', () => {
@@ -166,7 +220,7 @@ describe('the workflows', () => {
         for (const s of j.steps ?? []) {
           const used = secretsIn(s).filter((x) => x.startsWith('secrets.VERCEL_'));
           if (name === job && s.name === step) expect(used.sort()).toEqual([...vercel].sort());
-          else if (name === 'rehearse' && s.name === 'Check the preview as served') expect(used).toEqual(['secrets.VERCEL_AUTOMATION_BYPASS_SECRET']);
+          else if (['Check the preview as served', 'Check the deployment as served'].includes(s.name ?? '')) expect(used).toEqual(['secrets.VERCEL_AUTOMATION_BYPASS_SECRET']);
           else expect(used, `${name}: ${s.name ?? s.uses ?? s.run}`).toEqual([]);
         }
       }
@@ -179,7 +233,7 @@ describe('the workflows', () => {
     const text = runs(rehearsal, 'rehearse');
     expect(text).toContain('deploy/node_modules/.bin/vercel deploy --prebuilt --cwd "$RUNNER_TEMP/site"');
     expect(text).not.toMatch(/--prod|--environment/);
-    expect(text).toContain('node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out');
+    expect(text).toContain('node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out --attempts 1 --rehearsal');
     expect(steps(rehearsal, 'rehearse').find((s) => s.name === 'Build the web target')?.env).toEqual({ NEXT_PUBLIC_BASE_PATH: '' });
   });
 

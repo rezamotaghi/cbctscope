@@ -19,6 +19,10 @@ concurrency:
 jobs:
   rehearse:
     runs-on: ubuntu-latest
+    # the environment's secrets reach this job only, and only from the default branch
+    environment: rehearsal
+    # an install, the web build, an upload and a check: well under the hour
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -46,6 +50,6 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_TELEMETRY_DISABLED: '1'
       - name: Check the preview as served
-        run: node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out --attempts 1
+        run: node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out --attempts 1 --rehearsal
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}

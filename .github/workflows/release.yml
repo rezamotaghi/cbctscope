@@ -62,20 +62,25 @@ jobs:
           name: site
           path: out
           if-no-files-found: error
-          retention-days: 7
+          # the owner's check of the public address after the DNS change reads these files
+          retention-days: 30
 
   # A job whose ancestor was skipped is itself skipped unless its own `if:` says otherwise, and
   # the mac job is skipped without signing secrets; so this asks for the two results it needs.
   # The Vercel CLI is the one exact version pinned in deploy/package.json, installed from
   # deploy/package-lock.json and kept out of the app's dependencies. It uploads the prebuilt
   # deployment (scripts/vercel-output.mjs) from a folder outside the checkout, so nothing but
-  # the built site leaves the runner; then scripts/site-check.mjs fails the job unless
-  # https://cbctscope.com serves every address byte for byte as built, with the three
-  # response headers.
+  # the built site leaves the runner; then scripts/site-check.mjs fails the job unless the new
+  # deployment serves every file byte for byte as built, with its type and the three response
+  # headers.
   deploy:
     needs: [build, publish]
     if: ${{ always() && needs.build.result == 'success' && needs.publish.result == 'success' }}
     runs-on: ubuntu-latest
+    # the environment's secrets reach this job only, and only for a release tag
+    environment: production
+    # two installs, one upload of the built files and one check: minutes, not an hour
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -102,8 +107,12 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_TELEMETRY_DISABLED: '1'
-      - name: Check the site as served
-        run: node scripts/site-check.mjs --base https://cbctscope.com --out out
+      # the deployment's own address, behind Deployment Protection, so the check works before
+      # and after the domain's address records point at Vercel
+      - name: Check the deployment as served
+        run: node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out --attempts 1
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
 
   # ---------------------------------------------------------------- the desktop app
   # Signing and notarisation credentials, stored as repository secrets (names
