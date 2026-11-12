@@ -186,7 +186,8 @@ test.describe('opening files', () => {
     if (tmp) removeTempDir(tmp);
   });
 
-  const PICKER_LINE = 'Your browser asks to let this page read the folder; the files stay in this tab.';
+  const PICKER_LINE = 'Your browser will ask to let this page view and copy the files. It reads them into this tab and sends them nowhere.';
+  const DROP_LINE = 'Or drop the folder on the viewer: the browser asks nothing.';
   const CLASSIC_LINE = "Your browser may say 'upload': that is its word for letting this page read the files. They stay in this tab.";
   const volumeSelect = (page: Page) => page.locator('header select');
   const researchDialog = (page: Page) => page.getByRole('dialog', { name: 'Research use only' });
@@ -216,6 +217,7 @@ test.describe('opening files', () => {
     await waitForVolume(page);
     await page.locator('header').getByRole('button', { name: 'Open', exact: true }).click();
     await expect(page.getByText(PICKER_LINE)).toBeVisible();
+    await expect(page.getByText(DROP_LINE)).toBeVisible();
     await expect(page.getByText(CLASSIC_LINE)).toHaveCount(0);
     await page.keyboard.press('Escape');
     await openFolder(page, 'series');
@@ -233,6 +235,7 @@ test.describe('opening files', () => {
     await waitForVolume(app);
     await app.locator('header').getByRole('button', { name: 'Open', exact: true }).click();
     await expect(app.getByText("The Open sheet may say 'Upload': that is its word for letting this app read the files. They stay on this computer.")).toBeVisible();
+    await expect(app.getByText(DROP_LINE)).toHaveCount(0);
     await app.locator('header').getByRole('button', { name: 'Open', exact: true }).click();
     await openFolder(app, 'series');
     const desk = researchDialog(app);
@@ -528,6 +531,7 @@ test.describe('opening files', () => {
     const seen = choosers(page);
     await page.locator('header').getByRole('button', { name: 'Open', exact: true }).click();
     await expect(page.getByText(PICKER_LINE)).toBeVisible();
+    await expect(page.getByText(DROP_LINE)).toBeVisible();
     await page.getByRole('menuitem', { name: 'Open DICOMDIR or DICOM folder' }).click();
 
     // the progress panel, then the research dialogue, then the volume, as through the input
@@ -616,6 +620,7 @@ test.describe('opening files', () => {
     await page.locator('header').getByRole('button', { name: 'Open', exact: true }).click();
     await expect(page.getByText(CLASSIC_LINE)).toBeVisible();
     await expect(page.getByText(PICKER_LINE)).toHaveCount(0);
+    await expect(page.getByText(DROP_LINE)).toBeVisible();
     const [chooser] = await Promise.all([
       page.waitForEvent('filechooser'),
       page.getByRole('menuitem', { name: 'Open DICOMDIR or DICOM folder' }).click(),
