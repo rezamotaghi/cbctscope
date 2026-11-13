@@ -33,11 +33,54 @@ export function drawerSrc(page: string): string {
 
 /**
  * The desktop app's Help menu (desktop/main.mjs, desktop/native.mjs) asks for the manual with
- * this window event. CbctApp listens for it and opens this drawer at the manual's index page
- * through the same state its help menu sets; nothing crosses the window's context isolation
- * but the event. Outside the app the event does nothing.
+ * this window event. CbctApp listens for it and opens this drawer through the same state its
+ * help menu sets: at the manual's index page, or at the page the event's detail names when
+ * menuDrawerPage knows it; nothing crosses the window's context isolation but the event.
+ * Outside the app the event does nothing.
  */
 export const MANUAL_EVENT = 'cbctscope:manual';
+
+/** the desktop app's Help menu asks for the Cite this software dialogue with this window event (CbctApp) */
+export const CITE_EVENT = 'cbctscope:cite';
+
+/**
+ * The manual's pages, as scripts/manual-html.mjs names them from docs/manual/manifest.json
+ * (tests/manualDrawer.test.ts keeps the list equal to the manifest), plus its index page.
+ */
+export const MANUAL_PAGES: readonly string[] = [
+  'index.html',
+  '00-front.html',
+  '01-overview.html',
+  '02-installation.html',
+  '03-interface.html',
+  '04-opening-scans.html',
+  '05-display.html',
+  '06-measure-annotate.html',
+  '07-exporting.html',
+  '08-reading-modes.html',
+  'mpr.html',
+  'grid.html',
+  'pano.html',
+  'tmj.html',
+  'reslice.html',
+  'ceph.html',
+  'region.html',
+  'stitch.html',
+  '09-agent.html',
+  '10-data-privacy.html',
+  '11-troubleshooting.html',
+  '12-shortcuts.html',
+];
+
+/**
+ * The drawer page a MANUAL_EVENT asks for: the index without a detail, the named page when it
+ * is a manual page or a site page the drawer shows, and null (nothing opens) for anything else.
+ */
+export function menuDrawerPage(detail: unknown): string | null {
+  if (detail === undefined || detail === null) return 'index.html';
+  if (typeof detail !== 'string') return null;
+  return MANUAL_PAGES.includes(detail) || sitePage(detail) ? detail : null;
+}
 
 export default function ManualDrawer({ page, onClose }: { page: string; onClose: () => void }) {
   const site = sitePage(page);

@@ -1,6 +1,7 @@
 // What the desktop app shows through the operating system rather than the page: the menu bar,
 // the About panel, the save panel's title, the port-in-use dialogue, the window's remembered
-// place, plus the launch checks that run before any window exists. Pure data and functions, no Electron import, so
+// place, the menu's hooks into the page, the update page's address, plus the launch checks that
+// run before any window exists. Pure data and functions, no Electron import, so
 // tests/desktopNative.test.ts reads them without a display; desktop/main.mjs wires them up.
 
 /** the name macOS and Windows show (menus, About, the user agent); package.json productName */
@@ -20,6 +21,54 @@ export const AUTHOR_SITE = 'https://rezamotaghi.com';
 
 /** the event the page listens for to open its manual drawer (components/cbct/CbctApp.tsx) */
 export const MANUAL_EVENT = 'cbctscope:manual';
+
+/** the event the page listens for to open its Cite this software dialogue (components/cbct/CbctApp.tsx) */
+export const CITE_EVENT = 'cbctscope:cite';
+
+/** the manual pages and site pages the Help menu names in MANUAL_EVENT's detail (the page accepts only pages it knows) */
+export const SHORTCUTS_PAGE = '12-shortcuts.html';
+export const LEGAL_PAGE = 'legal';
+
+/** the page's controls the File menu clicks, by their data-testid (components/cbct/CbctApp.tsx) */
+export const FOLDER_INPUT = 'open-folder-input';
+export const FILE_INPUT = 'open-file-input';
+export const SNAPSHOT_BUTTON = 'snapshot-button';
+
+// ---------------------------------------------------------------- the menu's hooks into the page
+/**
+ * The script that clicks one of the page's controls by its test id, run with a user gesture so
+ * a file picker or a download may follow. A control that is absent or disabled is left alone.
+ * @param {string} testId
+ */
+export function clickScript(testId) {
+  const sel = JSON.stringify(`[data-testid="${testId}"]`);
+  return `(() => { const el = document.querySelector(${sel}); if (el && !el.disabled) el.click(); })(); void 0`;
+}
+
+/**
+ * The script that sends the page a window event, with an optional detail (a manual page's name).
+ * Only the event crosses the window's context isolation; the page decides what it accepts.
+ * @param {string} name
+ * @param {string} [detail]
+ */
+export function eventScript(name, detail) {
+  const init = detail === undefined ? '' : `, { detail: ${JSON.stringify(detail)} }`;
+  return `window.dispatchEvent(new CustomEvent(${JSON.stringify(name)}${init})); void 0`;
+}
+
+// ---------------------------------------------------------------- updates
+/** the website's update page; the app itself contacts nothing, the browser opens this page */
+export const UPDATE_PAGE = `${WEBSITE}/update`;
+
+/**
+ * The update page with the installed version after the # sign, which the browser never sends to
+ * a server; the bare page for anything but a strict major.minor.patch version
+ * (components/updateCheck.ts updatePageUrl builds the same address; the tests pin them equal).
+ * @param {string} version app.getVersion()
+ */
+export function updateUrl(version) {
+  return /^\d{1,9}\.\d{1,9}\.\d{1,9}$/.test(String(version)) ? `${UPDATE_PAGE}#from=${version}` : UPDATE_PAGE;
+}
 
 // ---------------------------------------------------------------- launch switches
 /** Chromium switches that open the window to remote control, bypassing the bridge's checks */
@@ -163,18 +212,57 @@ export function windowBoundsFor(saved, workAreas) {
 
 // ---------------------------------------------------------------- the menu bar
 /**
- * The menu bar template, macOS conventions on macOS and the same items on Windows.
- * @param {{ isMac: boolean, openFolder: () => void, openManual: () => void, openWebsite: () => void }} opts
+ * The menu bar template, macOS conventions on macOS and the same items on Windows. Every item
+ * reaches something the page already does: its two openers, its Snapshot button, its manual
+ * drawer, its citation dialogue; Check for Updates opens the website's update page in the
+ * system browser.
+ * @param {{
+ *   isMac: boolean,
+ *   openFolder: () => void,
+ *   openFile: () => void,
+ *   saveSnapshot: () => void,
+ *   openManual: () => void,
+ *   openShortcuts: () => void,
+ *   openCite: () => void,
+ *   openLegal: () => void,
+ *   openWebsite: () => void,
+ *   checkForUpdates: () => void,
+ * }} opts
  * @returns {import('electron').MenuItemConstructorOptions[]}
  */
-export function menuTemplate({ isMac, openFolder, openManual, openWebsite }) {
+export function menuTemplate({ isMac, openFolder, openFile, saveSnapshot, openManual, openShortcuts, openCite, openLegal, openWebsite, checkForUpdates }) {
+  const updates = { label: 'Check for Updates…', click: checkForUpdates };
   return [
-    // About, Hide, Quit: Electron names them after the app (APP_NAME)
-    ...(isMac ? [{ role: 'appMenu' }] : []),
+    // the application menu, spelled out so Check for Updates sits under About; Electron names
+    // About, Hide and Quit after the app (APP_NAME)
+    ...(isMac
+      ? [
+          {
+            label: APP_NAME,
+            submenu: [
+              { role: 'about' },
+              { type: 'separator' },
+              updates,
+              { type: 'separator' },
+              { role: 'services' },
+              { type: 'separator' },
+              { role: 'hide' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit' },
+            ],
+          },
+        ]
+      : []),
     {
       label: 'File',
       submenu: [
-        { label: 'Open…', accelerator: 'CmdOrCtrl+O', click: openFolder },
+        { label: 'Open DICOMDIR or DICOM Folder…', accelerator: 'CmdOrCtrl+O', click: openFolder },
+        { label: 'Open a Single DICOM File…', accelerator: 'CmdOrCtrl+Shift+O', click: openFile },
+        { type: 'separator' },
+        // the save panel follows (main.mjs will-download)
+        { label: 'Save Snapshot…', accelerator: 'CmdOrCtrl+S', click: saveSnapshot },
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' },
       ],
@@ -195,9 +283,14 @@ export function menuTemplate({ isMac, openFolder, openManual, openWebsite }) {
       role: 'help',
       submenu: [
         { label: `${APP_NAME} Help`, click: openManual },
+        { label: 'Keyboard and Mouse Reference', click: openShortcuts },
+        { type: 'separator' },
+        { label: `Cite ${APP_NAME}`, click: openCite },
+        { label: 'Legal Notice', click: openLegal },
+        { type: 'separator' },
         { label: `${APP_NAME} Website`, click: openWebsite },
-        // Windows has no app menu: About sits at the end of Help
-        ...(isMac ? [] : [{ type: 'separator' }, { role: 'about' }]),
+        // Windows has no app menu: Check for Updates and About sit at the end of Help
+        ...(isMac ? [] : [updates, { type: 'separator' }, { role: 'about' }]),
       ],
     },
   ];

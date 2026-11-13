@@ -8,22 +8,32 @@
 // handed to the system browser, anything else is dropped. The packaged app refuses to start
 // with a remote-debugging switch, which would hand the window to any local process.
 // The menu bar, About panel, save panel title, port dialogue and the window's remembered size
-// and position come from ./native.mjs.
+// and position come from ./native.mjs. Check for Updates hands the website's update page to the
+// system browser; the app has no update check of its own and makes no request.
 import { app, BrowserWindow, dialog, Menu, nativeTheme, screen, session, shell } from 'electron';
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { PortInUseError, startBridge } from './bridge.mjs';
 import {
   aboutPanelOptions,
+  CITE_EVENT,
+  clickScript,
   debugSwitchIn,
   DEBUG_SWITCHES,
   desktopUserAgent,
+  eventScript,
+  FILE_INPUT,
+  FOLDER_INPUT,
+  LEGAL_PAGE,
   MANUAL_EVENT,
   menuTemplate,
   MIN_WINDOW,
   PORT_IN_USE,
   PROFILE_FOLDER,
   saveDialogTitle,
+  SHORTCUTS_PAGE,
+  SNAPSHOT_BUTTON,
+  updateUrl,
   WEBSITE,
   WINDOW_STATE_FILE,
   windowBoundsFor,
@@ -69,30 +79,30 @@ if (app.isPackaged && debugSwitch) {
   }
 }
 
-/** the page's own folder picker, clicked with a user gesture (the menu item and its shortcut) */
-function openFolder() {
+/** run one of the menu's hooks in the page (native.mjs), as a user gesture, so a picker or a save panel may follow */
+function inPage(script) {
   if (!win) return;
   win.focus();
-  void win.webContents
-    .executeJavaScript(`document.querySelector('[data-testid="open-folder-input"]')?.click(); void 0`, true)
-    .catch(() => {});
-}
-
-/** Help: the page opens its manual drawer at the index page, through the state its help menu sets */
-function openManual() {
-  if (!win) return;
-  win.focus();
-  void win.webContents
-    .executeJavaScript(`window.dispatchEvent(new Event(${JSON.stringify(MANUAL_EVENT)})); void 0`, true)
-    .catch(() => {});
+  void win.webContents.executeJavaScript(script, true).catch(() => {});
 }
 
 function buildMenu() {
   const template = menuTemplate({
     isMac: process.platform === 'darwin',
-    openFolder,
-    openManual,
+    // File: the page's own folder and single-file pickers, and its Snapshot button
+    openFolder: () => inPage(clickScript(FOLDER_INPUT)),
+    openFile: () => inPage(clickScript(FILE_INPUT)),
+    saveSnapshot: () => inPage(clickScript(SNAPSHOT_BUTTON)),
+    // Help: the page opens its manual drawer (at the index, chapter 12 or the legal notice) and
+    // its citation dialogue through the state its own help menu sets
+    openManual: () => inPage(eventScript(MANUAL_EVENT)),
+    openShortcuts: () => inPage(eventScript(MANUAL_EVENT, SHORTCUTS_PAGE)),
+    openCite: () => inPage(eventScript(CITE_EVENT)),
+    openLegal: () => inPage(eventScript(MANUAL_EVENT, LEGAL_PAGE)),
     openWebsite: () => void shell.openExternal(WEBSITE),
+    // the website's update page in the system browser, the installed version after the # sign;
+    // the app itself makes no request
+    checkForUpdates: () => void shell.openExternal(updateUrl(app.getVersion())),
   });
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }

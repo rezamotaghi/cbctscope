@@ -35,6 +35,11 @@ export const LEGAL_TITLE = 'Legal notice and privacy: CBCTScope';
 export const LEGAL_DESCRIPTION =
   'Who publishes cbctscope.com, how the site treats your data, the research-use status of the CBCTScope viewer, and its licence.';
 
+/** the update page's title and description (app/update; not indexed, not in the sitemap) */
+export const UPDATE_TITLE = 'Check for updates: CBCTScope';
+export const UPDATE_DESCRIPTION =
+  'Whether a newer version of CBCTScope, the free CBCT and 2D radiograph viewer by Dr. Reza Motaghi, is available, with the direct downloads of the desktop app.';
+
 /** the About page's first paragraph: the README's own description, shortened */
 export const ABOUT_LEAD =
   'CBCTScope is a complete, local-first CBCT and 2D radiograph viewer, built by Reza Motaghi, a board-certified oral and maxillofacial radiologist.';

@@ -20,7 +20,9 @@ left to right:
    **CBCT and radiograph viewer**. Beside it, the **version button** (for example `v2.1.0`).
    Clicking it opens a short panel naming the software, its version, its
    author (his name is a link to his site), its research-use status, a link to the About page (**About CBCTScope
-   and how to cite it**) and a link to the source code repository; Escape or a
+   and how to cite it**) and a link to the source code repository; in the
+   desktop app it also links **Check for updates**, which opens the website's
+   update page in your browser (section 2.6). Escape or a
    click outside closes it. Quote the version from here when
    reporting a problem or citing the software.
 2. **Research use only. Not a medical device.** (the desktop app and the local
@@ -232,3 +234,30 @@ Four pane buttons keep their words beside the icon: **Save view** (axial
 pane, `V`), **Eraser** and **Revert** (3D pane), and **Clear N cuts** (3D
 pane, bottom left, once there is a cut). Grid's **Reset view** sits in
 its toolbar.
+
+## 3.8 The desktop app's menu bar
+
+The desktop app (section 2.6) adds the system's menu bar. Every item reaches
+something the screen already offers; none adds a function of its own.
+
+- **CBCTScope** (macOS only): **About CBCTScope**, then
+  **Check for Updates…**, then the system's Services, Hide, Hide Others, Show All and
+  Quit.
+- **File**: **Open DICOMDIR or DICOM Folder…** (`Cmd-O` on macOS, `Ctrl-O` on
+  Windows) and **Open a Single DICOM File…** (`Cmd-Shift-O`, `Ctrl-Shift-O`)
+  open the same pickers as the two entries of the header's **Open** menu
+  (chapter 4). **Save Snapshot…** (`Cmd-S`, `Ctrl-S`) presses the header's
+  **Snapshot** button, and the save panel follows (section 7.1); with no
+  image on screen it does nothing. Then Close Window on macOS, Exit on
+  Windows.
+- **Edit**, **View** (Actual Size, Zoom In, Zoom Out, full screen) and
+  **Window**: the system's own.
+- **Help**: **CBCTScope Help** opens this manual in the drawer,
+  **Keyboard and Mouse Reference** opens it at chapter 12,
+  **Cite CBCTScope** opens the same dialogue as **Cite this software** in the
+  header's Help menu, **Legal Notice** opens the legal notice in the drawer,
+  and **CBCTScope Website** opens cbctscope.com in your browser. On Windows,
+  **Check for Updates…** and **About CBCTScope** follow at the end.
+
+**Check for Updates…** opens the website's update page in your browser; the
+app itself never checks for updates and contacts nothing (section 2.6).

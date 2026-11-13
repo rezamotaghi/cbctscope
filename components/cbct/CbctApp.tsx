@@ -27,7 +27,7 @@ import CbctStitch from './CbctStitch';
 import { useAgentBridge } from './useAgentBridge';
 import { agentTransport } from './agentChannel';
 import AgentPanel, { AgentToggle } from './agent/AgentPanel';
-import ManualDrawer, { guidePage, MANUAL_EVENT, manualHref } from './ManualDrawer';
+import ManualDrawer, { CITE_EVENT, guidePage, MANUAL_EVENT, manualHref, menuDrawerPage } from './ManualDrawer';
 import { AGENT_AVAILABLE, IS_DESKTOP } from './shell';
 import { IS_WEB, isCanceled, source } from './source';
 import { EVIDENCE_SCHEMA, parseMarksFile, type EvidenceFile } from './evidence';
@@ -686,16 +686,29 @@ export default function CbctApp({ citation }: { citation?: Citation }) {
   // repo build and the desktop app show them in the help drawer beside the viewer
   const manualInTab = IS_WEB && !inShell;
   // the desktop app's Help menu: its window event opens the drawer at the manual's index page,
-  // through the same state the help menu sets (a second request keeps the one drawer)
+  // or at the page its detail names when the drawer knows it (chapter 12, the legal notice),
+  // through the same state the help menu sets (a second request keeps the one drawer); its
+  // citation event opens the Cite this software dialogue
   useEffect(() => {
     if (!IS_DESKTOP) return;
-    const open = () => {
-      setManualPage('index.html');
+    const open = (e: Event) => {
+      const page = menuDrawerPage((e as CustomEvent<unknown>).detail);
+      if (page === null) return;
+      setManualPage(page);
       setHelpMenu(false);
     };
+    const cite = () => {
+      if (!citation) return;
+      setHelpMenu(false);
+      setCiteOpen(true);
+    };
     window.addEventListener(MANUAL_EVENT, open);
-    return () => window.removeEventListener(MANUAL_EVENT, open);
-  }, []);
+    window.addEventListener(CITE_EVENT, cite);
+    return () => {
+      window.removeEventListener(MANUAL_EVENT, open);
+      window.removeEventListener(CITE_EVENT, cite);
+    };
+  }, [citation]);
 
   /**
    * A Help menu entry for one of the site's own pages (/about, /legal): a new tab on the website,
@@ -1049,6 +1062,7 @@ export default function CbctApp({ citation }: { citation?: Citation }) {
         )}
         {anon && (
           <SnapshotButton
+            testId="snapshot-button"
             onClick={() => snapRef.current?.()}
             title="snapshot: save what the current room shows as a PNG image. Each room composes its own."
           />

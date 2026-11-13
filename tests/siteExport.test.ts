@@ -7,7 +7,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { HOME_LEAD, HOME_LINKS, HOME_NOSCRIPT, HOME_PRIVACY_WEB, HOME_RESEARCH, LEGAL_PURPOSE } from '../components/sitePages';
-import { NOT_PAGES, sitePages, sitePath } from '../scripts/sitemap.mjs';
+import { NOINDEX_PAGES, NOT_PAGES, sitemapPages, sitePages, sitePath } from '../scripts/sitemap.mjs';
+import { vercelConfig } from '../scripts/vercel-output.mjs';
+import pkg from '../package.json';
 
 const out = path.join(process.cwd(), 'out');
 const built = existsSync(path.join(out, 'index.html'));
@@ -152,6 +154,25 @@ describe.skipIf(!built)('the exported site', () => {
     expect(text).not.toMatch(/[—]/);
   });
 
+  it('/update is noindex, says the newest version with the downloads before any script runs, and is served at /update', () => {
+    const html = read('update.html');
+    const text = servedText(html);
+    expect(html).toMatch(/<meta name="robots" content="noindex, ?follow"\/>/);
+    expect(text).toContain('Check for updates');
+    expect(text).toContain(`The newest version of CBCTScope is ${pkg.version}.`);
+    expect(text).toContain('Research use only. Not a medical device.');
+    // no verdict and no note about the address without a version
+    expect(text).not.toContain('You have');
+    expect(text).not.toContain('after the # sign');
+    const links = hrefs(html);
+    for (const name of ['CBCTScope-mac-arm64.dmg', 'CBCTScope-mac-x64.dmg', 'CBCTScope-windows-setup.exe']) {
+      expect(links).toContain(`https://github.com/rezamotaghi/cbctscope/releases/latest/download/${name}`);
+    }
+    expect(links).toContain('https://github.com/rezamotaghi/cbctscope/releases/latest');
+    expect(vercelConfig(sitePages(out)).overrides['update.html']).toEqual({ path: 'update', contentType: 'text/html; charset=utf-8' });
+    expect(text).not.toMatch(/[—]/);
+  });
+
   it('every manual page footer links the author name to his site, then the About page, the viewer and the legal page', () => {
     const pages = sitePages(out).filter((p) => p.file.startsWith('manual/'));
     expect(pages.length).toBeGreaterThan(0);
@@ -173,10 +194,12 @@ describe.skipIf(!built)('the exported site', () => {
     }
   });
 
-  it('sitemap.xml lists every exported page and nothing else; robots.txt names it', () => {
+  it('sitemap.xml lists every exported page but the noindex ones and nothing else; robots.txt names it', () => {
     const listed = [...read('sitemap.xml').matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]).sort();
-    const pages = sitePages(out).map((p) => p.url).sort();
+    const pages = sitemapPages(out).map((p) => p.url).sort();
     expect(listed).toEqual(pages);
+    expect(sitePages(out).filter((p) => NOINDEX_PAGES.has(p.file)).map((p) => p.file)).toEqual(['update.html']);
+    expect(listed).not.toContain('https://cbctscope.com/update');
     expect(listed).toContain('https://cbctscope.com');
     expect(listed).toContain('https://cbctscope.com/about');
     expect(listed).toContain('https://cbctscope.com/legal');

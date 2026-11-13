@@ -29,6 +29,8 @@ const files: Record<string, string> = {
   'index.html': '<!doctype html><title>home</title>',
   'about.html': '<!doctype html><title>about</title>',
   'legal.html': '<!doctype html><title>legal</title>',
+  // noindex: served at /update, never in the sitemap
+  'update.html': '<!doctype html><title>update</title>',
   '404.html': '<!doctype html><title>not found</title>',
   '_not-found.html': '<!doctype html><title>not found</title>',
   'agent-frame.html': '<!doctype html><title>frame</title>',
@@ -50,13 +52,16 @@ describe('the prebuilt deployment (scripts/vercel-output.mjs)', () => {
     for (const [rel, body] of Object.entries(files)) expect(readFileSync(path.join(output, 'static', rel), 'utf8'), rel).toBe(body);
     const config = JSON.parse(readFileSync(path.join(output, 'config.json'), 'utf8'));
     expect(config.version).toBe(3);
+    // the update page is left out of the sitemap but still answers at its address
+    expect(config.overrides['update.html']).toEqual({ path: 'update', contentType: 'text/html; charset=utf-8' });
   });
 
   it('serves Next\'s top-level pages at their extensionless addresses and leaves the manual\'s .html addresses alone', () => {
-    const { overrides } = vercelConfig([{ file: 'index.html' }, { file: 'about.html' }, { file: 'legal.html' }, { file: 'manual/index.html' }, { file: 'manual/mpr.html' }]);
+    const { overrides } = vercelConfig([{ file: 'index.html' }, { file: 'about.html' }, { file: 'legal.html' }, { file: 'update.html' }, { file: 'manual/index.html' }, { file: 'manual/mpr.html' }]);
     expect(overrides).toEqual({
       'about.html': { path: 'about', contentType: 'text/html; charset=utf-8' },
       'legal.html': { path: 'legal', contentType: 'text/html; charset=utf-8' },
+      'update.html': { path: 'update', contentType: 'text/html; charset=utf-8' },
     });
   });
 
@@ -137,6 +142,7 @@ describe('the post-deploy check (scripts/site-check.mjs)', () => {
       { path: '/manual/index.html', file: 'manual/index.html', status: 200 },
       { path: '/robots.txt', file: 'robots.txt', status: 200 },
       { path: '/sitemap.xml', file: 'sitemap.xml', status: 200 },
+      { path: '/update', file: 'update.html', status: 200 },
       { path: '/this-address-does-not-exist', file: '404.html', status: 404 },
     ]);
     expect(exportFiles(out)).toHaveLength(Object.keys(files).length);

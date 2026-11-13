@@ -115,6 +115,17 @@
 - **Marks are missing in another browser**: marks live in each browser's own
   storage. Carry them with **Save marks to file** and **Load marks from file**
   (section 7.3).
+- **A browser page at localhost:3810 shows only one sentence**:
+  "Cross-site requests are not allowed.",
+  "Cross-origin requests are not allowed." or
+  "CBCTScope only answers to localhost." The desktop app's local server
+  refused the request. It answers only requests from its own window,
+  addresses typed directly into a browser on this computer, and the agent
+  tools, and only at a loopback address such as `localhost` or `127.0.0.1`.
+  A link followed from another web page is refused, and so is the computer's
+  network name or address, so that no other web page and no other device can
+  reach the viewer. Use the app's own window. The repository viewer
+  (section 2.3) answers the same way.
 
 ## Agent connection
 

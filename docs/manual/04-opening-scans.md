@@ -98,7 +98,10 @@ from your file manager onto the image area, which then reads
 **Drop a DICOM folder, a DICOMDIR or a single file here**. Folders are read
 with all their subfolders. The same accepted formats apply as in section 4.1, and the files
 are recognized by their content, never by their names. In the desktop app,
-**Open…** in the File menu does the same as the first entry.
+In the desktop app, **Open DICOMDIR or DICOM Folder…** in the File menu
+(`Cmd-O` on macOS, `Ctrl-O` on Windows) does the same as the first entry, and
+**Open a Single DICOM File…** (`Cmd-Shift-O`, `Ctrl-Shift-O`) the same as the
+second.
 
 From the moment the files are handed over until the volume is on screen, a
 progress panel covers the image area with the step it is on and the seconds
