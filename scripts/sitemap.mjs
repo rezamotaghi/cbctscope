@@ -1,6 +1,7 @@
 // sitemap.xml and robots.txt for the web build (docs/web-build.md, section 14), written by
 // scripts/build-web.mjs after the export from the pages it actually holds: the home page, the
-// About and legal pages, and every manual page. Every address is the production one
+// About and legal pages, and every manual page. The update page is a page of the site (it is
+// served at /update, scripts/vercel-output.mjs) but carries noindex, so the sitemap leaves it out. Every address is the production one
 // (components/siteAddress.mjs), whatever base path the build was made under.
 import { readdirSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -8,6 +9,9 @@ import { canonicalUrl } from '../components/siteAddress.mjs';
 
 /** exported HTML that is not a page of the site: the 404 page, Next's not-found copy, the agent frame */
 export const NOT_PAGES = new Set(['404.html', '_not-found.html', 'agent-frame.html']);
+
+/** pages of the site that carry robots noindex (app/update/page.tsx): served, never listed in sitemap.xml */
+export const NOINDEX_PAGES = new Set(['update.html']);
 
 /** every exported HTML file, relative to the export, with forward slashes */
 function htmlFiles(dir, base = dir) {
@@ -48,9 +52,17 @@ export function sitePages(outDir) {
 
 const xmlEscape = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+/**
+ * The pages sitemap.xml lists: the site's pages without the noindex ones.
+ * @param {string} outDir
+ */
+export function sitemapPages(outDir) {
+  return sitePages(outDir).filter((p) => !NOINDEX_PAGES.has(p.file));
+}
+
 /** write sitemap.xml and robots.txt into the export; returns the number of pages listed */
 export function writeSitemap(outDir) {
-  const pages = sitePages(outDir);
+  const pages = sitemapPages(outDir);
   const xml = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',

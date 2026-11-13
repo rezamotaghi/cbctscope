@@ -8,29 +8,54 @@ import {
   aboutPanelOptions,
   APP_NAME,
   AUTHOR_SITE,
+  CITE_EVENT,
+  clickScript,
   debugSwitchIn,
   desktopUserAgent,
+  eventScript,
+  FILE_INPUT,
+  FOLDER_INPUT,
+  LEGAL_PAGE,
   MANUAL_EVENT,
   menuTemplate,
   MIN_WINDOW,
   PORT_IN_USE,
   PROFILE_FOLDER,
   saveDialogTitle,
+  SHORTCUTS_PAGE,
+  SNAPSHOT_BUTTON,
+  UPDATE_PAGE,
+  updateUrl,
   WINDOW_STATE_FILE,
   windowBoundsFor,
   windowStateToSave,
   WEBSITE,
 } from '../desktop/native.mjs';
 import { AUTHOR_URL, SITE_URL } from '../components/siteAddress.mjs';
+import { CITE_EVENT as PAGE_CITE_EVENT, menuDrawerPage } from '../components/cbct/ManualDrawer';
+import { updatePageUrl } from '../components/updateCheck';
 import { FORBIDDEN_USAGE } from '../scripts/desktop-after-pack.mjs';
 
 const root = path.resolve(__dirname, '..');
 const read = (p: string) => readFileSync(path.join(root, p), 'utf8');
 const pkg = JSON.parse(read('package.json')) as { name: string; productName: string; version: string };
 
-type Item = { label?: string; role?: string; type?: string; submenu?: Item[] };
+type Item = { label?: string; role?: string; type?: string; accelerator?: string; click?: () => void; submenu?: Item[] };
 const noop = () => {};
-const template = (isMac: boolean) => menuTemplate({ isMac, openFolder: noop, openManual: noop, openWebsite: noop }) as Item[];
+const hooks = {
+  openFolder: noop,
+  openFile: noop,
+  saveSnapshot: noop,
+  openManual: noop,
+  openShortcuts: noop,
+  openCite: noop,
+  openLegal: noop,
+  openWebsite: noop,
+  checkForUpdates: noop,
+};
+const template = (isMac: boolean) => menuTemplate({ isMac, ...hooks }) as Item[];
+/** a submenu as its labels, roles and separators */
+const names = (items: Item[]) => items.map((i) => i.label ?? i.role ?? i.type);
 const menu = (items: Item[], name: string) => items.find((m) => m.label === name || m.role === name.toLowerCase());
 
 describe('the remote-debugging refusal', () => {
@@ -70,29 +95,97 @@ describe('the name', () => {
 });
 
 describe('the menu bar', () => {
-  it('macOS: app menu, File with Open…, Edit, View without reload, Window, Help with the manual first', () => {
+  const FILE = ['Open DICOMDIR or DICOM Folder…', 'Open a Single DICOM File…', 'separator', 'Save Snapshot…', 'separator'];
+  const HELP = ['CBCTScope Help', 'Keyboard and Mouse Reference', 'separator', 'Cite CBCTScope', 'Legal Notice', 'separator', 'CBCTScope Website'];
+  it('macOS: the app menu with Check for Updates after About, File with both openers and Save Snapshot, Edit, View without reload, Window, Help', () => {
     const t = template(true);
-    expect(t.map((m) => m.label ?? m.role)).toEqual(['appMenu', 'File', 'editMenu', 'View', 'windowMenu', 'help']);
-    expect(menu(t, 'File')!.submenu![0]).toMatchObject({ label: 'Open…', accelerator: 'CmdOrCtrl+O' });
-    expect(menu(t, 'File')!.submenu!.map((i) => i.role ?? i.type ?? i.label)).toEqual(['Open…', 'separator', 'close']);
-    expect(menu(t, 'View')!.submenu!.map((i) => i.role ?? i.type)).toEqual(['resetZoom', 'zoomIn', 'zoomOut', 'separator', 'togglefullscreen']);
-    expect(menu(t, 'Help')!.submenu!.map((i) => i.label)).toEqual(['CBCTScope Help', 'CBCTScope Website']);
+    expect(t.map((m) => m.label ?? m.role)).toEqual(['CBCTScope', 'File', 'editMenu', 'View', 'windowMenu', 'help']);
+    expect(names(t[0].submenu!)).toEqual([
+      'about',
+      'separator',
+      'Check for Updates…',
+      'separator',
+      'services',
+      'separator',
+      'hide',
+      'hideOthers',
+      'unhide',
+      'separator',
+      'quit',
+    ]);
+    expect(names(menu(t, 'File')!.submenu!)).toEqual([...FILE, 'close']);
+    expect(names(menu(t, 'View')!.submenu!)).toEqual(['resetZoom', 'zoomIn', 'zoomOut', 'separator', 'togglefullscreen']);
+    expect(names(menu(t, 'Help')!.submenu!)).toEqual(HELP);
   });
-  it('Windows: no app menu, Exit in File, About at the end of Help', () => {
+  it('Windows: no app menu, Exit in File, Check for Updates then About at the end of Help', () => {
     const t = template(false);
     expect(t.map((m) => m.label ?? m.role)).toEqual(['File', 'editMenu', 'View', 'windowMenu', 'help']);
+    expect(names(menu(t, 'File')!.submenu!)).toEqual([...FILE, 'quit']);
     expect(menu(t, 'File')!.submenu!.at(-1)).toEqual({ role: 'quit' });
     const help = menu(t, 'Help')!.submenu!;
-    expect(help[0].label).toBe('CBCTScope Help');
+    expect(names(help)).toEqual([...HELP, 'Check for Updates…', 'separator', 'about']);
     expect(help.at(-1)).toEqual({ role: 'about' });
+  });
+  it('the accelerators: Cmd or Ctrl with O for the folder, Shift-O for one file, S for the snapshot; never a bare key', () => {
+    for (const isMac of [true, false]) {
+      const items = template(isMac).flatMap((m) => m.submenu ?? []);
+      const keys = Object.fromEntries(items.filter((i) => i.accelerator).map((i) => [i.label, i.accelerator]));
+      expect(keys).toEqual({
+        'Open DICOMDIR or DICOM Folder…': 'CmdOrCtrl+O',
+        'Open a Single DICOM File…': 'CmdOrCtrl+Shift+O',
+        'Save Snapshot…': 'CmdOrCtrl+S',
+      });
+      for (const k of Object.values(keys)) expect(k).toMatch(/^CmdOrCtrl\+/);
+    }
+  });
+  it('each item calls its own hook', () => {
+    const called: string[] = [];
+    const spy = Object.fromEntries(Object.keys(hooks).map((k) => [k, () => void called.push(k)])) as unknown as typeof hooks;
+    for (const isMac of [true, false]) {
+      called.length = 0;
+      const items = (menuTemplate({ isMac, ...spy }) as Item[]).flatMap((m) => m.submenu ?? []);
+      const byLabel = (label: string) => items.find((i) => i.label === label)!.click!();
+      for (const label of ['Open DICOMDIR or DICOM Folder…', 'Open a Single DICOM File…', 'Save Snapshot…', 'CBCTScope Help', 'Keyboard and Mouse Reference', 'Cite CBCTScope', 'Legal Notice', 'CBCTScope Website', 'Check for Updates…']) byLabel(label);
+      expect(called).toEqual(['openFolder', 'openFile', 'saveSnapshot', 'openManual', 'openShortcuts', 'openCite', 'openLegal', 'openWebsite', 'checkForUpdates']);
+    }
   });
   it('the ellipsis is the single character, and no label carries a dash or a glyph', () => {
     const labels = JSON.stringify(template(true)) + JSON.stringify(template(false));
     expect(labels).not.toContain('...');
     expect(labels).not.toMatch(/[\u2013\u2014\u{1F300}-\u{1FAFF}]/u);
   });
-  it('Help opens the drawer through the event the page listens for', () => {
+  it('Help opens the drawer and the citation through the events the page listens for, and the page knows the pages it names', () => {
     expect(read('components/cbct/ManualDrawer.tsx')).toContain(`export const MANUAL_EVENT = '${MANUAL_EVENT}';`);
+    expect(PAGE_CITE_EVENT).toBe(CITE_EVENT);
+    expect(menuDrawerPage(SHORTCUTS_PAGE)).toBe(SHORTCUTS_PAGE);
+    expect(menuDrawerPage(LEGAL_PAGE)).toBe(LEGAL_PAGE);
+  });
+  it('the File menu clicks the page controls by their test ids, and leaves an absent or disabled one alone', () => {
+    const app = read('components/cbct/CbctApp.tsx');
+    for (const id of [FOLDER_INPUT, FILE_INPUT, SNAPSHOT_BUTTON]) expect(app).toContain(`"${id}"`);
+    expect(clickScript(SNAPSHOT_BUTTON)).toBe(
+      '(() => { const el = document.querySelector("[data-testid=\\"snapshot-button\\"]"); if (el && !el.disabled) el.click(); })(); void 0',
+    );
+    expect(eventScript(MANUAL_EVENT)).toBe('window.dispatchEvent(new CustomEvent("cbctscope:manual")); void 0');
+    expect(eventScript(MANUAL_EVENT, SHORTCUTS_PAGE)).toBe('window.dispatchEvent(new CustomEvent("cbctscope:manual", { detail: "12-shortcuts.html" })); void 0');
+  });
+});
+
+describe('Check for Updates', () => {
+  it('opens the website\'s update page with a strict version after the #, and the bare page otherwise', () => {
+    expect(UPDATE_PAGE).toBe(`${SITE_URL}/update`);
+    expect(updateUrl('2.1.0')).toBe('https://cbctscope.com/update#from=2.1.0');
+    expect(updateUrl('10.20.300')).toBe('https://cbctscope.com/update#from=10.20.300');
+    for (const bad of ['', '2.1', '2.1.0-beta.1', 'v2.1.0', '2.1.0.4', '2.1.0 ', '<b>', '2.1.x']) expect(updateUrl(bad), bad).toBe('https://cbctscope.com/update');
+  });
+  it('the page and the version panel build the same address', () => {
+    for (const v of ['2.1.0', pkg.version, '2.1', 'x']) expect(updatePageUrl(v), v).toBe(updateUrl(v));
+  });
+  it('main.mjs opens it in the system browser and makes no request of its own', () => {
+    const main = read('desktop/main.mjs');
+    expect(main).toContain('checkForUpdates: () => void shell.openExternal(updateUrl(app.getVersion()))');
+    expect(main).not.toMatch(/\bnet\b\s*[,}]|\bfetch\(|electron-updater|autoUpdater|https?\.request|\bhttps?\.get\(/);
+    expect(read('package.json')).not.toContain('electron-updater');
   });
 });
 

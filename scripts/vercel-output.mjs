@@ -15,8 +15,8 @@
 //     X-Content-Type-Options: nosniff                    (files are used only as their type says)
 //   The agent frame is the one page the site frames itself (the panel's sandboxed iframe), so
 //   it gets 'self' and SAMEORIGIN instead.
-// - overrides: Next's top-level pages (about.html, legal.html) answer at /about and /legal,
-//   their canonical addresses, without a redirect. The manual's pages keep their .html
+// - overrides: Next's top-level pages (about.html, legal.html, update.html) answer at /about,
+//   /legal and /update, their canonical addresses, without a redirect. The manual's pages keep their .html
 //   addresses, as the sitemap lists them, so a blanket cleanUrls (which would redirect them)
 //   is not used.
 // - an error route: a miss answers 404 with the export's 404.html.

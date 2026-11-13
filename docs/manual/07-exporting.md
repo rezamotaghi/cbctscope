@@ -13,6 +13,12 @@ Ceph the cephalogram with its caption, Reslice the whole stack, and the other
 modes their panes as laid out on screen. This is the "what I see right now"
 door, for figures, teaching files, and reports written elsewhere.
 
+In the desktop app, **Save Snapshot…** in the File menu (`Cmd-S` on macOS,
+`Ctrl-S` on Windows) presses the same button. The app then shows a save
+panel titled **Save snapshot**, starting in Downloads with the snapshot's
+file name. With no image on screen, where the button is absent, the item
+does nothing.
+
 A 2D radiograph answers the same button. Because it is a single image rather
 than a layout, its snapshot is the whole frame at full resolution with the
 displayed window, gamma, and invert baked in; on-screen zoom and pan are a

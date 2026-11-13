@@ -8,7 +8,9 @@ The safe behavior is the only behavior the software has:
   converted, imported, or uploaded; closing the source releases it untouched.
 - There is no account and no telemetry, and no instance receives scans: the
   website is static files. The repository viewer and the desktop app work with
-  the network cable unplugged.
+  the network cable unplugged. The desktop app has no update check of its own:
+  **Check for Updates…** opens the website's update page in your browser
+  (section 2.6).
 - The server accepts connections only from this machine. In technical terms:
   it binds to 127.0.0.1 and rejects any request whose Host or Origin is not
   loopback, so neither another device on your network nor a hostile web page

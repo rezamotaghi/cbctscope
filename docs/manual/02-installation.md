@@ -171,12 +171,13 @@ installer has none), so either download is the same app.
 
 **First launch.** The window opens on the built-in phantom, as the web build
 does, at 1440 by 900 pixels (smaller on a smaller screen); it never goes below
-1024 by 700. **Open…** in the File menu (`Cmd-O` on macOS, `Ctrl-O` on Windows) or the
+1024 by 700. **Open DICOMDIR or DICOM Folder…** in the File menu (`Cmd-O` on macOS, `Ctrl-O` on Windows) or the
 **Open** menu in the header opens your own export through the system's folder dialog; the
 dialog's button may read **Upload**, which is the browser engine's standard
 wording: the files are read into the app and nothing is sent anywhere. Closing
 the window quits the app. **CBCTScope Help** in the app's Help menu opens this manual beside
-the viewer, and **View** holds Actual Size, Zoom In, Zoom Out and full screen.
+the viewer, and **View** holds Actual Size, Zoom In, Zoom Out and full screen; section 3.8
+lists every menu.
 
 **What the app remembers.** Between launches the app remembers the window's
 size and position (and whether it was maximized) and the window preset you
@@ -196,7 +197,7 @@ What differs from the repository starters (section 2.3):
   drop, into the app's memory, with marks in the app's own storage and the
   marks file to carry them. The large-volume notice applies.
 - The app opens no browser and asks for no install step; updating is
-  downloading the newer release.
+  downloading the newer release (below).
 - AI-agent control works with the same setup as the repository (chapter 9):
   the app listens on `http://127.0.0.1:3810`, the address the MCP server and
   the one-click bundle use by default. The app always uses that port: the
@@ -236,6 +237,28 @@ On Windows, delete the folder you reach by typing `%APPDATA%\cbctscope` into
 the Explorer address bar. Deleting the profile deletes the marks kept in it;
 save them to a marks file first (section 7.3) to keep them. No scan is ever
 stored there: scans stay where they were opened from.
+
+**Updating the desktop app.** The app never checks for updates by itself and
+contacts nothing. **Check for Updates…** (in the **CBCTScope** menu on macOS,
+right after About; near the end of **Help** on Windows, before About) and
+**Check for updates** in the version panel (section 3.1) open the website's
+update page in your browser. The installed version travels after the `#`
+sign of the address, for example `https://cbctscope.com/update#from=2.1.0`:
+browsers keep that part of an address to themselves and do not send it to
+any server. The page compares it with the newest version, which the site
+knows because every release publishes the site again, and says which is
+newer: "You have CBCTScope 2.1.0. The newest version is 2.2.0." with the
+downloads and the release notes, or "You have the newest version of
+CBCTScope, 2.1.0.". For a version newer than the page knows (a build of your
+own, or a release the site has not caught up with) it says which version it
+knows as the newest release. Opened without a version, it names the newest
+version and offers the downloads.
+
+To install the new version over the old one: on a Mac, quit CBCTScope, open
+the new disk image and drag **CBCTScope** onto **Applications**, replacing
+the old copy; on Windows, quit CBCTScope and run the new setup file. Marks
+and settings are kept in the app's profile (above), not inside the app, so
+the new version finds them.
 
 To build it yourself: `npm run desktop` starts it from the repository against
 `out/` (building the web target first if `out/` is missing), and

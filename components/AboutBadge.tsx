@@ -2,12 +2,18 @@
 // The about door: the header version button opens a small credibility panel stating who
 // built this and why it can be trusted, with links to the About page and the source code. The version is read
 // from package.json so it can never drift from the release (the manual drift test pins the
-// same source). Escape, or a press outside it (the image included), closes it.
-import React, { useCallback, useRef, useState } from 'react';
+// same source). Escape, or a press outside it (the image included), closes it. In the desktop
+// app it also links the website's update page with this version after the # sign, the same
+// address as the app's Check for Updates item; the app hands the https link to the system browser.
+import React, { useCallback, useRef, useState, useSyncExternalStore } from 'react';
 import { Info } from 'lucide-react';
 import pkg from '@/package.json';
 import { AUTHOR_URL, REPO_URL } from './links';
 import { useDismiss, useKeepInViewport } from './cbct/menus';
+import { IS_DESKTOP } from './cbct/shell';
+import { updatePageUrl } from './updateCheck';
+
+const noSubscribe = () => () => {};
 
 /**
  * onOpenAbout: where the About page opens. Given (the local app and the desktop app), it opens
@@ -20,6 +26,8 @@ export default function AboutBadge({ product, onOpenAbout }: { product: string; 
   const close = useCallback(() => setOpen(false), []);
   useDismiss(open, close, ref);
   useKeepInViewport(open, panel);
+  // the desktop app, read after hydration (the exported HTML is rendered without a navigator)
+  const inShell = useSyncExternalStore(noSubscribe, () => IS_DESKTOP, () => false);
 
   return (
     <div ref={ref} style={{ position: 'relative', display: 'inline-flex' }}>
@@ -69,6 +77,20 @@ export default function AboutBadge({ product, onOpenAbout }: { product: string; 
               Source code repository
             </a>
           </div>
+          {inShell && (
+            <div style={{ marginTop: 4 }}>
+              <a
+                href={updatePageUrl(pkg.version)}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'var(--text)' }}
+                title="opens the website's update page in your browser; this version travels after the # sign, which is not sent to any server"
+                onClick={() => setOpen(false)}
+              >
+                Check for updates
+              </a>
+            </div>
+          )}
         </div>
       )}
     </div>

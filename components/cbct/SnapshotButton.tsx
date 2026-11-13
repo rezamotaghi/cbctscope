@@ -14,15 +14,19 @@ export default function SnapshotButton({
   title,
   label = 'Snapshot',
   disabled = false,
+  testId,
 }: {
   onClick: () => void;
   title?: string;
   label?: string;
   disabled?: boolean;
+  /** the header's button carries snapshot-button: the desktop app's File menu clicks it (desktop/native.mjs) */
+  testId?: string;
 }) {
   return (
     <button
       className="ctl"
+      data-testid={testId}
       onClick={onClick}
       disabled={disabled}
       title={title ?? 'snapshot: save what this room shows (as laid out on screen) as a PNG image'}

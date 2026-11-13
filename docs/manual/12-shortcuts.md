@@ -25,6 +25,20 @@ pane by pane; the status line shows three of them and points to the card. Double
 sliders return to the volume middle, parameter sliders to their defaults,
 and the histogram's cut lines to the automatic window.
 
+## Keys of the desktop app's menu
+
+The desktop app's File menu (section 3.8) adds three keys; on Windows read
+Ctrl for Cmd. They work in every mode, and no key of the page uses them.
+
+| Key | Action |
+|---|---|
+| `Cmd-O` | Open DICOMDIR or DICOM Folder… |
+| `Cmd-Shift-O` | Open a Single DICOM File… |
+| `Cmd-S` | Save Snapshot… (the header's Snapshot button) |
+
+The Help menu's **Keyboard and Mouse Reference** opens this chapter in the
+drawer.
+
 ## Mouse, MPR slice panes
 
 | Gesture | Action |

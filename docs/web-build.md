@@ -306,8 +306,8 @@ What `config.json` sets:
   served with). The agent frame is the one page the site frames itself, so it gets
   `frame-ancestors 'self'` and `SAMEORIGIN`. No Referrer-Policy is set: outbound links keep
   the browser's default and carry the origin.
-- Addresses: Next writes `about.html` and `legal.html`; `overrides` serves them at `/about`
-  and `/legal`, their canonical addresses, without a redirect. The manual keeps its `.html`
+- Addresses: Next writes `about.html`, `legal.html` and `update.html`; `overrides` serves them
+  at `/about`, `/legal` and `/update`, their canonical addresses, without a redirect. The manual keeps its `.html`
   addresses as the sitemap lists them, so a blanket `cleanUrls`, which would redirect them,
   is not used. `/` and `/manual/` are their folders' `index.html`.
 - A miss answers 404 with the export's `404.html` (an error-phase route).
@@ -419,9 +419,12 @@ How it is built:
   `CBCTScope/<version>` to the user agent; `components/cbct/shell.ts` reads it (`IS_DESKTOP`,
   `AGENT_AVAILABLE`), so the same `out/` mounts the agent channel in the app and nothing in a
   browser. Quit stops the bridge and releases the port.
-- `desktop/native.mjs` holds what the operating system shows: the menu bar (File with
-  **Open…**, Edit, View with zoom and full screen, Window, Help whose first item opens the
-  manual drawer through a window event that `ManualDrawer.tsx` answers), the About panel, the
+- `desktop/native.mjs` holds what the operating system shows: the menu bar (on macOS the
+  application menu spelled out with **Check for Updates…** after About; File with **Open
+  DICOMDIR or DICOM Folder…** (CmdOrCtrl+O), **Open a Single DICOM File…** (CmdOrCtrl+Shift+O)
+  and **Save Snapshot…** (CmdOrCtrl+S); Edit; View with zoom and full screen; Window; Help with
+  **CBCTScope Help**, **Keyboard and Mouse Reference**, **Cite CBCTScope**, **Legal Notice**,
+  **CBCTScope Website**, and on Windows **Check for Updates…** and About), the About panel, the
   save panel's title ("Save snapshot" or "Save export", from the `will-download` handler) and
   the port-in-use dialogue. The packaged app quits before any window when launched with
   `--remote-debugging-port` or `--remote-debugging-pipe`. `package.json` `productName` names
@@ -430,6 +433,33 @@ How it is built:
   `scripts/desktop-after-pack.mjs` sets `NSAllowsArbitraryLoads` to false; the window's
   loopback traffic goes through Chromium's own network stack, which that key does not govern.
   `tests/desktopNative.test.ts` covers it.
+- The menu reaches only what the page already does, the way the first Help item did: File
+  clicks the page's own controls by test id (`open-folder-input`, `open-file-input`,
+  `snapshot-button`) through `executeJavaScript(..., true)`, the `true` being the user gesture a
+  picker or a download needs, and leaves an absent or disabled control alone. Help sends window
+  events: `cbctscope:manual`, whose detail may name a drawer page (`12-shortcuts.html`,
+  `legal`), which `menuDrawerPage` in `ManualDrawer.tsx` accepts only from the manifest's pages
+  and the drawer's site pages, and `cbctscope:cite`, which opens the citation dialogue. The
+  three accelerators are free: the page's key handler ignores any key with Cmd, Ctrl or Alt
+  held (`components/cbct/keys.ts`), and Electron's Edit, View and Window roles use none of them.
+  Save Snapshot keeps its ellipsis because the `will-download` handler sets the save panel's
+  options without a save path, so the panel always follows.
+- Updates (the owner's decision of 13/11/26): the app contacts nothing. **Check for Updates…**
+  hands `https://cbctscope.com/update#from=<version>` to the system browser
+  (`shell.openExternal`, `updateUrl` in `native.mjs`; the bare page for anything but a strict
+  major.minor.patch). The page (`app/update/page.tsx`, `components/UpdateStatus.tsx`, the pure
+  `components/updateCheck.ts`) compares that version with the one in `package.json` at build
+  time, which is the newest because the release job deploys the site with every release, and
+  says older, same or newer, with the direct downloads of `components/downloads.ts`. The
+  version travels in the fragment, which browsers do not send to a server, so the request is
+  the same for every visitor. The exported HTML is the state with no version, so the page works
+  without JavaScript; it follows `hashchange`. It carries `robots` noindex and stays out of
+  `sitemap.xml` (`NOINDEX_PAGES` in `scripts/sitemap.mjs`) while `overrides` still serves it at
+  `/update`. The version panel links the same address in the desktop app only. The app's own
+  copy of the page (the bridge serves all of `out/`) is reached by no link in the app; should it
+  be shown there, it gives no verdict, since the app's copy knows only the app's own version,
+  and points to the menu item. No update check at launch, no request from the main process, no
+  electron-updater.
 - `desktop/bridge.mjs` serves `out/` (MIME by extension, confined to `out/`, no listing) and
   `/api/agent/command`, `/api/agent/events`, `/api/agent/result` with the agentBus contract,
   behind the Host, Sec-Fetch-Site and Origin checks of `middleware.ts`. Port 3810 and no
@@ -674,8 +704,8 @@ one site address (`components/siteAddress.mjs`: `SITE_URL`, `https://cbctscope.c
   his site, ORCID and GitHub profile. No ratings, reviews or medical types. The block is a data
   block the browser never executes, so `scripts/build-web.mjs` gives it no `script-src` hash.
 - **`sitemap.xml` and `robots.txt`**, written by `scripts/sitemap.mjs` after the export from
-  the pages it holds (home, about, legal, every manual page; not the 404 page or the agent
-  frame); robots.txt allows everything and names the sitemap. **Canonical links**: one per
+  the pages it holds (home, about, legal, every manual page; not the 404 page, the agent
+  frame or the noindex update page); robots.txt allows everything and names the sitemap. **Canonical links**: one per
   page, always the production address, also in a build made under a base path (Next's
   `alternates.canonical` for the app's pages, `scripts/manual-html.mjs` for the manual's).
 - **The manual's pages** take their HTML title and meta description from `pageTitle` and
