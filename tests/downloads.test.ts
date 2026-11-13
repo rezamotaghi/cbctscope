@@ -7,6 +7,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { INSTALLER_NAMES, MAC_NOTE, downloadEntries, downloadSystem, installerUrl } from '../components/downloads';
 import { RELEASES_URL } from '../components/links';
+import { REQUIRED_ASSETS, missingAssets, nextPage } from '../scripts/release-assets.mjs';
 
 const root = path.resolve(__dirname, '..');
 const workflowText = readFileSync(path.join(root, '.github/workflows/release.yml'), 'utf8');
@@ -16,7 +17,7 @@ const workflowText = readFileSync(path.join(root, '.github/workflows/release.yml
 const rootRequire = createRequire(path.join(root, 'package.json'));
 const yaml = createRequire(rootRequire.resolve('electron-builder'))('js-yaml') as { load: (s: string) => unknown };
 
-type Step = { name?: string; uses?: string; run?: string; with?: Record<string, unknown> };
+type Step = { name?: string; uses?: string; run?: string; with?: Record<string, unknown>; env?: Record<string, string> };
 type Job = { needs?: string | string[]; permissions?: Record<string, string>; steps?: Step[] };
 const workflow = yaml.load(workflowText) as { permissions: Record<string, string>; jobs: Record<string, Job> };
 
@@ -149,5 +150,48 @@ describe('release.yml attaches the installers under the fixed names', () => {
       'desktop-win': { contents: 'read' },
       publish: { contents: 'write' },
     });
+  });
+});
+
+describe('the deploy job ships the site only when the release carries the three installers', () => {
+  const deploySteps = workflow.jobs.deploy.steps ?? [];
+  const at = (name: string) => deploySteps.findIndex((s) => s.name === name);
+  const GUARD = 'Check the release carries the installers';
+
+  it('the guard checks exactly the fixed names of components/downloads.ts', () => {
+    expect([...REQUIRED_ASSETS].sort()).toEqual(Object.values(INSTALLER_NAMES).sort());
+  });
+
+  it('a release lacking any of them, or holding one still uploading, is refused, naming each missing file', () => {
+    const all = Object.values(INSTALLER_NAMES).map((name) => ({ name, state: 'uploaded' }));
+    const versioned = [{ name: 'CBCTScope-0.9.0-arm64.dmg', state: 'uploaded' }, { name: 'CBCTScope-0.9.0-setup.exe', state: 'uploaded' }];
+    expect(missingAssets([...versioned, ...all])).toEqual([]);
+    expect(missingAssets([...versioned, { name: INSTALLER_NAMES.windowsSetup, state: 'uploaded' }])).toEqual([INSTALLER_NAMES.macArm64, INSTALLER_NAMES.macX64]);
+    expect(missingAssets([])).toEqual([...REQUIRED_ASSETS]);
+    expect(missingAssets(all.map((a) => (a.name === INSTALLER_NAMES.macX64 ? { ...a, state: 'open' } : a)))).toEqual([INSTALLER_NAMES.macX64]);
+    // a name that differs in case or carries a version is not the fixed name
+    expect(missingAssets([{ name: 'cbctscope-mac-arm64.dmg' }, { name: INSTALLER_NAMES.macX64 }, { name: INSTALLER_NAMES.windowsSetup }])).toEqual([INSTALLER_NAMES.macArm64]);
+  });
+
+  it('follows the next page of a Link header and stops on the last', () => {
+    const next = 'https://api.github.com/repositories/1/releases/2/assets?per_page=100&page=2';
+    expect(nextPage(`<${next}>; rel="next", <https://api.github.com/repositories/1/releases/2/assets?per_page=100&page=3>; rel="last"`)).toBe(next);
+    expect(nextPage('<https://api.github.com/x?page=1>; rel="prev", <https://api.github.com/x?page=1>; rel="first"')).toBeNull();
+    expect(nextPage(null)).toBeNull();
+    expect(nextPage('')).toBeNull();
+  });
+
+  it('the guard runs in the deploy job before anything is uploaded to Vercel, on the release of the event', () => {
+    const guard = at(GUARD);
+    expect(guard).toBeGreaterThanOrEqual(0);
+    expect(guard).toBeLessThan(at('Install the Vercel CLI'));
+    expect(guard).toBeLessThan(at('Lay out the prebuilt deployment'));
+    expect(guard).toBeLessThan(at('Deploy to production'));
+    expect(deploySteps[guard].run).toBe('node scripts/release-assets.mjs');
+    expect(deploySteps[guard].env).toEqual({ RELEASE_ID: '${{ github.event.release.id }}', GITHUB_TOKEN: '${{ github.token }}' });
+  });
+
+  it('the rehearsal, which has no release, does not run it', () => {
+    expect(readFileSync(path.join(root, '.github/workflows/site-rehearsal.yml'), 'utf8')).not.toMatch(/release-assets/);
   });
 });
