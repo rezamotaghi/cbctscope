@@ -7,10 +7,10 @@ name: Release
 # upload their packages as workflow artifacts; one publish job, the only one with contents:
 # write, attaches them to the release. Signing and notarisation secrets reach the packaging
 # step only; the Vercel token and ids reach the deploy step only. The site and the installers
-# go public together: the deploy waits for the publish job, and its first step reads the
-# release's assets and stops unless all three installers the download menu links to are
-# attached, so a failed or skipped desktop build leaves the site as it was instead of linking
-# to a release without installers.
+# go public together: the deploy waits for the publish job, and its first step checks once
+# that this release is GitHub's latest (where the download menu's links lead) and carries all
+# three installers the menu links to, and fails otherwise, so a failed or skipped desktop build
+# leaves the site as it was instead of linking to a release without installers.
 on:
   release:
     types: [published]
@@ -91,8 +91,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      # the download menu links to three installers by fixed name: without all three on this
-      # release, attached by publish or by hand, the site stays as it was
+      # the download menu links to three installers by fixed name on the latest release: unless
+      # this release is the latest and carries all three, attached by publish or by hand, the
+      # job fails here and the site stays as it was
       - name: Check the release carries the installers
         run: node scripts/release-assets.mjs
         env:
@@ -135,8 +136,9 @@ jobs:
   #   APPLE_API_KEY_ID    that key's Key ID
   #   APPLE_API_ISSUER    the Issuer ID of the App Store Connect team
   # Secrets cannot appear in a job's `if:` (GitHub's documented limit), so this job turns
-  # their presence into an output. Without CSC_LINK the mac job is skipped, the release carries
-  # no mac installers, and the deploy job stops before the upload: the site stays as it was.
+  # their presence into an output. Without CSC_LINK the mac job is skipped, and the deploy job
+  # ships the site only if the mac installers were attached to the release by hand; otherwise
+  # it fails before the upload and the site stays as it was.
   desktop-gate:
     needs: test
     runs-on: ubuntu-latest
@@ -258,9 +260,9 @@ jobs:
           retention-days: 7
 
   # The one job that writes to the release: it downloads what the desktop jobs built and
-  # attaches it. The mac job is skipped without signing secrets; the release then carries the
-  # Windows packages only, and the deploy job refuses to ship the site until the mac installers
-  # are on the release.
+  # attaches it. The mac job is skipped without signing secrets; this job then attaches the
+  # Windows packages only, and the deploy job, which checks the release once and never waits,
+  # fails unless the mac installers were attached to the release by hand.
   publish:
     needs: [desktop-mac, desktop-win]
     if: ${{ always() && needs.desktop-win.result == 'success' && (needs.desktop-mac.result == 'success' || needs.desktop-mac.result == 'skipped') }}

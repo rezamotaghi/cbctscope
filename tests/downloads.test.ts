@@ -7,7 +7,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { INSTALLER_NAMES, MAC_NOTE, downloadEntries, downloadSystem, installerUrl } from '../components/downloads';
 import { RELEASES_URL } from '../components/links';
-import { REQUIRED_ASSETS, missingAssets, nextPage } from '../scripts/release-assets.mjs';
+import { REQUIRED_ASSETS, latestProblem, missingAssets, nextPage } from '../scripts/release-assets.mjs';
 
 const root = path.resolve(__dirname, '..');
 const workflowText = readFileSync(path.join(root, '.github/workflows/release.yml'), 'utf8');
@@ -170,7 +170,23 @@ describe('the deploy job ships the site only when the release carries the three 
     expect(missingAssets([])).toEqual([...REQUIRED_ASSETS]);
     expect(missingAssets(all.map((a) => (a.name === INSTALLER_NAMES.macX64 ? { ...a, state: 'open' } : a)))).toEqual([INSTALLER_NAMES.macX64]);
     // a name that differs in case or carries a version is not the fixed name
-    expect(missingAssets([{ name: 'cbctscope-mac-arm64.dmg' }, { name: INSTALLER_NAMES.macX64 }, { name: INSTALLER_NAMES.windowsSetup }])).toEqual([INSTALLER_NAMES.macArm64]);
+    expect(
+      missingAssets([
+        { name: 'cbctscope-mac-arm64.dmg', state: 'uploaded' },
+        { name: INSTALLER_NAMES.macX64, state: 'uploaded' },
+        { name: INSTALLER_NAMES.windowsSetup, state: 'uploaded' },
+      ]),
+    ).toEqual([INSTALLER_NAMES.macArm64]);
+    // an asset without a state is not taken for a finished upload
+    expect(missingAssets([{ name: INSTALLER_NAMES.macArm64 }, ...all.filter((a) => a.name !== INSTALLER_NAMES.macArm64)])).toEqual([INSTALLER_NAMES.macArm64]);
+  });
+
+  it('passes only the release that GitHub serves as latest, where the menu links lead', () => {
+    expect(latestProblem(200, 426490848, '426490848')).toBeNull();
+    expect(latestProblem(200, 111, '222')).toMatch(/release 222 is not GitHub's latest release \(that is 111\).*publish it as the latest release, not as a prerelease/);
+    expect(latestProblem(404, null, '222')).toMatch(/no latest release.*publish it as the latest release, not as a prerelease/);
+    expect(latestProblem(500, null, '222')).toBe('release-assets: GitHub answered 500 for the latest release');
+    expect(latestProblem(403, null, '222')).toMatch(/answered 403/);
   });
 
   it('follows the next page of a Link header and stops on the last', () => {

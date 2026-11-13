@@ -245,9 +245,10 @@ this order:
    packaging and runs `cmp`. A release without the mac secrets carries no mac files, fixed
    names included.
 4. `deploy` puts the site on Vercel only after `build` and `publish` succeeded, and only when
-   the release carries all three fixed names, and checks it (below). The site and the
-   installers go public together: a failed desktop build, or a release without the macOS
-   installers, leaves the site as it was, never linking to a release without installers.
+   the release is GitHub's latest release and carries all three fixed names, and checks it
+   (below). The site and the installers go public together: a failed desktop build, a
+   prerelease, or a release without the macOS installers leaves the site as it was, never
+   linking to a release without installers.
 
 On release day a human checks, in a browser, that the release carries the six installer files
 (three versioned, three fixed) and that each of the menu's three direct links starts the
@@ -263,15 +264,22 @@ deploy. Installers stay GitHub release assets; only the pages are on Vercel.
 
 How `deploy` ships the site (`release.yml`):
 
-1. `node scripts/release-assets.mjs` reads the asset list of the release that started the
-   run (its id from the event, through GitHub's REST API with the job's read-only token) and
-   fails the job, naming each missing file, unless the three fixed names are attached as
-   finished uploads. The list is what counts, not job results, so installers attached by
-   `publish` and installers the owner attached by hand before publishing pass alike. A
-   network error or any answer but 200 fails the job too. Without the macOS installers the
-   site stays as it was. The names are `REQUIRED_ASSETS` in the script;
-   `tests/downloads.test.ts` fails if they differ from `components/downloads.ts`. The
-   rehearsal has no release and does not run it.
+1. `node scripts/release-assets.mjs` checks, once, the release that started the run (its id
+   from the event, through GitHub's REST API with the job's read-only token). The menu's
+   links go through `/releases/latest/download/<name>`, so it first reads GitHub's latest
+   release and fails the job unless that is this release: a prerelease, or a release
+   published with "Set as latest release" unticked, would leave the links on another release,
+   and when no latest release exists at all (only prereleases) the links lead nowhere. Each
+   of these failures says to publish the release as the latest release, not as a prerelease.
+   It then reads the release's asset list and fails the job, naming each missing file, unless
+   the three fixed names are attached as finished uploads. The list is what counts, not job
+   results, so installers attached by `publish` and installers the owner attached by hand
+   pass alike. A network error or any answer but 200 fails the job too. Nothing waits: a
+   failure leaves the site as it was. To recover from missing files, attach them to the
+   release, then use **Re-run failed jobs** on that workflow run; the re-run reads the same
+   release again, and the `site` artifact it deploys is kept 30 days. The names are
+   `REQUIRED_ASSETS` in the script; `tests/downloads.test.ts` fails if they differ from
+   `components/downloads.ts`. The rehearsal has no release and does not run it.
 2. It downloads the `site` artifact into `out/`, the files `build` made.
 3. `node scripts/vercel-output.mjs out "$RUNNER_TEMP/site"` lays them out as a prebuilt
    deployment in the Build Output API v3 form: `.vercel/output/static/` is a byte copy of
@@ -351,13 +359,16 @@ release, after its check passed, and only when the address records change at the
    Protection** (every deployment's own address protected, the production domain public) and
    create a secret under **Protection Bypass for Automation**.
 3. GitHub, the repository's Settings, Environments: create `production` and `rehearsal`.
-   A new environment shows, under **Deployment branches and tags**, "No branch or tag rules
-   applied yet: all branches and tags are still allowed to deploy". For each, press **Add
-   deployment branch or tag rule**, which asks for the Ref type and the name pattern:
+   For each, under **Deployment branches and tags**, choose **Selected branches and tags**
+   (of No restriction, Protected branches only and Selected branches and tags). The page then
+   shows "No branch or tag rules applied yet: all branches and tags are still allowed to
+   deploy"; press **Add deployment branch or tag rule**, which asks for the Ref type (Branch
+   or Tag) and the name pattern, then **Add rule**:
    `production` gets one rule of Ref type **Tag** with the name pattern `v*` (the release
    tags; the rule is matched against the run's `GITHUB_REF`, and patterns use Ruby's
    `File.fnmatch`, where a wildcard does not match `/`); `rehearsal` gets one rule of Ref
-   type **Branch** with the name pattern `main`.
+   type **Branch** with the name pattern `main`. It worked when the page lists the one rule
+   and no longer says that all branches and tags are allowed to deploy.
 4. Store the Vercel secrets as **environment secrets**, never as repository secrets: in both
    environments `VERCEL_TOKEN` (an access token, made in the Vercel account's Tokens page,
    scoped to the team), `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` (the `orgId` and `projectId`
@@ -375,9 +386,11 @@ release, after its check passed, and only when the address records change at the
 
    The key can be checked before it is stored: `xcrun notarytool history --key <file.p8>
    --key-id <id> --issuer <issuer>` lists past submissions when the key works. Without
-   `CSC_LINK` the macOS job is skipped and the release carries no macOS installers; the
-   deploy job then fails before the upload, naming the missing files, and the site stays as
-   it was. A wrong or missing API key fails the macOS job, with the same result for the site.
+   `CSC_LINK` the macOS job is skipped and the pipeline attaches no macOS installers; the
+   site is then deployed only if the macOS installers were attached to the release by hand,
+   and otherwise the deploy job fails before the upload, naming the missing files, and the
+   site stays as it was. A wrong or missing API key fails the macOS job, so `publish` and
+   `deploy` do not run and the site stays as it was.
 6. Run **Site rehearsal** from the Actions tab, twice; both must pass. A workflow started by
    hand can be run only once its file is on the default branch, so the rehearsal can run only
    after the branch carrying it is merged to `main`. Vercel makes a new project's first
@@ -386,9 +399,12 @@ release, after its check passed, and only when the address records change at the
    at the project; the second run rehearses a true preview.
 7. Settings, Domains: add `cbctscope.com` (and `www.cbctscope.com`, redirecting to it) while
    Porkbun's address records still point elsewhere, so nothing answers there from Vercel yet.
-8. Publish the release. Its job attaches the installers, confirms that the release carries
-   all three the download menu links to, deploys production and checks the deployment; it
-   must pass.
+8. Publish the release as the **latest release, not a prerelease** ("Set as latest release"
+   ticked). Its job attaches the installers, confirms that the release is the latest and
+   carries all three the download menu links to, deploys production and checks the
+   deployment; it must pass. If the deploy job fails naming missing installers, attach them
+   to the release, then use **Re-run failed jobs** on that workflow run; the re-run reads the
+   same release again, and the `site` artifact is kept 30 days.
 9. Only then, at Porkbun, change the site's address records: for `cbctscope.com` an **A**
    record with the value shown in the Vercel dashboard, for `www` a **CNAME** with the value
    shown there, removing any older A, AAAA or CNAME records for those two names. The mail
@@ -565,11 +581,13 @@ How it is built:
   to its fixed name. One `publish` job, the only one with `contents: write`, downloads the
   artifacts and runs `gh release upload`. Signing and notarisation secrets reach the
   packaging step only. The `deploy` job needs `publish`, and its first step
-  (`scripts/release-assets.mjs`) reads the release's assets and fails unless the three fixed
-  installer names are attached, so the site goes live only once the installers are on the
-  release. A release without the mac secrets skips the mac job; the Windows job and `publish`
-  still run, the release carries the Windows packages only, and `deploy` stops before the
-  upload, so the site stays as it was.
+  (`scripts/release-assets.mjs`) checks once that the release is GitHub's latest and that
+  the three fixed installer names are attached, and fails otherwise, so the site goes live
+  only once the installers are on the release the menu's links reach. A release without the
+  mac secrets skips the mac job; the Windows job and `publish` still run and attach the
+  Windows packages only, and `deploy` ships the site only if the macOS installers were
+  attached to the release by hand; otherwise it fails before the upload and the site stays
+  as it was.
 
 Measured on the author's Mac (Apple silicon, macOS 27.2), 4 November 2026, unsigned build:
 
