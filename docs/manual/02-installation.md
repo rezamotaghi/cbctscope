@@ -256,9 +256,11 @@ version and offers the downloads.
 
 To install the new version over the old one: on a Mac, quit CBCTScope, open
 the new disk image and drag **CBCTScope** onto **Applications**, replacing
-the old copy; on Windows, quit CBCTScope and run the new setup file. Marks
-and settings are kept in the app's profile (above), not inside the app, so
-the new version finds them.
+the old copy; on Windows, quit CBCTScope and run the new setup file, or, with
+the portable build, replace the old portable file with the new one. Marks
+and settings are kept in the app's profile (above), not inside the app, and
+the installed and the portable build use the same profile folder, so the new
+version finds them.
 
 To build it yourself: `npm run desktop` starts it from the repository against
 `out/` (building the web target first if `out/` is missing), and

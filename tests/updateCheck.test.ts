@@ -33,6 +33,14 @@ describe('the update page', () => {
     expect(updateVerdict(null, '2.2.0')).toEqual({ kind: 'unknown', newest: '2.2.0' });
   });
 
+  it('never throws: a version that is not strict, on either side, gives the no-version verdict', () => {
+    for (const bad of ['2.2.0-beta.1', '2.2', '', 'v2.2.0', '2.2.0.1', 'x']) {
+      expect(updateVerdict('2.1.0', bad), `site ${bad}`).toEqual({ kind: 'unknown', newest: bad });
+      expect(updateVerdict(bad, '2.2.0'), `installed ${bad}`).toEqual({ kind: 'unknown', newest: '2.2.0' });
+      expect(updateVerdict(null, bad)).toEqual({ kind: 'unknown', newest: bad });
+    }
+  });
+
   it('links the website page with a strict version after the #, the bare page otherwise', () => {
     expect(updatePageUrl('2.1.0')).toBe('https://cbctscope.com/update#from=2.1.0');
     expect(updatePageUrl('2.1.0-beta')).toBe('https://cbctscope.com/update');

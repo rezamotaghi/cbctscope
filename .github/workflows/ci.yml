@@ -42,7 +42,8 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run build:web
-      - run: npx vitest run tests/webBudget.test.ts
+      # the tests that read the export (skipped by npm test, before it exists)
+      - run: npx vitest run tests/webBudget.test.ts tests/siteExport.test.ts
       - run: npm run test:e2e
 
   # Secret scan over the FULL history, not just the diff: the repo's privacy stance is a

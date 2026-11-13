@@ -220,6 +220,8 @@ export default function CbctApp({ citation }: { citation?: Citation }) {
   const [citeOpen, setCiteOpen] = useState(false);
   const helpMenuRef = useRef<HTMLDivElement | null>(null);
   const [picking, setPicking] = useState(false);
+  // the same, for callbacks that must not wait for a render: a drop during a read is ignored
+  const pickingRef = useRef(false);
   const srcMenuRef = useRef<HTMLDivElement | null>(null);
   const wantLocalRef = useRef(false); // after an open, jump to the first opened volume
   const wantSwitchRef = useRef<string | null>(null); // after a stitch, jump to the new fused volume
@@ -409,6 +411,7 @@ export default function CbctApp({ citation }: { citation?: Citation }) {
   const openWith = useCallback(async (input: Parameters<typeof source.open>[0], started?: number) => {
     setSrcMenu(false);
     setPicking(true);
+    pickingRef.current = true;
     // files (the web build) get the progress panel; the native chooser has its own dialog
     const token = input.kind === 'files' ? (started ?? beginOpen(input.files.length)) : null;
     const live = () => token !== null && openTokenRef.current === token;
@@ -436,6 +439,7 @@ export default function CbctApp({ citation }: { citation?: Citation }) {
       if (live()) setOpenPanel(null);
       setError(String(e));
     } finally {
+      pickingRef.current = false;
       setPicking(false);
     }
   }, [beginOpen]);
@@ -471,7 +475,7 @@ export default function CbctApp({ citation }: { citation?: Citation }) {
   const onDropFiles = useCallback(
     async (dt: DataTransfer) => {
       const entries = entriesOf(dt); // synchronous: the items die after the drop handler
-      if (!entries.length) return;
+      if (!entries.length || pickingRef.current) return; // one read at a time, as the disabled Open menu says
       await openWalked(async () => ({ ...(await walkDrop(entries)), label: dropLabel(entries) }), 'the dropped files');
     },
     [openWalked],
@@ -753,6 +757,8 @@ export default function CbctApp({ citation }: { citation?: Citation }) {
             multiple
             hidden
             data-testid="open-folder-input"
+            // disabled while a read runs, like the Open menu, so the desktop app's File menu cannot start a second
+            disabled={picking}
             onChange={(e) => {
               onFilesChosen(e.target.files);
               e.target.value = '';
@@ -763,6 +769,7 @@ export default function CbctApp({ citation }: { citation?: Citation }) {
             type="file"
             hidden
             data-testid="open-file-input"
+            disabled={picking}
             onChange={(e) => {
               onFilesChosen(e.target.files);
               e.target.value = '';

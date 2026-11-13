@@ -156,7 +156,7 @@ describe('user manual tracks the app (docs/manual/)', () => {
       [read('desktop/native.mjs'), 'Legal Notice', 'docs/manual/03-interface.md'],
       [read('desktop/native.mjs'), 'CBCTScope is already running, or another program uses its port', 'docs/manual/02-installation.md'],
       [read('desktop/native.mjs'), 'CBCTScope is already running, or another program', 'docs/manual/11-troubleshooting.md'],
-      ...['Cross-site requests are not allowed.', 'Cross-origin requests are not allowed.', 'CBCTScope only answers to localhost.'].map(
+      ...['Cross-site requests are not allowed.', 'Cross-origin requests are not allowed.', 'CBCTScope only answers to localhost.', 'The agent stream is for the viewer page only.'].map(
         (refusal): [string, string, string] => [read('desktop/bridge.mjs'), refusal, 'docs/manual/11-troubleshooting.md'],
       ),
       [appSrc, 'Download the desktop app', 'docs/manual/02-installation.md'],
@@ -310,4 +310,29 @@ describe('user manual tracks the app (docs/manual/)', () => {
     const files = readdirSync(path.join(root, 'docs/manual')).filter((n) => n.endsWith('.md'));
     for (const name of files) expect(read(`docs/manual/${name}`), `${name} contains an em/en dash`).not.toMatch(/[—–]/);
   });
+
+  it('no run of four or more words is repeated back to back within a paragraph or list item', () => {
+    const manifest = JSON.parse(read('docs/manual/manifest.json')) as { chapters: { file: string }[] };
+    expect(doubledRuns('drop. In the desktop app,\nIn the desktop app, the File menu')).toEqual(['in the desktop app']);
+    expect(doubledRuns('said "these files are not dicom".\n- **"These files are not DICOM images"**')).toEqual([]);
+    for (const { file } of manifest.chapters) expect(doubledRuns(read(file)), file).toEqual([]);
+  });
 });
+
+/**
+ * The runs of four or more words a text repeats back to back, within one paragraph or list item
+ * (a blank line or a line that starts a list item, heading or table row ends a block).
+ */
+function doubledRuns(text: string): string[] {
+  const found: string[] = [];
+  const blocks = text.split(/\n\s*\n|\n(?=\s*(?:[-*+]|\d+\.|#|\|)\s)/);
+  for (const block of blocks) {
+    const w = block.toLowerCase().match(/[a-z0-9][a-z0-9'-]*/g) ?? [];
+    for (let n = 4; 2 * n <= w.length; n += 1) {
+      for (let i = 0; i + 2 * n <= w.length; i += 1) {
+        if (w.slice(i, i + n).join(' ') === w.slice(i + n, i + 2 * n).join(' ')) found.push(w.slice(i, i + n).join(' '));
+      }
+    }
+  }
+  return found;
+}

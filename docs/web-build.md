@@ -436,7 +436,9 @@ How it is built:
 - The menu reaches only what the page already does, the way the first Help item did: File
   clicks the page's own controls by test id (`open-folder-input`, `open-file-input`,
   `snapshot-button`) through `executeJavaScript(..., true)`, the `true` being the user gesture a
-  picker or a download needs, and leaves an absent or disabled control alone. Help sends window
+  picker or a download needs, and leaves an absent or disabled control alone: the hidden file
+  inputs are disabled while the files are read, as the header's Open menu is, and a drop in
+  that time is ignored. A dropped folder's tree walk, before its files are read, is not covered. Help sends window
   events: `cbctscope:manual`, whose detail may name a drawer page (`12-shortcuts.html`,
   `legal`), which `menuDrawerPage` in `ManualDrawer.tsx` accepts only from the manifest's pages
   and the drawer's site pages, and `cbctscope:cite`, which opens the citation dialogue. The

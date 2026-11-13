@@ -8,6 +8,8 @@ import { expect, test, type Browser } from '@playwright/test';
 import { guardPage, waitForVolume } from './helpers';
 import { CITE_EVENT, FILE_INPUT, FOLDER_INPUT, LEGAL_PAGE, MANUAL_EVENT, SHORTCUTS_PAGE, SNAPSHOT_BUTTON, clickScript, eventScript, updateUrl } from '../../desktop/native.mjs';
 import pkg from '../../package.json';
+import { compareVersions, versionFromHash } from '../../components/updateCheck';
+import { radiographBytes } from '../fixtures/dicomWriter';
 
 const SHELL_UA = 'Mozilla/5.0 Chrome CBCTScope/0.0.0';
 const shellContext = (browser: Browser) => browser.newContext({ viewport: { width: 1600, height: 1000 }, userAgent: SHELL_UA });
@@ -139,6 +141,48 @@ test('the desktop File menu reaches both openers and the Snapshot button, and do
   await ctx.close();
 });
 
+test('while a read runs, the File menu opens no second picker, and Open comes back when it ends', async ({ browser, baseURL }) => {
+  const ctx = await shellContext(browser);
+  // hold every file read until the test lets go, so the read stays in progress
+  await ctx.addInitScript(() => {
+    const w = window as unknown as { __release: () => void; __reads: number };
+    const hold = new Promise<void>((r) => (w.__release = r));
+    w.__reads = 0;
+    const read = Blob.prototype.arrayBuffer;
+    Blob.prototype.arrayBuffer = async function (this: Blob) {
+      w.__reads += 1;
+      await hold;
+      return read.call(this);
+    };
+  });
+  const page = await ctx.newPage();
+  const problems = guardPage(page, new URL(baseURL as string).origin);
+  await page.goto('/');
+  await waitForVolume(page);
+  const open = page.locator('header').getByRole('button', { name: 'Open', exact: true });
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.evaluate(clickScript(FILE_INPUT))]);
+  await chooser.setFiles({ name: 'radiograph.dcm', mimeType: 'application/dicom', buffer: Buffer.from(radiographBytes()) });
+  await expect(open).toBeDisabled();
+  await expect(page.getByTestId(FILE_INPUT)).toBeDisabled();
+  await expect(page.getByTestId(FOLDER_INPUT)).toBeDisabled();
+  // both openers of the File menu: no picker opens while the read runs
+  let choosers = 0;
+  page.on('filechooser', () => (choosers += 1));
+  await page.evaluate(clickScript(FILE_INPUT));
+  await page.evaluate(clickScript(FOLDER_INPUT));
+  await page.waitForTimeout(1000);
+  expect(choosers).toBe(0);
+  expect(await page.evaluate(() => (window as unknown as { __reads: number }).__reads)).toBe(1);
+  // the read ends: Open and the File menu's openers work again
+  await page.evaluate(() => (window as unknown as { __release: () => void }).__release());
+  await expect(open).toBeEnabled({ timeout: 30_000 });
+  await expect(page.getByTestId(FILE_INPUT)).toBeEnabled();
+  const [again] = await Promise.all([page.waitForEvent('filechooser'), page.evaluate(clickScript(FOLDER_INPUT))]);
+  expect(again).toBeTruthy();
+  expect(problems).toEqual([]);
+  await ctx.close();
+});
+
 test('in the desktop app the version panel links the update page with this version after the #; on the website it does not', async ({ browser, baseURL, page }) => {
   const ctx = await shellContext(browser);
   const app = await ctx.newPage();
@@ -160,11 +204,25 @@ test('in the desktop app the version panel links the update page with this versi
   await expect(popover.getByRole('link', { name: 'Check for updates' })).toHaveCount(0);
 });
 
-/** a version one step away from the site's, in the patch part (or the minor part) */
-function bump(v: string, by: number): string {
+/** a strict version older than v (one step down in its last non-zero part), or null for 0.0.0 */
+function olderThan(v: string): string | null {
   const [a, b, c] = v.split('.').map(Number);
-  return c + by >= 0 ? `${a}.${b}.${c + by}` : `${a}.${b - 1}.99`;
+  return c > 0 ? `${a}.${b}.${c - 1}` : b > 0 ? `${a}.${b - 1}.0` : a > 0 ? `${a - 1}.0.0` : null;
 }
+/** a strict version newer than v: the next major */
+const newerThan = (v: string) => `${Number(v.split('.')[0]) + 1}.0.0`;
+
+test('the test versions are strict and on the right side for every kind of version', () => {
+  for (const v of ['0.0.1', '0.1.0', '1.0.0', '2.0.0', '2.1.0', '2.10.0', '3.0.5', pkg.version]) {
+    const older = olderThan(v);
+    expect(older, v).not.toBeNull();
+    expect(versionFromHash(`#from=${older}`), v).toBe(older);
+    expect(compareVersions(older as string, v), v).toBe(-1);
+    expect(versionFromHash(`#from=${newerThan(v)}`), v).toBe(newerThan(v));
+    expect(compareVersions(newerThan(v), v), v).toBe(1);
+  }
+  expect(olderThan('0.0.0')).toBeNull();
+});
 
 test('the update page says which version is newer, by the address after the #, and follows a change of it', async ({ page, baseURL }) => {
   const problems = guardPage(page, new URL(baseURL as string).origin);
@@ -175,7 +233,7 @@ test('the update page says which version is newer, by the address after the #, a
   const download = page.getByRole('link', { name: 'Mac with Apple silicon' });
 
   // older
-  const older = bump(newest, -1);
+  const older = olderThan(newest) as string;
   await page.goto(`/update#from=${older}`);
   await expect(status).toHaveAttribute('data-state', 'older');
   await expect(verdict).toHaveText(`You have CBCTScope ${older}. The newest version is ${newest}.`);
@@ -183,6 +241,7 @@ test('the update page says which version is newer, by the address after the #, a
   await expect(download).toHaveAttribute('href', 'https://github.com/rezamotaghi/cbctscope/releases/latest/download/CBCTScope-mac-arm64.dmg');
   await expect(page.getByRole('link', { name: 'All downloads and release notes' })).toHaveAttribute('href', 'https://github.com/rezamotaghi/cbctscope/releases/latest');
   await expect(page.getByText('Your marks and settings are kept in the app', { exact: false })).toBeVisible();
+  await expect(page.getByText('with the portable build, replace the old portable file with the new one', { exact: false })).toBeVisible();
 
   // same, through a hashchange on the same page
   await page.evaluate((v) => (window.location.hash = `from=${v}`), newest);
@@ -192,7 +251,7 @@ test('the update page says which version is newer, by the address after the #, a
   await expect(download).toHaveCount(0);
 
   // newer than the site knows
-  const newer = bump(newest, 1);
+  const newer = newerThan(newest);
   await page.evaluate((v) => (window.location.hash = `from=${v}`), newer);
   await expect(status).toHaveAttribute('data-state', 'newer');
   await expect(verdict).toHaveText(`You have CBCTScope ${newer}. This page knows ${newest} as the newest release.`);
