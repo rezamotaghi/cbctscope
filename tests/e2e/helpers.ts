@@ -58,9 +58,9 @@ export async function waitForPanesSettled(page: Page): Promise<void> {
       () =>
         page.evaluate(() => {
           const dpr = window.devicePixelRatio || 1;
-          return Array.from(document.querySelectorAll<HTMLCanvasElement>('main canvas.cornerstone-canvas'))
-            .filter((c) => c.clientWidth > 0)
-            .every((c) => Math.abs(c.width - Math.round(c.clientWidth * dpr)) <= 2 && Math.abs(c.height - Math.round(c.clientHeight * dpr)) <= 2);
+          const panes = Array.from(document.querySelectorAll<HTMLCanvasElement>('main canvas.cornerstone-canvas')).filter((c) => c.clientWidth > 0);
+          // no pane found is not "settled": it would make this wait pass without checking anything
+          return panes.length > 0 && panes.every((c) => Math.abs(c.width - Math.round(c.clientWidth * dpr)) <= 2 && Math.abs(c.height - Math.round(c.clientHeight * dpr)) <= 2);
         }),
       { message: 'the viewer panes take their new size', timeout: 30_000 },
     )
