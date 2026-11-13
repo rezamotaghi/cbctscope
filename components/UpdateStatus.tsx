@@ -27,9 +27,10 @@ export const UPDATE_IN_APP =
 
 export const UPDATE_INSTALL_MAC =
   'On a Mac, quit CBCTScope, open the new disk image and drag CBCTScope onto Applications, replacing the old copy.';
-export const UPDATE_INSTALL_WINDOWS = 'On Windows, quit CBCTScope and run the new setup file.';
+export const UPDATE_INSTALL_WINDOWS =
+  'On Windows, quit CBCTScope and run the new setup file; with the portable build, replace the old portable file with the new one.';
 export const UPDATE_INSTALL_PROFILE =
-  "Your marks and settings are kept in the app's profile, not inside the app, so installing the new version keeps them.";
+  "Your marks and settings are kept in the app's profile, not inside the app, and the installed and the portable build share that profile, so the new version keeps them.";
 
 export default function UpdateStatus({ newest }: { newest: string }) {
   const inShell = useSyncExternalStore(noSubscribe, () => IS_DESKTOP, () => false);
@@ -64,7 +65,7 @@ export default function UpdateStatus({ newest }: { newest: string }) {
               ? `You have CBCTScope ${v.installed}. This page knows ${v.newest} as the newest release.`
               : `The newest version of CBCTScope is ${v.newest}.`}
       </p>
-      {installed !== null && <p>{UPDATE_HASH_NOTE}</p>}
+      {v.kind !== 'unknown' && <p>{UPDATE_HASH_NOTE}</p>}
       {offer && (
         <>
           <h2>Download</h2>

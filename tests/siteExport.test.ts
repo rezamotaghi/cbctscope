@@ -161,6 +161,10 @@ describe.skipIf(!built)('the exported site', () => {
     expect(text).toContain('Check for updates');
     expect(text).toContain(`The newest version of CBCTScope is ${pkg.version}.`);
     expect(text).toContain('Research use only. Not a medical device.');
+    // how to install over the old version: the disk image, the setup file and the portable build
+    expect(text).toContain('replacing the old copy');
+    expect(text).toContain('run the new setup file');
+    expect(text).toContain('replace the old portable file with the new one');
     // no verdict and no note about the address without a version
     expect(text).not.toContain('You have');
     expect(text).not.toContain('after the # sign');

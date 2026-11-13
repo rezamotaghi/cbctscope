@@ -115,17 +115,27 @@
 - **Marks are missing in another browser**: marks live in each browser's own
   storage. Carry them with **Save marks to file** and **Load marks from file**
   (section 7.3).
-- **A browser page at localhost:3810 shows only one sentence**:
-  "Cross-site requests are not allowed.",
-  "Cross-origin requests are not allowed." or
-  "CBCTScope only answers to localhost." The desktop app's local server
-  refused the request. It answers only requests from its own window,
-  addresses typed directly into a browser on this computer, and the agent
-  tools, and only at a loopback address such as `localhost` or `127.0.0.1`.
-  A link followed from another web page is refused, and so is the computer's
-  network name or address, so that no other web page and no other device can
-  reach the viewer. Use the app's own window. The repository viewer
-  (section 2.3) answers the same way.
+- **A browser page at localhost:3810 shows only one sentence**: the desktop
+  app's local server refused the request. It answers its own window, an
+  address typed directly into a browser on this computer, and the agent
+  tools; it refuses what another web page sends it, so that no other page can
+  reach the viewer. The sentence says which rule refused it:
+  - "Cross-site requests are not allowed.": the address was opened from a
+    link or a form on another web page, a page served by another program on
+    this computer included.
+  - "Cross-origin requests are not allowed.": another web page sent a request
+    that the browser marked as coming from that page.
+  - "CBCTScope only answers to localhost.": the address used a name other
+    than `localhost`, `127.0.0.1` or `[::1]` that points at this computer.
+  - "The agent stream is for the viewer page only.": the address
+    `/api/agent/events` was opened in a browser tab; only the viewer page
+    itself reads it.
+
+  Use the app's own window, or type `http://localhost:3810` yourself. The
+  server listens on this computer's loopback address only, so the computer's
+  network name or address from another device, or from this one, gets the
+  browser's own connection error, not one of these sentences. The repository
+  viewer (section 2.3) answers the same way.
 
 ## Agent connection
 

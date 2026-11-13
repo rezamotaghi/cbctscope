@@ -38,9 +38,12 @@ export type UpdateVerdict =
   | { kind: 'older' | 'same' | 'newer'; installed: string; newest: string }
   | { kind: 'unknown'; newest: string };
 
-/** what the page says, from the installed version (or none) and the newest one the site knows */
+/**
+ * What the page says, from the installed version (or none) and the newest one the site knows.
+ * Total: when either is not a strict major.minor.patch, the page says only the newest version.
+ */
 export function updateVerdict(installed: string | null, newest: string): UpdateVerdict {
-  if (installed === null) return { kind: 'unknown', newest };
+  if (installed === null || !parseVersion(installed) || !parseVersion(newest)) return { kind: 'unknown', newest };
   const c = compareVersions(installed, newest);
   return { kind: c < 0 ? 'older' : c === 0 ? 'same' : 'newer', installed, newest };
 }

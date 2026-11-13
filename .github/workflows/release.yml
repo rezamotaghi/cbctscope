@@ -38,6 +38,8 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build:web
+      # the tests that read the export (skipped by npm test, before it exists)
+      - run: npx vitest run tests/webBudget.test.ts tests/siteExport.test.ts
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
 

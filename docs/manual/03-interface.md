@@ -246,7 +246,8 @@ something the screen already offers; none adds a function of its own.
 - **File**: **Open DICOMDIR or DICOM Folder…** (`Cmd-O` on macOS, `Ctrl-O` on
   Windows) and **Open a Single DICOM File…** (`Cmd-Shift-O`, `Ctrl-Shift-O`)
   open the same pickers as the two entries of the header's **Open** menu
-  (chapter 4). **Save Snapshot…** (`Cmd-S`, `Ctrl-S`) presses the header's
+  (chapter 4); like that menu, they do nothing while a scan is being read.
+  **Save Snapshot…** (`Cmd-S`, `Ctrl-S`) presses the header's
   **Snapshot** button, and the save panel follows (section 7.1); with no
   image on screen it does nothing. Then Close Window on macOS, Exit on
   Windows.
