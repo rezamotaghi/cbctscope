@@ -80,6 +80,8 @@ left to right:
     and release notes** (sections 2.5 and 2.6). Your own system's entries
     come first.
 
+    ![The website's header with the Download the desktop app menu open below its button: Mac with Apple silicon, Mac with Intel and Windows, the line on telling the two Macs apart, and All downloads and release notes, as a Mac shows it](../media/manual/download-menu.webp)
+
 Every menu and popover closes with Escape or a click anywhere outside it,
 the image included; the arrow keys move through a menu's entries. Keyboard
 focus shows as a blue ring around the control.

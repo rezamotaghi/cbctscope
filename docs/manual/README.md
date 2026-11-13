@@ -44,6 +44,28 @@ it carries CSS pixels of the v1.6 layout and no longer fits the script.
 Recapture after any change to the header or to a mode's layout, in the same
 commit as the change.
 
+The website's stills come from the static export, which has no agent API, so
+the script drives that page over the DevTools protocol only: run
+`npm run build:web`, serve it with `node scripts/serve-out.mjs out <port>`,
+then `node scripts/manual-shots.mjs site download --url
+http://127.0.0.1:<port>/`. `site.webp` is the first screen a first-time
+visitor sees on the phantom; `download-menu.webp` is the same screen with the
+header's **Download the desktop app** menu open. The desktop app's two stills
+are real window captures made on a Mac, not script output: `desktop-app.webp`
+(the window on the consented CBCT, bone-only 3D) and `disk-image.webp` (the
+disk image's Finder window), each a PNG converted to sRGB and encoded with
+all metadata stripped, the transparent ground and shadow kept:
+
+```sh
+sips -m "/System/Library/ColorSync/Profiles/sRGB Profile.icc" window.png --out window-srgb.png
+cwebp -q 82 -m 6 -alpha_q 100 -metadata none [-resize <half width> <half height>] window-srgb.png -o docs/media/manual/<name>.webp
+```
+
+`-resize` halves a full Retina capture (the app window); the disk image
+window is kept at its own size. `tests/manual.test.ts` fails when a still in
+`docs/media/manual/` is embedded by no page, or a page embeds one that is
+missing.
+
 The README media come from the same script and the same parameter file, run
 against `npm run dev` with the real CBCT open: `node scripts/manual-shots.mjs
 thumbs --params <file>` writes the four `docs/media/thumb-*.png` (1600 by 914,

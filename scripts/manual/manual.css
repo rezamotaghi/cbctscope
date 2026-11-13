@@ -13,6 +13,10 @@
   --warn: #e0b341;
   --mark: #2b4d8a;
   color-scheme: dark;
+  /* a classic scrollbar as in the viewer (app/globals.css); the light theme keeps the system's */
+  --scroll-thumb: #6b7384;
+  --scroll-track: #14171d;
+  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
 }
 @media (prefers-color-scheme: light) {
   :root:not(.theme-dark) {
@@ -26,6 +30,7 @@
     --warn: #7a5600;
     --mark: #cfe0ff;
     color-scheme: light;
+    scrollbar-color: auto;
   }
 }
 
