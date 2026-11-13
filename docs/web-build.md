@@ -243,10 +243,11 @@ this order:
    `xcrun stapler validate` and `spctl --assess` on each copy (a stapled ticket is written into
    the dmg itself, so a byte copy carries it); the Windows job copies the setup exe after
    packaging and runs `cmp`. A release without the mac secrets carries no mac files, fixed
-   names included, so the two Mac entries answer 404 on that release.
-4. `deploy` puts the site on Vercel only after `build` and `publish` succeeded, and checks it
-   (below). The site and the installers go public together: a failed desktop build leaves the
-   site as it was, never linking to a release without installers.
+   names included.
+4. `deploy` puts the site on Vercel only after `build` and `publish` succeeded, and only when
+   the release carries all three fixed names, and checks it (below). The site and the
+   installers go public together: a failed desktop build, or a release without the macOS
+   installers, leaves the site as it was, never linking to a release without installers.
 
 On release day a human checks, in a browser, that the release carries the six installer files
 (three versioned, three fixed) and that each of the menu's three direct links starts the
@@ -262,12 +263,21 @@ deploy. Installers stay GitHub release assets; only the pages are on Vercel.
 
 How `deploy` ships the site (`release.yml`):
 
-1. It downloads the `site` artifact into `out/`, the files `build` made.
-2. `node scripts/vercel-output.mjs out "$RUNNER_TEMP/site"` lays them out as a prebuilt
+1. `node scripts/release-assets.mjs` reads the asset list of the release that started the
+   run (its id from the event, through GitHub's REST API with the job's read-only token) and
+   fails the job, naming each missing file, unless the three fixed names are attached as
+   finished uploads. The list is what counts, not job results, so installers attached by
+   `publish` and installers the owner attached by hand before publishing pass alike. A
+   network error or any answer but 200 fails the job too. Without the macOS installers the
+   site stays as it was. The names are `REQUIRED_ASSETS` in the script;
+   `tests/downloads.test.ts` fails if they differ from `components/downloads.ts`. The
+   rehearsal has no release and does not run it.
+2. It downloads the `site` artifact into `out/`, the files `build` made.
+3. `node scripts/vercel-output.mjs out "$RUNNER_TEMP/site"` lays them out as a prebuilt
    deployment in the Build Output API v3 form: `.vercel/output/static/` is a byte copy of
    `out/`, and `.vercel/output/config.json` holds the routes, the overrides and the 404 route
    below. The folder is outside the checkout, so nothing else leaves the runner.
-3. `deploy/node_modules/.bin/vercel deploy --prebuilt --prod --cwd "$RUNNER_TEMP/site"`
+4. `deploy/node_modules/.bin/vercel deploy --prebuilt --prod --cwd "$RUNNER_TEMP/site"`
    uploads it. The Vercel CLI lives in `deploy/`, a folder of its own: a private
    `package.json` that pins the one exact `vercel` version and nothing else, and its own
    committed lockfile, installed by `npm ci` in that folder only. It is not in the app's
@@ -284,7 +294,7 @@ How `deploy` ships the site (`release.yml`):
    flag forces plain output (`--json` and `--non-interactive` switch to JSON whose shape the
    docs do not give), so the default mode is used and the strict parse is the guard. The job
    needs no permission beyond reading the repository and stops after 30 minutes.
-4. `node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out` checks that
+5. `node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out` checks that
    deployment at its own address (Deployment Protection covers it, so the bypass secret goes
    along), which works before and after the domain's address records point at Vercel. It
    fails the job unless every file in `out/` and every address in `out/sitemap.xml` answers
@@ -328,10 +338,11 @@ the preview, the byte check fails and names it.
 release, after its check passed, and only when the address records change at the end.
 
 1. In the Vercel Pro team, create the project **without importing a Git repository**:
-   `vercel project create cbctscope --scope <team>`, then, in an empty folder outside the
-   repository, `vercel link --yes --project cbctscope --scope <team>`, which writes
-   `.vercel/project.json` with the `orgId` and `projectId` needed below. The framework preset
-   and build settings do not matter: a prebuilt deployment skips them.
+   `vercel project create cbctscope --scope <team>` (an older CLI, such as 48.2.0, spells it
+   `vercel project add cbctscope --scope <team>`, with the same effect), then, in an empty
+   folder outside the repository, `vercel link --yes --project cbctscope --scope <team>`,
+   which writes `.vercel/project.json` with the `orgId` and `projectId` needed below. The
+   framework preset and build settings do not matter: a prebuilt deployment skips them.
 2. Project settings: leave **Analytics** (Web Analytics) and **Speed Insights** off (both
    work only when the site carries their script, which it does not; enabling Web Analytics
    also adds routes under `/_vercel/insights/`). Under General, **Vercel Toolbar**, set
@@ -340,33 +351,54 @@ release, after its check passed, and only when the address records change at the
    Protection** (every deployment's own address protected, the production domain public) and
    create a secret under **Protection Bypass for Automation**.
 3. GitHub, the repository's Settings, Environments: create `production` and `rehearsal`.
-   For each, under Deployment branches and tags choose **Selected branches and tags**:
+   A new environment shows, under **Deployment branches and tags**, "No branch or tag rules
+   applied yet: all branches and tags are still allowed to deploy". For each, press **Add
+   deployment branch or tag rule**, which asks for the Ref type and the name pattern:
    `production` gets one rule of Ref type **Tag** with the name pattern `v*` (the release
    tags; the rule is matched against the run's `GITHUB_REF`, and patterns use Ruby's
    `File.fnmatch`, where a wildcard does not match `/`); `rehearsal` gets one rule of Ref
-   type **Branch** with the name `main`.
-4. Store the secrets as **environment secrets**, never as repository secrets: in both
+   type **Branch** with the name pattern `main`.
+4. Store the Vercel secrets as **environment secrets**, never as repository secrets: in both
    environments `VERCEL_TOKEN` (an access token, made in the Vercel account's Tokens page,
    scoped to the team), `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` (the `orgId` and `projectId`
    from step 1), and `VERCEL_AUTOMATION_BYPASS_SECRET` (the secret from step 2; the release's
    check reads it too, because a deployment's own address is protected).
-5. Run **Site rehearsal** from the Actions tab, twice; both must pass. Vercel makes a new
-   project's first deployment a production one whatever the flag, so the first run becomes
-   the project's production deployment on its `vercel.app` address. That is harmless while no
-   domain points at the project; the second run rehearses a true preview.
-6. Settings, Domains: add `cbctscope.com` (and `www.cbctscope.com`, redirecting to it) while
+5. Store the five Apple secrets as **repository secrets** (Settings, Secrets and variables,
+   Actions), because the macOS job runs in no environment:
+   - `CSC_LINK`: the Developer ID Application certificate, exported from Keychain Access, My
+     Certificates, as a .p12, then base64 on one line: `base64 -i devid.p12 | tr -d '\n'`.
+   - `CSC_KEY_PASSWORD`: the password chosen for that export.
+   - `APPLE_API_KEY`: an App Store Connect API team key with Developer access, the .p8 file
+     Apple lets you download once, base64 on one line the same way.
+   - `APPLE_API_KEY_ID`: that key's Key ID.
+   - `APPLE_API_ISSUER`: the team's Issuer ID.
+
+   The key can be checked before it is stored: `xcrun notarytool history --key <file.p8>
+   --key-id <id> --issuer <issuer>` lists past submissions when the key works. Without
+   `CSC_LINK` the macOS job is skipped and the release carries no macOS installers; the
+   deploy job then fails before the upload, naming the missing files, and the site stays as
+   it was. A wrong or missing API key fails the macOS job, with the same result for the site.
+6. Run **Site rehearsal** from the Actions tab, twice; both must pass. A workflow started by
+   hand can be run only once its file is on the default branch, so the rehearsal can run only
+   after the branch carrying it is merged to `main`. Vercel makes a new project's first
+   deployment a production one whatever the flag, so the first run becomes the project's
+   production deployment on its `vercel.app` address. That is harmless while no domain points
+   at the project; the second run rehearses a true preview.
+7. Settings, Domains: add `cbctscope.com` (and `www.cbctscope.com`, redirecting to it) while
    Porkbun's address records still point elsewhere, so nothing answers there from Vercel yet.
-7. Publish the release. Its job attaches the installers, deploys production and checks the
-   deployment; it must pass.
-8. Only then, at Porkbun, change the site's address records: for `cbctscope.com` an **A**
+8. Publish the release. Its job attaches the installers, confirms that the release carries
+   all three the download menu links to, deploys production and checks the deployment; it
+   must pass.
+9. Only then, at Porkbun, change the site's address records: for `cbctscope.com` an **A**
    record with the value shown in the Vercel dashboard, for `www` a **CNAME** with the value
    shown there, removing any older A, AAAA or CNAME records for those two names. The mail
    records (the two MX records and the SPF TXT record) stay as they are.
-9. Once the domain shows as configured in Vercel, check the public address against the files
-   the release deployed: download the `site` artifact from the release's workflow run (kept
-   30 days), unzip it into a folder, say `site-release/`, and run, from the repository,
-   `node scripts/site-check.mjs --base https://cbctscope.com --out site-release`. It retries
-   twice, 15 s apart, while the records settle; it must end with "serves all".
+10. Once the domain shows as configured in Vercel, check the public address against the
+    files the release deployed: download the `site` artifact from the release's workflow run
+    (kept 30 days), unzip it into a folder, say `site-release/`, and run, from the
+    repository, `node scripts/site-check.mjs --base https://cbctscope.com --out
+    site-release`. It retries twice, 15 s apart, while the records settle; it must end with
+    "serves all".
 
 ## 10. Milestones
 
@@ -532,10 +564,12 @@ How it is built:
   fixed name and checks each copy the same way (section 9); the Windows job copies its setup exe
   to its fixed name. One `publish` job, the only one with `contents: write`, downloads the
   artifacts and runs `gh release upload`. Signing and notarisation secrets reach the
-  packaging step only. The `deploy` job needs `publish`, so the site goes live only
-  once the installers are attached. A release without the mac secrets skips the mac job; the
-  Windows job, `publish` and the site deploy still run, and the release carries the Windows
-  packages only.
+  packaging step only. The `deploy` job needs `publish`, and its first step
+  (`scripts/release-assets.mjs`) reads the release's assets and fails unless the three fixed
+  installer names are attached, so the site goes live only once the installers are on the
+  release. A release without the mac secrets skips the mac job; the Windows job and `publish`
+  still run, the release carries the Windows packages only, and `deploy` stops before the
+  upload, so the site stays as it was.
 
 Measured on the author's Mac (Apple silicon, macOS 27.2), 4 November 2026, unsigned build:
 
