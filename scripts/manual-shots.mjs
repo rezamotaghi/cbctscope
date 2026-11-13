@@ -8,7 +8,10 @@
 // Plans: header (the phantom with numbered callouts: run against `npm run demo`, nothing opened),
 // mpr, grid, pano, tmj, reslice, ceph, region, stitch, or `modes` for all eight (run against
 // `npm run dev` with the volume to show opened; demo mode drops an opened source on every
-// recompile). Each still is written as WebP at 1600 by 913 CSS pixels, device scale 2.
+// recompile). site and download: the website's first screen on the phantom, and the same with
+// the header's download menu open (site.webp, download-menu.webp; run against the static export
+// served by `node scripts/serve-out.mjs out <port>`: no agent API there, so these two drive the
+// page over the protocol only). Each still is written as WebP at 1600 by 913 CSS pixels, device scale 2.
 // thumbs: the four README thumbnails (thumb-mpr, -grid, -pano, -tmj) as PNG at 1600 by 914, device
 // scale 1, into --media. gif: the agent demo, cbctscope-demo.gif in --media: the agent verbs walk
 // the beats (slice descent to the dentition, Teeth and Bone windows, the bone 3D orbit, grid, pano
@@ -234,7 +237,21 @@ const PLANS = {
     await p.shot('mode-region');
   },
   async stitch() { await preset('Auto'); await mode('stitch'); await sleep(2500); await p.shot('mode-stitch'); },
+  // the website (the static export: no agent API, so these two drive the page over the protocol only)
+  async site() { await firstVisit(); await p.shot('site'); },
+  async download() {
+    await firstVisit(); await button('Download the desktop app'); await sleep(800);
+    if (!(await p.evaluate("!!document.querySelector('[role=menu]')"))) throw new Error('the download menu did not open');
+    await p.shot('download-menu');
+    await p.evaluate("document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 0");
+  },
 };
+/** a first-time visitor's page: a fresh load on the built-in phantom, nothing opened */
+async function firstVisit() {
+  await p.send('Page.navigate', { url: URL_ });
+  for (let i = 0; i < 120; i++) { if (/no patient data/.test(await status())) break; await sleep(500); }
+  await sleep(4000);
+}
 PLANS.modes = async () => { for (const m of ['mpr', 'grid', 'pano', 'tmj', 'reslice', 'ceph', 'region', 'stitch']) await PLANS[m](); };
 
 PLANS.thumbs = async () => {

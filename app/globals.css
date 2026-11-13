@@ -11,6 +11,11 @@
   /* the interface grammar's tokens: one place for control shape, type and spacing */
   --ctl-border: #6b7384; /* a control's border: at least 3:1 against every ground */
   --mark: #ffd54a; /* measurements and scale marks */
+  /* a classic scrollbar (a Mac with a mouse, Windows): mid grey handle on a dark track, at
+     least 3:1 (tests/scrollbar.test.ts); the system width stays, only the colours change */
+  --scroll-thumb: var(--ctl-border);
+  --scroll-track: var(--panel);
+  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
   --fs-meta: 12px; /* controls, labels, overlays, status */
   --fs-body: 13px;
   --fs-title: 15px;

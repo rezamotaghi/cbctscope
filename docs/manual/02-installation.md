@@ -99,6 +99,8 @@ deployed to cbctscope.com by every published release. It is static files only,
 with no server behind it. It needs only a current desktop
 browser with WebGL2; Chrome or Edge read folders most reliably (chapter 11).
 
+![The website as a first-time visitor sees it once the viewer has loaded: the header with the research-use line and, at its right end, Agent and Download the desktop app; the built-in phantom in MPR; and along the bottom the first-run line saying that the phantom holds no patient data and that a scan is read in the tab and never uploaded](../media/manual/site.webp)
+
 What differs from the local app:
 
 - Until the viewer has loaded, the page shows what CBCTScope is, who made it,
@@ -145,6 +147,8 @@ bridge built in: no Node.js, no terminal, no browser tab to keep open. It runs
 the same browser engine the web build is tested on (Chromium, through
 Electron), so every reading mode behaves the same.
 
+![The desktop app's window on macOS with the consented real CBCT open in MPR: the axial, sagittal and coronal panes, the bone-only 3D render, the tool, window and 3D controls in the sidebar, and the case label CBCT-001 in the status line](../media/manual/desktop-app.webp)
+
 **Download.** The website's **Download the desktop app** menu (section 2.5)
 links each installer directly. Every release that carries the app lists its
 files on the project's GitHub releases page, each installer twice: under its
@@ -164,6 +168,13 @@ installer has none), so either download is the same app.
   and notarised by Apple, with the ticket attached, so macOS checks them
   even offline and asks only its usual question for an app downloaded from
   the internet, on the first launch.
+
+  The picture below was taken on a Mac whose Finder shows the folder path in
+  the title bar and every file extension, so its window reads
+  `/Volumes/CBCTScope 2.1.0` and `CBCTScope.app`; a Finder set otherwise
+  shows the shorter names.
+
+  ![The disk image's window: the line Drag CBCTScope to Applications above the CBCTScope app icon, an arrow, and the Applications folder, their names on a grey band](../media/manual/disk-image.webp)
 - Windows: `CBCTScope-<version>-setup.exe` installs for the current user;
   `CBCTScope-<version>-portable.exe` runs without installing. Both are
   unsigned, so on first launch Windows SmartScreen shows **Windows protected

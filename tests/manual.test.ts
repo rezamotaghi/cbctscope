@@ -102,6 +102,31 @@ describe('user manual tracks the app (docs/manual/)', () => {
     expect(existsSync(path.join(root, 'docs/media/manual/header.webp')), 'header still').toBe(true);
   });
 
+  it('every still is embedded and every embedded still exists', () => {
+    // the website, the download menu, the desktop app and its disk image, each where the text describes it
+    const placed: [string, string][] = [
+      ['docs/manual/02-installation.md', 'site.webp'],
+      ['docs/manual/02-installation.md', 'desktop-app.webp'],
+      ['docs/manual/02-installation.md', 'disk-image.webp'],
+      ['docs/manual/03-interface.md', 'download-menu.webp'],
+    ];
+    for (const [file, still] of placed) expect(read(file), `${file} must embed ${still}`).toContain(`](../media/manual/${still})`);
+    const pages = [
+      ...readdirSync(path.join(root, 'docs/manual')).filter((n) => n.endsWith('.md')).map((n) => `docs/manual/${n}`),
+      ...readdirSync(path.join(root, 'docs/reading-modes')).filter((n) => n.endsWith('.md')).map((n) => `docs/reading-modes/${n}`),
+    ];
+    const embedded = new Set<string>();
+    for (const file of pages) {
+      for (const m of read(file).matchAll(/!\[[^\]]+\]\(\.\.\/media\/manual\/([^)]+)\)/g)) {
+        embedded.add(m[1]);
+        expect(existsSync(path.join(root, 'docs/media/manual', m[1])), `${file} embeds a missing still ${m[1]}`).toBe(true);
+      }
+    }
+    for (const name of readdirSync(path.join(root, 'docs/media/manual')).filter((n) => !n.startsWith('.'))) {
+      expect(embedded.has(name), `docs/media/manual/${name} is embedded by no manual page`).toBe(true);
+    }
+  });
+
   it('every window preset is documented in the display chapter', () => {
     const chapter = read('docs/manual/05-display.md');
     for (const preset of presets) expect(chapter, `05-display.md must document preset "${preset}"`).toContain(preset);
