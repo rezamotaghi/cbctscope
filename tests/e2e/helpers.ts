@@ -45,6 +45,28 @@ export async function waitForVolume(page: Page): Promise<void> {
   await expect(failed, 'the volume catalog loads').toHaveCount(0);
 }
 
+/**
+ * Wait until every viewer pane's canvas backing matches its size on screen, the point at which
+ * the viewer has finished re-rendering for a change of layout (CbctViewport's resize effect
+ * retries until it does). Opening or closing the drawer narrows or widens the panes, and under
+ * software GL that re-render holds the page's main thread for seconds, which a same-origin
+ * frame in the drawer shares.
+ */
+export async function waitForPanesSettled(page: Page): Promise<void> {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const dpr = window.devicePixelRatio || 1;
+          return Array.from(document.querySelectorAll<HTMLCanvasElement>('main canvas.cornerstone-canvas'))
+            .filter((c) => c.clientWidth > 0)
+            .every((c) => Math.abs(c.width - Math.round(c.clientWidth * dpr)) <= 2 && Math.abs(c.height - Math.round(c.clientHeight * dpr)) <= 2);
+        }),
+      { message: 'the viewer panes take their new size', timeout: 30_000 },
+    )
+    .toBe(true);
+}
+
 /** true when some visible canvas in <main> holds non-uniform pixels */
 export async function mainCanvasHasImage(page: Page): Promise<boolean> {
   return page.evaluate(() => {

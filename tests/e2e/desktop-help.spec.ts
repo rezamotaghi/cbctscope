@@ -5,7 +5,7 @@
 // context with that token stands in for the app; on the website the same events open nothing.
 // The update page the Check for Updates item opens is driven here too, by its address.
 import { expect, test, type Browser } from '@playwright/test';
-import { guardPage, waitForVolume } from './helpers';
+import { guardPage, waitForPanesSettled, waitForVolume } from './helpers';
 import { CITE_EVENT, FILE_INPUT, FOLDER_INPUT, LEGAL_PAGE, MANUAL_EVENT, SHORTCUTS_PAGE, SNAPSHOT_BUTTON, clickScript, eventScript, updateUrl } from '../../desktop/native.mjs';
 import pkg from '../../package.json';
 import { compareVersions, versionFromHash } from '../../components/updateCheck';
@@ -55,6 +55,9 @@ test('in the desktop app the Help menu shows About and Legal notice in the drawe
     }
     await drawer.getByRole('button', { name: 'Close page' }).click();
     await expect(drawer).toHaveCount(0);
+    // the next page opens on a viewer that has finished re-rendering for the closed drawer, so
+    // its frame does not load behind two layout changes' renders at once
+    await waitForPanesSettled(page);
   }
   expect(problems).toEqual([]);
   await ctx.close();
