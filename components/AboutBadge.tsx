@@ -45,15 +45,19 @@ export default function AboutBadge({ product, onOpenAbout }: { product: string; 
       {open && (
         <div ref={panel} className="menu-panel" role="dialog" aria-label={`About ${product}`} style={{ left: 0, width: 300, padding: '12px 16px', lineHeight: 1.6 }}>
           <div style={{ fontSize: 'var(--fs-body)', fontWeight: 600 }}>{product}</div>
-          <div style={{ color: 'var(--text-dim)', marginBottom: 8 }}>v{pkg.version}</div>
+          <div className="note" style={{ marginBottom: 8 }}>
+            v{pkg.version}
+          </div>
           <div style={{ fontStyle: 'italic', marginBottom: 8 }}>Radiology software by the people who sign the reports.</div>
           <div>
             <a href={AUTHOR_URL} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text)', textDecoration: 'underline' }}>
               Dr. Reza Motaghi
             </a>
           </div>
-          <div style={{ color: 'var(--text-dim)' }}>Oral &amp; Maxillofacial Radiologist</div>
-          <div style={{ color: 'var(--text-dim)', marginTop: 8 }}>Research software, not a medical device. AGPL-3.0.</div>
+          <div className="note">Oral &amp; Maxillofacial Radiologist</div>
+          <div className="note" style={{ marginTop: 8 }}>
+            Research software, not a medical device. AGPL-3.0.
+          </div>
           <div style={{ marginTop: 8 }}>
             {onOpenAbout ? (
               <button

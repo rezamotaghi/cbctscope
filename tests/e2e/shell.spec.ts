@@ -61,7 +61,7 @@ for (const width of [1024, 1280, 1440, 1600]) {
   });
 }
 
-for (const width of [390, 768, 1024]) {
+for (const width of [768, 1024]) {
   test(`at ${width} px the page never scrolls sideways and the side rail never overflows`, async ({ page }) => {
     await load(page, width, 844);
     const over = await page.evaluate(() => ({
@@ -107,25 +107,84 @@ for (const width of [390, 768, 1024]) {
   });
 }
 
-test('below 768 px a full-contrast notice says a phone is for the phantom; at 1024 px it is gone', async ({ page }) => {
-  await load(page, 390, 844);
-  const notice = page.getByRole('note');
-  await expect(notice).toHaveText('CBCTScope reads scans in a desktop browser. Here you can look at the built-in phantom.');
-  expect(await notice.evaluate((el) => getComputedStyle(el).color)).toBe('rgb(230, 233, 239)');
-  // the Open menu stays inside the viewport
-  await page.getByRole('button', { name: 'Open', exact: true }).click();
-  const menu = (await page.getByRole('menu', { name: 'Open' }).boundingBox())!;
-  expect(menu.x).toBeGreaterThanOrEqual(0);
-  expect(menu.x + menu.width).toBeLessThanOrEqual(390);
-  await page.keyboard.press('Escape');
-  // read first: it precedes the header in the document, and still shows under the header
-  expect(await notice.evaluate((n) => !!(n.compareDocumentPosition(document.querySelector('header')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
-  const nb = (await notice.boundingBox())!;
-  const hb = (await page.locator('header').boundingBox())!;
-  expect(nb.y).toBeGreaterThanOrEqual(hb.y + hb.height - 0.5);
-  expect(nb.y).toBeLessThan((await page.locator('main').boundingBox())!.y);
+/** the phone page's three controls and their addresses */
+const PHONE_CONTROLS: [string, string][] = [
+  ['User manual', 'manual/index.html'],
+  ['Desktop app downloads', 'https://github.com/rezamotaghi/cbctscope/releases/latest'],
+  ['Send this link to myself', 'mailto:?subject=CBCTScope&body=https%3A%2F%2Fcbctscope.com'],
+];
+
+/** the page's sideways overflow in px (0 or less: none) */
+const sideways = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+
+test('at 375 x 812 the home page is the phone page: no viewer, three full-width controls, the picture, nothing off-origin', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto('/');
+  const landing = page.getByTestId('phone-landing');
+  await expect(landing).toBeVisible();
+  // once the script has decided, the intro is gone and the viewer was never mounted
+  await expect(page.getByTestId('site-intro')).toHaveCount(0);
+  await expect(page.locator('canvas')).toHaveCount(0);
+  await expect(page.locator('header, main, aside')).toHaveCount(0);
+  await expect(landing.getByRole('heading', { level: 1, name: 'CBCTScope' })).toBeVisible();
+  await expect(landing).toContainText('Research use only. Not a medical device.');
+  await expect(landing).toContainText('CBCTScope reads scans on a computer. Open cbctscope.com there.');
+  const controls = landing.locator('.landing-action');
+  await expect(controls).toHaveText(PHONE_CONTROLS.map(([label]) => label));
+  for (const [i, [label, href]] of PHONE_CONTROLS.entries()) {
+    const c = controls.nth(i);
+    await expect(c, label).toHaveAttribute('href', href);
+    const box = (await c.boundingBox())!;
+    expect(box.height, `${label} height`).toBeGreaterThanOrEqual(44);
+    expect(box.width, `${label} width`).toBeGreaterThanOrEqual(375 - 2 * 16 - 1);
+    expect(await c.evaluate((el) => getComputedStyle(el).color), `${label} colour`).toBe('rgb(230, 233, 239)');
+  }
+  await expect(controls.nth(1)).toHaveAttribute('target', '_blank');
+  // the picture: a real alt text, and it loads
+  const img = landing.getByRole('img');
+  expect((await img.getAttribute('alt'))!.length).toBeGreaterThan(40);
+  await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0)).toBe(true);
+  expect(await sideways(page)).toBeLessThanOrEqual(0);
+});
+
+for (const [width, height] of [
+  [320, 568],
+  [430, 932],
+] as const) {
+  test(`at ${width} x ${height} the phone page never scrolls sideways and nothing is clipped`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto('/');
+    await expect(page.getByTestId('site-intro')).toHaveCount(0);
+    expect(await sideways(page)).toBeLessThanOrEqual(0);
+    const outside = await page.evaluate((w) => {
+      return Array.from(document.querySelectorAll<HTMLElement>('[data-testid="phone-landing"] *'))
+        .map((el) => el.getBoundingClientRect())
+        .filter((r) => r.width > 0 && (r.left < -0.5 || r.right > w + 0.5)).length;
+    }, width);
+    expect(outside).toBe(0);
+  });
+}
+
+test('without scripts at phone width the served page already shows the phone page, never the intro', async ({ browser, baseURL }) => {
+  const ctx = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 375, height: 812 } });
+  const page = await ctx.newPage();
+  const offOrigin = guardPage(page, new URL(baseURL as string).origin);
+  await page.goto(baseURL as string);
+  await expect(page.getByTestId('phone-landing')).toBeVisible();
+  await expect(page.getByTestId('site-intro')).toBeHidden();
+  expect(offOrigin).toEqual([]);
+  await ctx.close();
+});
+
+test('the width decides both ways: narrowed below 768 px the viewer leaves for the phone page, widened it mounts again', async ({ page }) => {
+  await load(page, 768, 844);
+  await expect(page.getByTestId('phone-landing')).toHaveCount(0);
+  await page.setViewportSize({ width: 767, height: 844 });
+  await expect(page.getByTestId('phone-landing')).toBeVisible();
+  await expect(page.locator('canvas')).toHaveCount(0);
   await page.setViewportSize({ width: 1024, height: 844 });
-  await expect(notice).toBeHidden();
+  await waitForVolume(page);
+  await expect(page.getByTestId('phone-landing')).toHaveCount(0);
 });
 
 test('the selected mode tab is solid accent with dark text, and the mode switch is unlike a button', async ({ page }) => {

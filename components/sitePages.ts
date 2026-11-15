@@ -3,7 +3,9 @@
 // app/legal). tests/posture.test.ts reads the first sentences from here; tests/siteExport.test.ts
 // finds them, and every link, in the exported HTML. docs/posture.md, rule 2: a first sentence
 // names the viewer and its author and no AI word.
-import { AUTHOR_PROJECT_URL, REPO_URL } from './links';
+import { AUTHOR_PROJECT_URL, RELEASES_URL, REPO_URL } from './links';
+import { CARD_CLAIM, CARD_PRIVACY } from './siteCard.mjs';
+import { SITE_URL } from './siteAddress.mjs';
 
 /** the author as the manual's author line and the About badge name him */
 export const AUTHOR_NAME = 'Dr. Reza Motaghi';
@@ -24,6 +26,36 @@ export const HOME_RESEARCH = 'CBCTScope is research software and not a medical d
 
 /** the noscript line */
 export const HOME_NOSCRIPT = 'The viewer needs JavaScript. The manual and the pages below do not.';
+
+/**
+ * The home page below 768 px of width (components/PhoneLanding.tsx): a phone is shown what
+ * CBCTScope is and where to read with it, not the viewer. Its two sentences are the share
+ * card's, the lines a visitor arriving from a post has just seen.
+ */
+export const PHONE_LEAD = CARD_CLAIM;
+export const PHONE_PRIVACY = CARD_PRIVACY;
+export const PHONE_RESEARCH = 'Research use only. Not a medical device.';
+export const PHONE_COMPUTER = `CBCTScope reads scans on a computer. Open ${SITE_URL.replace(/^https:\/\//, '')} there.`;
+/** the author line, the home page lead's own words */
+export const PHONE_AUTHOR = 'Made by Reza Motaghi, a board-certified oral and maxillofacial radiologist.';
+/** the picture: the manual's MPR still, which the export already serves under manual/media/ */
+export const PHONE_STILL = {
+  src: 'manual/media/mode-mpr.webp',
+  width: 3200,
+  height: 1826,
+  alt: 'CBCTScope reading a real CBCT in MPR: axial, sagittal and coronal slices of the jaws with the crosshairs on a molar, a bone-only 3D render, and the tool and window controls beside them.',
+};
+/** the three controls: the manual, the release page (a phone cannot run the installers), and a mail to oneself */
+export const PHONE_ACTIONS: readonly (SiteLink & { testId: string })[] = [
+  { href: 'manual/index.html', label: 'User manual', testId: 'phone-manual' },
+  { href: RELEASES_URL, label: 'Desktop app downloads', external: true, testId: 'phone-downloads' },
+  {
+    // no recipient: the phone's own mail app opens and the reader addresses it; the page sends nothing
+    href: `mailto:?subject=${encodeURIComponent('CBCTScope')}&body=${encodeURIComponent(SITE_URL)}`,
+    label: 'Send this link to myself',
+    testId: 'phone-mail',
+  },
+];
 
 /** the About page's title and description */
 export const ABOUT_TITLE = 'About CBCTScope, the CBCT and radiograph viewer by Dr. Reza Motaghi';

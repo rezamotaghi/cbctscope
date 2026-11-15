@@ -838,11 +838,6 @@ export default function CbctApp({ citation }: { citation?: Citation }) {
           </button>
         </div>
       )}
-      {/* below 768 px: a phone or a narrow window can look at the phantom, not read a scan. It
-          comes first in the document so it is read first; CSS order shows it under the header. */}
-      <div className="phone-notice" role="note">
-        CBCTScope reads scans in a desktop browser. Here you can look at the built-in phantom.
-      </div>
       {/* the header: one row where the width holds it, in reading order: what this is, the
           modes, the volume, the actions, then Keys, Help, Agent and the desktop download */}
       <header className="app-header" data-testid="app-header">
@@ -981,7 +976,7 @@ export default function CbctApp({ citation }: { citation?: Citation }) {
                     Open DICOMDIR or DICOM folder
                   </button>
                   {/* what the browser will ask, before it asks: the classic input's button may read "Upload" */}
-                  <div style={{ padding: '0 10px 8px', color: 'var(--text)', lineHeight: 1.5, maxWidth: 300, whiteSpace: 'normal' }}>
+                  <div className="note" data-testid="open-note">
                     {inShell
                       ? "The Open sheet may say 'Upload': that is its word for letting this app read the files. They stay on this computer."
                       : dirPicker
@@ -989,7 +984,7 @@ export default function CbctApp({ citation }: { citation?: Citation }) {
                         : "Your browser may say 'upload': that is its word for letting this page read the files. They stay in this tab."}
                   </div>
                   {!inShell && (
-                    <div style={{ padding: '0 10px 8px', color: 'var(--text)', lineHeight: 1.5, maxWidth: 300, whiteSpace: 'normal' }}>
+                    <div className="note">
                       Or drop the folder on the viewer: the browser asks nothing.
                     </div>
                   )}
@@ -1270,13 +1265,12 @@ export default function CbctApp({ citation }: { citation?: Citation }) {
                 >
                   {downloadEntries(navigator.userAgent).map((entry) =>
                     entry.kind === 'note' ? (
-                      <div
-                        key="note"
-                        data-testid="download-note"
-                        style={{ padding: '4px 10px 8px', color: 'var(--text)', lineHeight: 1.5, maxWidth: 300, whiteSpace: 'normal' }}
-                      >
-                        {entry.text}
-                      </div>
+                      <React.Fragment key="note">
+                        <div role="separator" style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+                        <div className="note" data-testid="download-note">
+                          {entry.text}
+                        </div>
+                      </React.Fragment>
                     ) : (
                       <React.Fragment key={entry.href}>
                         {entry.href === RELEASES_URL && (
@@ -1303,7 +1297,7 @@ export default function CbctApp({ citation }: { citation?: Citation }) {
         </div>
       </header>
 
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', order: 2 }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
         {/* the viewer column: the agent panel, when open, docks under the viewer and pushes it up */}
         <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <main
@@ -2143,7 +2137,7 @@ export default function CbctApp({ citation }: { citation?: Citation }) {
       {/* the status line: the case facts, the first-run line while the phantom is on screen and
           nothing of the reader's is open (it leaves by itself once an export is opened), and the
           gesture legend of this mode. Always visible, full contrast for the facts and the link. */}
-      <div className="status-line" data-testid="status-line" style={{ order: 2 }}>
+      <div className="status-line" data-testid="status-line">
         {current && (
           <span className="status-facts">
             {/* the case identity leads, the id everything else (exports, sidecars) is filed

@@ -72,7 +72,9 @@ export default function UpdateStatus({ newest }: { newest: string }) {
           <ul>
             {entries.map((e) =>
               e.kind === 'note' ? (
-                <li key="note">{e.text}</li>
+                <li key="note" className="note">
+                  {e.text}
+                </li>
               ) : (
                 <li key={e.href}>
                   <a href={e.href} target="_blank" rel="noopener noreferrer" title={e.title}>

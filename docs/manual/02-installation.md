@@ -20,8 +20,13 @@
   read more comfortably with more memory.
 - **A screen at least 1024 px wide.** The header holds every control on one
   row from about 1410 px and wraps onto a second row below that. Below 768 px
-  (a phone) a notice says that CBCTScope reads scans in a desktop browser and
-  that there you can look at the built-in phantom; there is no phone layout.
+  (a phone) cbctscope.com shows a short page instead of the viewer: what
+  CBCTScope is, a picture of it, the line that it reads scans on a computer,
+  and buttons for the user manual, the desktop app downloads, and "Send this
+  link to myself", which opens your phone's mail app with the address filled
+  in. A desktop window narrowed below 768 px shows the same page, and the
+  viewer returns when it is widened again; a scan you had open is opened
+  again from the Open menu.
 - **macOS, Windows, or Linux.** The file-open dialog is native on macOS and
   Windows; on Linux it uses the desktop's dialog helper (zenity or kdialog,
   one of which most distributions ship). Section 4.4 gives a one-line

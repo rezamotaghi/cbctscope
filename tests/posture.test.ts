@@ -18,6 +18,7 @@ import {
   LEGAL_DESCRIPTION,
   LEGAL_PURPOSE,
   LEGAL_TITLE,
+  PHONE_LEAD,
 } from '../components/sitePages';
 
 const root = process.cwd();
@@ -157,6 +158,7 @@ function surfaces(): [string, string][] {
     ['mcp/manifest.json description', bundle],
     // the site's text pages (components/sitePages.ts): the home page before the viewer, /about, /legal
     ['home page lead (before the viewer mounts)', HOME_LEAD],
+    ['phone page lead (below 768 px)', PHONE_LEAD],
     ['/about title', ABOUT_TITLE],
     ['/about description', ABOUT_DESCRIPTION],
     ['/about first sentence', ABOUT_LEAD],

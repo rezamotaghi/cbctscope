@@ -134,7 +134,7 @@ export const PANE_CORNER_NARROW = 320;
 
 /**
  * The pane's top-right corner, holding its button rows one under another. On a pane narrower
- * than PANE_CORNER_NARROW (a phone width) the rows move under the pane label, start at the
+ * than PANE_CORNER_NARROW (a small window) the rows move under the pane label, start at the
  * left edge and wrap inside the pane, so no button ever leaves the window or covers the label.
  * The text buttons wrap their words there instead of growing past the pane.
  */
