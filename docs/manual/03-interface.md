@@ -106,10 +106,10 @@ what teaches the mouse, so the header keeps to controls:
   the line cannot hold it, it wraps onto a second line. The Keys card lists
   every gesture of the mode.
 
-Below 768 px wide (a phone, or a very narrow window) a notice above the
-viewer says that CBCTScope reads scans in a desktop browser and that here you
-can look at the built-in phantom. A screen reader reads it before the
-header.
+Below 768 px wide (a phone, or a very narrow window) the viewer is not
+shown at all: the page says what CBCTScope is and offers the user manual, the
+desktop app downloads, and a link to mail yourself the address (section 2.1).
+
 
 ## 3.3 The mode area
 
@@ -122,6 +122,11 @@ mouse gestures. Conventions that hold across modes:
   place no matter which mode is open. It saves a PNG of what the current
   mode shows, exactly as displayed, to your Downloads folder; each mode
   supplies its own composition behind that one button.
+- **A note does not look like an entry.** In a menu, card or strip, a line
+  that explains (such as the hint under Open's folder entry, or the line on
+  telling the two Macs apart in the download menu) is smaller and grey, set
+  apart from the entries; everything you can choose is in full white and
+  lifts under the pointer.
 - **Selected means solid blue.** A selected mode tab, tool, window preset or
   3D style is a solid blue chip with dark text; nothing else is drawn in that
   blue.
@@ -203,8 +208,8 @@ figures so they do not jitter while they change:
   2 or 5 mm, 1, 2 or 5 cm and so on) with its length beside it. `O` hides it
   with the other overlays.
 - **Bottom left** (MPR): the HU under the cursor.
-- **Top right**: the pane's buttons. On a pane too narrow for them (a phone
-  width) the buttons wrap onto further rows inside the pane, under the label,
+- **Top right**: the pane's buttons. On a pane too narrow for them (a small
+  window) the buttons wrap onto further rows inside the pane, under the label,
   and never leave the window.
 - **Bottom left** (3D pane, once you have cut into the render): **Clear N
   cuts**, a text button with a scissors icon that removes every cut at once.

@@ -271,7 +271,7 @@ function AgentPanelBody() {
               Endpoint
               <input style={field} aria-label="Endpoint" value={endpoint} onChange={(e) => setEndpoint(e.target.value)} />
             </label>
-            <p style={{ margin: '0 0 8px' }}>
+            <p className="note" style={{ margin: '0 0 8px' }}>
               A preset only fills in the address: any port on 127.0.0.1 or localhost works. Start llama-server with
               --port 8080, or type the port it listens on.
             </p>
@@ -299,10 +299,14 @@ function AgentPanelBody() {
           />
         </label>
         </div>
-        <p style={{ margin: '0 0 8px' }}>
+        <p className="note" style={{ margin: '0 0 8px' }}>
           The key goes once to the agent&apos;s isolated frame, stays in its memory only and is never stored.
         </p>
-        {local && <p style={{ margin: '0 0 8px' }}>{LOCAL_NOTE}</p>}
+        {local && (
+          <p className="note" style={{ margin: '0 0 8px' }}>
+            {LOCAL_NOTE}
+          </p>
+        )}
         {(setupError || ui.log.some((l) => l.who === 'error')) && (
           <p role="alert" style={{ margin: '0 0 8px', color: 'var(--warn)' }}>
             {setupError || ui.log.filter((l) => l.who === 'error').at(-1)?.text}

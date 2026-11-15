@@ -260,7 +260,9 @@ export default function ExportMenu({ anon, voi, invert, gamma, stlThreshold, cro
 
           {busy && <div style={{ color: 'var(--accent)', marginTop: 12 }}>{busy}</div>}
           {note && !busy && (
-            <div style={{ color: note.ok ? 'var(--text-dim)' : 'var(--warn)', marginTop: 12 }}>{note.msg}</div>
+            <div className={note.ok ? 'note' : 'mode-warn'} style={{ marginTop: 12 }}>
+              {note.msg}
+            </div>
           )}
         </div>
       )}

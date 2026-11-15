@@ -172,12 +172,20 @@ here: a scrim may dim the page behind an open dialogue, whose controls cannot be
 it is open. Tab and Shift-Tab stay inside the open dialogue, and its one primary button, the
 right-most, is the only one drawn in the accent.
 
+A note is something to read, an entry something to choose, and the two never look alike. In
+every menu, popover, card, strip and dialogue, explanatory text that sits among choosable
+entries takes the one `note` class of `app/globals.css` (the meta size, `--text-dim`, regular
+weight, set apart from the entries above it by spacing or a separator), never an inline style;
+entries keep the full text colour and the hover lift. A note is not a control, so hard rule 4's
+full contrast for controls does not bind it; `--text-dim` on the menus' `--panel` is 7.1:1.
+
 ## 7. The landing
 
 Before any script runs, the exported home page already holds text (section 14): a heading,
 what CBCTScope is and who made it, that scans are read in the tab and never uploaded, that it
 is research software and not a medical device, and plain links to the manual, the eight
-reading guides, the About and legal pages, the source and the author's project page. It is
+reading guides, the About and legal pages, the source and the author's project page. From
+768 px of width up it is
 the loading state of the client-only viewer, so the viewer takes its place once its code has
 loaded, and nothing on the reading screen changes. The page opens on the phantom, as the
 repo's demo mode does. The source menu offers "Open
@@ -187,18 +195,32 @@ single file here"). The header carries "Research use only. Not a medical device.
 times; its last button, "Download the desktop app" ("Desktop app" on a narrower window), shown
 in a plain browser only, opens a menu built like Open and Help (`components/downloads.ts`):
 "Mac with Apple silicon", "Mac with Intel" and "Windows" link
-`/releases/latest/download/<fixed name>` (section 9), then a plain line on telling the Macs
-apart, then "All downloads and release notes" links `/releases/latest`. The visitor's own
+`/releases/latest/download/<fixed name>` (section 9), then, under a separator, a note on telling
+the Macs apart, then "All downloads and release notes" links `/releases/latest`. The visitor's own
 system comes first, read from the user agent when the menu opens; no entry is hidden and the
 Mac's chip is never guessed. Every entry is a link the reader clicks; opening the menu
 requests nothing. The Help menu and the About popover link the
 repository; the Help menu also opens **About CBCTScope**, **Cite this software** and
 **Legal notice**, and the About popover links the About page (section 14). While the phantom is on screen and nothing is open, the status line at the bottom
 says "Your scan is read in this tab and never uploaded." and links "See CBCTScope on a real
-scan" to the README's stills of a consented, bone-only real CBCT. Below 768 px wide a notice
-above the viewer says that CBCTScope reads scans in a desktop browser and that here the
-reader can look at the built-in phantom. The manual (section 13) opens from the Help menu,
+scan" to the README's stills of a consented, bone-only real CBCT. The manual (section 13) opens from the Help menu,
 the one door to it on every surface.
+
+Below 768 px of width (a phone) the home page is a small page of its own
+(`components/PhoneLanding.tsx`, its words in `components/sitePages.ts`) and the viewer is not
+mounted: no panes, no WebGL, no volume load. In order: the name and "Research use only. Not a
+medical device."; the share card's two sentences; the manual's MPR still
+(`manual/media/mode-mpr.webp`, already in the export); "CBCTScope reads scans on a computer.
+Open cbctscope.com there."; three full-width controls, the user manual, the release page (a
+phone cannot run the installers) and "Send this link to myself", a `mailto:` with no recipient
+whose subject and body carry the site's address, so the phone's own mail app opens and the page
+sends nothing; then the author line and the About and legal pages. `components/HomeViewer.tsx`
+decides by `matchMedia('(min-width: 768px)')` and follows every change, so a desktop window
+narrowed past the line shows the phone page and widened again mounts the viewer afresh. The
+exported HTML is rendered without a width and carries both the intro and the phone page;
+`app/globals.css` shows the one that fits with the exact negation of that query, so a phone
+paints the phone page from the first frame and never the squeezed viewer. The desktop app's
+window is never narrower than 1024 px.
 
 ## 8. Tests and gates
 
@@ -733,7 +755,8 @@ one site address (`components/siteAddress.mjs`: `SITE_URL`, `https://cbctscope.c
   viewer through `components/HomeViewer.tsx` (client-only, `ssr: false`), whose loading state
   is `components/SiteIntro.tsx`, so `out/index.html` carries the heading, the three sentences
   and the links of `components/sitePages.ts` before any script runs, in the app's colours at
-  full contrast. Without JavaScript, a `noscript` block puts the line that the viewer needs
+  full contrast. Beside it the exported HTML carries the phone page (section 7), which the
+  stylesheet shows instead below 768 px. Without JavaScript, a `noscript` block puts the line that the viewer needs
   JavaScript and the manual does not in place of the loading line, above the same links. It
   does so with one inline style that reveals that line (it is in the intro, hidden by
   default) rather than with markup of its own: an engine that parses `noscript` as markup

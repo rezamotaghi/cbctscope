@@ -20,7 +20,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
       <button type="button" className="ctl" onClick={() => void copy()}>
         {label}
       </button>
-      <span role="status" style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)' }}>
+      <span role="status" className="note">
         {state === 'copied' ? 'Copied.' : state === 'failed' ? 'The browser did not allow copying: select the text and copy it.' : ''}
       </span>
     </span>

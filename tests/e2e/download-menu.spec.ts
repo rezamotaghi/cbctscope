@@ -1,5 +1,5 @@
-// The header's download menu (components/downloads.ts, manual section 2.5): five full-contrast
-// lines, the visitor's own system first, the Open and Help menus' keyboard and Escape, inside
+// The header's download menu (components/downloads.ts, manual section 2.5): four full-contrast
+// links and a note that looks unlike them, the visitor's own system first, the Open and Help menus' keyboard and Escape, inside
 // the viewport at the narrowest widths, and not one request made by opening it. No link is
 // clicked: the addresses are read, never followed.
 import { expect, test, type Browser, type Page } from '@playwright/test';
@@ -51,15 +51,20 @@ test('the menu opens on a click, lists the five lines with their addresses, and 
     await expect(link).toHaveAttribute('target', '_blank');
     await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   }
-  // the note is plain text at full contrast, like every other line
+  // the note is something to read, not to choose: smaller, the secondary text colour, regular
+  // weight, under a separator; the entries are full white
   const note = page.getByTestId('download-note');
   await expect(note).toHaveText(NOTE);
-  const [noteColour, itemColour] = await Promise.all([
-    note.evaluate((el) => getComputedStyle(el).color),
-    menu(page).getByRole('menuitem').first().evaluate((el) => getComputedStyle(el).color),
-  ]);
-  expect(noteColour).toBe(itemColour);
-  expect(noteColour).toBe('rgb(230, 233, 239)');
+  const look = (el: Element) => {
+    const s = getComputedStyle(el);
+    return { size: s.fontSize, colour: s.color, weight: s.fontWeight };
+  };
+  const [noteLook, itemLook] = await Promise.all([note.evaluate(look), menu(page).getByRole('menuitem').first().evaluate(look)]);
+  expect(noteLook.size).not.toBe(itemLook.size);
+  expect(noteLook.colour).not.toBe(itemLook.colour);
+  expect(itemLook.colour).toBe('rgb(230, 233, 239)');
+  expect(noteLook).toEqual({ size: '12px', colour: 'rgb(154, 163, 178)', weight: '400' });
+  expect(await note.evaluate((el) => el.previousElementSibling?.getAttribute('role'))).toBe('separator');
   await page.waitForTimeout(1000);
   expect(requests, 'opening the menu makes no request').toEqual([]);
   expect(problems).toEqual([]);
@@ -105,7 +110,7 @@ test('the keyboard opens and moves through the menu; Escape closes it and gives 
   await ctx.close();
 });
 
-for (const width of [1024, 390]) {
+for (const width of [1024, 768]) {
   test(`at ${width} px the open menu stays inside the viewport and the page never scrolls sideways`, async ({ browser, baseURL }) => {
     const { ctx, page, problems } = await open(browser, baseURL as string, MAC_UA, width, 844);
     await button(page).click();

@@ -6,7 +6,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { HOME_LEAD, HOME_LINKS, HOME_NOSCRIPT, HOME_PRIVACY_WEB, HOME_RESEARCH, LEGAL_PURPOSE } from '../components/sitePages';
+import { HOME_LEAD, HOME_LINKS, HOME_NOSCRIPT, HOME_PRIVACY_WEB, HOME_RESEARCH, LEGAL_PURPOSE, PHONE_ACTIONS, PHONE_COMPUTER, PHONE_LEAD, PHONE_STILL } from '../components/sitePages';
 import { NOINDEX_PAGES, NOT_PAGES, sitemapPages, sitePages, sitePath } from '../scripts/sitemap.mjs';
 import { vercelConfig } from '../scripts/vercel-output.mjs';
 import pkg from '../package.json';
@@ -71,6 +71,17 @@ describe.skipIf(!built)('the exported site', () => {
     // the manual, the eight guides, About, legal, the source and the author's page
     expect(HOME_LINKS.filter((l) => l.href.startsWith('manual/'))).toHaveLength(9);
     for (const l of HOME_LINKS) if (!l.external) expect(existsSync(path.join(out, l.href.endsWith('.html') ? l.href : `${l.href}.html`)), l.href).toBe(true);
+    expect(text).not.toMatch(/—/);
+  });
+
+  it('the served home page also carries the phone page: its sentences, its picture and its three controls', () => {
+    const html = read('index.html');
+    const text = servedText(html);
+    for (const s of [PHONE_LEAD, PHONE_COMPUTER, 'Research use only. Not a medical device.']) expect(text).toContain(s);
+    expect(html).toContain('data-testid="phone-landing"');
+    expect(existsSync(path.join(out, PHONE_STILL.src)), PHONE_STILL.src).toBe(true);
+    const links = hrefs(html);
+    for (const a of PHONE_ACTIONS) expect(links, a.label).toContain(a.href);
     expect(text).not.toMatch(/—/);
   });
 

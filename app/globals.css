@@ -279,17 +279,6 @@ textarea:focus-visible,
 .tab:focus-visible {
   z-index: 1;
 }
-@media (max-width: 767px) {
-  /* a phone: the group may take two lines rather than run off the screen */
-  .tabs {
-    flex-wrap: wrap;
-    height: auto;
-    max-width: 100%;
-  }
-  .tab {
-    height: calc(var(--ctl-h) - 2px);
-  }
-}
 
 /* the header: one 44 px row where the width holds it; it wraps whole groups, never a group apart */
 .app-header {
@@ -350,6 +339,21 @@ textarea:focus-visible,
   padding: var(--sp-1);
   font-size: var(--fs-meta);
 }
+/* A note is something to read, not to choose: the meta size, the secondary text colour, regular
+   weight, set apart from the entries above it. Entries keep the full text colour and the hover
+   lift, so a glance tells the two apart. A note is not a control: hard rule 4's full contrast
+   for controls does not bind it, and --text-dim on --panel is 7.1:1 (6.5:1 on --panel-2). */
+.note {
+  font-size: var(--fs-meta);
+  font-weight: var(--fw-regular);
+  color: var(--text-dim);
+  line-height: 1.5;
+  white-space: normal;
+}
+.menu-panel .note {
+  max-width: 300px;
+  padding: var(--sp-1) 10px var(--sp-2);
+}
 .pop-head {
   font-size: var(--fs-meta);
   font-weight: var(--fw-strong);
@@ -402,30 +406,6 @@ textarea:focus-visible,
   margin-top: var(--sp-1);
   font-weight: var(--fw-strong);
   color: var(--text);
-}
-@media (max-width: 767px) {
-  .status-line > * {
-    white-space: normal;
-  }
-  .status-line > .status-legend {
-    text-align: left;
-  }
-}
-
-/* below 768 px: the notice that a phone is for looking at the phantom, not for reading */
-.phone-notice {
-  display: none;
-  order: 1; /* first in the document, shown under the header */
-  padding: var(--sp-2) var(--sp-3);
-  background: var(--panel-2);
-  border-bottom: 1px solid var(--ctl-border);
-  color: var(--text);
-  font-size: var(--fs-body);
-}
-@media (max-width: 767px) {
-  .phone-notice {
-    display: block;
-  }
 }
 
 /* the side rail: every changing number in tabular figures, nothing wider than the rail */
@@ -540,6 +520,84 @@ body > div.site-intro {
 .site-posture {
   color: var(--warn);
 }
+
+/* The home page below 768 px of width (components/PhoneLanding.tsx): it takes the place of the
+   intro and the viewer. The query is the exact negation of components/HomeViewer.tsx's, so
+   every width shows one of the two, from the first paint. Controls are full width, 48 px
+   high, at full contrast. */
+.landing {
+  display: none;
+}
+@media not all and (min-width: 768px) {
+  body > div.site-intro {
+    display: none;
+  }
+  .landing {
+    display: flex;
+  }
+}
+.landing {
+  padding: 28px 16px 32px;
+  font-size: 16px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.landing h1 {
+  font-size: 28px;
+  line-height: 1.2;
+  margin: 0 0 4px;
+}
+.landing p {
+  margin: 0 0 12px;
+}
+.landing .landing-posture {
+  color: var(--warn);
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+.landing-still {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 8px 0 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--ctl-radius);
+}
+.landing .landing-computer {
+  font-weight: var(--fw-strong);
+}
+.landing-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0 28px;
+}
+.landing-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 10px 16px;
+  border: 1px solid var(--ctl-border);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: var(--fw-strong);
+  text-align: center;
+  text-decoration: none;
+}
+.landing-action:hover {
+  background: var(--lift);
+}
+.landing-foot {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  font-size: 14px;
+}
+.landing .landing-foot p {
+  margin: 0 0 8px;
+}
 .site pre,
 .cite-pre {
   white-space: pre-wrap;
@@ -561,4 +619,7 @@ body > div.site-intro {
   padding: 8px 10px;
   margin: 0 0 8px;
   overflow-wrap: anywhere;
+}
+.site li.note {
+  list-style: none;
 }
