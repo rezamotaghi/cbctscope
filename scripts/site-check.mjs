@@ -15,8 +15,9 @@
 // one its extension needs (with nosniff on, a wrong type on a worker or the WASM would break
 // the viewer), and the response carries the headers of scripts/vercel-output.mjs. A missing
 // address answers 404 with 404.html. Each request gives up after 20 s. A whole run is retried
-// (--attempts, 15 s apart) only so that a domain that has just been pointed at the deployment
-// can settle; the last run decides.
+// (--attempts, 15 s apart) so that a domain that has just been pointed at the deployment can
+// settle, and because a new deployment's own address can answer 404 for a moment after the CLI
+// reports it ready; the last run decides.
 //
 // Deployment Protection covers previews and the generated address of every deployment; the
 // secret of Protection Bypass for Automation, when set in VERCEL_AUTOMATION_BYPASS_SECRET,
@@ -194,7 +195,9 @@ async function checkOne(base, outDir, item, requestHeaders) {
   if (res.status === 401 || res.status === 403) return 'protected';
   if (res.status !== item.status) {
     const where = res.headers.get('location');
-    return [`${item.path}: status ${res.status}${where ? ` to ${where}` : ''}, expected ${item.status}`];
+    // the host's own error code, when it answered instead of the site (for example a deployment not found)
+    const hostError = res.headers.get('x-vercel-error');
+    return [`${item.path}: status ${res.status}${where ? ` to ${where}` : ''}${hostError ? ` (${hostError})` : ''}, expected ${item.status}`];
   }
   const problems = headerProblems(res.headers, headersFor(item.path)).map((p) => `${item.path}: ${p}`);
   const type = contentTypeProblem(item.file, res.headers.get('content-type'));

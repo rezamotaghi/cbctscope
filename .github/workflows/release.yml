@@ -122,7 +122,7 @@ jobs:
       # the deployment's own address, behind Deployment Protection, so the check works before
       # and after the domain's address records point at Vercel
       - name: Check the deployment as served
-        run: node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out --attempts 1
+        run: node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out --attempts 3
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
 

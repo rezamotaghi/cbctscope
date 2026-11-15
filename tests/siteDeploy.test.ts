@@ -239,7 +239,7 @@ describe('the workflows', () => {
     const text = runs(rehearsal, 'rehearse');
     expect(text).toContain('deploy/node_modules/.bin/vercel deploy --prebuilt --cwd "$RUNNER_TEMP/site"');
     expect(text).not.toMatch(/--prod|--environment/);
-    expect(text).toContain('node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out --attempts 1 --rehearsal');
+    expect(text).toContain('node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out --attempts 3 --rehearsal');
     expect(steps(rehearsal, 'rehearse').find((s) => s.name === 'Build the web target')?.env).toEqual({ NEXT_PUBLIC_BASE_PATH: '' });
   });
 

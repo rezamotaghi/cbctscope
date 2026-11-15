@@ -311,7 +311,9 @@ How `deploy` ships the site (`release.yml`):
    `application/wasm`, and so on; an extension the check has no type for fails its unit test),
    and carries the three headers below; and a missing address answers 404 with `404.html`.
    Byte identity is the proof that nothing was injected: no analytics, no speed-insights
-   script, no toolbar. Each request gives up after 20 s; a 401 or 403 is reported once, as a
+   script, no toolbar. The check runs up to three times, 15 s apart, because a new
+   deployment's own address can answer 404 for a moment after the CLI reports it ready; the
+   last run decides. Each request gives up after 20 s; a 401 or 403 is reported once, as a
    missing or wrong bypass secret.
 
 What `config.json` sets:
