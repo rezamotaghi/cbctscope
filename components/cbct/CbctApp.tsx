@@ -838,6 +838,12 @@ export default function CbctApp({ citation }: { citation?: Citation }) {
           </button>
         </div>
       )}
+      {/* below 768 CSS px (a narrow, split or zoomed window on a computer; a phone never mounts
+          the viewer): the viewer stays as it is, and this says why it is cramped and what to do.
+          It comes first in the document so it is read first; CSS order shows it under the header. */}
+      <div className="narrow-notice" role="note" data-testid="narrow-notice">
+        This window is too narrow to read in. Widen it to at least 768 px, or zoom out with Ctrl or Command and the minus key.
+      </div>
       {/* the header: one row where the width holds it, in reading order: what this is, the
           modes, the volume, the actions, then Keys, Help, Agent and the desktop download */}
       <header className="app-header" data-testid="app-header">
@@ -1297,7 +1303,7 @@ export default function CbctApp({ citation }: { citation?: Citation }) {
         </div>
       </header>
 
-      <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', order: 2 }}>
         {/* the viewer column: the agent panel, when open, docks under the viewer and pushes it up */}
         <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <main
@@ -2137,7 +2143,7 @@ export default function CbctApp({ citation }: { citation?: Citation }) {
       {/* the status line: the case facts, the first-run line while the phantom is on screen and
           nothing of the reader's is open (it leaves by itself once an export is opened), and the
           gesture legend of this mode. Always visible, full contrast for the facts and the link. */}
-      <div className="status-line" data-testid="status-line">
+      <div className="status-line" data-testid="status-line" style={{ order: 2 }}>
         {current && (
           <span className="status-facts">
             {/* the case identity leads, the id everything else (exports, sidecars) is filed

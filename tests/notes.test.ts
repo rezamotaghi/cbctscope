@@ -43,9 +43,8 @@ function inlineTextColour(el: ts.JsxOpeningLikeElement): string | null {
   return null;
 }
 
-/** text elements given an inline text colour, as "file:line <tag> colour" */
-function offenders(file: string, panelsOnly: boolean): string[] {
-  const src = readFileSync(path.join(root, file), 'utf8');
+/** text elements given an inline text colour in a TSX source, as "file:line <tag> colour" */
+function offendersIn(file: string, src: string, panelsOnly: boolean): string[] {
   const sf = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const out: string[] = [];
   const visit = (node: ts.Node, inPanel: boolean) => {
@@ -64,6 +63,8 @@ function offenders(file: string, panelsOnly: boolean): string[] {
   visit(sf, false);
   return out;
 }
+
+const offenders = (file: string, panelsOnly: boolean) => offendersIn(file, readFileSync(path.join(root, file), 'utf8'), panelsOnly);
 
 describe('notes in menus, cards, strips and dialogues', () => {
   it('no text among entries is coloured inline: a note takes the note class', () => {
@@ -87,15 +88,19 @@ describe('notes in menus, cards, strips and dialogues', () => {
     expect(app).toMatch(/className="note" data-testid="open-note"/);
   });
 
-  it('finds the flattening it guards against', () => {
-    const sample = `export const X = () => <div className="menu-panel"><a className="menu-item">A</a><div style={{ padding: 4, color: 'var(--text)' }}>hint</div></div>;`;
-    const sf = ts.createSourceFile('x.tsx', sample, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-    let hit = false;
-    const visit = (n: ts.Node) => {
-      if (ts.isJsxElement(n) && n.openingElement.tagName.getText() === 'div' && inlineTextColour(n.openingElement)) hit = true;
-      ts.forEachChild(n, visit);
-    };
-    visit(sf);
-    expect(hit).toBe(true);
+  it('finds the flattening it guards against, inside a menu panel and only there', () => {
+    const sample = [
+      `export const X = () => (`,
+      `  <div>`,
+      `    <span style={{ color: 'var(--text-dim)' }}>a subtitle beside the header, outside any menu</span>`,
+      `    <div className="menu-panel" role="menu">`,
+      `      <a className="menu-item">A</a>`,
+      `      <div style={{ padding: 4, color: 'var(--text)' }}>hint</div>`,
+      `    </div>`,
+      `  </div>`,
+      `);`,
+    ].join('\n');
+    expect(offendersIn('x.tsx', sample, true)).toEqual(["x.tsx:6 <div> var(--text)"]);
+    expect(offendersIn('x.tsx', sample, false)).toEqual(["x.tsx:3 <span> var(--text-dim)", "x.tsx:6 <div> var(--text)"]);
   });
 });

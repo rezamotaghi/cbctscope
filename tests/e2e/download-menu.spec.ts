@@ -110,7 +110,7 @@ test('the keyboard opens and moves through the menu; Escape closes it and gives 
   await ctx.close();
 });
 
-for (const width of [1024, 768]) {
+for (const width of [1024, 700, 390]) {
   test(`at ${width} px the open menu stays inside the viewport and the page never scrolls sideways`, async ({ browser, baseURL }) => {
     const { ctx, page, problems } = await open(browser, baseURL as string, MAC_UA, width, 844);
     await button(page).click();

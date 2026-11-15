@@ -207,21 +207,30 @@ says "Your scan is read in this tab and never uploaded." and links "See CBCTScop
 scan" to the README's stills of a consented, bone-only real CBCT. The manual (section 13) opens from the Help menu,
 the one door to it on every surface.
 
-Below 768 px of width (a phone) the home page is a small page of its own
-(`components/PhoneLanding.tsx`, its words in `components/sitePages.ts`) and the viewer is not
-mounted: no panes, no WebGL, no volume load. In order: the name and "Research use only. Not a
-medical device."; the share card's two sentences; the manual's MPR still
-(`manual/media/mode-mpr.webp`, already in the export); "CBCTScope reads scans on a computer.
-Open cbctscope.com there."; three full-width controls, the user manual, the release page (a
-phone cannot run the installers) and "Send this link to myself", a `mailto:` with no recipient
-whose subject and body carry the site's address, so the phone's own mail app opens and the page
-sends nothing; then the author line and the About and legal pages. `components/HomeViewer.tsx`
-decides by `matchMedia('(min-width: 768px)')` and follows every change, so a desktop window
-narrowed past the line shows the phone page and widened again mounts the viewer afresh. The
-exported HTML is rendered without a width and carries both the intro and the phone page;
-`app/globals.css` shows the one that fits with the exact negation of that query, so a phone
-paints the phone page from the first frame and never the squeezed viewer. The desktop app's
-window is never narrower than 1024 px.
+On a phone the web build's home page is the phone page and the viewer is never mounted: no
+panes, no WebGL, and no request for the viewer's code, its WASM or a volume. The device decides,
+not a window's width: `components/phone.ts` `PHONE_MEDIA` is a primary pointer that is coarse and
+cannot hover, on a viewport under 768 CSS px in width or in height, so a phone gets the page in
+both orientations and rotating it never mounts the viewer, while a tablet of 768 by 1024 or more
+gets the viewer. A mouse, a trackpad or anything that hovers never gets the phone page. The
+phone page is the intro itself (`components/SiteIntro.tsx`), rendered once for every device: its
+one heading, the lead, the privacy and research sentences, then a part shown on a phone only,
+the manual's MPR still resized to 1200 px (`public/phone-mpr.webp`, the command beside
+`PHONE_STILL` in `components/sitePages.ts`), "CBCTScope reads scans on a computer. Open
+cbctscope.com there.", three full-width controls (the user manual; the release page, since a
+phone cannot run the installers; "Send this link to myself", a `mailto:` with no recipient whose
+subject and body carry the site's address, so the phone's own mail app opens a new message and
+the page sends nothing), and a row of links to the About and legal pages and the source; on a
+phone the loading line and the long list of links are hidden. `app/globals.css` switches on the
+same expression, character for character (`tests/phone.test.ts`), so the first paint and the
+script agree. The repository's local app has no phone page.
+
+On a computer, the desktop app included, the viewer mounts and stays mounted at every width and
+zoom. The desktop app's 1024 px minimum is in screen points and zoom shrinks CSS pixels, so it can
+fall below 768 CSS px like a browser window. Below 768 CSS px a full-contrast notice above the
+viewer says the window is too narrow to read in and to widen it or zoom out; the header wraps its
+groups, the mode tabs may take two lines, and the status line wraps, so no control leaves the
+screen. Nothing is unmounted: the open scan, the agent session and unsaved state stay.
 
 ## 8. Tests and gates
 
@@ -851,8 +860,9 @@ one site address (`components/siteAddress.mjs`: `SITE_URL`, `https://cbctscope.c
   viewer through `components/HomeViewer.tsx` (client-only, `ssr: false`), whose loading state
   is `components/SiteIntro.tsx`, so `out/index.html` carries the heading, the three sentences
   and the links of `components/sitePages.ts` before any script runs, in the app's colours at
-  full contrast. Beside it the exported HTML carries the phone page (section 7), which the
-  stylesheet shows instead below 768 px. Without JavaScript, a `noscript` block puts the line that the viewer needs
+  full contrast. The same block is the phone page (section 7): on a phone the stylesheet
+  shows its phone part and hides the loading line and the long list. The document has one
+  `h1` and one `main` on every device. Without JavaScript, a `noscript` block puts the line that the viewer needs
   JavaScript and the manual does not in place of the loading line, above the same links. It
   does so with one inline style that reveals that line (it is in the intro, hidden by
   default) rather than with markup of its own: an engine that parses `noscript` as markup

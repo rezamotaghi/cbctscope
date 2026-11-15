@@ -108,10 +108,11 @@ what teaches the mouse, so the header keeps to controls:
   the line cannot hold it, it wraps onto a second line. The Keys card lists
   every gesture of the mode.
 
-Below 768 px wide (a phone, or a very narrow window) the viewer is not
-shown at all: the page says what CBCTScope is and offers the user manual, the
-desktop app downloads, and a link to mail yourself the address (section 2.1).
-
+In a window narrower than 768 px a notice above the viewer, read before the
+header, says the window is too narrow to read in and to widen it or zoom out
+(Ctrl or Command and the minus key). The viewer, the open scan and the agent
+stay as they are. A phone gets a short page instead of the viewer
+(section 2.1).
 
 ## 3.3 The mode area
 

@@ -6,7 +6,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { HOME_LEAD, HOME_LINKS, HOME_NOSCRIPT, HOME_PRIVACY_WEB, HOME_RESEARCH, LEGAL_PURPOSE, PHONE_ACTIONS, PHONE_COMPUTER, PHONE_LEAD, PHONE_STILL } from '../components/sitePages';
+import { HOME_LEAD, HOME_LINKS, HOME_NOSCRIPT, HOME_PRIVACY_WEB, HOME_RESEARCH, LEGAL_PURPOSE, PHONE_ACTIONS, PHONE_COMPUTER, PHONE_LINKS, PHONE_STILL } from '../components/sitePages';
 import { NOINDEX_PAGES, NOT_PAGES, sitemapPages, sitePages, sitePath } from '../scripts/sitemap.mjs';
 import { vercelConfig } from '../scripts/vercel-output.mjs';
 import pkg from '../package.json';
@@ -74,15 +74,18 @@ describe.skipIf(!built)('the exported site', () => {
     expect(text).not.toMatch(/—/);
   });
 
-  it('the served home page also carries the phone page: its sentences, its picture and its three controls', () => {
+  it('the served home page is one document for every device: one h1, one main, the lead once, and the phone part', () => {
     const html = read('index.html');
-    const text = servedText(html);
-    for (const s of [PHONE_LEAD, PHONE_COMPUTER, 'Research use only. Not a medical device.']) expect(text).toContain(s);
+    const body = html.replace(/<script[\s\S]*?<\/script>/gi, '');
+    expect(body.match(/<h1[\s>]/g), 'one h1').toHaveLength(1);
+    expect(body.match(/<main[\s>]/g), 'one main').toHaveLength(1);
+    // the lead, rendered once, is the first sentence after the heading on every device
+    expect(flatText(body).split(HOME_LEAD)).toHaveLength(2);
+    expect(servedText(html)).toContain(PHONE_COMPUTER);
     expect(html).toContain('data-testid="phone-landing"');
     expect(existsSync(path.join(out, PHONE_STILL.src)), PHONE_STILL.src).toBe(true);
     const links = hrefs(html);
-    for (const a of PHONE_ACTIONS) expect(links, a.label).toContain(a.href);
-    expect(text).not.toMatch(/—/);
+    for (const a of [...PHONE_ACTIONS, ...PHONE_LINKS]) expect(links, a.label).toContain(a.href);
   });
 
   it('the home page and the About page carry the structured data, and the policy gives the data block no hash', () => {

@@ -4,7 +4,6 @@
 // finds them, and every link, in the exported HTML. docs/posture.md, rule 2: a first sentence
 // names the viewer and its author and no AI word.
 import { AUTHOR_PROJECT_URL, RELEASES_URL, REPO_URL } from './links';
-import { CARD_CLAIM, CARD_PRIVACY } from './siteCard.mjs';
 import { SITE_URL } from './siteAddress.mjs';
 
 /** the author as the manual's author line and the About badge name him */
@@ -28,21 +27,21 @@ export const HOME_RESEARCH = 'CBCTScope is research software and not a medical d
 export const HOME_NOSCRIPT = 'The viewer needs JavaScript. The manual and the pages below do not.';
 
 /**
- * The home page below 768 px of width (components/PhoneLanding.tsx): a phone is shown what
- * CBCTScope is and where to read with it, not the viewer. Its two sentences are the share
- * card's, the lines a visitor arriving from a post has just seen.
+ * The home page on a phone (components/SiteIntro.tsx, docs/web-build.md section 7): the intro's
+ * heading and three sentences, then where to read with CBCTScope and how to get there. The
+ * device decides (components/phone.ts), not the width of a window.
  */
-export const PHONE_LEAD = CARD_CLAIM;
-export const PHONE_PRIVACY = CARD_PRIVACY;
-export const PHONE_RESEARCH = 'Research use only. Not a medical device.';
 export const PHONE_COMPUTER = `CBCTScope reads scans on a computer. Open ${SITE_URL.replace(/^https:\/\//, '')} there.`;
-/** the author line, the home page lead's own words */
-export const PHONE_AUTHOR = 'Made by Reza Motaghi, a board-certified oral and maxillofacial radiologist.';
-/** the picture: the manual's MPR still, which the export already serves under manual/media/ */
+/**
+ * The picture: the manual's MPR still (docs/media/manual/mode-mpr.webp, 3200 px), resized for a
+ * phone into public/phone-mpr.webp, from the repository's root, with libwebp's cwebp:
+ *   cwebp -q 80 -resize 1200 0 docs/media/manual/mode-mpr.webp -o public/phone-mpr.webp
+ * Rerun it whenever that still is recaptured.
+ */
 export const PHONE_STILL = {
-  src: 'manual/media/mode-mpr.webp',
-  width: 3200,
-  height: 1826,
+  src: 'phone-mpr.webp',
+  width: 1200,
+  height: 685,
   alt: 'CBCTScope reading a real CBCT in MPR: axial, sagittal and coronal slices of the jaws with the crosshairs on a molar, a bone-only 3D render, and the tool and window controls beside them.',
 };
 /** the three controls: the manual, the release page (a phone cannot run the installers), and a mail to oneself */
@@ -110,3 +109,6 @@ export const HOME_LINKS: readonly SiteLink[] = [
   { href: REPO_URL, label: 'Source code', external: true },
   { href: AUTHOR_PROJECT_URL, label: "The author's project page", external: true },
 ];
+
+/** the phone page's short row of plain links, after its three controls */
+export const PHONE_LINKS: readonly SiteLink[] = HOME_LINKS.filter((l) => ['about', 'legal', REPO_URL].includes(l.href));
