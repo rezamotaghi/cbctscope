@@ -89,6 +89,30 @@ describe('vercel.json: Vercel builds the site from the repository', () => {
     expect(read('vercel.json')).not.toMatch(/frame-ancestors|nosniff|X-Frame-Options/i);
   });
 
+  // Vercel deploys a middleware file at the root as Routing Middleware, whatever the build
+  // command wrote: the first preview of this arrangement answered every address with an error
+  // from the local app's loopback guard. .vercelignore keeps it, and whatever imports it, out
+  // of what Vercel builds, and no other root entry may become code on Vercel.
+  it('.vercelignore keeps the loopback guard and its importers out of what Vercel builds', () => {
+    const ignored = read('.vercelignore').split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+    expect(ignored).toContain('/middleware.ts');
+    const importers: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(path.join(root, dir), { withFileTypes: true })) {
+        const rel = `${dir}/${e.name}`;
+        if (e.isDirectory()) walk(rel);
+        else if (/\.(ts|tsx)$/.test(e.name) && /from ['"](\.\.\/)+middleware['"]/.test(read(rel))) importers.push(`/${rel}`);
+      }
+    };
+    for (const dir of ['tests', 'app', 'components', 'lib']) walk(dir);
+    expect(importers).not.toEqual([]);
+    for (const rel of importers) expect(ignored, rel).toContain(rel);
+    const rootEntries = readdirSync(root);
+    for (const name of rootEntries.filter((n) => /^(middleware|proxy)\.(js|mjs|cjs|ts|mts)$/.test(n)))
+      expect(ignored, name).toContain(`/${name}`);
+    expect(rootEntries).not.toContain('api');
+  });
+
   it('the Dependabot pattern matches its branches and no other (minimatch, as Vercel documents)', () => {
     const [pattern] = Object.keys((vercel.git as { deploymentEnabled: Record<string, boolean> }).deploymentEnabled);
     for (const b of ['dependabot/npm_and_yarn/next-15.5.23', 'dependabot/npm_and_yarn/mcp/zod-4.3.0', 'dependabot/github_actions/actions/checkout-7.1.0']) expect(minimatch(b, pattern), b).toBe(true);

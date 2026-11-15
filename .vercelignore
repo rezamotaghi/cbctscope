@@ -1,0 +1,6 @@
+# Vercel serves this repository as static files and must run no code of its own in front of
+# them. middleware.ts at the root is the local app's loopback guard: left in, Vercel deploys it
+# as Routing Middleware over every address of the site. The test that imports it goes with it,
+# so the build's type check still passes. tests/siteDeploy.test.ts pins both lines.
+/middleware.ts
+/tests/middleware.test.ts

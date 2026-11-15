@@ -344,6 +344,14 @@ rollback").
 | `buildCommand` | `npm run build:vercel` | the build ([vercel.json, buildCommand](https://vercel.com/docs/project-configuration/vercel-json#buildcommand)) |
 | `git.deploymentEnabled` | `{"dependabot/**": false}` | no deployment for a branch matching the pattern, in minimatch syntax; every other branch deploys ([Git configuration](https://vercel.com/docs/project-configuration/git-configuration#git.deploymentenabled)) |
 
+`.vercelignore` holds two lines: `/middleware.ts` and the test that imports it. Vercel deploys a
+middleware file at the root of a repository as Routing Middleware, whatever the build command
+wrote, and this one is the local app's loopback guard: left in, it answers every address of the
+site with an error. Nothing else at the root may become code on Vercel (no `api/` folder, no
+other middleware or proxy file); `tests/siteDeploy.test.ts` pins that. Only a preview shows
+what Vercel adds around the build's output, which is why the owner's setup checks one before
+the first merge.
+
 `npm run build:vercel` is `node scripts/build-web.mjs --site && node scripts/vercel-output.mjs`,
 and runs the same on any machine:
 
