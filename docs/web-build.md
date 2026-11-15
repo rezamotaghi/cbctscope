@@ -293,9 +293,11 @@ behind Deployment Protection, so only members of the Vercel team can open it. No
 cbctscope.com changes. Branches Dependabot opens (`dependabot/**`) get no deployment
 (`vercel.json`, below); their pull requests still run `ci.yml`.
 
-A preview and the production deployment of one commit serve the same files: the build sees no
-variable Vercel sets, the page carries no base path and no text that depends on where it is
-served, and the layout's headers are the same for both. The only difference is the address.
+A preview and the production deployment of one commit are two builds of it, so their files are
+not byte for byte the same (Next names each build with a fresh id). What holds is narrower: no
+Vercel variable changes a page, because the build sees none of them; the page carries no base
+path and no text that depends on where it is served; and the layout's headers are the same for
+both, `X-CBCTScope-Commit` included.
 
 **Consequences.**
 
@@ -368,13 +370,21 @@ on GitHub's runners.
 
 **Node.js.** Vercel's available versions are 26.x (the default), 24.x and 22.x. The project
 setting (Settings, Build and Deployment, Node.js Version) is overridden by `engines` in
-`package.json`, and a range maps to the newest major it allows: `>=22.0.0` deploys the latest
-26.x ([Supported Node.js versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions)).
-So with `engines` at `>=22`, the site builds on Node.js 26.x whatever the setting says, while
-GitHub tests and the desktop builds use 22. Pinning 22.x would need `engines` at `22.x`, which
-makes `npm` warn (`EBADENGINE`) for everyone running the repository on a newer Node. `engines`
-stays `>=22`: a build of the web target on Node.js 26.8.2 wrote the same JavaScript chunks,
-byte for byte, as one on 22.22.3, and the build log's first line names the version used.
+`package.json`, which takes a semver range and deploys the newest available major inside it
+([Supported Node.js versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions)).
+`engines` is `>=22 <27`, so today the site builds on the latest Node.js 26.x, while GitHub tests
+and the desktop builds use 22; a build of the web target on Node.js 26.8.2 wrote the same
+JavaScript chunks, byte for byte, as one on 22.22.3, and the build log's first line names the
+version used. The upper bound keeps a new major from arriving on Vercel unannounced: when
+Vercel offers Node.js 27, the site stays on 26 until `engines` is raised, and raising it is a
+deliberate change, made with a build on that major. Pinning 22.x would need `engines` at `22.x`,
+which makes `npm` warn (`EBADENGINE`) for everyone running the repository on a newer Node; the
+bound does the same from Node.js 27 on, a warning, not a refusal.
+
+**On GitHub.** The `web` job of `ci.yml` runs `npm run build:vercel` after the end-to-end suite
+and fails unless `.vercel/output/config.json` exists with version 3 and
+`.vercel/output/static/index.html` exists, so the build command Vercel runs is exercised on
+every push and pull request.
 
 ### What `config.json` sets
 
@@ -405,10 +415,24 @@ to count anyone.
 `site-check.yml`, named **Site check**, runs on the `deployment_status` event that Vercel's
 GitHub integration sends as a deployment changes state
 ([vercel.com/docs/git/vercel-for-github](https://vercel.com/docs/git/vercel-for-github),
-"Silence deployment notifications on pull requests"). Its one job runs when the status is
-`success` and the deployment's GitHub environment starts with `Production` (GitHub's
-`startsWith` ignores case); a preview, or any other state, skips it. It can also be started by
-hand from the Actions tab. It has read-only permissions, names no secret and installs nothing:
+"Silence deployment notifications on pull requests"). The same page describes
+`repository_dispatch` events (`vercel.deployment.success`, `.error`, `.promoted` and others) and
+recommends them over `deployment_status`, but it names only the deployment's `url` and
+`environment` in their payload and points to a schema outside the documentation, so the
+deployment's commit in that payload is not confirmed there; the workflow stays on
+`deployment_status`, whose payload GitHub documents with the deployment's `sha` and
+`environment`. Every deployment, preview or production, sends several statuses (pending, then
+success or failure), and each starts a run of this workflow, so the Actions tab lists runs
+whose jobs were all skipped: that is expected noise. Two jobs do something:
+
+- `live` runs when the status is `success` and the deployment's GitHub environment starts with
+  `Production` (GitHub's `startsWith` ignores case), or when the workflow is started by hand
+  from the Actions tab.
+- `failed` runs when a production deployment's status is `failure` or `error`, and fails with
+  one line naming the commit: the build broke, and the site still serves the deployment before
+  it.
+
+Both have read-only permissions, name no secret and install nothing. `live` runs
 `node scripts/site-check.mjs --live --commit <sha>`, with the commit of the event
 (`github.event.deployment.sha`; GitHub checks out that commit for a `deployment_status` run, so
 the script and `package.json` are the deployed commit's), against the public
@@ -425,20 +449,49 @@ the script and `package.json` are the deployed commit's), against the public
 3. Every script and stylesheet a page references (`<script src>`, `<link rel="stylesheet">`, a
    preload of a script or style) is on the site's own origin and answers 200 with its type and
    headers.
-4. No page carries a marker of Vercel's Web Analytics, Speed Insights or toolbar
-   (`FORBIDDEN_MARKERS`, each taken from Vercel's documentation: `/_vercel/insights/`,
-   `/_vercel/speed-insights/`, the `window.vaq` and `window.siq` queues of their snippets, the
-   `@vercel/analytics` and `@vercel/speed-insights` packages, and `https://vercel.live`, the
-   toolbar's host).
+4. No page, as an anonymous visitor gets it, carries a marker of Vercel's Web Analytics, Speed
+   Insights or toolbar (`FORBIDDEN_MARKERS`, each taken from Vercel's documentation:
+   `/_vercel/insights/`, `/_vercel/speed-insights/`, the `window.vaq` and `window.siq` queues of
+   their snippets, the `@vercel/analytics` and `@vercel/speed-insights` packages, and
+   `https://vercel.live`, the toolbar's host). This proves the analytics and speed-insights
+   scripts are not in the served pages. It does not prove the toolbar is off: the toolbar is
+   shown to signed-in members of the team, and the check fetches as nobody; the toolbar setting
+   (setup, step 6) is what keeps it off.
 5. The update page says "The newest version of CBCTScope is <version>." for the version in
    `package.json`.
 
 A run that finds problems is repeated twice, 15 s apart; the last run decides, and its problems
-are listed one per line. It cannot compare bytes with a build of its own: Vercel builds each
+are listed one per line.
+
+What the owner sees, case by case:
+
+- **A good deploy**: a **Site check** run whose `live` job passes, a few minutes after the push.
+- **A failed build**: a run whose `failed` job is red, naming the commit; the site is unchanged.
+  Whether Vercel reports a broken build as `failure` or as `error` is not stated in its
+  documentation, so the job takes either.
+- **A preview**: runs with every job skipped.
+- **A rollback in force**: each later push to `main` still builds and reports success, but
+  Vercel does not assign it to the domain, so `live` waits five minutes for a commit the site
+  does not serve and fails, saying the site still serves another commit. That red run is the
+  reminder that the rollback is still in force (Rollback, above).
+- **Two deploys close together**: the workflow's concurrency group cancels a `live` job still
+  waiting when the next production deployment's check starts; runs that check nothing (and
+  `failed`) each get a group of their own, their run id, so they never cancel a check
+  ([workflow syntax, `concurrency`](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax)).
+  A run started by hand shares the group with production checks.
+- **A re-run of an older Site check**: it waits for a commit the site no longer serves and fails
+  by design. It cannot compare bytes with a build of its own: Vercel builds each
 commit itself, and no two builds of the web target are byte-identical (Next names each build
 with a fresh id), so it checks what any visitor gets instead. `tests/siteExport.test.ts` runs
 items 2 to 5 against the local export in every CI run, so a change that would fail the live
 check fails a test first.
+
+The live mode also checks a preview: `--base <url>` names the deployment's own address, the
+sitemap's production addresses are read as paths on it (the output says so), and the secret of
+Protection Bypass for Automation, read from `VERCEL_AUTOMATION_BYPASS_SECRET` in the environment
+and never from an argument, goes in the `x-vercel-protection-bypass` header
+([Protection Bypass for Automation](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation));
+it is never sent to the public site and never printed.
 
 The byte mode of the same script, `node scripts/site-check.mjs --base <url> --out out`, stays
 for an export on disk served with the layout's headers (for instance a prebuilt deployment
@@ -468,7 +521,11 @@ headers, and the 404. The secret of Protection Bypass for Automation, in
    the dmg itself, so a byte copy carries it); the Windows job copies the setup exe after
    packaging and runs `cmp`. A release without the mac secrets carries no mac files, fixed
    names included.
-4. `installers`, after `publish`: `node scripts/release-assets.mjs` reads, once, GitHub's
+4. `installers`, after `publish`, whenever `publish` succeeded and the run was not cancelled
+   (its own `if:`, because GitHub skips a job with the implicit success condition when any job
+   up its chain was skipped, as the mac job is without signing secrets,
+   [workflow syntax, `needs`](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax)):
+   `node scripts/release-assets.mjs` reads, once, GitHub's
    latest release (the job's read-only token, the REST API) and fails unless it is this
    release, then reads this release's asset list and fails, naming each missing file, unless
    the three fixed names are attached as finished uploads. The list is what counts, so files
@@ -492,61 +549,93 @@ and viewer code than that archive holds, so the site never cites a version DOI.
 
 ### The owner's one-time setup
 
-The order matters: the repository is connected first, this arrangement is checked on a
-preview, and only its merge to `main` makes the first production deployment from Git. Until the
-merge, push nothing else to `main`: a push to `main` without `vercel.json` would be built with
-the project's own settings.
+The order matters: the build command is set first, so nothing without this arrangement can
+deploy; then the repository is connected, this arrangement is checked on a preview, and only
+its merge to `main` makes the first production deployment from Git.
 
-1. Vercel, the existing project `cbctscope`: open **Settings** in the sidebar, select **Git**,
-   and under **Connected Git Repository** connect the GitHub repository `rezamotaghi/cbctscope`
-   (the Git section of the Project Settings connects or disconnects a repository,
-   [vercel.com/docs/git/vercel-for-github](https://vercel.com/docs/git/vercel-for-github)). If
-   the repository is not offered, give the Vercel GitHub App access to it: on GitHub,
+1. Vercel, the existing project `cbctscope`: open **Settings** in the sidebar, then **Build and
+   Deployment**. Under **Framework Settings**, turn on the **Override** toggle of **Build
+   Command** and enter `npm run build:vercel`, then save
+   ([Configuring a Build](https://vercel.com/docs/builds/configure-a-build), "Build Command").
+   Connecting the repository may start a build of `main` at once, and `main` has no
+   `vercel.json` until this arrangement is merged; with the project's own settings such a build
+   could publish a wrong site over the live one. With this override, a commit that lacks the
+   `build:vercel` script fails to build and deploys nothing. The same holds for every older
+   branch and commit, previews included. A commit that carries `vercel.json` uses its
+   `buildCommand`, which overrides the setting.
+2. **Settings**, **Git**: under **Connected Git Repository**, connect the GitHub repository
+   `rezamotaghi/cbctscope` (the Git section of the Project Settings connects or disconnects a
+   repository, [vercel.com/docs/git/vercel-for-github](https://vercel.com/docs/git/vercel-for-github)).
+   If the repository is not offered, give the Vercel GitHub App access to it: on GitHub,
    **Settings**, **Applications**, **Installed GitHub Apps**, **Configure** next to Vercel, then
    under **Repository access** add the repository and **Save** (same page, "Missing Git
-   repository").
-2. **Settings**, **Environments**: click the **Production** environment and go to **Branch
+   repository"). What this grants: the Vercel GitHub App's repository permissions as that page
+   lists them, read and write on Administration, Checks, Contents, Deployments, Pull Requests,
+   Issues, Web Hooks, Commit Statuses and Workflows, read on Metadata and Actions, plus read on
+   the organisation's Members and the user's email addresses. Write on Contents and Workflows
+   means the app can change the repository's code and its workflow files.
+3. **Settings**, **Environments**: click the **Production** environment and go to **Branch
    Tracking**; the branch must be `main` (change it and **Save** if not;
    [vercel.com/docs/git](https://vercel.com/docs/git), "Customizing the production branch").
-3. **Settings**, **Build and Deployment**: under Framework Settings nothing needs an override,
-   because `vercel.json` sets the preset, the install and the build for every deployment. The
-   **Node.js Version** setting has no effect while `engines` is `>=22` (above); leave it.
-4. **Settings**, **Git**: under **Connected Git Repository**, switch the bot's comments off
+4. **Settings**, **Build and Deployment**: the **Node.js Version** setting has no effect while
+   `engines` holds a range (above); leave it.
+5. **Settings**, **Git**: under **Connected Git Repository**, switch the bot's comments off
    ([Silence GitHub comments](https://vercel.com/docs/git/vercel-for-github#silence-github-comments);
    its `vercel.json` key `github.silent` is deprecated, so the setting lives here). Leave the
    **deployment_status Events** control on: the check after a deploy runs on those events.
-5. **Settings**, **General**, **Vercel Toolbar**: set **Pre-Production Deployments** and
+6. **Settings**, **General**, **Vercel Toolbar**: set **Pre-Production Deployments** and
    **Production Deployments** to **Off**, and the same in the team's **Settings**, **General**,
    **Vercel Toolbar** if the team default is on
    ([Managing the toolbar](https://vercel.com/docs/vercel-toolbar/managing-toolbar)). Leave
    **Analytics** and **Speed Insights** off: both need a script in the page, which the site does
    not carry, and enabling Web Analytics adds routes under `/_vercel/insights/`
    ([Web Analytics](https://vercel.com/docs/analytics/quickstart)).
-6. **Settings**, **Deployment Protection**: keep **Standard Protection** (every deployment
+7. **Settings**, **Deployment Protection**: keep **Standard Protection** (every deployment
    protected except the production domains) with **Vercel Authentication**, so a preview opens
    only for members of the team
-   ([Deployment Protection](https://vercel.com/docs/deployment-protection)).
-7. **Settings**, **Environment Variables**: keep **Enable access to System Environment
+   ([Deployment Protection](https://vercel.com/docs/deployment-protection)). Under **Protection
+   Bypass for Automation**, make sure a secret exists (step 9 needs it once). Vercel sets that
+   secret as `VERCEL_AUTOMATION_BYPASS_SECRET` in every deployment, the build included
+   ([Protection Bypass for Automation](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation),
+   [System environment variables](https://vercel.com/docs/environment-variables/system-environment-variables)),
+   so every install script `npm ci` runs can read it; the site's own build does not see it
+   (`scripts/site-env.mjs`).
+8. **Settings**, **Environment Variables**: keep **Enable access to System Environment
    Variables** ticked; without it the build has no `VERCEL_GIT_COMMIT_SHA`, the site answers
    without `X-CBCTScope-Commit`, and the check after a deploy fails waiting for it.
-8. Push the branch that carries this arrangement and open its preview from the pull request or
-   the project's Deployments page. Check it in a browser: the viewer, the manual, `/update`,
-   and a missing address showing the site's 404 page. Its build log starts with the Node.js
+9. Push the branch that carries this arrangement. On the project's **Deployments** page, open
+   its preview deployment and copy the deployment's own address. From a checkout of the
+   branch, with the secret from step 7 in the environment for this one command:
+
+   ```sh
+   VERCEL_AUTOMATION_BYPASS_SECRET=<secret> node scripts/site-check.mjs --live \
+     --base https://<the deployment's address> --commit "$(git rev-parse HEAD)"
+   ```
+
+   It must end with "answers all ... addresses": every page with `frame-ancestors 'none'`,
+   `X-Frame-Options: DENY` and `nosniff`, the agent frame with `frame-ancestors 'self'` and
+   `SAMEORIGIN`, `X-CBCTScope-Commit` equal to the branch head on every address, the right
+   types, same-origin assets, the 404, and the version on the update page. Then open the
+   preview in a browser for the viewer and the manual. Its build log starts with the Node.js
    version.
-9. Merge it to `main`. Vercel builds the production deployment; once it is ready, the **Site
-   check** run for it must pass. Its first run also confirms the name of the GitHub
-   environment Vercel reports production deployments under: if the run is skipped although
-   the deployment succeeded, the name does not start with `Production`; read it on the
-   repository's **Deployments** page and correct the job's condition.
-10. Then delete the two GitHub environments no workflow uses, `production` and `rehearsal`:
-    on the repository's **Settings**, **Environments**, the trash icon next to each
+10. Merge it to `main`. Vercel builds the production deployment; once it is ready, the **Site
+    check** run for it must pass. Its first run also confirms the name of the GitHub
+    environment Vercel reports production deployments under: if `live` is skipped although
+    the deployment succeeded, the name does not start with `Production`; read it on the
+    repository's **Deployments** page and correct the jobs' conditions and the concurrency
+    group.
+11. Then clean up. Delete the two GitHub environments no workflow uses, `production` and
+    `rehearsal`: on the repository's **Settings**, **Environments**, the trash icon next to each
     (**Delete environment**), then **I understand, delete this environment**. Deleting an
     environment deletes its secrets, which are the four Vercel secrets (`VERCEL_TOKEN`,
     `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `VERCEL_AUTOMATION_BYPASS_SECRET`); check under
     **Secrets and variables**, **Actions** that none of the four is left as a repository
-    secret. Revoke the access token in the Vercel account's Tokens page. The five Apple
-    repository secrets (`CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_API_KEY`, `APPLE_API_KEY_ID`,
-    `APPLE_API_ISSUER`) stay: the release signs and notarises with them.
+    secret. Revoke the access token in the Vercel account's Tokens page. In Vercel, regenerate
+    the Protection Bypass for Automation secret, since it was in a shell and is readable by
+    every build's install scripts, or delete it when no further preview check is planned;
+    regenerating or deleting it invalidates the value earlier deployments carry (same page).
+    The five Apple repository secrets (`CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_API_KEY`,
+    `APPLE_API_KEY_ID`, `APPLE_API_ISSUER`) stay: the release signs and notarises with them.
 
 The Apple secrets, for a new machine or a renewed certificate, are repository secrets
 (Settings, Secrets and variables, Actions), because the macOS job runs in no environment:

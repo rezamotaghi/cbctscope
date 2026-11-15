@@ -45,6 +45,19 @@ jobs:
       # the tests that read the export (skipped by npm test, before it exists)
       - run: npx vitest run tests/webBudget.test.ts tests/siteExport.test.ts
       - run: npm run test:e2e
+      # Vercel's build command (vercel.json), run here as Vercel runs it: the site build, then the
+      # Build Output API layout at the project root
+      - name: Build the site as Vercel does
+        run: npm run build:vercel
+      - name: Check the Build Output API layout
+        run: |
+          node -e "
+            const fs = require('fs');
+            const c = JSON.parse(fs.readFileSync('.vercel/output/config.json', 'utf8'));
+            if (c.version !== 3) throw new Error('config.json version is ' + c.version);
+            if (!fs.existsSync('.vercel/output/static/index.html')) throw new Error('static/index.html is missing');
+            console.log('.vercel/output: config.json version 3, static/index.html present');
+          "
 
   # The Windows desktop package, unsigned, exactly as the release builds it (release.yml,
   # desktop-win): a fault that shows only on Windows is found here, on a push or a pull request,

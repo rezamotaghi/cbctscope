@@ -8,7 +8,7 @@
   "author": "Dr. Reza Motaghi (https://rezamotaghi.com)",
   "main": "desktop/main.mjs",
   "engines": {
-    "node": ">=22"
+    "node": ">=22 <27"
   },
   "scripts": {
     "predev": "node scripts/manual-html.mjs",

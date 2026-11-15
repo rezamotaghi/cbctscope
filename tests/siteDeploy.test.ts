@@ -21,6 +21,7 @@ import {
   forbiddenMarkers,
   headerProblems,
   liveList,
+  liveOptions,
   newestSentence,
   offOriginAssets,
   pageAssets,
@@ -40,7 +41,7 @@ const minimatch = rootRequire('minimatch') as (name: string, pattern: string) =>
 
 type Step = { name?: string; uses?: string; run?: string; with?: Record<string, unknown>; env?: Record<string, string> };
 type Job = { needs?: string | string[]; if?: string; permissions?: Record<string, string>; environment?: unknown; 'timeout-minutes'?: number; steps?: Step[] };
-type Workflow = { on: Record<string, unknown>; permissions: Record<string, string>; concurrency?: unknown; jobs: Record<string, Job> };
+type Workflow = { on: Record<string, unknown>; permissions: Record<string, string>; concurrency?: { group?: string; 'cancel-in-progress'?: boolean }; jobs: Record<string, Job> };
 const alarm = yaml.load(read('.github/workflows/site-check.yml')) as Workflow;
 const ci = yaml.load(read('.github/workflows/ci.yml')) as Workflow;
 const vercel = JSON.parse(read('vercel.json')) as Record<string, unknown>;
@@ -162,8 +163,22 @@ describe('vercel.json: Vercel builds the site from the repository', () => {
     expect(read('next.config.mjs')).not.toMatch(/VERCEL/);
   });
 
-  it('engines lets every Node from 22 on run the repository', () => {
-    expect(pkg.engines).toEqual({ node: '>=22' });
+  it('engines is a bounded range, so Vercel cannot move to a new Node major unannounced', () => {
+    // Vercel deploys the newest available major inside the range (26.x today); raising the bound is a deliberate change
+    expect(pkg.engines).toEqual({ node: '>=22 <27' });
+    const lock = JSON.parse(read('package-lock.json')) as { packages: Record<string, { engines?: Record<string, string> }> };
+    expect(lock.packages[''].engines).toEqual(pkg.engines);
+  });
+
+  it('CI runs the Vercel build command and checks the layout it leaves', () => {
+    const web = ci.jobs.web.steps ?? [];
+    const runs = web.map((s) => s.run ?? '');
+    const build = runs.indexOf('npm run build:vercel');
+    expect(build).toBeGreaterThan(runs.indexOf('npm run build:web'));
+    expect(build).toBeGreaterThan(runs.indexOf('npm run test:e2e'));
+    const check = web[build + 1];
+    expect(check.name).toBe('Check the Build Output API layout');
+    for (const part of ['.vercel/output/config.json', 'c.version !== 3', '.vercel/output/static/index.html', 'throw new Error']) expect(check.run, part).toContain(part);
   });
 });
 
@@ -305,6 +320,39 @@ describe('the live check (scripts/site-check.mjs --live)', () => {
     expect(commitProblem('0'.repeat(40), SHA)).toBe(`X-CBCTScope-Commit is ${'0'.repeat(40)}, expected ${SHA}`);
   });
 
+  it('reads its options: the public site by default, a deployment address with --base, the bypass secret from the environment only', () => {
+    const def = liveOptions(['--live'], {});
+    expect(def).toEqual({ base: 'https://cbctscope.com', commit: null, attempts: 3, headers: {}, publicSite: true, notes: [] });
+    const preview = liveOptions(['--live', '--base', 'https://cbctscope-abc123-team.vercel.app/', '--commit', SHA, '--attempts', '1'], { VERCEL_AUTOMATION_BYPASS_SECRET: 's3cret' });
+    expect(preview.base).toBe('https://cbctscope-abc123-team.vercel.app');
+    expect(preview.commit).toBe(SHA);
+    expect(preview.attempts).toBe(1);
+    expect(preview.publicSite).toBe(false);
+    expect(preview.headers).toEqual({ 'x-vercel-protection-bypass': 's3cret' });
+    expect(preview.notes.join('\n')).toMatch(/is not the public site: the sitemap's https:\/\/cbctscope.com addresses are read as paths on it/);
+    // the notes are printed: the secret is never in them
+    expect(preview.notes.join('\n')).not.toContain('s3cret');
+    expect(liveOptions(['--live', '--base', 'https://x.vercel.app'], {}).notes.join('\n')).toMatch(/no VERCEL_AUTOMATION_BYPASS_SECRET is set/);
+    // never sent to the public site, www included
+    for (const base of ['https://cbctscope.com', 'https://www.cbctscope.com']) {
+      const o = liveOptions(['--live', '--base', base], { VERCEL_AUTOMATION_BYPASS_SECRET: 's3cret' });
+      expect(o.headers, base).toEqual({});
+      expect(o.publicSite, base).toBe(true);
+      expect(o.notes, base).toEqual(['VERCEL_AUTOMATION_BYPASS_SECRET is set but not sent: the public site needs no bypass']);
+    }
+  });
+
+  it('refuses any other argument, so no secret can come from the command line, and a malformed base or commit', () => {
+    for (const args of [['--live', '--bypass', 'x'], ['--live', '--secret=x'], ['--live', 's3cret'], ['--live', '--out', 'out']]) {
+      expect(() => liveOptions(args, {}), args.join(' ')).toThrow(/--live does not take/);
+    }
+    for (const base of ['http://cbctscope-x.vercel.app', 'https://x.vercel.app/manual/', 'https://x.vercel.app/?a=1', 'not a url']) {
+      expect(() => liveOptions(['--live', '--base', base], {}), base).toThrow(/--base takes an https/);
+    }
+    expect(() => liveOptions(['--live', '--commit', 'main'], {})).toThrow(/--commit takes a full git SHA/);
+    expect(() => liveOptions(['--live', '--base'], {})).toThrow(/--base needs a value/);
+  });
+
   it('needs nothing installed: it imports only Node\'s modules and the repository\'s plain scripts', () => {
     const graph = ['scripts/site-check.mjs', 'scripts/sitemap.mjs', 'scripts/vercel-output.mjs', 'scripts/agent-frame.mjs', 'components/siteAddress.mjs', 'components/webCsp.mjs'];
     for (const f of graph) {
@@ -376,7 +424,9 @@ describe('the alarm after a deploy (site-check.yml)', () => {
   it('runs on Vercel\'s deployment_status events and by hand, with read-only permissions', () => {
     expect(alarm.on).toEqual({ deployment_status: null, workflow_dispatch: null });
     expect(alarm.permissions).toEqual({ contents: 'read' });
-    expect(Object.keys(alarm.jobs)).toEqual(['live']);
+    expect(Object.keys(alarm.jobs)).toEqual(['live', 'failed']);
+    expect(alarm.jobs.failed.permissions).toBeUndefined();
+    expect(alarm.jobs.failed.environment).toBeUndefined();
     expect(job.permissions).toBeUndefined();
     expect(job.environment).toBeUndefined();
     expect(job['timeout-minutes']).toBe(15);
@@ -386,6 +436,26 @@ describe('the alarm after a deploy (site-check.yml)', () => {
     expect(job.if).toBe(
       "${{ github.event_name == 'workflow_dispatch' || (github.event.deployment_status.state == 'success' && startsWith(github.event.deployment.environment, 'Production')) }}",
     );
+  });
+
+  it('a failed or errored production deployment fails a job naming the commit', () => {
+    const failed = alarm.jobs.failed;
+    expect(failed.if).toBe(
+      "${{ github.event_name == 'deployment_status' && (github.event.deployment_status.state == 'failure' || github.event.deployment_status.state == 'error') && startsWith(github.event.deployment.environment, 'Production') }}",
+    );
+    const [step] = failed.steps ?? [];
+    expect(failed.steps).toHaveLength(1);
+    expect(step.run).toContain('$COMMIT');
+    expect(step.run).toContain('exit 1');
+    expect(step.env).toEqual({ COMMIT: '${{ github.event.deployment.sha }}', STATE: '${{ github.event.deployment_status.state }}' });
+  });
+
+  it('a newer production check cancels a waiting one; every other run has a group of its own', () => {
+    expect(alarm.concurrency?.['cancel-in-progress']).toBe(true);
+    const group = alarm.concurrency?.group ?? '';
+    // the condition that names the shared group is the live job's own condition, word for word
+    const liveCondition = (alarm.jobs.live.if ?? '').replace(/^\$\{\{ | \}\}$/g, '');
+    expect(group).toBe(`\${{ (${liveCondition}) && 'site-check-live' || format('site-check-{0}', github.run_id) }}`);
   });
 
   it('runs the live mode on the event\'s commit, with no install and no secret', () => {
@@ -413,13 +483,13 @@ describe('the alarm after a deploy (site-check.yml)', () => {
 
 // GitHub does not deploy the site. No file under .github/ may run the Vercel CLI, name a
 // Vercel secret, run a job in a GitHub environment, or name a production or rehearsal
-// environment. The one word "Production" allowed is the alarm's test of the
-// environment Vercel reports its deployment under. Every string value and key is read; comments
+// environment. The word "Production" is allowed only where the alarm tests the environment
+// Vercel reports its deployment under: its two jobs' conditions and its concurrency group. Every string value and key is read; comments
 // are not.
 const VERCEL_SECRET = /VERCEL_(TOKEN|ORG_ID|PROJECT_ID|AUTOMATION_BYPASS_SECRET)/;
 const VERCEL_CLI = /\bvercel\s+(deploy|build|pull|promote|alias|link|env)\b|--prebuilt\b|--prod\b/i;
 const ENVIRONMENT_WORD = /\b(production|rehearsal)\b/i;
-const ALLOWED = { file: '.github/workflows/site-check.yml', where: '.jobs.live.if' };
+const ALLOWED = { file: '.github/workflows/site-check.yml', where: ['.jobs.live.if', '.jobs.failed.if', '.concurrency.group'] };
 
 /** what in a parsed YAML file deploys, reaches a Vercel secret, or names a GitHub environment */
 export function deployProblems(doc: unknown, file = ''): string[] {
@@ -428,7 +498,7 @@ export function deployProblems(doc: unknown, file = ''): string[] {
     if (typeof node === 'string') {
       if (VERCEL_CLI.test(node)) problems.push(`${where}: runs the Vercel CLI in "${node}"`);
       if (VERCEL_SECRET.test(node)) problems.push(`${where}: a Vercel secret in "${node}"`);
-      if (ENVIRONMENT_WORD.test(node) && !(file === ALLOWED.file && where === ALLOWED.where)) problems.push(`${where}: names an environment in "${node}"`);
+      if (ENVIRONMENT_WORD.test(node) && !(file === ALLOWED.file && ALLOWED.where.includes(where))) problems.push(`${where}: names an environment in "${node}"`);
       return;
     }
     if (Array.isArray(node)) return node.forEach((n, i) => walk(n, `${where}[${i}]`));
@@ -489,7 +559,11 @@ describe('no workflow deploys the site or can reach a Vercel secret', () => {
     // the allowance is for the alarm's own condition only
     expect(mutate((wf) => (wf.jobs.live.steps![0].name = 'Production'), ALLOWED.file)).toEqual([expect.stringMatching(/names an environment/)]);
     expect(mutate(() => {}, ALLOWED.file)).toEqual([]);
-    expect(deployProblems(alarm, 'elsewhere.yml')).toEqual([expect.stringMatching(/^\.jobs\.live\.if: names an environment/)]);
+    expect(deployProblems(alarm, 'elsewhere.yml')).toEqual([
+      expect.stringMatching(/^\.concurrency\.group: names an environment/),
+      expect.stringMatching(/^\.jobs\.live\.if: names an environment/),
+      expect.stringMatching(/^\.jobs\.failed\.if: names an environment/),
+    ]);
     // a file without jobs, like Dependabot's, is read too
     expect(deployProblems({ updates: [{ registries: ['${{ secrets.VERCEL_TOKEN }}'] }] })).toEqual([expect.stringMatching(/a Vercel secret/)]);
   });

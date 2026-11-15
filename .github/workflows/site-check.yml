@@ -2,23 +2,35 @@ name: Site check
 
 # The alarm after a deploy (docs/web-build.md, section 9). Vercel builds and publishes the site
 # from main by itself, and its GitHub integration reports each deployment back as a
-# deployment_status event. When a production deployment succeeds, this checks the public site,
-# https://cbctscope.com, as any visitor gets it: scripts/site-check.mjs --live waits until the
-# site answers with the event's commit, then checks every address, header and type, that every
-# script and stylesheet is on the site's own origin, that no analytics, speed-insights or toolbar
-# script is in a page, and that the update page names the version in package.json. It deploys
-# nothing and gates nothing: a red run means the live site needs a look, and Vercel's Instant
-# Rollback undoes a bad deploy. It reads only public addresses, so it needs no secret.
+# deployment_status event, for previews as well as production, at each change of state. Every
+# such event starts a run of this workflow; only two kinds do anything:
+# - a production deployment that succeeded: `live` checks the public site,
+#   https://cbctscope.com, as any visitor gets it. scripts/site-check.mjs --live waits until the
+#   site answers with the event's commit, then checks every address, header and type, that every
+#   script and stylesheet is on the site's own origin, that no analytics, speed-insights or
+#   toolbar marker is in a page, and that the update page names the version in package.json;
+# - a production deployment that failed or errored: `failed` turns the run red, naming the
+#   commit, because nothing on the site changed.
+# Every other event (a preview, a production deployment still pending or in progress) skips both
+# jobs. The workflow deploys nothing and gates nothing: a red run means the live site or the
+# build needs a look, and Vercel's Instant Rollback undoes a bad deploy. It reads only public
+# addresses, so it needs no secret. Run it by hand from the Actions tab to check the site at any
+# time; it then checks the commit at the head of the branch it was started from.
 #
 # A deployment_status run checks out the commit the event names, so the check and package.json
-# are that commit's. Preview deployments, and statuses other than success, skip the job. Run it
-# by hand from the Actions tab to check the site at any time; it then checks the commit at the
-# head of the branch it was started from and waits for the site to serve it.
+# are that commit's. A check that is still waiting is cancelled when a newer production
+# deployment's check starts, since the site then serves the newer commit; every other run gets a
+# concurrency group of its own (its run id), so a preview never cancels a check. A re-run of an
+# older check waits for a commit the site no longer serves, and fails by design.
 on:
   deployment_status:
   workflow_dispatch:
 
-# Least privilege: the job reads the repository and nothing more.
+concurrency:
+  group: ${{ (github.event_name == 'workflow_dispatch' || (github.event.deployment_status.state == 'success' && startsWith(github.event.deployment.environment, 'Production'))) && 'site-check-live' || format('site-check-{0}', github.run_id) }}
+  cancel-in-progress: true
+
+# Least privilege: the jobs read the repository and nothing more.
 permissions:
   contents: read
 
@@ -41,3 +53,16 @@ jobs:
         run: node scripts/site-check.mjs --live --commit "$COMMIT"
         env:
           COMMIT: ${{ github.event.deployment.sha || github.sha }}
+
+  failed:
+    if: ${{ github.event_name == 'deployment_status' && (github.event.deployment_status.state == 'failure' || github.event.deployment_status.state == 'error') && startsWith(github.event.deployment.environment, 'Production') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Report the failed deployment of the site
+        run: |
+          echo "::error::Vercel reports the deployment of commit $COMMIT for cbctscope.com as $STATE; the site still serves the deployment before it. The build log is on Vercel's Deployments page."
+          exit 1
+        env:
+          COMMIT: ${{ github.event.deployment.sha }}
+          STATE: ${{ github.event.deployment_status.state }}

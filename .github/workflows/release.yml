@@ -49,7 +49,8 @@ jobs:
   #   APPLE_API_ISSUER    the Issuer ID of the App Store Connect team
   # Secrets cannot appear in a job's `if:` (GitHub's documented limit), so this job turns
   # their presence into an output. Without CSC_LINK the mac job is skipped, and the installers
-  # job fails unless the mac installers were attached to the release by hand.
+  # job (which runs past that skip by its own if:) fails unless the mac installers were
+  # attached to the release by hand.
   desktop-gate:
     needs: test
     runs-on: ubuntu-latest
@@ -172,8 +173,9 @@ jobs:
 
   # The one job that writes to the release: it downloads what the desktop jobs built and
   # attaches it. The mac job is skipped without signing secrets; this job then attaches the
-  # Windows packages only, and the installers job, which checks the release once and never
-  # waits, fails unless the mac installers were attached to the release by hand.
+  # Windows packages only, and the installers job, which runs whenever publish succeeded,
+  # checks the release once and never waits, fails unless the mac installers were attached to
+  # the release by hand.
   publish:
     needs: [desktop-mac, desktop-win]
     if: ${{ always() && needs.desktop-win.result == 'success' && (needs.desktop-mac.result == 'success' || needs.desktop-mac.result == 'skipped') }}
@@ -197,9 +199,12 @@ jobs:
   # GitHub's latest release and carries all three, attached by publish or by hand
   # (scripts/release-assets.mjs). It gates nothing: the site is Vercel's, published from main
   # whether or not this passes. A red run here means the menu's links lead to missing files
-  # until the release is fixed.
+  # until the release is fixed. A skip anywhere up the chain (the mac job without signing
+  # secrets) would skip a job with the implicit success() condition, so its own if: asks only
+  # that publish succeeded and the run was not cancelled.
   installers:
     needs: publish
+    if: ${{ !cancelled() && needs.publish.result == 'success' }}
     runs-on: ubuntu-latest
     # one read of the release, no install
     timeout-minutes: 10

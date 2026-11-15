@@ -19,8 +19,9 @@
 //   it gets 'self' and SAMEORIGIN instead. When VERCEL_GIT_COMMIT_SHA holds a commit (Vercel
 //   sets it in every build from Git), every address also answers with X-CBCTScope-Commit: that
 //   commit, the one public trace of which deployment is live; the check after a deploy
-//   (scripts/site-check.mjs --live) waits for it. The pages themselves never carry it, so a
-//   preview and the production deployment of one commit serve the same bytes.
+//   (scripts/site-check.mjs --live) waits for it. The pages themselves never carry it: a
+//   preview and the production deployment are two builds, and no Vercel variable changes a page
+//   in either (scripts/site-env.mjs).
 // - overrides: Next's top-level pages (about.html, legal.html, update.html) answer at /about,
 //   /legal and /update, their canonical addresses, without a redirect. The manual's pages keep their .html
 //   addresses, as the sitemap lists them, so a blanket cleanUrls (which would redirect them)

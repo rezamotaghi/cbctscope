@@ -2,11 +2,16 @@
 // The checks of the served site (docs/web-build.md, section 9), in two modes. Fail-closed: any
 // problem exits 1.
 //
-// The live mode checks the public site, https://cbctscope.com unless --base names another. It
-// is the alarm after a deploy: the workflow site-check.yml runs it when Vercel reports a
-// successful production deployment, with the deployment's commit.
+// The live mode checks the public site, https://cbctscope.com, or with --base a deployment's own
+// address such as a preview. It is the alarm after a deploy: the workflow site-check.yml runs it
+// when Vercel reports a successful production deployment, with the deployment's commit.
 //
 //   node scripts/site-check.mjs --live [--base <url>] [--commit <sha>] [--attempts 3]
+//
+// Against any address but the public site, the secret of Protection Bypass for Automation, when
+// set in VERCEL_AUTOMATION_BYPASS_SECRET, goes in the x-vercel-protection-bypass header; it is
+// read from the environment only and never printed. The sitemap names production addresses,
+// which are then read as paths on that address.
 //
 // It cannot compare bytes with a local build: Vercel builds each commit itself, and no two
 // builds of the web target are byte-identical (Next names each build with a fresh id), so the
@@ -19,7 +24,8 @@
 //   scripts/vercel-output.mjs, and a missing address answers 404 with the body of /404.html;
 // - every script and stylesheet a page references is on the site's own origin and answers 200
 //   with its type and headers;
-// - no page carries a marker of Vercel's analytics, speed insights or toolbar (FORBIDDEN_MARKERS);
+// - no page, as an anonymous visitor gets it, carries a marker of Vercel's analytics, speed
+//   insights or toolbar (FORBIDDEN_MARKERS);
 // - the update page names the version in package.json of this checkout, the deployed commit's.
 //
 // The byte mode checks a server against an export on disk, for an export built here and served
@@ -287,7 +293,8 @@ async function get(url, headers = {}) {
 function statusLine(where, res, expected) {
   const to = res.headers.get('location');
   const hostError = res.headers.get('x-vercel-error');
-  return `${where}: status ${res.status}${to ? ` to ${to}` : ''}${hostError ? ` (${hostError})` : ''}, expected ${expected}`;
+  const wall = res.status === 401 || res.status === 403 ? '; behind Deployment Protection, so VERCEL_AUTOMATION_BYPASS_SECRET is missing or wrong' : '';
+  return `${where}: status ${res.status}${to ? ` to ${to}` : ''}${hostError ? ` (${hostError})` : ''}, expected ${expected}${wall}`;
 }
 
 /** the address of a site path on a base */
@@ -351,8 +358,8 @@ async function byteRun(base, outDir, list, requestHeaders) {
  * @param {number} status
  * @param {string | null} commit
  */
-async function liveOne(base, p, status, commit) {
-  const r = await get(urlOf(base, p));
+async function liveOne(base, p, status, commit, headers) {
+  const r = await get(urlOf(base, p), headers);
   if ('error' in r) return { problems: [r.error], text: null };
   const { res, body } = r;
   if (res.status !== status) return { problems: [statusLine(p, res, status)], text: null };
@@ -368,15 +375,15 @@ async function liveOne(base, p, status, commit) {
 }
 
 /** one live run */
-async function liveRun(base, commit, version) {
-  const sitemap = await get(urlOf(base, '/sitemap.xml'));
+async function liveRun(base, commit, version, headers) {
+  const sitemap = await get(urlOf(base, '/sitemap.xml'), headers);
   if ('error' in sitemap) return { problems: [sitemap.error], count: 0 };
   if (sitemap.res.status !== 200) return { problems: [statusLine('/sitemap.xml', sitemap.res, 200)], count: 0 };
   const list = liveList(Buffer.from(sitemap.body).toString('utf8'));
   /** @type {Map<string, string>} */
   const pages = new Map();
   const problems = await pool([...list.map((p) => ({ p, status: 200 })), { p: MISSING_PATH, status: 404 }, { p: `/${NOT_FOUND_FILE}`, status: 200 }], async ({ p, status }) => {
-    const r = await liveOne(base, p, status, commit);
+    const r = await liveOne(base, p, status, commit, headers);
     if (r.text !== null) pages.set(p, r.text);
     return r.problems;
   });
@@ -389,7 +396,7 @@ async function liveRun(base, commit, version) {
     for (const line of offOriginAssets(refs, base)) problems.push(`${p}: ${line}`);
     for (const a of refs) if (new URL(a).origin === new URL(base).origin) assets.add(new URL(a).pathname);
   }
-  problems.push(...(await pool([...assets], async (p) => (await liveOne(base, p, 200, commit)).problems)));
+  problems.push(...(await pool([...assets], async (p) => (await liveOne(base, p, 200, commit, headers)).problems)));
   const update = pages.get(sitePath('update.html'));
   if (update !== undefined) {
     const v = versionProblem(update, version);
@@ -399,16 +406,59 @@ async function liveRun(base, commit, version) {
 }
 
 /** ask the front page until it names the commit; returns null once it does, or the last problem */
-async function waitForCommit(base, commit) {
+async function waitForCommit(base, commit, headers) {
   let last = '';
   for (let poll = 1; poll <= COMMIT_POLLS; poll += 1) {
-    const r = await get(urlOf(base, '/'));
-    last = 'error' in r ? r.error : commitProblem(r.res.headers.get(COMMIT_HEADER), commit) ?? '';
+    const r = await get(urlOf(base, '/'), headers);
+    last = 'error' in r ? r.error : r.res.status === 200 ? commitProblem(r.res.headers.get(COMMIT_HEADER), commit) ?? '' : statusLine('/', r.res, 200);
     if (!last) return null;
     console.log(`site-check: ${base} does not serve ${commit} yet (${last}); asking again in ${RETRY_MS / 1000} s, ${poll} of ${COMMIT_POLLS}`);
     if (poll < COMMIT_POLLS) await new Promise((res) => setTimeout(res, RETRY_MS));
   }
   return last;
+}
+
+/** the hosts of the public site */
+export const PUBLIC_HOSTS = Object.freeze([new URL(SITE_URL).host, `www.${new URL(SITE_URL).host}`]);
+
+/** the flags of the live mode, and whether each takes a value */
+const LIVE_FLAGS = Object.freeze({ '--live': false, '--base': true, '--commit': true, '--attempts': true });
+
+/**
+ * The live mode's options from its arguments and environment. Refuses any other argument, so a
+ * secret is never taken from the command line; the bypass secret comes from
+ * VERCEL_AUTOMATION_BYPASS_SECRET and is sent only to an address that is not the public site.
+ * @param {string[]} args
+ * @param {Record<string, string | undefined>} env
+ */
+export function liveOptions(args, env) {
+  for (let i = 0; i < args.length; i += 1) {
+    const a = args[i];
+    if (!Object.hasOwn(LIVE_FLAGS, a)) throw new Error(`site-check: --live does not take ${JSON.stringify(a)}`);
+    if (LIVE_FLAGS[/** @type {keyof typeof LIVE_FLAGS} */ (a)]) i += 1;
+  }
+  const base = argValue(args, '--base', SITE_URL).replace(/\/$/, '');
+  let url;
+  try {
+    url = new URL(base);
+  } catch {
+    throw new Error(`site-check: --base takes an https address, not ${JSON.stringify(base)}`);
+  }
+  if (url.protocol !== 'https:' || url.pathname !== '/' || url.search || url.hash) throw new Error(`site-check: --base takes an https origin, not ${JSON.stringify(base)}`);
+  const commit = argValue(args, '--commit', '');
+  if (commit && !/^[0-9a-f]{40}$/.test(commit)) throw new Error(`site-check: --commit takes a full git SHA, not ${JSON.stringify(commit)}`);
+  const attempts = Math.max(1, Number(argValue(args, '--attempts', '3')) || 1);
+  const publicSite = PUBLIC_HOSTS.includes(url.host);
+  /** @type {Record<string, string>} */
+  const headers = {};
+  const secret = env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  if (secret && !publicSite) headers['x-vercel-protection-bypass'] = secret;
+  /** @type {string[]} */
+  const notes = [];
+  if (!publicSite) notes.push(`${url.origin} is not the public site: the sitemap's ${SITE_URL} addresses are read as paths on it`);
+  if (!publicSite) notes.push(secret ? 'the Protection Bypass for Automation secret goes along in x-vercel-protection-bypass' : 'no VERCEL_AUTOMATION_BYPASS_SECRET is set, so a protected deployment answers 401');
+  if (publicSite && secret) notes.push('VERCEL_AUTOMATION_BYPASS_SECRET is set but not sent: the public site needs no bypass');
+  return { base: url.origin, commit: commit || null, attempts, headers, publicSite, notes };
 }
 
 function argValue(args, name, fallback) {
@@ -442,28 +492,28 @@ async function main() {
   const args = process.argv.slice(2);
   const attempts = Math.max(1, Number(argValue(args, '--attempts', '3')) || 1);
   if (args.includes('--live')) {
-    const base = argValue(args, '--base', SITE_URL).replace(/\/$/, '');
-    const commit = argValue(args, '--commit', '');
-    if (commit && !/^[0-9a-f]{40}$/.test(commit)) throw new Error(`site-check: --commit takes a full git SHA, not ${JSON.stringify(commit)}`);
+    const { base, commit, attempts: tries, headers, notes } = liveOptions(args, process.env);
+    for (const n of notes) console.log(`site-check: ${n}`);
     const pkg = JSON.parse(readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8'));
     const version = String(pkg.version ?? '');
     if (commit) {
-      const stale = await waitForCommit(base, commit);
+      const stale = await waitForCommit(base, commit, headers);
       if (stale) {
         console.error(`site-check: ${base} still does not serve commit ${commit} after ${COMMIT_POLLS} tries: ${stale}`);
+        console.error('site-check: if it names a newer commit, that deployment has its own check; a re-run of an older check fails here by design');
         process.exit(1);
       }
     }
     let count = 0;
     await retry(
-      attempts,
+      tries,
       base,
       async () => {
-        const r = await liveRun(base, commit || null, version);
+        const r = await liveRun(base, commit, version, headers);
         count = r.count;
         return { problems: r.problems };
       },
-      () => `site-check: ${base} answers all ${count} addresses with the site's headers and types${commit ? ` from commit ${commit}` : ''}, every script and stylesheet on its own origin, no analytics, speed-insights or toolbar marker, and the update page names ${version}`,
+      () => `site-check: ${base} answers all ${count} addresses with the site's headers and types${commit ? ` from commit ${commit}` : ''}, every script and stylesheet on its own origin, no analytics, speed-insights or toolbar marker in what an anonymous visitor gets, and the update page names ${version}`,
     );
     return;
   }

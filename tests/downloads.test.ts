@@ -202,8 +202,12 @@ describe('the installers job turns the release run red unless the release carrie
 
   it('runs after publish, reads the release of the event, needs no install and no secret', () => {
     expect(workflow.jobs.installers.needs).toBe('publish');
-    // no if: of its own, so it runs only when publish succeeded
-    expect(workflow.jobs.installers.if).toBeUndefined();
+    // GitHub skips a job with the implicit success() condition when any job up its chain was
+    // skipped, and desktop-mac is skipped without signing secrets; so the job asks only that
+    // publish succeeded and the run was not cancelled, and a release without mac installers
+    // turns the run red instead of passing with dead download links
+    expect(workflow.jobs.installers.if).toBe("${{ !cancelled() && needs.publish.result == 'success' }}");
+    expect(workflow.jobs.publish.if).toContain("needs.desktop-mac.result == 'skipped'");
     const runs = guardSteps.map((s) => s.run).filter(Boolean);
     expect(runs).toEqual(['node scripts/release-assets.mjs']);
     const guard = guardSteps.find((s) => s.run === 'node scripts/release-assets.mjs');
