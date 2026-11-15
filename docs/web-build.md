@@ -210,9 +210,9 @@ the one door to it on every surface.
 On a phone the web build's home page is the phone page and the viewer is never mounted: no
 panes, no WebGL, and no request for the viewer's code, its WASM or a volume. The device decides,
 not a window's width: `components/phone.ts` `PHONE_MEDIA` is a primary pointer that is coarse and
-cannot hover, on a viewport under 768 CSS px in width or in height, so a phone gets the page in
-both orientations and rotating it never mounts the viewer, while a tablet of 768 by 1024 or more
-gets the viewer. A mouse, a trackpad or anything that hovers never gets the phone page. The
+cannot hover, on a viewport under 600 CSS px in width or in height, so a phone gets the page in
+both orientations and rotating it never mounts the viewer, while every tablet, from 600 px on
+its shorter side (the iPad mini's 744 by 1133 included), gets the viewer. A mouse, a trackpad or anything that hovers never gets the phone page. The
 phone page is the intro itself (`components/SiteIntro.tsx`), rendered once for every device: its
 one heading, the lead, the privacy and research sentences, then a part shown on a phone only,
 the manual's MPR still resized to 1200 px (`public/phone-mpr.webp`, the command beside
@@ -233,7 +233,10 @@ script agree. The repository's local app has no phone page.
 On a computer, the desktop app included, the viewer mounts and stays mounted at every width and
 zoom. The desktop app's 1024 px minimum is in screen points and zoom shrinks CSS pixels, so it can
 fall below 768 CSS px like a browser window. Below 768 CSS px a full-contrast notice above the
-viewer says the window is too narrow to read in and to widen it or zoom out; the header wraps its
+viewer says the window is too narrow to read in and to widen it or zoom out; on a coarse pointer
+that cannot hover (a small tablet held upright) it says instead that the screen is too narrow
+to read in upright and to turn the device sideways, `app/globals.css` choosing the wording by
+those features from the first paint; the header wraps its
 groups, the mode tabs may take two lines, and the status line wraps, so no control leaves the
 screen. Nothing is unmounted: the open scan, the agent session and unsaved state stay.
 
