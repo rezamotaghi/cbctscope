@@ -17,7 +17,7 @@ download menu (11) join them on the website and, for Agent, in the desktop app. 
 left to right:
 
 1. **CBCTScope**, with what it is under the name:
-   **CBCT and radiograph viewer**. Beside it, the **version button** (for example `v2.1.0`).
+   **CBCT and radiograph viewer**. Beside it, the **version button** (for example `v2.1.1`).
    Clicking it opens a short panel naming the software, its version, its
    author (his name is a link to his site), its research-use status, a link to the About page (**About CBCTScope
    and how to cite it**) and a link to the source code repository; in the

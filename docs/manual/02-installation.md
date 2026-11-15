@@ -171,7 +171,7 @@ installer has none), so either download is the same app.
 
   The picture below was taken on a Mac whose Finder shows the folder path in
   the title bar and every file extension, so its window reads
-  `/Volumes/CBCTScope 2.1.0` and `CBCTScope.app`; a Finder set otherwise
+  `/Volumes/CBCTScope 2.1.1` and `CBCTScope.app`; a Finder set otherwise
   shows the shorter names.
 
   ![The disk image's window: the line Drag CBCTScope to Applications above the CBCTScope app icon, an arrow, and the Applications folder, their names on a grey band](../media/manual/disk-image.webp)
