@@ -11,7 +11,7 @@
 //   desktop/icon/icon.ico    Windows, PNG-compressed entries at 16, 32, 48 and 256 px
 //   app/icon.svg             the web favicon (Next file convention), the tile cropped full bleed
 //   app/apple-icon.png       180 px touch icon (Next file convention), opaque, full bleed
-//   public/og.png            the 1200 x 630 share card (scripts/og.mjs)
+//   public/og-card.png            the 1200 x 630 share card (scripts/og.mjs)
 //   desktop/icon/dmg-background.png, @2x   the macOS disk image window (scripts/dmg-background.mjs)
 //
 // Rendering is Playwright's Chromium (already a dev dependency for the end-to-end suite).

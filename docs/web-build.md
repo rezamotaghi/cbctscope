@@ -450,7 +450,7 @@ the script and `package.json` are the deployed commit's), against the public
    commit, so it never checks the deployment before; then every address it reads must carry
    that commit.
 2. Every address in the live `sitemap.xml`, and the fixed files `LIVE_FILES` (robots.txt, the
-   sitemap, both icons, the share image `og.png`, `/update`, the agent frame, the manual's
+   sitemap, both icons, the share image `og-card.png`, `/update`, the agent frame, the manual's
    index), answers 200 with no redirect, the Content-Type its extension needs (an extensionless
    page or a folder is HTML) and the layout's headers above; `/this-address-does-not-exist`
    answers 404 with the body of `/404.html`.

@@ -268,8 +268,8 @@ describe('the live check (scripts/site-check.mjs --live)', () => {
   const sitemap = files['sitemap.xml'];
 
   it('checks the live sitemap\'s addresses, then the fixed files of the layout, each once', () => {
-    expect(LIVE_FILES).toEqual(['/robots.txt', '/sitemap.xml', '/icon.svg', '/apple-icon.png', '/og.png', '/update', '/agent-frame.html', '/manual/']);
-    expect(liveList(sitemap)).toEqual(['/', '/about', '/legal', '/manual/', '/manual/mpr.html', '/robots.txt', '/sitemap.xml', '/icon.svg', '/apple-icon.png', '/og.png', '/update', '/agent-frame.html']);
+    expect(LIVE_FILES).toEqual(['/robots.txt', '/sitemap.xml', '/icon.svg', '/apple-icon.png', '/og-card.png', '/update', '/agent-frame.html', '/manual/']);
+    expect(liveList(sitemap)).toEqual(['/', '/about', '/legal', '/manual/', '/manual/mpr.html', '/robots.txt', '/sitemap.xml', '/icon.svg', '/apple-icon.png', '/og-card.png', '/update', '/agent-frame.html']);
     // the sitemap parser is the byte mode's: an address off the site or an empty sitemap fails
     expect(() => liveList('<loc>https://example.com/x</loc>')).toThrow(/not on https:\/\/cbctscope.com/);
     expect(() => liveList('<urlset></urlset>')).toThrow(/no address/);
@@ -280,7 +280,7 @@ describe('the live check (scripts/site-check.mjs --live)', () => {
     expect(typeFileFor('/')).toBe('/index.html');
     expect(typeFileFor('/manual/')).toBe('/manual/index.html');
     expect(typeFileFor('/update')).toBe('/update.html');
-    expect(typeFileFor('/og.png')).toBe('/og.png');
+    expect(typeFileFor('/og-card.png')).toBe('/og-card.png');
     expect(contentTypeProblem(typeFileFor('/about'), 'text/html; charset=utf-8')).toBeNull();
     expect(contentTypeProblem(typeFileFor('/about'), 'text/plain')).toMatch(/expected text\/html/);
   });
@@ -303,7 +303,7 @@ describe('the live check (scripts/site-check.mjs --live)', () => {
     const html = [
       '<link rel="stylesheet" href="/_next/static/css/a.css" data-precedence="next"/>',
       '<link rel="preload" as="script" fetchPriority="low" href="/_next/static/chunks/webpack.js"/>',
-      '<link rel="preload" as="image" href="/og.png"/>',
+      '<link rel="preload" as="image" href="/og-card.png"/>',
       '<link rel="canonical" href="https://cbctscope.com/manual/">',
       '<link rel="icon" href="/icon.svg?53e3" type="image/svg+xml"/>',
       '<script src="manual.js"></script>',

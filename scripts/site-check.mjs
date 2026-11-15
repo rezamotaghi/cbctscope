@@ -92,7 +92,7 @@ export const LIVE_FILES = Object.freeze([
   '/sitemap.xml',
   '/icon.svg',
   '/apple-icon.png',
-  '/og.png',
+  '/og-card.png',
   sitePath('update.html'),
   '/agent-frame.html',
   sitePath('manual/index.html'),

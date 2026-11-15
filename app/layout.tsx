@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { OG_IMAGE, SITE_CLAIM, SITE_NAME, SITE_URL } from '@/components/site';
+import { CARD_AGENT, OG_IMAGE, SITE_CLAIM, SITE_NAME, SITE_URL } from '@/components/site';
 import './globals.css';
 
 const ogImage = { url: OG_IMAGE.path, width: OG_IMAGE.width, height: OG_IMAGE.height, alt: SITE_NAME };
@@ -8,13 +8,16 @@ const ogImage = { url: OG_IMAGE.path, width: OG_IMAGE.width, height: OG_IMAGE.he
 /** the page title, the share card's title and the Twitter title: what this is, in one line */
 const TITLE = 'CBCTScope: CBCT and radiograph viewer in your browser';
 
+/** the text beside the share card: the claim, then the agent line */
+const CARD_TEXT = `${SITE_CLAIM} ${CARD_AGENT}`;
+
 export const metadata: Metadata = {
   title: TITLE,
   metadataBase: new URL(SITE_URL),
-  // the share card: one site URL constant, the README's claim, the rendered public/og.png (its two
-  // lines come from components/siteCard.mjs)
-  openGraph: { type: 'website', title: TITLE, description: SITE_CLAIM, url: SITE_URL, siteName: SITE_NAME, images: [ogImage] },
-  twitter: { card: 'summary_large_image', title: TITLE, description: SITE_CLAIM, images: [ogImage] },
+  // the share card: one site URL constant, the README's claim, the rendered public/og-card.png (its three
+  // lines come from components/siteCard.mjs); the card's text ends with the agent line
+  openGraph: { type: 'website', title: TITLE, description: CARD_TEXT, url: SITE_URL, siteName: SITE_NAME, images: [ogImage] },
+  twitter: { card: 'summary_large_image', title: TITLE, description: CARD_TEXT, images: [ogImage] },
   description:
     process.env.NEXT_PUBLIC_CBCTSCOPE_TARGET === 'web'
       ? 'CBCT viewer in the browser: the scan is read into this tab and never uploaded. Research use only; not a medical device.'
