@@ -15,7 +15,8 @@ viewer's code is shared by every surface; this file describes only what differs.
 
 One tagged release feeds all three. The pipeline runs the tests, builds the static site,
 builds and signs the desktop app and attaches it to the release, and only then deploys the
-site. A push deploys nothing.
+site. Between releases, a site update started by hand deploys the website alone from `main`,
+at the same version (section 9). A push deploys nothing.
 
 ## 2. Posture, now by construction in a browser
 
@@ -245,8 +246,23 @@ the dev server.
 
 ## 9. The pipeline
 
-`release.yml` runs on `release: published` only, every action pinned to a commit SHA, in
-this order:
+The site changes in two ways, every action pinned to a commit SHA in both:
+
+- **A release** (`release.yml`, on `release: published`): a new version, the desktop
+  installers, a Zenodo DOI, and the site. Use it when the desktop app or the agent side (the
+  MCP server, the bundle, the Agent Skill) should change, or for a citable version.
+- **A site update** (`site-update.yml`, started by hand from `main`): the website alone, at
+  the version it already carries, with no new version, installers or DOI. Use it for what only
+  the website shows: wording, layout, the manual, the text pages.
+
+So between releases the site may be ahead of the installed apps: its pages, manual and
+viewer can carry changes no installer has. The version does not move: a site update deploys
+only when GitHub's latest release is the version in `package.json` (below), so the site's
+update page still names the latest release's version, and an installed app's **Check for
+Updates…** still compares against it. A change the desktop app should carry waits for a
+release.
+
+`release.yml` runs in this order:
 
 1. `test`: typecheck, lint, unit, the web build, the end-to-end suite.
 2. In parallel after it: `build` (the web target for the root of the domain, uploaded as the
@@ -278,13 +294,51 @@ download of the file it names. The direct links cannot be exercised before the f
 that carries the fixed names; until then they answer 404, and "All downloads and release
 notes" still reaches every file.
 
+**The site update.** `site-update.yml`, named **Site update**, runs on `workflow_dispatch`
+only, from the Actions tab with `main` selected under **Use workflow from**:
+
+1. `test`: the release's `test` job, step for step (typecheck, lint, unit, the web build, the
+   tests that read the export, the end-to-end suite); `tests/siteDeploy.test.ts` fails when
+   the two step lists differ.
+2. `build`, beside it: the release's `build` job, step for step, the `site` artifact for the
+   root of the domain, kept 30 days.
+3. `deploy`, once both succeeded, in the environment `production`, with the release's least
+   privilege (reading the repository), its 30-minute limit and its concurrency group `site`,
+   so a site update and a release never deploy at once (one waits for the other). Its first
+   step fails the job unless the run is on `refs/heads/main`, saying to start it again with
+   `main` selected. Then, before the Vercel CLI is installed or anything is uploaded,
+   `node scripts/release-assets.mjs --site-update` is the version guard (below). After it come
+   exactly the release's deploy steps 2 to 5 below: the artifact, the layout, `vercel deploy
+   --prebuilt --prod`, and the check of the deployment's own address with three attempts.
+
+The version guard exists because the site carries a version: the update page names the one in
+`package.json`, and the download menu leads to the latest release's installers. It reads
+GitHub's latest release once (the job's read-only token, the REST API) and fails the job
+unless that release's tag is `v<package.json version>` and its asset list holds the three
+fixed names (`REQUIRED_ASSETS`) as finished uploads. So a bumped but unreleased version, or a
+release without its installers, never reaches the site. Each failure line says what to do:
+
+- no latest release (only prereleases or drafts): publish `v<version>` as the latest release
+  with the release workflow, which deploys the site itself;
+- the latest release has another tag: publish `v<version>` as a release instead, or run the
+  site update from a commit whose version is the latest release's;
+- installers missing, each named: attach them to the release, then run the site update again;
+- any answer but 200, a network error, an answer without a release id: run the site update
+  again once GitHub answers;
+- a `package.json` version that is not major.minor.patch: set a release version there.
+
+A site update builds from `main`, not from a tag, so after the release's DOI-pin commit it
+cites that version's DOI rather than the concept DOI (section 14, Cite this software); both
+name the same version.
+
 ### The site on Vercel
 
-The release job is the site's one trigger. The Vercel project is not connected to the
-repository: **do not connect it through Vercel's Git integration**, or every push would
-deploy. Installers stay GitHub release assets; only the pages are on Vercel.
+The release and the site update are the site's only two triggers. The Vercel project is not
+connected to the repository: **do not connect it through Vercel's Git integration**, or every
+push would deploy. Installers stay GitHub release assets; only the pages are on Vercel.
 
-How `deploy` ships the site (`release.yml`):
+How `deploy` ships the site (`release.yml`; the site update's `deploy` runs steps 2 to 5 the
+same, after its own two guards):
 
 1. `node scripts/release-assets.mjs` checks, once, the release that started the run (its id
    from the event, through GitHub's REST API with the job's read-only token). The menu's
@@ -301,7 +355,8 @@ How `deploy` ships the site (`release.yml`):
    release, then use **Re-run failed jobs** on that workflow run; the re-run reads the same
    release again, and the `site` artifact it deploys is kept 30 days. The names are
    `REQUIRED_ASSETS` in the script; `tests/downloads.test.ts` fails if they differ from
-   `components/downloads.ts`. The rehearsal has no release and does not run it.
+   `components/downloads.ts`. The rehearsal has no release and does not run it; the site
+   update runs its `--site-update` mode instead (above).
 2. It downloads the `site` artifact into `out/`, the files `build` made.
 3. `node scripts/vercel-output.mjs out "$RUNNER_TEMP/site"` lays them out as a prebuilt
    deployment in the Build Output API v3 form: `.vercel/output/static/` is a byte copy of
@@ -317,9 +372,9 @@ How `deploy` ships the site (`release.yml`):
    follows the same pattern; electron-builder's `files` allowlist leaves it out, and
    `tsconfig.json` excludes it. Nothing is built on Vercel. The job runs in the GitHub
    environment `production`, whose secrets (`VERCEL_TOKEN`, `VERCEL_ORG_ID`,
-   `VERCEL_PROJECT_ID`, `VERCEL_AUTOMATION_BYPASS_SECRET`) no other job can read; the first
-   three reach this step only. `VERCEL_TELEMETRY_DISABLED=1` keeps the CLI from reporting its
-   use. Only the CLI's stdout is captured, and it must be exactly one https address, the new
+   `VERCEL_PROJECT_ID`, `VERCEL_AUTOMATION_BYPASS_SECRET`) no other job can read but the site
+   update's `deploy`; the first three reach this step only. `VERCEL_TELEMETRY_DISABLED=1`
+   keeps the CLI from reporting its use. Only the CLI's stdout is captured, and it must be exactly one https address, the new
    deployment's own; anything else fails the job and prints what was captured. No documented
    flag forces plain output (`--json` and `--non-interactive` switch to JSON whose shape the
    docs do not give), so the default mode is used and the strict parse is the guard. The job
@@ -366,7 +421,7 @@ Protection, so the check sends the Protection Bypass for Automation secret in th
 `x-vercel-protection-bypass` header, and no other header: if Vercel injects its toolbar into
 the preview, the byte check fails and names it.
 
-**The owner's one-time setup.** The order matters: the site becomes public only through a
+**The owner's one-time setup.** The order matters: the site first becomes public through a
 release, after its check passed, and only when the address records change at the end.
 
 1. In the Vercel Pro team, create the project **without importing a Git repository**:
@@ -438,7 +493,18 @@ release, after its check passed, and only when the address records change at the
     (kept 30 days), unzip it into a folder, say `site-release/`, and run, from the
     repository, `node scripts/site-check.mjs --base https://cbctscope.com --out
     site-release`. It retries twice, 15 s apart, while the records settle; it must end with
-    "serves all".
+    "serves all". The same check works after a site update, with the `site` artifact of that
+    run.
+11. Before the first site update, allow it into `production`: Settings, Environments,
+    `production`, under **Deployment branches and tags**, **Add deployment branch or tag
+    rule**, Ref type **Branch**, name pattern `main`, **Add rule**. The page then lists two
+    rules, the tag `v*` and the branch `main`. This widens the environment: any workflow run on
+    `main` that names `production` can read the Vercel secrets, not only a release, so a change
+    to a workflow on `main` is a change to who can deploy. Without the rule, GitHub refuses the
+    site update's `deploy` job before it starts: the run fails after `test` and `build` with
+    the job marked failed and none of its steps run, and the run's page carries an
+    annotation in words like `Branch "main" is not allowed to deploy to production due to
+    environment protection rules.` Add the rule and run the site update again.
 
 ## 10. Milestones
 
@@ -466,7 +532,8 @@ gains one layout line for `lib/browser/` and `lib/shared/` inside its byte cap.
 
 - Host: Vercel (the owner's decision of 12/11/26, before the first public launch), in place of
   GitHub Pages: real response headers, and the host's own request statistics with no script
-  in the page. Deployed by the CLI from the release job only (section 9).
+  in the page. Deployed by the CLI from the release job, and between releases from the site
+  update (section 9); never from a push.
 - Sidecars in IndexedDB plus a marks file, not downloads only.
 - Size notice threshold 512 MiB of voxels, unmeasured; the builder measures Chromium's limit
   with a synthetic volume and records the number here.
@@ -523,7 +590,8 @@ How it is built:
   (`shell.openExternal`, `updateUrl` in `native.mjs`; the bare page for anything but a strict
   major.minor.patch). The page (`app/update/page.tsx`, `components/UpdateStatus.tsx`, the pure
   `components/updateCheck.ts`) compares that version with the one in `package.json` at build
-  time, which is the newest because the release job deploys the site with every release, and
+  time, which is the newest because the release job deploys the site with every release, and a
+  site update deploys only while the latest release is that version (section 9), and
   says older, same or newer, with the direct downloads of `components/downloads.ts`. The
   version travels in the fragment, which browsers do not send to a server, so the request is
   the same for every visitor. The exported HTML is the state with no version, so the page works
@@ -607,7 +675,10 @@ How it is built:
   packaging step only. The `deploy` job needs `publish`, and its first step
   (`scripts/release-assets.mjs`) checks once that the release is GitHub's latest and that
   the three fixed installer names are attached, and fails otherwise, so the site goes live
-  only once the installers are on the release the menu's links reach. A release without the
+  only once the installers are on the release the menu's links reach. `site-update.yml`
+  (section 9) deploys the website alone from `main` between releases, with the same test and
+  build jobs and the same deploy steps, after a guard that GitHub's latest release is the
+  version in `package.json` and carries the three installers. A release without the
   mac secrets skips the mac job; the Windows job and `publish` still run and attach the
   Windows packages only, and `deploy` ships the site only if the macOS installers were
   attached to the release by hand; otherwise it fails before the upload and the site stays
@@ -775,8 +846,9 @@ one site address (`components/siteAddress.mjs`: `SITE_URL`, `https://cbctscope.c
   title, version, the DOI as a link) and a BibTeX entry. The Help menu's dialogue
   (`components/cbct/CiteDialog.tsx`) and the About page show both, each with a copy button
   that writes the clipboard on a click. The DOI is the one the file names: the version-bump
-  commit resets it to the concept DOI and the site is built from the release tag, so every
-  published build cites the concept DOI.
+  commit resets it to the concept DOI and a release builds the site from its tag, so a
+  release's build cites the concept DOI; a site update builds from `main`, which after the
+  DOI-pin commit names that version's DOI (section 9). Both name the version the site carries.
 - **Structured data.** The home and About pages carry one JSON-LD `WebApplication`
   (`components/jsonLd.ts`): name, the site claim, category, systems, free, licence, the version
   from `package.json`, the address, the repository, the DOI, and the author as a `Person` with

@@ -1,8 +1,9 @@
 // The site's deployment on Vercel (docs/web-build.md, section 9): the prebuilt layout and its
 // headers (scripts/vercel-output.mjs), the post-deploy check's pure parts (scripts/site-check.mjs),
-// and the two workflows that use them: the release job deploys production only after the
-// installers are attached, the rehearsal deploys a preview only, and the Vercel secrets reach
-// the deploy steps alone.
+// and the workflows that use them: the release job deploys production only after the
+// installers are attached, the site update deploys production from main only when the latest
+// release is the version it carries, the rehearsal deploys a preview only, CI deploys nothing,
+// and the Vercel secrets reach the deploy steps alone.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import os from 'node:os';
@@ -18,9 +19,11 @@ const yaml = createRequire(rootRequire.resolve('electron-builder'))('js-yaml') a
 
 type Step = { name?: string; uses?: string; run?: string; with?: Record<string, unknown>; env?: Record<string, string> };
 type Job = { needs?: string | string[]; if?: string; permissions?: Record<string, string>; environment?: unknown; steps?: Step[] };
-type Workflow = { on: Record<string, unknown>; permissions: Record<string, string>; jobs: Record<string, Job> };
+type Workflow = { on: Record<string, unknown>; permissions: Record<string, string>; concurrency?: unknown; jobs: Record<string, Job> };
 const release = yaml.load(read('.github/workflows/release.yml')) as Workflow;
 const rehearsal = yaml.load(read('.github/workflows/site-rehearsal.yml')) as Workflow;
+const siteUpdate = yaml.load(read('.github/workflows/site-update.yml')) as Workflow;
+const ci = yaml.load(read('.github/workflows/ci.yml')) as Workflow;
 
 /** a miniature export: the files the layout and the check read */
 const tmp = mkdtempSync(path.join(os.tmpdir(), 'cbctscope-site-'));
@@ -195,20 +198,28 @@ describe('the workflows', () => {
     expect(release.permissions).toEqual({ contents: 'read' });
     expect(release.jobs.deploy.permissions).toBeUndefined();
     expect(rehearsal.permissions).toEqual({ contents: 'read' });
+    expect(read('.github/workflows/site-update.yml')).not.toMatch(/pages|CNAME|nojekyll|id-token/i);
+    expect(siteUpdate.permissions).toEqual({ contents: 'read' });
+    for (const [name, j] of Object.entries(siteUpdate.jobs)) expect(j.permissions, name).toBeUndefined();
   });
 
   it('a cancelled or failed run never deploys, and both deploying jobs have a time limit', () => {
     expect(release.jobs.deploy.if).toBe("${{ !cancelled() && needs.build.result == 'success' && needs.publish.result == 'success' }}");
     expect(release.jobs.deploy['timeout-minutes' as keyof Job]).toBe(30);
     expect(rehearsal.jobs.rehearse['timeout-minutes' as keyof Job]).toBe(45);
+    expect(siteUpdate.jobs.deploy['timeout-minutes' as keyof Job]).toBe(30);
+    // no if: of its own, so the deploy runs only when test and build both succeeded
+    expect(siteUpdate.jobs.deploy.if).toBeUndefined();
   });
 
   it('the deploying jobs run in their GitHub environments, and no other job names a Vercel secret', () => {
     expect(release.jobs.deploy.environment).toBe('production');
     expect(rehearsal.jobs.rehearse.environment).toBe('rehearsal');
+    expect(siteUpdate.jobs.deploy.environment).toBe('production');
     for (const [wf, keep] of [
       [release, 'deploy'],
       [rehearsal, 'rehearse'],
+      [siteUpdate, 'deploy'],
     ] as const) {
       for (const [name, j] of Object.entries(wf.jobs)) {
         if (name !== keep) expect(JSON.stringify(j), name).not.toMatch(/VERCEL_/);
@@ -221,6 +232,7 @@ describe('the workflows', () => {
     for (const [wf, job, step] of [
       [release, 'deploy', 'Deploy to production'],
       [rehearsal, 'rehearse', 'Deploy a preview'],
+      [siteUpdate, 'deploy', 'Deploy to production'],
     ] as const) {
       for (const [name, j] of Object.entries(wf.jobs)) {
         for (const s of j.steps ?? []) {
@@ -244,7 +256,7 @@ describe('the workflows', () => {
   });
 
   it('every action is pinned to a commit SHA, and the Vercel CLI to one exact version in deploy/, outside the app', () => {
-    for (const f of ['release.yml', 'site-rehearsal.yml']) {
+    for (const f of ['release.yml', 'site-rehearsal.yml', 'site-update.yml']) {
       for (const uses of read(`.github/workflows/${f}`).match(/uses: \S+/g) ?? []) expect(uses, f).toMatch(/@[0-9a-f]{40}$/);
     }
     type Pkg = { private?: boolean; dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
@@ -263,6 +275,7 @@ describe('the workflows', () => {
     for (const [wf, job] of [
       [release, 'deploy'],
       [rehearsal, 'rehearse'],
+      [siteUpdate, 'deploy'],
     ] as const) {
       const install = steps(wf, job).find((s) => s.name === 'Install the Vercel CLI') as (Step & { 'working-directory'?: string }) | undefined;
       expect(install?.run).toBe('npm ci');
@@ -270,6 +283,74 @@ describe('the workflows', () => {
     }
     // electron-builder packages an allowlist that leaves deploy/ out
     expect(read('electron-builder.yml')).not.toMatch(/deploy\//);
-    for (const f of ['release.yml', 'site-rehearsal.yml']) expect(read(`.github/workflows/${f}`), f).not.toMatch(/npx\s+vercel|npm (i|install) -g|vercel@/);
+    for (const f of ['release.yml', 'site-rehearsal.yml', 'site-update.yml']) expect(read(`.github/workflows/${f}`), f).not.toMatch(/npx\s+vercel|npm (i|install) -g|vercel@/);
+  });
+});
+
+describe('the site update (site-update.yml)', () => {
+  const steps = (wf: Workflow, job: string) => wf.jobs[job].steps ?? [];
+  const deploySteps = steps(siteUpdate, 'deploy');
+  const at = (name: string) => deploySteps.findIndex((s) => s.name === name);
+  const REF = 'Refuse a run from any ref but main';
+  const GUARD = 'Check the latest release is this version and carries the installers';
+
+  it('is started by hand only, and shares the release\'s concurrency group so the two never deploy at once', () => {
+    expect(siteUpdate.on).toEqual({ workflow_dispatch: null });
+    expect(siteUpdate.concurrency).toEqual({ group: 'site', 'cancel-in-progress': false });
+    expect(siteUpdate.concurrency).toEqual(release.concurrency);
+    expect(rehearsal.concurrency).not.toEqual(release.concurrency);
+  });
+
+  it('its test job runs the release\'s test steps, and its build job builds the site as the release does', () => {
+    expect(steps(siteUpdate, 'test')).toEqual(steps(release, 'test'));
+    expect(steps(siteUpdate, 'build')).toEqual(steps(release, 'build'));
+    const upload = steps(siteUpdate, 'build').find((s) => s.uses?.startsWith('actions/upload-artifact@'));
+    // the owner's check of the public address reads the kept artifact
+    expect(upload?.with).toMatchObject({ name: 'site', path: 'out', 'retention-days': 30 });
+    expect(Object.keys(siteUpdate.jobs)).toEqual(['test', 'build', 'deploy']);
+    expect(siteUpdate.jobs.deploy.needs).toEqual(['test', 'build']);
+  });
+
+  it('refuses a run from any ref but main first, with a line that says what to do', () => {
+    expect(at(REF)).toBe(0);
+    const run = deploySteps[0].run ?? '';
+    expect(run).toContain('if [ "$GITHUB_REF" != "refs/heads/main" ]; then');
+    expect(run).toMatch(/deploys from main only: start it again with main selected/);
+    expect(run).toContain('exit 1');
+  });
+
+  it('runs the version guard before the Vercel CLI is installed or anything is deployed', () => {
+    const guard = at(GUARD);
+    expect(guard).toBeGreaterThan(at(REF));
+    expect(guard).toBeGreaterThan(deploySteps.findIndex((s) => s.uses?.startsWith('actions/checkout@')));
+    for (const later of ['Install the Vercel CLI', 'Lay out the prebuilt deployment', 'Deploy to production', 'Check the deployment as served']) {
+      expect(guard, later).toBeLessThan(at(later));
+    }
+    expect(guard).toBeLessThan(deploySteps.findIndex((s) => s.uses?.startsWith('actions/download-artifact@')));
+    expect(deploySteps[guard].run).toBe('node scripts/release-assets.mjs --site-update');
+    expect(deploySteps[guard].env).toEqual({ GITHUB_TOKEN: '${{ github.token }}' });
+  });
+
+  it('after the guards, deploys exactly as the release does, and checks with three attempts', () => {
+    const releaseDeploy = steps(release, 'deploy').filter((s) => s.name !== 'Check the release carries the installers');
+    expect(deploySteps.filter((s) => s.name !== REF && s.name !== GUARD)).toEqual(releaseDeploy);
+    for (const wf of [release, siteUpdate]) {
+      const check = steps(wf, 'deploy').find((s) => s.name === 'Check the deployment as served');
+      expect(check?.run).toBe('node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out --attempts 3');
+    }
+  });
+
+  it('the rehearsal and CI never deploy to production', () => {
+    for (const [f, wf] of [
+      ['site-rehearsal.yml', rehearsal],
+      ['ci.yml', ci],
+    ] as const) {
+      for (const [name, j] of Object.entries(wf.jobs)) {
+        const text = (j.steps ?? []).map((s) => s.run ?? '').join('\n');
+        expect(text, `${f}: ${name}`).not.toMatch(/--prod\b|--environment/);
+        expect(j.environment, `${f}: ${name}`).not.toBe('production');
+      }
+    }
+    expect(read('.github/workflows/ci.yml')).not.toMatch(/vercel/i);
   });
 });

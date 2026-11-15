@@ -3,9 +3,10 @@
 // build time (lib/server/citation.ts) and hand its text to citationFrom; nothing is fetched.
 //
 // The DOI is the one CITATION.cff names. The release ritual (AGENTS.md) resets it to the
-// concept DOI in the version-bump commit, and the site is built from the release tag, which
-// is that commit, so every published build cites the concept DOI (it resolves to the latest
-// version); the version line says which release the reader used.
+// concept DOI in the version-bump commit, and a release builds the site from its tag, which
+// is that commit, so a release's build cites the concept DOI (it resolves to the latest
+// version). A site update builds from main, which after the DOI-pin commit names that
+// version's DOI. The version line says which release the reader used.
 import { DOI_RESOLVER } from './links';
 
 export interface CitationAuthor {
