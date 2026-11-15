@@ -1,31 +1,39 @@
 {
   "name": "cbctscope",
-  "version": "2.0.0",
+  "productName": "CBCTScope",
+  "version": "2.1.0",
   "private": true,
-  "description": "Local-first CBCT viewer with native AI-agent control (MCP). Research use only.",
+  "description": "Local-first CBCT and 2D radiograph viewer. Research use only; not a medical device.",
   "license": "AGPL-3.0-or-later",
   "author": "Dr. Reza Motaghi (https://rezamotaghi.com)",
+  "main": "desktop/main.mjs",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
+    "predev": "node scripts/manual-html.mjs",
     "dev": "next dev -H 127.0.0.1 --port 3810",
     "demo": "node scripts/demo.mjs",
-    "build": "next build",
+    "build": "node scripts/manual-html.mjs && next build",
     "start": "next start -H 127.0.0.1 --port 3810",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "mcp": "node mcp/server.mjs",
     "mcp:smoke": "node scripts/mcp-smoke.mjs",
-    "mcpb": "node scripts/mcpb.mjs"
+    "mcpb": "node scripts/mcpb.mjs",
+    "build:web": "node scripts/build-web.mjs",
+    "test:e2e": "node scripts/e2e.mjs",
+    "desktop": "node scripts/desktop.mjs dev",
+    "desktop:build": "node scripts/desktop.mjs build",
+    "icon": "node scripts/icon.mjs"
   },
   "dependencies": {
-    "@modelcontextprotocol/client": "^2.4.0",
-    "@modelcontextprotocol/server": "^2.4.0",
     "@cornerstonejs/core": "5.13.1",
     "@cornerstonejs/dicom-image-loader": "5.13.1",
     "@cornerstonejs/tools": "5.13.1",
+    "@modelcontextprotocol/client": "^2.4.0",
+    "@modelcontextprotocol/server": "^2.4.0",
     "dicom-parser": "1.8.21",
     "lucide-react": "^1.59.0",
     "next": "15.5.22",
@@ -35,11 +43,16 @@
   },
   "devDependencies": {
     "@anthropic-ai/mcpb": "2.1.2",
+    "@playwright/test": "1.64.1",
     "@types/node": "22.20.0",
     "@types/react": "18.3.31",
     "@types/react-dom": "18.3.7",
+    "electron": "45.2.2",
+    "electron-builder": "26.18.0",
     "eslint": "8.57.1",
     "eslint-config-next": "15.5.22",
+    "marked": "18.1.1",
+    "rolldown": "1.2.15",
     "typescript": "5.9.3",
     "vitest": "^5.0.5"
   }

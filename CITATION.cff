@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
-title: "CBCTScope: a local-first CBCT and 2D radiograph viewer with native AI-agent control"
+title: "CBCTScope: a local-first CBCT and 2D radiograph viewer"
 type: software
 authors:
   - family-names: Motaghi
@@ -16,7 +16,7 @@ abstract: >-
   tracing, TMJ with axis-corrected sections, freehand reslice, virtual
   cephalogram, region growing with airway analysis, and two-volume stitching.
   Scans never leave the user's computer: the server binds to loopback, nothing
-  is uploaded, and no hosted instance exists. To our knowledge it is also the
+  is uploaded, and no instance receives scans. To our knowledge it is also the
   first purpose-built CBCT reading viewer with native AI-agent control, built on
   one rule, the agent moves the camera and the human reads: a built-in Model
   Context Protocol (MCP) server exposes fifteen navigation-only verbs (open or
@@ -25,9 +25,9 @@ abstract: >-
   producing no findings; interpretation remains with the human reader.
   Research use only; not a medical device.
 repository-code: "https://github.com/rezamotaghi/cbctscope"
-version: 2.0.0
-date-released: 2026-10-28
-doi: 10.5281/zenodo.23726588
+version: 2.1.0
+date-released: 2026-11-15
+doi: 10.5281/zenodo.21431452
 license: AGPL-3.0-or-later
 keywords:
   - CBCT

@@ -5,7 +5,7 @@ license: AGPL-3.0-or-later
 compatibility: Any agent host with the cbctscope MCP server connected and the viewer running with a browser tab open (see docs/mcp.md).
 metadata:
   author: Dr. Reza Motaghi
-  version: "2.0.0"
+  version: "2.1.0"
 ---
 
 # Reading with CBCTScope
@@ -44,7 +44,7 @@ the volume, the reading mode, the window, and where every pane stands.
 | `viewer_state` | Read what is on screen. Every mutating verb returns the same state. |
 | `set_view_mode` | Switch to `mpr`, `grid`, `pano`, `tmj`, `reslice`, `ceph`, `region`, or `stitch`. |
 | `set_window_level` | `Auto`, `Bone`, `Teeth`, `Soft`, or an explicit center and width; optional `invert`. |
-| `set_3d_style` | Pick the 3D pane's style in MPR (for example `cbct:teeth`, `style:surface`). |
+| `set_3d_style` | Pick the 3D pane's style in MPR (for example `cbct:teeth`, `style:surface`; `CT-Air` is the Air chip). |
 | `navigate_slice` | Move to a slice: MPR panes, the grid window centre, or the pano axial editor. |
 | `navigate_arch` | Pano: move the cross-sections along the drawn arch, in mm. |
 | `list_views`, `goto_view`, `save_view` | Bookmark and restore presentations in MPR. |

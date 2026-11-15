@@ -4,7 +4,7 @@
 import { NextResponse } from 'next/server';
 import { listLocalVolumes } from '@/lib/server/localSource';
 import { listFusedVolumes } from '@/lib/server/fused';
-import { getPhantomVolume } from '@/lib/server/phantom';
+import { PHANTOM_LABEL, getPhantomVolume } from '@/lib/server/phantom';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,7 +29,7 @@ export async function GET() {
         region: m.region,
         year: m.year,
         pair: null,
-        label: 'Synthetic phantom (demo)',
+        label: PHANTOM_LABEL, // one label on both surfaces (lib/shared/phantom.ts)
       },
     ];
   } catch (err) {

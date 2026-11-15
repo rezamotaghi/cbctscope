@@ -1,8 +1,7 @@
 'use client';
 // CBCT reading app — the client shell. Owns all control state and the volume picker;
 // CbctViewport (keyed by volume id, so switching = clean remount) does the rendering.
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CONSTANTS } from '@cornerstonejs/core';
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import CbctViewport, {
   type CbctControls,
   type CbctMeta,
@@ -11,12 +10,13 @@ import CbctViewport, {
   type HistogramData,
   type MprPane,
 } from './CbctViewport';
-import { RENDER_STYLES, DEFAULT_RENDER3D, type Render3dSettings, type PseudoKey } from './render3d';
+import { RENDER_STYLES, DEFAULT_RENDER3D, AIR_PRESET, migrateRender3d, type Render3dSettings, type PseudoKey } from './render3d';
 import CbctPano from './CbctPano';
 import CbctGrid from './CbctGrid';
 import CbctRadiograph from './CbctRadiograph';
 import CbctHistogram from './CbctHistogram';
-import { loadVolumeData } from './volumeData';
+import { announceShown, loadVolumeData, onVolumeShown } from './volumeData';
+import OpenProgressPanel, { type OpenPanelState } from './OpenProgressPanel';
 import { computeHistogram } from './CbctViewport';
 import ExportMenu from './ExportMenu';
 import CbctTmj from './CbctTmj';
@@ -25,9 +25,36 @@ import CbctCeph from './CbctCeph';
 import CbctRegion from './CbctRegion';
 import CbctStitch from './CbctStitch';
 import { useAgentBridge } from './useAgentBridge';
+import { agentTransport } from './agentChannel';
+import AgentPanel, { AgentToggle } from './agent/AgentPanel';
+import ManualDrawer, { CITE_EVENT, guidePage, MANUAL_EVENT, manualHref, menuDrawerPage } from './ManualDrawer';
+import { AGENT_AVAILABLE, IS_DESKTOP } from './shell';
+import { IS_WEB, isCanceled, source } from './source';
+import { EVIDENCE_SCHEMA, parseMarksFile, type EvidenceFile } from './evidence';
+import { SIZE_NOTICE_MIB, needsSizeNotice, voxelBytes } from './sizeNotice';
+import { dropLabel, entriesOf, walkDrop } from './dropFiles';
+import { chooseFolder, usesDirectoryPicker, walkHandle } from './folderPicker';
+import { selectVolumeVerb, type SwitchOutcome } from './agentSelect';
+import { useDropOverlay } from './useDropOverlay';
+import { isChord, modalOpen } from './keys';
+import { downloadBlob } from './exporters';
+import {
+  ResearchUseDialog,
+  SizeNoticeDialog,
+  acknowledgeResearch,
+  researchAcknowledged,
+} from './WebDialogs';
 import AboutBadge from '@/components/AboutBadge';
+import type { Citation } from '@/components/citation';
+import CiteDialog from './CiteDialog';
 import SnapshotButton, { type SnapRef } from './SnapshotButton';
-import { BookOpen, FolderOpen, Keyboard } from 'lucide-react';
+import { pageStorage, rememberPreset, windowOnOpen } from './windowPreset';
+import { EVERY_MODE_GESTURES, MODE_GESTURES, statusLegend, type GestureMode } from './gestures';
+import { PANE_BUTTONS } from './paneButtons';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { REPO_URL, RELEASES_URL, STILLS_URL } from '@/components/links';
+import { downloadEntries } from '@/components/downloads';
+import { onMenuButtonKeyDown, onMenuKeyDown, useDismiss, useKeepInViewport } from './menus';
 
 interface ListEntry {
   anon: string;
@@ -43,7 +70,7 @@ interface ListEntry {
   label?: string;
 }
 
-/** User-opened local volume (📂 open). */
+/** User-opened local volume (the Open menu). */
 const isLocalVol = (id: string) => id.startsWith('local_');
 /** Session-scoped stitched (fused) volume from the Stitch view. */
 const isFusedVol = (id: string) => id.startsWith('fused_');
@@ -52,18 +79,16 @@ const isDemoVol = (id: string) => id.startsWith('demo_');
 
 type ViewMode = 'mpr' | 'grid' | 'pano' | 'tmj' | 'reslice' | 'ceph' | 'region' | 'stitch';
 
-// Where the header's "help" entry and the about panel point: the docs on the project page.
-// The main branch, because the README's install path is the main-branch ZIP, so the running
-// code and the linked page match. The viewer itself never fetches anything: the link opens
-// in a new tab only when the reader clicks it.
-const DOCS_URL = 'https://github.com/rezamotaghi/cbctscope/blob/main/';
+/** the built-in phantom's one name: lib/shared/phantom.ts PHANTOM_LABEL says the same (tests/manual.test.ts) */
+const PHANTOM_NAME = 'Geometric test phantom';
+const noSubscribe = () => () => {};
 const VIEW_MODES: [ViewMode, string, string][] = [
   ['mpr', 'MPR', 'orthogonal slices + 3D render'],
   ['grid', 'Grid', 'many parallel slices on one screen'],
   ['pano', 'Pano', 'curved panoramic + cross-sections'],
   ['tmj', 'TMJ', 'both condyles in axis-corrected sections'],
   ['reslice', 'Reslice', 'new slice stack along any drawn line or curve'],
-  ['ceph', 'Ceph', 'virtual cephalogram — the volume projected flat like a film'],
+  ['ceph', 'Ceph', 'virtual cephalogram: the volume projected flat like a film'],
   ['region', 'Region', 'region growing + airway analysis'],
   ['stitch', 'Stitch', 'register + merge two volumes of the same subject'],
 ];
@@ -78,20 +103,6 @@ const WL_PRESETS: Record<string, { center: number; width: number } | null> = {
 };
 
 // Tool palette (left mouse button) — order defines the 1–9 hotkeys (0 = the tenth).
-// One gesture legend per room — the header used to show the MPR text over every mode,
-// describing gestures the other rooms don't have. MPR's stays tool-aware; the universal
-// "dbl-click a slider = reset" tail is appended for all.
-const MODE_LEGEND: Record<ViewMode, (tool: string) => string> = {
-  mpr: (tool) => `wheel: slice · left: ${tool} · right-drag: rotate section · right+left drag: zoom · middle-drag: pan`,
-  grid: () => 'scout: left-drag = move window · right-drag = rotate · tiles: wheel = step · right-drag = rotate in-plane',
-  pano: () => 'axial: stroke = arch · wheel = slice · pano: click/wheel = move sections · sections: right-drag = tilt',
-  tmj: () => 'axial: drag = axis line per side · right-click = delete · wheel = slice · tiles: right-drag = tilt the fan',
-  reslice: () => 'scout: drag = line · click = dots · dbl-click = finish · wheel = slice · tiles: right-drag = tilt',
-  ceph: () => 'drag the image: horizontal = turn (yaw) · vertical = nod (pitch) · projection presets in the toolbar',
-  region: () => 'axial: drag = box · click = seed · wheel = slice · right of the planes: vertical-range handles',
-  stitch: () => 'pick volume B → auto align → fine-tune the sliders · color overlay: fringes = misalignment',
-};
-
 // 'wl' rides at the END so the 1-9/0 number keys keep their historical meaning — it gets
 // its own key (W) instead of renumbering ten muscle-memory bindings.
 const TOOL_ORDER: readonly CbctToolMode[] = [
@@ -148,35 +159,6 @@ interface Saved3dPreset {
   name: string;
   settings: Render3dSettings;
 }
-// Style keys and setting fields were renamed when the style set was reworked; presets
-// saved before that carry the old names. Migrate on load so no saved preset ever feeds a
-// dead style key into the render path.
-const LEGACY_STYLE_KEYS: Record<string, string> = {
-  'style:matte': 'style:shaded',
-  'style:gloss': 'style:shiny',
-  'style:shell': 'style:surface',
-  'style:skin': 'style:soft-tissue',
-  'style:radiograph': 'style:xray',
-  'style:glass': 'style:xray-shaded',
-  'style:film': 'style:bw-xray',
-};
-function migratePreset(s: Render3dSettings): Render3dSettings {
-  const legacy = s as Render3dSettings & {
-    edgeEmphasis?: number;
-    skinShell?: boolean;
-    skinShellThreshold?: number;
-    skinShellOpacity?: number;
-  };
-  return {
-    ...DEFAULT_RENDER3D,
-    ...s,
-    style: LEGACY_STYLE_KEYS[s.style] ?? s.style,
-    depthEnhance: s.depthEnhance ?? legacy.edgeEmphasis ?? DEFAULT_RENDER3D.depthEnhance,
-    stOverlay: s.stOverlay ?? legacy.skinShell ?? DEFAULT_RENDER3D.stOverlay,
-    stThreshold: s.stThreshold ?? legacy.skinShellThreshold ?? DEFAULT_RENDER3D.stThreshold,
-    stOpacity: s.stOpacity ?? legacy.skinShellOpacity ?? DEFAULT_RENDER3D.stOpacity,
-  };
-}
 function loadSavedPresets(): Saved3dPreset[] {
   try {
     const raw = localStorage.getItem(PRESETS_KEY);
@@ -184,7 +166,7 @@ function loadSavedPresets(): Saved3dPreset[] {
     return Array.isArray(arr)
       ? arr
           .filter((p) => p && typeof p.name === 'string' && p.settings)
-          .map((p) => ({ ...p, settings: migratePreset(p.settings) }))
+          .map((p) => ({ ...p, settings: migrateRender3d(p.settings) }))
       : [];
   } catch {
     return [];
@@ -199,7 +181,7 @@ function volLabel(v: ListEntry): string {
     .join(' · ');
 }
 
-export default function CbctApp() {
+export default function CbctApp({ citation }: { citation?: Citation }) {
   const [volumes, setVolumes] = useState<ListEntry[]>([]);
   const [anon, setAnon] = useState<string | null>(null);
   const [meta, setMeta] = useState<CbctMeta | null>(null);
@@ -227,50 +209,98 @@ export default function CbctApp() {
     if (hit) setControls((c) => ({ ...c, render3d: { ...DEFAULT_RENDER3D, ...hit.settings } }));
   }, []);
 
-  // 📂 open source: native chooser, persisted server-side
+  // the opened source: native chooser, persisted server-side
   const [srcLabel, setSrcLabel] = useState<string | null>(null);
   const [srcNonce, setSrcNonce] = useState(0); // bump = refetch the volume list
   const [srcMenu, setSrcMenu] = useState(false);
   /** the header's help menu: this mode's reading guide and the user manual */
   const [helpMenu, setHelpMenu] = useState(false);
+  /** the manual page the help drawer shows, or null when it is closed (repo build and desktop app) */
+  const [manualPage, setManualPage] = useState<string | null>(null);
+  const [citeOpen, setCiteOpen] = useState(false);
   const helpMenuRef = useRef<HTMLDivElement | null>(null);
   const [picking, setPicking] = useState(false);
+  // the same, for callbacks that must not wait for a render: a drop during a read is ignored
+  const pickingRef = useRef(false);
   const srcMenuRef = useRef<HTMLDivElement | null>(null);
   const wantLocalRef = useRef(false); // after an open, jump to the first opened volume
   const wantSwitchRef = useRef<string | null>(null); // after a stitch, jump to the new fused volume
-  useEffect(() => {
-    fetch('/api/cbct/source')
-      .then((r) => r.json())
-      .then((d) => d.active && setSrcLabel(String(d.label)))
-      .catch(() => {});
+  // web build: the size notice holds a volume back until the reader continues; the
+  // research-use dialogue opens on the first real open in this browser profile; a load of
+  // marks unmounts the room while the sidecar is replaced, then remounts it
+  const [pendingSize, setPendingSize] = useState<{ anon: string; label: string; bytes: number } | null>(null);
+  const [researchOpen, setResearchOpen] = useState(false);
+  const [marksBusy, setMarksBusy] = useState(false);
+  /** web build: the open's progress panel, from the files handed over to the first frame */
+  const [openPanel, setOpenPanel] = useState<OpenPanelState | null>(null);
+  const openTokenRef = useRef(0); // reports from an earlier open are ignored
+  const finishOpen = useCallback(() => setOpenPanel((p) => (p?.kind === 'busy' ? null : p)), []);
+  /** start the panel for a files open; returns the token its reports must carry */
+  const beginOpen = useCallback((total?: number) => {
+    const token = ++openTokenRef.current;
+    setOpenPanel({ kind: 'busy', phase: 'scan', done: 0, total, startedAt: Date.now() });
+    return token;
+  }, []);
+  useEffect(() => onVolumeShown((shown) => isLocalVol(shown) && finishOpen()), [finishOpen]);
+  // the CPU rooms (and the radiograph) draw in the task that reports their meta: the next
+  // frame shows it. The MPR viewport announces its own first frame after the GPU render.
+  const onRoomMeta = useCallback((m: CbctMeta) => {
+    setMeta(m);
+    requestAnimationFrame(() => announceShown(m.anon));
   }, []);
   useEffect(() => {
-    if (!srcMenu) return;
-    const onDown = (e: MouseEvent) => {
-      if (srcMenuRef.current && !srcMenuRef.current.contains(e.target as Node)) setSrcMenu(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [srcMenu]);
+    if (error) finishOpen(); // a failed load ends the open; the error shows in its place
+  }, [error, finishOpen]);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const marksInputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
-    if (!helpMenu) return;
-    const onDown = (e: MouseEvent) => {
-      if (helpMenuRef.current && !helpMenuRef.current.contains(e.target as Node)) setHelpMenu(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [helpMenu]);
+    // React has no typed prop for the directory picker; set the attribute by hand
+    folderInputRef.current?.setAttribute('webkitdirectory', '');
+  }, []);
+  useEffect(() => {
+    source
+      .opened()
+      .then((o) => o && setSrcLabel(o.label))
+      .catch(() => {});
+  }, []);
+  // the header's menus and the Keys card: Escape or a press outside (the image included) closes
+  // each; each panel stays inside the viewport (menus.ts)
+  const keysRef = useRef<HTMLDivElement | null>(null);
+  const srcPanelRef = useRef<HTMLDivElement | null>(null);
+  const helpPanelRef = useRef<HTMLDivElement | null>(null);
+  const keysPanelRef = useRef<HTMLDivElement | null>(null);
+  /** the header's download menu (plain browser only): the installers, the visitor's system first */
+  const [dlMenu, setDlMenu] = useState(false);
+  const dlMenuRef = useRef<HTMLDivElement | null>(null);
+  const dlPanelRef = useRef<HTMLDivElement | null>(null);
+  const closeSrc = useCallback(() => setSrcMenu(false), []);
+  const closeHelp = useCallback(() => setHelpMenu(false), []);
+  const closeKeys = useCallback(() => setKeysOpen(false), []);
+  const closeDl = useCallback(() => setDlMenu(false), []);
+  useDismiss(srcMenu, closeSrc, srcMenuRef);
+  useDismiss(helpMenu, closeHelp, helpMenuRef);
+  useDismiss(keysOpen, closeKeys, keysRef);
+  useDismiss(dlMenu, closeDl, dlMenuRef);
+  useKeepInViewport(srcMenu, srcPanelRef);
+  useKeepInViewport(helpMenu, helpPanelRef);
+  useKeepInViewport(keysOpen, keysPanelRef);
+  useKeepInViewport(dlMenu, dlPanelRef);
 
   const current = useMemo(() => volumes.find((v) => v.anon === anon) ?? null, [volumes, anon]);
   /** the open image is a single 2D radiograph — the volumetric modes don't apply */
   const isXray = current?.kind === 'xray';
+  // the desktop app opens every CT volume on the window preset the reader last picked
+  // (./windowPreset); a radiograph opens on Auto; the website remembers nothing new
+  const currentKind = current?.kind ?? null;
+  useEffect(() => {
+    if (!anon || !currentKind) return;
+    const voi = windowOnOpen(pageStorage(), IS_DESKTOP, currentKind === 'xray', WL_PRESETS);
+    setControls((c) => ({ ...c, voi }));
+  }, [anon, currentKind]);
 
-  const ctPresetNames = useMemo(
-    () => CONSTANTS.VIEWPORT_PRESETS.filter((p) => p.name.startsWith('CT-')).map((p) => p.name),
-    [],
-  );
   const r3d = controls.render3d;
-  const styleDef = RENDER_STYLES[r3d.style]; // undefined ⇒ a CT-* preset: sliders don't apply
+  const styleDef = RENDER_STYLES[r3d.style]; // undefined means the Air preset: the sliders don't apply
   const setR3d = useCallback((patch: Partial<Render3dSettings>) => {
     setControls((c) => ({ ...c, render3d: { ...c.render3d, ...patch } }));
   }, []);
@@ -317,27 +347,38 @@ export default function CbctApp() {
   // deps would refetch the list on every volume change)
   const anonRef = useRef<string | null>(null);
   anonRef.current = anon;
-  const switchVolume = useCallback((next: string | null) => {
-    if (!next || next === anonRef.current) return;
+  // catalog mirror for the size gate (the catalog effect sets it before it switches)
+  const volumesRef = useRef<ListEntry[]>([]);
+  volumesRef.current = volumes;
+  /** web build: hold a large volume back behind the size notice; true = held */
+  const sizeHeld = useCallback((next: string): boolean => {
+    if (!IS_WEB) return false;
+    const v = volumesRef.current.find((e) => e.anon === next);
+    if (!v) return false;
+    const bytes = voxelBytes(v.dims);
+    if (!needsSizeNotice(bytes, SIZE_NOTICE_MIB)) return false;
+    setPendingSize({ anon: next, label: v.label || (isDemoVol(next) ? PHANTOM_NAME : next), bytes });
+    return true;
+  }, []);
+  const switchVolume = useCallback((next: string | null, confirmed = false): SwitchOutcome => {
+    if (!next || next === anonRef.current) return 'same';
+    if (!confirmed && sizeHeld(next)) return 'held';
     setError(null);
     setMeta(null);
     setHistogram(null);
     setControls((c) => ({ ...defaultControls, render3d: c.render3d })); // fresh state per volume
     setAnon(next);
-  }, []);
+    return 'switched';
+  }, [sizeHeld]);
 
-  // volume list: opened local source + fused volumes + the built-in demo phantom (refetched
-  // when the source changes — no-store so a just-registered volume is never masked by cache)
+  // volume list: fused volumes, then the opened source, then the built-in demo phantom, in
+  // the source's order (refetched when the source changes)
   useEffect(() => {
-    fetch('/api/cbct', { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((j) => {
-        const all: ListEntry[] = j.volumes ?? [];
-        // fused (stitched) volumes first, then opened volumes, then the demo phantom
-        const fused = all.filter((v) => isFusedVol(v.anon));
-        const locals = all.filter((v) => isLocalVol(v.anon));
-        const demo = all.filter((v) => isDemoVol(v.anon));
-        const vols = [...fused, ...locals, ...demo];
+    source
+      .list()
+      .then((vols) => {
+        const locals = vols.filter((v) => isLocalVol(v.anon));
+        volumesRef.current = vols;
         setVolumes(vols);
         if (wantSwitchRef.current && vols.some((v) => v.anon === wantSwitchRef.current)) {
           const target = wantSwitchRef.current;
@@ -345,52 +386,153 @@ export default function CbctApp() {
           switchVolume(target);
         } else if (wantLocalRef.current && locals.length) {
           wantLocalRef.current = false;
+          // the same export opened again is already on screen: nothing loads, the open is done
+          if (locals[0].anon === anonRef.current) finishOpen();
           switchVolume(locals[0].anon);
         } else if (vols.length) {
           const preferred = locals[0] ?? vols[0];
-          setAnon((cur) => (cur && vols.some((v) => v.anon === cur) ? cur : preferred.anon));
+          const cur = anonRef.current;
+          if (cur && vols.some((v) => v.anon === cur)) {
+            /* keep the volume on screen */
+          } else if (sizeHeld(preferred.anon)) setAnon(null);
+          else setAnon(preferred.anon);
         } else {
           setAnon(null);
         }
       })
-      .catch(() => setError('volume catalog unavailable — is the server running?'));
-  }, [srcNonce, switchVolume]);
+      .catch(() =>
+        setError(IS_WEB ? 'volume catalog unavailable: reload the page' : 'volume catalog unavailable: is the server running?'),
+      );
+  }, [srcNonce, switchVolume, sizeHeld, finishOpen]);
 
-  // point the viewer at a local CBCT export — via the native chooser (the server opens it
-  // on this same machine)
-  const onPickSource = useCallback(async (kind: 'folder' | 'file') => {
+  // point the viewer at a local CBCT export. The local app: the native chooser (the server
+  // opens it in place on this same machine). The web build: files from the picker or a drop,
+  // read into this tab.
+  const openWith = useCallback(async (input: Parameters<typeof source.open>[0], started?: number) => {
     setSrcMenu(false);
     setPicking(true);
+    pickingRef.current = true;
+    // files (the web build) get the progress panel; the native chooser has its own dialog
+    const token = input.kind === 'files' ? (started ?? beginOpen(input.files.length)) : null;
+    const live = () => token !== null && openTokenRef.current === token;
     try {
-      const r = await fetch('/api/cbct/source/pick', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind }),
-      });
-      const d = await r.json();
-      if (d.canceled) return; // user dismissed the dialog — not an error
-      if (!r.ok || d.error) return setError(String(d.error ?? `open failed (${r.status})`));
+      const r = await source.open(
+        input,
+        token === null
+          ? undefined
+          : (p) => live() && setOpenPanel((cur) => (cur?.kind === 'busy' ? { ...cur, ...p } : cur)),
+      );
+      if (isCanceled(r)) return; // the reader dismissed the dialog: not an error
+      if (!r.ok) {
+        if (live() && r.scanned !== undefined) {
+          return setOpenPanel({ kind: 'none', error: r.error, reasons: r.reasons ?? [], headline: r.headline });
+        }
+        if (live()) setOpenPanel(null);
+        return setError(r.error);
+      }
       setError(null);
-      setSrcLabel(String(d.label));
+      setSrcLabel(r.label);
       wantLocalRef.current = true;
       setSrcNonce((n) => n + 1);
+      if (IS_WEB && !researchAcknowledged()) setResearchOpen(true);
     } catch (e) {
+      if (live()) setOpenPanel(null);
       setError(String(e));
     } finally {
+      pickingRef.current = false;
       setPicking(false);
     }
-  }, []);
+  }, [beginOpen]);
+  const onPickSource = useCallback(
+    (kind: 'folder' | 'file') => openWith({ kind: 'native', chooser: kind }),
+    [openWith],
+  );
+  const onFilesChosen = useCallback(
+    (list: FileList | null) => {
+      const files = list ? Array.from(list) : [];
+      if (!files.length) return; // the picker was dismissed
+      const first = files[0];
+      const label = first.webkitRelativePath ? first.webkitRelativePath.split('/')[0] : first.name;
+      void openWith({ kind: 'files', files, label });
+    },
+    [openWith],
+  );
+  /** a drop or a picked folder handle: walked into files, then the one loader */
+  const openWalked = useCallback(
+    async (walk: () => Promise<{ files: File[]; stopped: string | null; label: string }>, what: string) => {
+      const token = beginOpen(); // the panel shows while the tree is walked, before the count is known
+      try {
+        const { files, stopped, label } = await walk();
+        if (files.length) await openWith({ kind: 'files', files, label, ...(stopped ? { walkStopped: stopped } : {}) }, token);
+        else if (openTokenRef.current === token) setOpenPanel(null);
+      } catch (e) {
+        if (openTokenRef.current === token) setOpenPanel(null);
+        setError(`could not read ${what}: ${String(e)}`);
+      }
+    },
+    [openWith, beginOpen],
+  );
+  const onDropFiles = useCallback(
+    async (dt: DataTransfer) => {
+      const entries = entriesOf(dt); // synchronous: the items die after the drop handler
+      if (!entries.length || pickingRef.current) return; // one read at a time, as the disabled Open menu says
+      await openWalked(async () => ({ ...(await walkDrop(entries)), label: dropLabel(entries) }), 'the dropped files');
+    },
+    [openWalked],
+  );
+  /** the folder item: the directory picker where offered (no "upload" confirmation), else the classic input */
+  const onOpenFolder = useCallback(async () => {
+    setSrcMenu(false);
+    const choice = await chooseFolder(typeof window === 'undefined' ? null : window, IS_DESKTOP);
+    if (choice.kind === 'canceled') return; // the reader closed the picker: nothing happens
+    if (choice.kind === 'classic') return folderInputRef.current?.click();
+    await openWalked(() => walkHandle(choice.handle), 'the chosen folder');
+  }, [openWalked]);
+  const drop = useDropOverlay(IS_WEB, (dt) => void onDropFiles(dt));
 
   const onCloseSource = useCallback(async () => {
     setSrcMenu(false);
-    try {
-      await fetch('/api/cbct/source', { method: 'DELETE' });
-    } catch {
-      /* server gone — the refetch below will surface it */
-    }
+    await source.close(); // never throws: a gone server surfaces in the refetch below
     setSrcLabel(null);
     setSrcNonce((n) => n + 1);
   }, []);
+
+  // web build: marks travel as a JSON file (the sidecar of the volume on screen)
+  const onSaveMarks = useCallback(async () => {
+    setSrcMenu(false);
+    if (!anon) return;
+    const ev: EvidenceFile = (await source.getEvidence(anon)) ?? {
+      schema: EVIDENCE_SCHEMA,
+      anon,
+      saved_at: new Date().toISOString(),
+      annotations: [],
+      views: [],
+      rois3d: [],
+    };
+    downloadBlob(new Blob([JSON.stringify(ev, null, 2)], { type: 'application/json' }), `${anon}_marks.json`);
+  }, [anon]);
+  const onLoadMarks = useCallback(
+    async (list: FileList | null) => {
+      const f = list?.[0];
+      if (!f || !anon) return;
+      const parsed = parseMarksFile(await f.text(), anon);
+      if ('error' in parsed) return setError(parsed.error);
+      if (parsed.dropped) {
+        setError(
+          `${parsed.dropped} ${parsed.dropped === 1 ? 'entry' : 'entries'} of that marks file failed validation and ${parsed.dropped === 1 ? 'was' : 'were'} left out; the rest loaded.`,
+        );
+      }
+      // unmount the room first so its own autosave cannot write the old marks back
+      setMarksBusy(true);
+      try {
+        await new Promise((r) => setTimeout(r, 50));
+        if (!(await source.putEvidence(parsed.file))) setError('the marks could not be stored in this browser');
+      } finally {
+        setMarksBusy(false);
+      }
+    },
+    [anon],
+  );
 
   // a stitch just produced a fused volume: refetch the catalog, jump to it, open it in MPR
   const onFused = useCallback((fusedAnon: string) => {
@@ -429,9 +571,14 @@ export default function CbctApp() {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      // Cmd, Ctrl or Alt held: the chord belongs to the browser or the app menu (open, close,
+      // reload, copy, new window, print, tab switching), never to a viewer key
+      if (isChord(e)) return;
+      // a modal dialogue holds the keyboard: no volume switch or tool change behind it
+      if (modalOpen()) return;
       const k = e.key.toLowerCase();
-      // the MPR keys (tools, W, C, O) are GATED to the MPR room — in any other mode they
-      // used to silently mutate state the reader couldn't see. R also serves the
+      // the MPR keys (tools, W, C, O) are GATED to the MPR room: in any other mode they
+      // would silently change state the reader cannot see. R also serves the
       // radiograph's fit, so it stays live there.
       const inMpr = viewMode === 'mpr' && !isXray;
       if (k === 'n') step(1);
@@ -450,13 +597,17 @@ export default function CbctApp() {
     return () => window.removeEventListener('keydown', onKey);
   }, [step, viewMode, isXray]);
 
+  /** a preset picked by the reader: applied, and on the desktop app remembered for a CT volume */
   const setVoiPreset = (name: string) => {
     setControls((c) => ({ ...c, voi: WL_PRESETS[name] ?? null }));
+    if (!isXray) rememberPreset(pageStorage(), IS_DESKTOP, name, WL_PRESETS);
   };
   const voiShown = controls.voi ?? meta?.defaultVoi ?? { center: 0, width: 1 };
+  /** a window is known (set by hand, or the volume's own): until then the rail shows no number */
+  const voiKnown = controls.voi !== null || !!meta;
   // Window sliders span this image's ACTUAL value range (full spectrum — the Auto/default
   // window always lies inside, so any hand-set window can be walked back; a fixed cap could
-  // put the original width out of reach). Width runs on a log scale: narrow diagnostic
+  // put the original width out of reach). Width runs on a log scale: narrow
   // windows get fine steps, the far end still reaches the full span. Bounds also swallow the
   // current value so the thumb never clips while histogram data is still loading. Fallbacks
   // are mode-aware: HU for a volume, 0–4095 gray for a 2D radiograph.
@@ -490,11 +641,7 @@ export default function CbctApp() {
       style3d: controls.render3d.style,
       gamma: controls.gamma,
     }),
-    selectVolume: (id) => {
-      if (!volumes.some((v) => v.anon === id)) return `unknown volume id: ${id}`;
-      switchVolume(id);
-      return null;
-    },
+    selectVolume: (id) => selectVolumeVerb(id, volumes, (v) => switchVolume(v)),
     setViewMode: (mode) => {
       if (!VIEW_MODES.some(([m]) => m === mode)) {
         return `unknown view mode: ${mode} (valid: ${VIEW_MODES.map(([m]) => m).join(', ')})`;
@@ -509,7 +656,7 @@ export default function CbctApp() {
         if (isXray && preset !== 'Auto') {
           return `preset ${preset} is HU-based: a radiograph has no HU scale (use Auto, or center/width on the 0-4095 gray scale)`;
         }
-        setControls((c) => ({ ...c, voi: WL_PRESETS[preset] ?? null }));
+        setVoiPreset(preset);
       } else if (center !== undefined || width !== undefined) {
         const cNum = Number(center ?? voiShown.center);
         const wNum = Number(width ?? voiShown.width);
@@ -520,7 +667,7 @@ export default function CbctApp() {
       return null;
     },
     setStyle3d: (style) => {
-      if (!(style in RENDER_STYLES)) return `unknown 3D style: ${style} (valid: ${Object.keys(RENDER_STYLES).join(', ')})`;
+      if (!(style in RENDER_STYLES) && style !== AIR_PRESET) return `unknown 3D style: ${style} (valid: ${[...Object.keys(RENDER_STYLES), AIR_PRESET].join(', ')})`;
       if (isXray) return 'the open image is a 2D radiograph: there is no 3D render';
       pickStyle(style);
       return null;
@@ -534,20 +681,139 @@ export default function CbctApp() {
       return null;
     },
     onEvicted: () => setAgentEvicted(true),
-  });
+  }, agentTransport); // the in-page agent's queue on every surface, plus the loopback bridge in the repo and the desktop app
+  // the desktop app, read after hydration (the exported HTML is rendered without a navigator)
+  const inShell = useSyncExternalStore(noSubscribe, () => IS_DESKTOP, () => false);
+  // the folder item's entrance, known only in the browser (the static export renders the classic line)
+  const dirPicker = useSyncExternalStore(noSubscribe, () => usesDirectoryPicker(window, IS_DESKTOP), () => false);
+  // the manual (docs/web-build.md, section 13): the website opens its pages in a new tab; the
+  // repo build and the desktop app show them in the help drawer beside the viewer
+  const manualInTab = IS_WEB && !inShell;
+  // the desktop app's Help menu: its window event opens the drawer at the manual's index page,
+  // or at the page its detail names when the drawer knows it (chapter 12, the legal notice),
+  // through the same state the help menu sets (a second request keeps the one drawer); its
+  // citation event opens the Cite this software dialogue
+  useEffect(() => {
+    if (!IS_DESKTOP) return;
+    const open = (e: Event) => {
+      const page = menuDrawerPage((e as CustomEvent<unknown>).detail);
+      if (page === null) return;
+      setManualPage(page);
+      setHelpMenu(false);
+    };
+    const cite = () => {
+      if (!citation) return;
+      setHelpMenu(false);
+      setCiteOpen(true);
+    };
+    window.addEventListener(MANUAL_EVENT, open);
+    window.addEventListener(CITE_EVENT, cite);
+    return () => {
+      window.removeEventListener(MANUAL_EVENT, open);
+      window.removeEventListener(CITE_EVENT, cite);
+    };
+  }, [citation]);
 
-  const btn = (active: boolean): React.CSSProperties => ({
-    padding: '4px 10px',
-    borderRadius: 6,
-    border: '1px solid var(--border)',
-    background: active ? 'var(--accent-dim)' : 'var(--panel-2)',
-    color: 'var(--text)',
-    fontSize: 12,
-  });
+  /**
+   * A Help menu entry for one of the site's own pages (/about, /legal): a new tab on the website,
+   * like the manual; the drawer beside the viewer in the local app and the desktop app, where a
+   * new tab is not available. The address is relative, so a base path holds.
+   */
+  const siteLink = (page: 'about' | 'legal', label: string, title: string) =>
+    manualInTab ? (
+      <a className="menu-item" role="menuitem" href={page} target="_blank" rel="noopener" title={title} onClick={() => setHelpMenu(false)}>
+        {label}
+      </a>
+    ) : (
+      <button
+        className="menu-item"
+        role="menuitem"
+        title={title}
+        onClick={() => {
+          setManualPage(page);
+          setHelpMenu(false);
+        }}
+      >
+        {label}
+      </button>
+    );
+
+  /** the status line's gesture legend: at most three of this mode's, MPR's aware of the active tool */
+  const gestureMode: GestureMode = isXray ? 'xray' : viewMode;
+  const legend = statusLegend(gestureMode, controls.toolMode === 'crosshairs' ? null : TOOL_LABEL[controls.toolMode]);
+
+  /** a chip in the side rail: the one button, solid accent while it is the selected one */
+  const chip = (active: boolean) => ({ className: 'ctl', 'aria-pressed': active });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      {agentEvicted && (
+      {IS_WEB && (
+        <>
+          {/* the web build's pickers: a folder (webkitdirectory, set on mount; the fallback where the
+              directory picker is absent, and the desktop app's), one file, a marks file */}
+          <input
+            ref={folderInputRef}
+            type="file"
+            multiple
+            hidden
+            data-testid="open-folder-input"
+            // disabled while a read runs, like the Open menu, so the desktop app's File menu cannot start a second
+            disabled={picking}
+            onChange={(e) => {
+              onFilesChosen(e.target.files);
+              e.target.value = '';
+            }}
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            hidden
+            data-testid="open-file-input"
+            disabled={picking}
+            onChange={(e) => {
+              onFilesChosen(e.target.files);
+              e.target.value = '';
+            }}
+          />
+          <input
+            ref={marksInputRef}
+            type="file"
+            accept="application/json,.json"
+            hidden
+            data-testid="load-marks-input"
+            onChange={(e) => {
+              void onLoadMarks(e.target.files);
+              e.target.value = '';
+            }}
+          />
+          {pendingSize && !researchOpen && (
+            <SizeNoticeDialog
+              label={pendingSize.label}
+              bytes={pendingSize.bytes}
+              onCancel={() => {
+                setPendingSize(null);
+                finishOpen(); // the reader declined the volume: nothing will load
+              }}
+              onContinue={() => {
+                const next = pendingSize.anon;
+                setPendingSize(null);
+                // the clock restarts: the time spent reading the notice is not the open's
+                setOpenPanel((p) => (p?.kind === 'busy' ? { ...p, startedAt: Date.now() } : p));
+                switchVolume(next, true);
+              }}
+            />
+          )}
+          {researchOpen && (
+            <ResearchUseDialog
+              onAcknowledge={() => {
+                acknowledgeResearch();
+                setResearchOpen(false);
+              }}
+            />
+          )}
+        </>
+      )}
+      {AGENT_AVAILABLE && agentEvicted && (
         <div
           style={{
             display: 'flex',
@@ -564,69 +830,65 @@ export default function CbctApp() {
             works by hand, but agent commands go to the newer tab.
           </span>
           <button
+            className="ctl"
             onClick={() => window.location.reload()}
-            style={{
-              padding: '4px 10px',
-              borderRadius: 6,
-              border: '1px solid #000',
-              background: 'transparent',
-              color: '#000',
-              fontSize: 12,
-              fontWeight: 600,
-            }}
+            style={{ borderColor: '#000', background: 'transparent', color: '#000', fontWeight: 600 }}
           >
             Reload to reclaim
           </button>
         </div>
       )}
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '8px 12px',
-          borderBottom: '1px solid var(--border)',
-          background: 'var(--panel)',
-          flexWrap: 'wrap',
-        }}
-      >
-        <strong style={{ fontSize: 13 }}>CBCTScope</strong>
-        <AboutBadge product="CBCTScope" />
-        <span
-          title="This viewer is research software: it visualizes and navigates volumes and never produces findings or diagnoses. It is not a medical device."
-          style={{
-            fontSize: 11,
-            color: 'var(--warn)',
-            border: '1px solid var(--warn)',
-            borderRadius: 6,
-            padding: '2px 8px',
-          }}
-        >
-          Research use only. Not for diagnosis.
-        </span>
+      {/* below 768 px: a phone or a narrow window can look at the phantom, not read a scan. It
+          comes first in the document so it is read first; CSS order shows it under the header. */}
+      <div className="phone-notice" role="note">
+        CBCTScope reads scans in a desktop browser. Here you can look at the built-in phantom.
+      </div>
+      {/* the header: one row where the width holds it, in reading order: what this is, the
+          modes, the volume, the actions, then Keys, Help, Agent and the desktop download */}
+      <header className="app-header" data-testid="app-header">
+        <div className="hgroup" style={{ gap: 8 }}>
+          {/* the name with its version button, and under them what this is */}
+          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: '14px' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <strong style={{ fontSize: 'var(--fs-body)', fontWeight: 600 }}>CBCTScope</strong>
+              <AboutBadge product="CBCTScope" onOpenAbout={manualInTab ? undefined : () => setManualPage('about')} />
+            </span>
+            <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>CBCT and radiograph viewer</span>
+          </div>
+          <span
+            title="This viewer is research software: it visualizes and navigates volumes and never produces findings or diagnoses. It is not a medical device."
+            style={{
+              fontSize: 'var(--fs-meta)',
+              lineHeight: '13px',
+              color: 'var(--warn)',
+              border: '1px solid var(--warn)',
+              borderRadius: 'var(--ctl-radius)',
+              padding: '0 8px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <span style={{ display: 'block' }}>Research use only.</span>{' '}
+            <span style={{ display: 'block' }}>{IS_WEB ? 'Not a medical device.' : 'Not for diagnosis.'}</span>
+          </span>
+        </div>
         {isXray ? (
           <span
-            title="A single 2D radiograph is open — the volumetric reading modes apply to CBCT volumes"
-            style={{
-              fontSize: 12,
-              color: 'var(--text)',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              padding: '4px 10px',
-              background: 'var(--accent-dim)',
-            }}
+            title="A single 2D radiograph is open. The volumetric reading modes apply to CBCT volumes."
+            className="ctl"
+            style={{ cursor: 'default' }}
           >
             2D radiograph
           </span>
         ) : (
-          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          <div className="tabs" role="group" aria-label="Reading mode">
             {VIEW_MODES.map(([m, label, tip]) => (
               <button
                 key={m}
-                style={btn(viewMode === m)}
+                className="tab"
+                aria-pressed={viewMode === m}
                 title={tip}
                 onClick={() => {
-                  setError(null); // a fresh room is a fresh start — a stale pane error must not outlive the switch
+                  setError(null); // a fresh room is a fresh start: a stale pane error must not outlive the switch
                   setViewMode(m);
                 }}
               >
@@ -635,55 +897,164 @@ export default function CbctApp() {
             ))}
           </div>
         )}
-        <button style={btn(false)} onClick={() => step(-1)} title="Previous volume (P)">
-          ‹
-        </button>
-        <select
-          value={anon ?? ''}
-          onChange={(e) => switchVolume(e.target.value)}
-          style={{
-            background: 'var(--panel-2)',
-            border: '1px solid var(--border)',
-            borderRadius: 6,
-            padding: '4px 8px',
-            maxWidth: 380,
-          }}
-        >
-          {volumes.some((v) => isFusedVol(v.anon)) && (
-            <optgroup label="🧬 stitched (this session)">
+        {/* previous, the volume list and next: one group that never wraps apart */}
+        <div className="hgroup hgroup-volume">
+          <button className="ctl" style={{ padding: '0 4px' }} onClick={() => step(-1)} aria-label="Previous volume" title="Previous volume (P)">
+            <ChevronLeft size={14} strokeWidth={2} aria-hidden="true" />
+          </button>
+          <select className="hselect" aria-label="Volume" value={anon ?? ''} onChange={(e) => switchVolume(e.target.value)}>
+            {/* the web build can hold a volume back (the size notice): say so instead of
+                showing a volume that is not on screen */}
+            {!anon && volumes.length > 0 && <option value="">Choose a volume</option>}
+            {volumes.some((v) => isFusedVol(v.anon)) && (
+              <optgroup label="Stitched (this session)">
+                {volumes
+                  .filter((v) => isFusedVol(v.anon))
+                  .map((v) => (
+                    <option key={v.anon} value={v.anon}>
+                      {v.label || v.anon.slice(6, 12)}: {volLabel(v)}
+                    </option>
+                  ))}
+              </optgroup>
+            )}
+            {volumes.some((v) => isLocalVol(v.anon)) && (
+              <optgroup label={`Opened: ${srcLabel ?? ''}`}>
+                {volumes
+                  .filter((v) => isLocalVol(v.anon))
+                  .map((v) => (
+                    <option key={v.anon} value={v.anon}>
+                      {v.label || v.anon.slice(6, 12)}: {volLabel(v)}
+                    </option>
+                  ))}
+              </optgroup>
+            )}
+            <optgroup label="Built in">
               {volumes
-                .filter((v) => isFusedVol(v.anon))
+                .filter((v) => isDemoVol(v.anon))
                 .map((v) => (
                   <option key={v.anon} value={v.anon}>
-                    {v.label || v.anon.slice(6, 12)} — {volLabel(v)}
+                    {v.label || PHANTOM_NAME}: {volLabel(v)}
                   </option>
                 ))}
             </optgroup>
+          </select>
+          <button className="ctl" style={{ padding: '0 4px' }} onClick={() => step(1)} aria-label="Next volume" title="Next volume (N)">
+            <ChevronRight size={14} strokeWidth={2} aria-hidden="true" />
+          </button>
+        </div>
+        {/* Open: a local CBCT export (DICOMDIR tree, slice-series folder, or multiframe file).
+            It always reads Open; the opened source's name is in the volume list and the status line. */}
+        <div ref={srcMenuRef} style={{ position: 'relative' }}>
+          <button
+            className="ctl"
+            aria-expanded={srcMenu}
+            aria-haspopup="menu"
+            disabled={picking}
+            onClick={() => setSrcMenu((v) => !v)}
+            onKeyDown={(e) => onMenuButtonKeyDown(e, srcMenu, setSrcMenu, srcPanelRef)}
+            title={
+              IS_WEB
+                ? picking
+                  ? inShell
+                    ? 'reading the files you chose into this app'
+                    : 'reading the files you chose into this tab'
+                  : inShell
+                    ? 'Open a CBCT export (folder, DICOMDIR, or DICOM file), or drop it on the viewer. This app reads it on this computer; nothing is uploaded.'
+                    : 'Open a CBCT export (folder, DICOMDIR, or DICOM file), or drop it on the viewer. The browser reads it into this tab; nothing is uploaded.'
+                : picking
+                  ? 'the native file chooser is open: finish or cancel it first'
+                  : 'Open a local CBCT export (folder, DICOMDIR, or DICOM file). Scans are read in place and never leave this computer.'
+            }
+          >
+            Open
+          </button>
+          {srcMenu && (
+            <div ref={srcPanelRef} className="menu-panel" role="menu" aria-label="Open" onKeyDown={onMenuKeyDown} style={{ left: 0, minWidth: 260 }}>
+              {IS_WEB ? (
+                <>
+                  <button
+                    className="menu-item"
+                    role="menuitem"
+                    title="A CBCT export folder: a DICOMDIR tree, a slice series, or multiframe files"
+                    onClick={() => void onOpenFolder()}
+                  >
+                    Open DICOMDIR or DICOM folder
+                  </button>
+                  {/* what the browser will ask, before it asks: the classic input's button may read "Upload" */}
+                  <div style={{ padding: '0 10px 8px', color: 'var(--text)', lineHeight: 1.5, maxWidth: 300, whiteSpace: 'normal' }}>
+                    {inShell
+                      ? "The Open sheet may say 'Upload': that is its word for letting this app read the files. They stay on this computer."
+                      : dirPicker
+                        ? 'Your browser will ask to let this page view and copy the files. It reads them into this tab and sends them nowhere.'
+                        : "Your browser may say 'upload': that is its word for letting this page read the files. They stay in this tab."}
+                  </div>
+                  {!inShell && (
+                    <div style={{ padding: '0 10px 8px', color: 'var(--text)', lineHeight: 1.5, maxWidth: 300, whiteSpace: 'normal' }}>
+                      Or drop the folder on the viewer: the browser asks nothing.
+                    </div>
+                  )}
+                  <button
+                    className="menu-item"
+                    role="menuitem"
+                    title="One multiframe volume or one 2D radiograph"
+                    onClick={() => {
+                      setSrcMenu(false);
+                      fileInputRef.current?.click();
+                    }}
+                  >
+                    Open a single DICOM file
+                  </button>
+                  {anon && (
+                    <>
+                      <div role="separator" style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+                      <button
+                        className="menu-item"
+                        role="menuitem"
+                        title="Download the marks of the volume on screen (annotations, saved views, 3D ROIs) as a JSON file. No pixels."
+                        onClick={() => void onSaveMarks()}
+                      >
+                        Save marks to file
+                      </button>
+                      <button
+                        className="menu-item"
+                        role="menuitem"
+                        title="Replace the marks of the volume on screen with a marks file saved earlier for this same volume"
+                        onClick={() => {
+                          setSrcMenu(false);
+                          marksInputRef.current?.click();
+                        }}
+                      >
+                        Load marks from file
+                      </button>
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  <button className="menu-item" role="menuitem" onClick={() => void onPickSource('folder')}>
+                    Open DICOMDIR or DICOM folder…
+                  </button>
+                  <button
+                    className="menu-item"
+                    role="menuitem"
+                    title="One DICOMDIR, one multiframe volume, one 2D radiograph, or one slice (opens its whole series)"
+                    onClick={() => void onPickSource('file')}
+                  >
+                    Open a single DICOM file…
+                  </button>
+                </>
+              )}
+              {srcLabel && (
+                <>
+                  <div role="separator" style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+                  <button className="menu-item" role="menuitem" onClick={() => void onCloseSource()}>
+                    Close {srcLabel}
+                  </button>
+                </>
+              )}
+            </div>
           )}
-          {volumes.some((v) => isLocalVol(v.anon)) && (
-            <optgroup label={`opened: ${srcLabel ?? ''}`}>
-              {volumes
-                .filter((v) => isLocalVol(v.anon))
-                .map((v) => (
-                  <option key={v.anon} value={v.anon}>
-                    {v.label || v.anon.slice(6, 12)} — {volLabel(v)}
-                  </option>
-                ))}
-            </optgroup>
-          )}
-          <optgroup label="built-in demo">
-            {volumes
-              .filter((v) => isDemoVol(v.anon))
-              .map((v) => (
-                <option key={v.anon} value={v.anon}>
-                  {v.label || 'Synthetic phantom'} — {volLabel(v)}
-                </option>
-              ))}
-          </optgroup>
-        </select>
-        <button style={btn(false)} onClick={() => step(1)} title="Next volume (N)">
-          ›
-        </button>
+        </div>
         {/* the export menu is volume-only (slice stacks, STL); snapshot answers in every
             mode including a 2D radiograph, which is the whole point of one door */}
         {!isXray && anon && (
@@ -698,209 +1069,304 @@ export default function CbctApp() {
         )}
         {anon && (
           <SnapshotButton
+            testId="snapshot-button"
             onClick={() => snapRef.current?.()}
-            title="snapshot: save what the current room shows as a PNG image — each room composes its own"
+            title="snapshot: save what the current room shows as a PNG image. Each room composes its own."
           />
         )}
-        {/* 📂 open a local CBCT export — DICOMDIR tree, slice-series folder, or multiframe file */}
-        <div ref={srcMenuRef} style={{ position: 'relative' }}>
-          <button
-            style={btn(!!srcLabel)}
-            disabled={picking}
-            onClick={() => setSrcMenu((v) => !v)}
-            title={
-              picking
-                ? 'the native file chooser is open — finish or cancel it first'
-                : 'Open a local CBCT export (folder, DICOMDIR, or DICOM file). Scans are read in place and never leave this computer.'
-            }
-          >
-            <FolderOpen size={13} strokeWidth={2} style={{ marginRight: 5, verticalAlign: '-2px' }} />
-            {picking ? 'choosing…' : srcLabel ? `${srcLabel} ▾` : 'open ▾'}
-          </button>
-          {srcMenu && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                zIndex: 50,
-                marginTop: 2,
-                minWidth: 250,
-                background: 'var(--panel)',
-                border: '1px solid var(--border)',
-                borderRadius: 6,
-                boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                padding: 4,
-              }}
+        <span style={{ flex: '1 0 0' }} />
+        <div className="hgroup" style={{ gap: 8 }}>
+          <div ref={keysRef} style={{ position: 'relative' }}>
+            <button
+              className="ctl"
+              aria-expanded={keysOpen}
+              aria-haspopup="dialog"
+              onClick={() => setKeysOpen((v) => !v)}
+              title="this mode's keys and mouse gestures, in words"
             >
-              <button className="menu-item" onClick={() => void onPickSource('folder')}>
-                📁 Open folder / DICOMDIR…
-              </button>
-              <button
-                className="menu-item"
-                title="One DICOMDIR, one multiframe volume, or one slice (opens its whole series)"
-                onClick={() => void onPickSource('file')}
+              Keys
+            </button>
+            {keysOpen && (
+              <div
+                ref={keysPanelRef}
+                className="menu-panel"
+                role="dialog"
+                aria-label="Keys"
+                style={{ right: 0, padding: '8px 12px', lineHeight: 1.6, width: 'min(680px, calc(100vw - 16px))' }}
               >
-                🗄 Open DICOM file…
-              </button>
-              {srcLabel && (
-                <>
-                  <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
-                  <button className="menu-item" onClick={() => void onCloseSource()}>
-                    ✕ Close {srcLabel}
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-        {current && (
-          <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>
-            {/* the case identity leads the line in full contrast — the id everything else
-                (exports, sidecars) is filed under; local/fused volumes show their label */}
-            <span style={{ color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
-              {isDemoVol(current.anon)
-                ? 'Synthetic phantom'
-                : (isFusedVol(current.anon) || isLocalVol(current.anon)) && current.label
-                  ? current.label
-                  : current.anon}
-            </span>
-            {' · '}
-            {volLabel(current)} ·{' '}
-            {current.kind === 'mf' ? 'multiframe' : current.kind === 'xray' ? 'radiograph' : 'slices'} ·{' '}
-            {(current.spacing[0] * 1000).toFixed(0)} µm {current.kind === 'xray' ? 'pixels' : 'voxels'}
-            {/* first-run hint: while the built-in phantom is on screen and nothing of the reader's
-                is open, say so and point at the two doors. A line in the header, not a dialog:
-                nothing to dismiss, and it leaves by itself once an export is opened. */}
-            {isDemoVol(current.anon) && !srcLabel && (
-              <span style={{ color: 'var(--text)' }}>
-                {' · '}built-in, no patient data · your own scan: <b>open</b> · guide: <b>help</b>
-              </span>
+                <div className="keys-cols">
+                  <div className="keys-col">
+                    <div className="pop-head">Keys</div>
+                    <div>N / P: next / previous volume</div>
+                    {isXray ? (
+                      <div>R: fit the radiograph to the pane</div>
+                    ) : viewMode === 'mpr' ? (
+                      <>
+                        <div>1 to 9, 0: tools (Crosshairs to 3D ROI)</div>
+                        <div>W: window/level tool</div>
+                        <div>R: reset orientation</div>
+                        <div>C: plane lines on or off</div>
+                        <div>O: overlays on or off</div>
+                        <div>V: save the current view</div>
+                        <div>Del: delete the selected object</div>
+                      </>
+                    ) : (
+                      <div>{VIEW_MODES.find(([m]) => m === viewMode)?.[1]} has no keys of its own.</div>
+                    )}
+                    {!isXray && viewMode === 'mpr' && (
+                      <>
+                        <div className="pop-head" style={{ marginTop: 8 }}>
+                          Pane buttons
+                        </div>
+                        {PANE_BUTTONS.map((b) => (
+                          <div key={b.name} style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>
+                            <b.icon size={14} strokeWidth={2} aria-hidden="true" style={{ flex: 'none', alignSelf: 'center' }} />
+                            <span>
+                              {b.name}: {b.what}
+                            </span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                  <div className="keys-col" data-testid="keys-mouse">
+                    <div className="pop-head">Mouse</div>
+                    {EVERY_MODE_GESTURES.map(([g, what]) => (
+                      <div key={g}>
+                        {g}: {what}
+                      </div>
+                    ))}
+                    {MODE_GESTURES[gestureMode].map((p) => (
+                      <div key={p.pane ?? 'all'}>
+                        {p.pane && <div className="keys-sub">{p.pane}</div>}
+                        {p.lines.map(([g, what]) => (
+                          <div key={g}>
+                            {g}: {what}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             )}
-          </span>
-        )}
-        <span style={{ flex: 1 }} />
-        <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>
-          {isXray
-            ? 'wheel: zoom · left-drag: pan · double-click / R: fit'
-            : MODE_LEGEND[viewMode](
-                controls.toolMode === 'crosshairs' ? 'click spots crosshairs · drag pans' : TOOL_LABEL[controls.toolMode],
+          </div>
+          {/* Help: this mode's reading guide (manual chapter 8), the user manual, as pages this
+              viewer's own origin serves (manual/, rendered from docs/ at build time), then the
+              About page, the Cite dialogue, the legal page, and the repository. The website opens
+              the pages in a new tab; the repo build and the desktop app in the drawer beside the
+              viewer. Nothing is fetched from anywhere else. */}
+          <div ref={helpMenuRef} style={{ position: 'relative' }}>
+            <button
+              className="ctl"
+              aria-expanded={helpMenu}
+              aria-haspopup="menu"
+              onClick={() => setHelpMenu((v) => !v)}
+              onKeyDown={(e) => onMenuButtonKeyDown(e, helpMenu, setHelpMenu, helpPanelRef)}
+              title={
+                manualInTab
+                  ? 'help: the reading guide for this mode and the user manual, served by this site, in a new tab'
+                  : 'help: the reading guide for this mode and the user manual, in a drawer beside the viewer'
+              }
+            >
+              Help
+            </button>
+            {helpMenu && (
+              <div ref={helpPanelRef} className="menu-panel" role="menu" aria-label="Help" onKeyDown={onMenuKeyDown} style={{ right: 0, minWidth: 240 }}>
+                {(
+                  [
+                    [
+                      guidePage(viewMode, isXray),
+                      isXray ? '2D radiographs, in the manual' : `${VIEW_MODES.find(([m]) => m === viewMode)?.[1] ?? viewMode} reading guide`,
+                    ],
+                    ['index.html', 'User manual'],
+                  ] as const
+                ).map(([page, label]) =>
+                  manualInTab ? (
+                    <a
+                      key={page}
+                      className="menu-item"
+                      role="menuitem"
+                      href={manualHref(page)}
+                      target="_blank"
+                      rel="noopener"
+                      onClick={() => setHelpMenu(false)}
+                    >
+                      {label}
+                    </a>
+                  ) : (
+                    <button
+                      key={page}
+                      className="menu-item"
+                      role="menuitem"
+                      onClick={() => {
+                        setManualPage(page);
+                        setHelpMenu(false);
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ),
+                )}
+                <div role="separator" style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+                {siteLink('about', 'About CBCTScope', 'what CBCTScope is, who made it, how to cite it, the licence')}
+                {citation && (
+                  <button
+                    className="menu-item"
+                    role="menuitem"
+                    title="the reference and a BibTeX entry, from the repository's CITATION.cff, with copy buttons"
+                    onClick={() => {
+                      setHelpMenu(false);
+                      setCiteOpen(true);
+                    }}
+                  >
+                    Cite this software
+                  </button>
+                )}
+                {siteLink('legal', 'Legal notice', 'who publishes this site, privacy, research use, licence and warranty')}
+                <a
+                  className="menu-item"
+                  role="menuitem"
+                  href={REPO_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="the source code, the releases and the project page"
+                  onClick={() => setHelpMenu(false)}
+                >
+                  Source code repository
+                </a>
+              </div>
+            )}
+          </div>
+          {/* the opt-in in-page navigation agent (web build and desktop app): the plain Agent
+              button opens its strip under the viewer */}
+          {IS_WEB && <AgentToggle />}
+          {/* the desktop app's installers, offered in a plain browser only: a menu of direct
+              links (components/downloads.ts), the visitor's own system first, read from the user
+              agent when the menu opens (it never opens in the static export). Every entry is a
+              link the reader clicks; opening the menu requests nothing. */}
+          {IS_WEB && !inShell && (
+            <div ref={dlMenuRef} style={{ position: 'relative' }}>
+              <button
+                className="ctl"
+                aria-expanded={dlMenu}
+                aria-haspopup="menu"
+                aria-label="Download the desktop app"
+                onClick={() => setDlMenu((v) => !v)}
+                onKeyDown={(e) => onMenuButtonKeyDown(e, dlMenu, setDlMenu, dlPanelRef)}
+                title="the desktop app for macOS and Windows, with agent control over MCP: direct downloads from the latest release"
+              >
+                <span className="dl-long">Download the desktop app</span>
+                <span className="dl-short">Desktop app</span>
+              </button>
+              {dlMenu && (
+                <div
+                  ref={dlPanelRef}
+                  className="menu-panel"
+                  role="menu"
+                  aria-label="Download the desktop app"
+                  onKeyDown={onMenuKeyDown}
+                  style={{ right: 0, minWidth: 260 }}
+                >
+                  {downloadEntries(navigator.userAgent).map((entry) =>
+                    entry.kind === 'note' ? (
+                      <div
+                        key="note"
+                        data-testid="download-note"
+                        style={{ padding: '4px 10px 8px', color: 'var(--text)', lineHeight: 1.5, maxWidth: 300, whiteSpace: 'normal' }}
+                      >
+                        {entry.text}
+                      </div>
+                    ) : (
+                      <React.Fragment key={entry.href}>
+                        {entry.href === RELEASES_URL && (
+                          <div role="separator" style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+                        )}
+                        <a
+                          className="menu-item"
+                          role="menuitem"
+                          href={entry.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={entry.title}
+                          onClick={() => setDlMenu(false)}
+                        >
+                          {entry.label}
+                        </a>
+                      </React.Fragment>
+                    ),
+                  )}
+                </div>
               )}
-          {' · dbl-click a slider = reset'}
-        </span>
-        <div style={{ position: 'relative' }}>
-          <button
-            style={btn(keysOpen)}
-            onClick={() => setKeysOpen((v) => !v)}
-            title="keyboard reference — every hotkey, in words"
-          >
-            <Keyboard size={13} strokeWidth={2} style={{ marginRight: 5, verticalAlign: '-2px' }} />
-            keys
-          </button>
-          {keysOpen && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '100%',
-                right: 0,
-                marginTop: 6,
-                zIndex: 30,
-                background: 'var(--panel)',
-                border: '1px solid var(--border)',
-                borderRadius: 6,
-                boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                padding: '10px 14px',
-                fontSize: 12,
-                lineHeight: 1.8,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <div style={{ color: 'var(--text-dim)', fontSize: 10, letterSpacing: 0.4, marginBottom: 2 }}>
-                EVERY ROOM
-              </div>
-              <div>N / P — next / previous volume</div>
-              <div>double-click a slider — reset it</div>
-              <div style={{ color: 'var(--text-dim)', fontSize: 10, letterSpacing: 0.4, margin: '6px 0 2px' }}>
-                MPR ONLY
-              </div>
-              <div>1–9, 0 — tools (crosshairs … 3D ROI)</div>
-              <div>W — window/level tool</div>
-              <div>R — reset orientation (also fits a 2D radiograph)</div>
-              <div>C — plane lines on / off</div>
-              <div>O — overlays on / off</div>
-              <div>V — save the current view</div>
-              <div>Del — delete the selected object</div>
-            </div>
-          )}
-        </div>
-        {/* help: this mode's reading guide (manual chapter 8) and the user manual, on the
-            project page. Plain links the reader clicks; the viewer never contacts the network
-            itself. A menu like "open", so the manual is one click away in every mode. */}
-        <div ref={helpMenuRef} style={{ position: 'relative' }}>
-          <button
-            style={btn(helpMenu)}
-            onClick={() => setHelpMenu((v) => !v)}
-            title="help: the reading guide for this mode and the user manual, on the project page. They open in a new tab when you click them; the viewer itself sends nothing."
-          >
-            <BookOpen size={13} strokeWidth={2} style={{ marginRight: 5, verticalAlign: '-2px' }} />
-            help ▾
-          </button>
-          {helpMenu && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '100%',
-                right: 0,
-                zIndex: 50,
-                marginTop: 2,
-                minWidth: 240,
-                background: 'var(--panel)',
-                border: '1px solid var(--border)',
-                borderRadius: 6,
-                boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                padding: 4,
-              }}
-            >
-              <a
-                className="menu-item"
-                style={{ textDecoration: 'none', color: 'var(--text)', boxSizing: 'border-box' }}
-                href={
-                  isXray
-                    ? `${DOCS_URL}docs/manual/04-opening-scans.md#45-2d-radiographs`
-                    : `${DOCS_URL}docs/reading-modes/${viewMode}.md`
-                }
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setHelpMenu(false)}
-              >
-                📖 {isXray ? '2D radiographs, in the manual' : `${VIEW_MODES.find(([m]) => m === viewMode)?.[1] ?? viewMode} reading guide`}
-              </a>
-              <a
-                className="menu-item"
-                style={{ textDecoration: 'none', color: 'var(--text)', boxSizing: 'border-box' }}
-                href={`${DOCS_URL}docs/manual/`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setHelpMenu(false)}
-              >
-                📘 User manual
-              </a>
             </div>
           )}
         </div>
       </header>
 
-      <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
-        <main style={{ flex: 1, minWidth: 0, padding: 8 }}>
-          {error ? (
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', order: 2 }}>
+        {/* the viewer column: the agent panel, when open, docks under the viewer and pushes it up */}
+        <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <main
+          style={{ flex: 1, minWidth: 0, minHeight: 0, padding: 8, position: 'relative' }}
+          // the web build: a drop anywhere on the viewer opens it (folders walked recursively)
+          {...(IS_WEB ? drop.handlers : {})}
+        >
+          {IS_WEB && drop.over && (
+            <div
+              data-testid="drop-zone"
+              style={{
+                position: 'absolute',
+                inset: 8,
+                zIndex: 20,
+                border: '2px dashed var(--text)',
+                borderRadius: 8,
+                background: 'rgba(0,0,0,0.6)',
+                color: 'var(--text)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 15,
+                pointerEvents: 'none',
+              }}
+            >
+              Drop a DICOM folder, a DICOMDIR or a single file here. Nothing is uploaded.
+            </div>
+          )}
+          {IS_WEB && openPanel && !(openPanel.kind === 'busy' && pendingSize) && (
+            <OpenProgressPanel
+              state={openPanel}
+              onDismiss={() => setOpenPanel(null)}
+              onOpenAnother={() => {
+                setOpenPanel(null);
+                void onOpenFolder();
+              }}
+            />
+          )}
+          {marksBusy ? (
+            // a solid centred panel, like every loading state: nothing behind it dims
+            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div
+                role="status"
+                style={{
+                  background: 'var(--panel)',
+                  border: '1px solid var(--ctl-border)',
+                  borderRadius: 'var(--ctl-radius)',
+                  padding: '12px 16px',
+                  color: 'var(--text)',
+                }}
+              >
+                Loading the marks…
+              </div>
+            </div>
+          ) : error ? (
             <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-start' }}>
               <div style={{ color: 'var(--warn)' }}>{error}</div>
               <button
-                style={btn(false)}
+                className="ctl"
                 onClick={() => setError(null)}
-                title="clear the error and remount the room — a transient load failure retries"
+                title="clear the error and remount the room. A transient load failure retries."
               >
-                ↻ retry
+                Retry
               </button>
             </div>
           ) : anon ? (
@@ -913,7 +1379,7 @@ export default function CbctApp() {
                 gamma={controls.gamma}
                 resetNonce={controls.resetNonce}
                 fullResetNonce={controls.fullResetNonce}
-                onMeta={setMeta}
+                onMeta={onRoomMeta}
                 onHistogram={setHistogram}
                 onError={setError}
               />
@@ -925,7 +1391,10 @@ export default function CbctApp() {
                 onMeta={setMeta}
                 onHistogram={setHistogram}
                 onError={setError}
-                onControlsPatch={(p) => setControls((c) => ({ ...c, ...p }))}
+                onControlsPatch={(p) =>
+                  // a saved view may name a 3D preset the interface no longer offers: it opens on a house style
+                  setControls((c) => ({ ...c, ...p, ...(p.render3d ? { render3d: migrateRender3d(p.render3d) } : {}) }))
+                }
               />
             ) : viewMode === 'grid' ? (
               <CbctGrid
@@ -934,7 +1403,7 @@ export default function CbctApp() {
                 voi={controls.voi}
                 invert={controls.invert}
                 gamma={controls.gamma}
-                onMeta={setMeta}
+                onMeta={onRoomMeta}
                 onError={setError}
               />
             ) : viewMode === 'tmj' ? (
@@ -944,7 +1413,7 @@ export default function CbctApp() {
                 snapRef={snapRef}
                 voi={controls.voi}
                 invert={controls.invert}
-                onMeta={setMeta}
+                onMeta={onRoomMeta}
                 onError={setError}
               />
             ) : viewMode === 'reslice' ? (
@@ -954,7 +1423,7 @@ export default function CbctApp() {
                 snapRef={snapRef}
                 voi={controls.voi}
                 invert={controls.invert}
-                onMeta={setMeta}
+                onMeta={onRoomMeta}
                 onError={setError}
               />
             ) : viewMode === 'ceph' ? (
@@ -965,7 +1434,7 @@ export default function CbctApp() {
                 onVoi={(v) => setControls((c) => ({ ...c, voi: v }))}
                 voi={controls.voi}
                 invert={controls.invert}
-                onMeta={setMeta}
+                onMeta={onRoomMeta}
                 onError={setError}
               />
             ) : viewMode === 'region' ? (
@@ -975,7 +1444,7 @@ export default function CbctApp() {
                 snapRef={snapRef}
                 voi={controls.voi}
                 invert={controls.invert}
-                onMeta={setMeta}
+                onMeta={onRoomMeta}
                 onError={setError}
               />
             ) : viewMode === 'stitch' ? (
@@ -987,7 +1456,7 @@ export default function CbctApp() {
                 invert={controls.invert}
                 volumes={volumes.filter((v) => v.kind !== 'xray')}
                 onFused={onFused}
-                onMeta={setMeta}
+                onMeta={onRoomMeta}
                 onError={setError}
               />
             ) : (
@@ -997,39 +1466,45 @@ export default function CbctApp() {
                 snapRef={snapRef}
                 voi={controls.voi}
                 invert={controls.invert}
-                onMeta={setMeta}
+                onMeta={onRoomMeta}
                 onError={setError}
               />
             )
           ) : (
-            <div style={{ color: 'var(--text-dim)', padding: 24 }}>no volumes available</div>
+            <div style={{ color: 'var(--text-dim)', padding: 24 }}>
+              {volumes.length ? 'no volume open: choose one from the volume list' : 'no volumes available'}
+            </div>
           )}
         </main>
+        {IS_WEB && <AgentPanel />}
+        </div>
 
         <aside
+          className="rail"
           style={{
             width: 240,
+            flex: '0 0 240px',
             borderLeft: '1px solid var(--border)',
             background: 'var(--panel)',
             padding: 12,
             display: 'flex',
             flexDirection: 'column',
-            gap: 10,
+            gap: 12,
             overflowY: 'auto',
           }}
         >
           {viewMode === 'mpr' && !isXray && (
           <section>
-            <div style={{ color: 'var(--text-dim)', marginBottom: 6 }}>Tool (1–9, 0, W)</div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <div className="rail-head">Tool (1–9, 0, W)</div>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               {TOOL_ORDER.map((m, i) => (
                 <button
                   key={m}
-                  style={btn(controls.toolMode === m)}
+                  {...chip(controls.toolMode === m)}
                   onClick={() => setControls((c) => ({ ...c, toolMode: m }))}
                   title={
                     m === 'wl'
-                      ? 'window/level (W) — left-drag on any slice: up/down = center, left/right = width; the sidebar follows live'
+                      ? 'window/level (W). Left-drag on any slice: up and down set the center, left and right the width. The sidebar follows live.'
                       : `${TOOL_LABEL[m]} (${TOOL_KEY(m, i)})`
                   }
                 >
@@ -1038,8 +1513,8 @@ export default function CbctApp() {
               ))}
             </div>
             {controls.toolMode === 'roi3d' && (
-              <label style={{ display: 'block', fontSize: 11, color: 'var(--text-dim)', marginTop: 6 }}>
-                box depth {controls.roi3dDepth} mm (into the slice, centered on it)
+              <label className="rail-label" style={{ marginTop: 8 }}>
+                Box depth {controls.roi3dDepth} mm (into the slice, centered on it)
                 <input
                   type="range"
                   min={1}
@@ -1048,24 +1523,24 @@ export default function CbctApp() {
                   value={controls.roi3dDepth}
                   onChange={(e) => setControls((c) => ({ ...c, roi3dDepth: Number(e.target.value) }))}
                   onDoubleClick={() => setControls((c) => ({ ...c, roi3dDepth: 10 }))}
-                  title="drag a rectangle on any slice pane; the box extends this many mm through the slice — double-click resets to 10"
+                  title="drag a rectangle on any slice pane; the box extends this many mm through the slice. Double-click resets to 10."
                   style={{ width: '100%' }}
                 />
               </label>
             )}
-            <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4, lineHeight: 1.5 }}>
-              arrow/text prompt for a label · rect/ellipse report density (HU) stats · freehand:
-              open stroke = curved-path mm, closed loop = region stats · 3D ROI: drag a box, get
-              volume + density stats · Del deletes the selected object
+            <div className="rail-note" style={{ marginTop: 4 }}>
+              Arrow and Text ask for a label. Rect and Ellipse report density (HU) stats. Freehand:
+              an open stroke gives a curved-path length in mm, a closed loop gives region stats. 3D
+              ROI: drag a box to get volume and density stats. Del deletes the selected object.
             </div>
           </section>
           )}
 
           <section>
-            <div style={{ color: 'var(--text-dim)', marginBottom: 6 }}>
+            <div className="rail-head">
               Window {isXray ? '(gray, 0-4095)' : '(HU)'}
             </div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
               {Object.keys(WL_PRESETS)
                 .filter((name) => !isXray || WL_PRESETS[name] === null) // HU presets are meaningless on a radiograph
                 .map((name) => {
@@ -1076,11 +1551,11 @@ export default function CbctApp() {
                 return (
                   <button
                     key={name}
-                    style={btn(active)}
+                    {...chip(active)}
                     onClick={() => setVoiPreset(name)}
                     title={
                       p
-                        ? `center ${p.center} · width ${p.width} HU`
+                        ? `center ${p.center}, width ${p.width} HU`
                         : "robust percentile window from this image's own pixels (the per-volume default)"
                     }
                   >
@@ -1113,8 +1588,8 @@ export default function CbctApp() {
                 />
               </div>
             )}
-            <label style={{ display: 'block', fontSize: 11, color: 'var(--text-dim)' }}>
-              center {voiShown.center}
+            <label className="rail-label">
+              Center {voiKnown ? voiShown.center : ''}
               <input
                 type="range"
                 min={centerMin}
@@ -1134,12 +1609,12 @@ export default function CbctApp() {
                     voi: { center: meta.defaultVoi.center, width: voiShown.width },
                   }))
                 }
-                title="full value range of this image — double-click = back to the Auto center"
+                title="full value range of this image. Double-click returns to the Auto center."
                 style={{ width: '100%' }}
               />
             </label>
-            <label style={{ display: 'block', fontSize: 11, color: 'var(--text-dim)' }}>
-              width {voiShown.width}
+            <label className="rail-label">
+              Width {voiKnown ? voiShown.width : ''}
               <input
                 type="range"
                 min={0}
@@ -1159,12 +1634,12 @@ export default function CbctApp() {
                     voi: { center: voiShown.center, width: meta.defaultVoi.width },
                   }))
                 }
-                title="log scale up to the image's full span — double-click = back to the Auto width"
+                title="log scale up to the image's full span. Double-click returns to the Auto width."
                 style={{ width: '100%' }}
               />
             </label>
-            <label style={{ display: 'block', fontSize: 11, color: 'var(--text-dim)' }}>
-              gamma {controls.gamma.toFixed(2)} (curve between the cut points; 1 = linear)
+            <label className="rail-label">
+              Gamma {controls.gamma.toFixed(2)} (curve between the cut points; 1 = linear)
               <input
                 type="range"
                 min={0.3}
@@ -1173,26 +1648,26 @@ export default function CbctApp() {
                 value={controls.gamma}
                 onChange={(e) => setControls((c) => ({ ...c, gamma: Number(e.target.value) }))}
                 onDoubleClick={() => setControls((c) => ({ ...c, gamma: 1 }))}
-                title="display gamma — double-click to reset to 1"
+                title="display gamma. Double-click to reset to 1."
                 style={{ width: '100%' }}
               />
             </label>
-            <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, marginTop: 4 }}>
+            <label className="rail-check">
               <input
                 type="checkbox"
                 checked={controls.invert}
                 onChange={(e) => setControls((c) => ({ ...c, invert: e.target.checked }))}
               />
-              invert
+              Invert
             </label>
           </section>
 
           {viewMode === 'mpr' && !isXray && (
           <section>
-            <div style={{ color: 'var(--text-dim)', marginBottom: 6 }}>Slab / MIP</div>
+            <div className="rail-head">Slab / MIP</div>
             {(['axial', 'sagittal', 'coronal'] as MprPane[]).map((p) => (
-              <label key={p} style={{ display: 'block', fontSize: 11, color: 'var(--text-dim)' }}>
-                {p} {controls.slabByPane[p].toFixed(1)} mm
+              <label key={p} className="rail-label">
+                {p[0].toUpperCase() + p.slice(1)} {controls.slabByPane[p].toFixed(1)} mm
                 <input
                   type="range"
                   min={0.1}
@@ -1212,7 +1687,7 @@ export default function CbctApp() {
                 />
               </label>
             ))}
-            <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, marginTop: 4 }}>
+            <label className="rail-check">
               <input
                 type="checkbox"
                 checked={controls.mip}
@@ -1225,46 +1700,31 @@ export default function CbctApp() {
 
           {viewMode === 'mpr' && !isXray && (
           <section>
-            <div style={{ color: 'var(--text-dim)', marginBottom: 6 }}>3D render</div>
-            {/* the house styles as one-click chips (the old single select buried them among
-                dozens of generic CT presets); the CT long tail keeps a compact select below —
-                nothing is hidden, the wall of entries just stops being the front door */}
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
+            <div className="rail-head">3D render</div>
+            {/* the house styles as one-click chips, then one library preset, Air, applied as-is */}
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
               {Object.entries(RENDER_STYLES).map(([value, d]) => (
                 <button
                   key={value}
-                  style={btn(r3d.style === value)}
+                  {...chip(r3d.style === value)}
                   onClick={() => pickStyle(value)}
-                  title={d.group === 'cbct' ? `${d.label} — CBCT-tuned` : d.label}
+                  title={d.group === 'cbct' ? `${d.label}, CBCT-tuned` : d.label}
                 >
                   {d.label.replace('CBCT · ', '')}
                 </button>
               ))}
+              <button
+                {...chip(r3d.style === AIR_PRESET)}
+                onClick={() => pickStyle(AIR_PRESET)}
+                title="Air: the library's air preset, applied as it is. The adjust sliders do not apply to it."
+              >
+                Air
+              </button>
             </div>
-            <select
-              value={RENDER_STYLES[r3d.style] ? '' : r3d.style}
-              onChange={(e) => e.target.value && pickStyle(e.target.value)}
-              title="generic VTK medical CT presets — applied as-is, the adjust sliders work on the named styles above"
-              style={{
-                width: '100%',
-                background: 'var(--panel-2)',
-                border: '1px solid var(--border)',
-                borderRadius: 6,
-                padding: '4px 8px',
-                marginBottom: 8,
-              }}
-            >
-              <option value="">more (VTK medical)…</option>
-              {ctPresetNames.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
             {styleDef ? (
               <>
                 {histogram && (
-                  <div style={{ marginBottom: 6 }}>
+                  <div style={{ marginBottom: 8 }}>
                     <CbctHistogram
                       data={histogram}
                       threshold={r3d.threshold}
@@ -1273,8 +1733,8 @@ export default function CbctApp() {
                     />
                   </div>
                 )}
-                <label style={{ display: 'block', fontSize: 11, color: 'var(--text-dim)' }}>
-                  cut-off threshold {r3d.threshold} HU (densities below stay transparent)
+                <label className="rail-label">
+                  Cut-off threshold {r3d.threshold} HU (densities below stay transparent)
                   <input
                     type="range"
                     min={-1000}
@@ -1287,8 +1747,8 @@ export default function CbctApp() {
                     style={{ width: '100%' }}
                   />
                 </label>
-                <label style={{ display: 'block', fontSize: 11, color: 'var(--text-dim)' }}>
-                  transparency {r3d.transparency}%
+                <label className="rail-label">
+                  Transparency {r3d.transparency}%
                   <input
                     type="range"
                     min={0}
@@ -1300,8 +1760,8 @@ export default function CbctApp() {
                     style={{ width: '100%' }}
                   />
                 </label>
-                <label style={{ display: 'block', fontSize: 11, color: 'var(--text-dim)' }}>
-                  contrast {r3d.contrast}
+                <label className="rail-label">
+                  Contrast {r3d.contrast}
                   <input
                     type="range"
                     min={-100}
@@ -1313,8 +1773,8 @@ export default function CbctApp() {
                     style={{ width: '100%' }}
                   />
                 </label>
-                <label style={{ display: 'block', fontSize: 11, color: 'var(--text-dim)' }}>
-                  brightness {r3d.brightness}
+                <label className="rail-label">
+                  Brightness {r3d.brightness}
                   <input
                     type="range"
                     min={-100}
@@ -1326,28 +1786,30 @@ export default function CbctApp() {
                     style={{ width: '100%' }}
                   />
                 </label>
-                <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, margin: '4px 0' }}>
-                  pseudo-color
+                <label className="rail-check">
+                  Pseudo-color
                   <select
                     value={r3d.pseudo}
                     onChange={(e) => setR3d({ pseudo: e.target.value as PseudoKey })}
                     style={{
                       flex: 1,
+                      height: 'var(--ctl-h)',
                       background: 'var(--panel-2)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 6,
-                      padding: '2px 6px',
+                      border: '1px solid var(--ctl-border)',
+                      borderRadius: 'var(--ctl-radius)',
+                      padding: '0 8px',
+                      fontSize: 'var(--fs-meta)',
                     }}
                   >
                     {(['none', 'hot', 'cool', 'rainbow'] as PseudoKey[]).map((p) => (
                       <option key={p} value={p}>
-                        {p}
+                        {p[0].toUpperCase() + p.slice(1)}
                       </option>
                     ))}
                   </select>
                 </label>
-                <label style={{ display: 'block', fontSize: 11, color: 'var(--text-dim)' }}>
-                  depth enhancement {r3d.depthEnhance} (flat interiors fade, surfaces pop)
+                <label className="rail-label">
+                  Depth enhancement {r3d.depthEnhance} (flat interiors fade, surfaces pop)
                   <input
                     type="range"
                     min={0}
@@ -1359,34 +1821,34 @@ export default function CbctApp() {
                     style={{ width: '100%' }}
                   />
                 </label>
-                <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, margin: '4px 0' }}>
+                <label className="rail-check">
                   <input
                     type="checkbox"
                     checked={r3d.smooth3d}
                     onChange={(e) => setR3d({ smooth3d: e.target.checked })}
                   />
-                  smooth 3D surface (denoised copy — slice views stay untouched)
+                  Smooth 3D surface (denoised copy; slice views stay untouched)
                 </label>
-                <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, margin: '4px 0' }}>
+                <label className="rail-check">
                   <input
                     type="checkbox"
                     checked={r3d.cinematic}
                     onChange={(e) => setR3d({ cinematic: e.target.checked })}
                   />
-                  cinematic light (soft in-volume shadows — slower to orbit)
+                  Cinematic light (soft in-volume shadows; slower to orbit)
                 </label>
-                <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, margin: '4px 0' }}>
+                <label className="rail-check">
                   <input
                     type="checkbox"
                     checked={r3d.lightFollow}
                     onChange={(e) => setR3d({ lightFollow: e.target.checked })}
                   />
-                  light follows the camera (uncheck for a fixed light direction)
+                  Light follows the camera (uncheck for a fixed light direction)
                 </label>
                 {!r3d.lightFollow && (
                   <>
-                    <label style={{ display: 'block', fontSize: 11, color: 'var(--text-dim)' }}>
-                      light around {r3d.lightAz}° (0 = from the front)
+                    <label className="rail-label">
+                      Light around {r3d.lightAz}° (0 = from the front)
                       <input
                         type="range"
                         min={-180}
@@ -1398,8 +1860,8 @@ export default function CbctApp() {
                         style={{ width: '100%' }}
                       />
                     </label>
-                    <label style={{ display: 'block', fontSize: 11, color: 'var(--text-dim)' }}>
-                      light height {r3d.lightEl}° (+ = from above)
+                    <label className="rail-label">
+                      Light height {r3d.lightEl}° (+ = from above)
                       <input
                         type="range"
                         min={-80}
@@ -1413,18 +1875,18 @@ export default function CbctApp() {
                     </label>
                   </>
                 )}
-                <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, margin: '4px 0' }}>
+                <label className="rail-check">
                   <input
                     type="checkbox"
                     checked={r3d.stOverlay}
                     onChange={(e) => setR3d({ stOverlay: e.target.checked })}
                   />
-                  soft-tissue overlay (skin-toned shell under the cut-off)
+                  Soft-tissue overlay (skin-toned shell under the cut-off)
                 </label>
                 {r3d.stOverlay && (
                   <>
-                    <label style={{ display: 'block', fontSize: 11, color: 'var(--text-dim)' }}>
-                      tissue threshold {r3d.stThreshold} HU
+                    <label className="rail-label">
+                      Tissue threshold {r3d.stThreshold} HU
                       <input
                         type="range"
                         min={-800}
@@ -1436,8 +1898,8 @@ export default function CbctApp() {
                         style={{ width: '100%' }}
                       />
                     </label>
-                    <label style={{ display: 'block', fontSize: 11, color: 'var(--text-dim)' }}>
-                      tissue opacity {r3d.stOpacity}%
+                    <label className="rail-label">
+                      Tissue opacity {r3d.stOpacity}%
                       <input
                         type="range"
                         min={5}
@@ -1453,47 +1915,47 @@ export default function CbctApp() {
                 )}
               </>
             ) : (
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
-                generic CT preset — applied as-is, the adjust sliders work on the named styles above
+              <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text)', marginBottom: 4 }}>
+                Air is applied as it is. The adjust sliders work on the other styles only.
               </div>
             )}
-            <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, marginTop: 2 }}>
+            <label className="rail-check">
               <input
                 type="checkbox"
                 checked={r3d.perspective}
                 onChange={(e) => setR3d({ perspective: e.target.checked })}
               />
-              perspective projection (off = orthographic; toggling re-homes the 3D camera)
+              Perspective projection (off = orthographic; toggling re-homes the 3D camera)
             </label>
-            <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, marginTop: 6 }}>
+            <label className="rail-check">
               <input
                 type="checkbox"
                 checked={controls.planes3d}
                 onChange={(e) => setControls((c) => ({ ...c, planes3d: e.target.checked }))}
               />
-              plane indicators — the three section planes + bounding box inside the render
+              Plane indicators: the three section planes and the bounding box inside the render
             </label>
           </section>
           )}
 
           {viewMode === 'mpr' && !isXray && (
           <section>
-            <div style={{ color: 'var(--text-dim)', marginBottom: 6 }}>
-              Crop 3D <span style={{ fontSize: 10 }}>(render only — slices unaffected)</span>
+            <div className="rail-head">
+              Crop 3D (render only; slices unaffected)
             </div>
             {(
               [
-                ['x', 'R → L'],
-                ['y', 'A → P'],
-                ['z', 'I → S'],
+                ['x', 'R to L'],
+                ['y', 'A to P'],
+                ['z', 'I to S'],
               ] as [keyof Crop3d, string][]
             ).map(([axis, label]) => (
-              <div key={axis} style={{ marginBottom: 2 }}>
-                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                  {label} · keep {Math.round(controls.crop3d[axis][0] * 100)}–
+              <div key={axis} style={{ marginBottom: 4 }}>
+                <div className="rail-label">
+                  {label}: keep {Math.round(controls.crop3d[axis][0] * 100)} to{' '}
                   {Math.round(controls.crop3d[axis][1] * 100)}%
                 </div>
-                <div style={{ display: 'flex', gap: 6 }}>
+                <div style={{ display: 'flex', gap: 8, minWidth: 0 }}>
                   {([0, 1] as const).map((idx) => (
                     <input
                       key={idx}
@@ -1520,16 +1982,16 @@ export default function CbctApp() {
                       }
                       title={
                         (idx === 0 ? `crop from the ${label.split(' ')[0]} side` : `crop from the ${label.split(' ')[2]} side`) +
-                        ' — double-click = no crop'
+                        '. Double-click removes the crop.'
                       }
-                      style={{ flex: 1 }}
+                      style={{ flex: '1 1 0', width: 0, minWidth: 0 }}
                     />
                   ))}
                 </div>
               </div>
             ))}
             <button
-              style={{ ...btn(false), width: '100%', marginTop: 6 }}
+              className="ctl ctl-wide" style={{ marginTop: 8 }}
               onClick={() =>
                 setControls((c) => ({
                   ...c,
@@ -1539,63 +2001,59 @@ export default function CbctApp() {
               }
               title="full volume back in the render: crop box reset + the right-drag cut removed"
             >
-              Un-crop + clear cuts
+              Un-crop and clear cuts
             </button>
           </section>
           )}
 
           {viewMode === 'mpr' && !isXray && (
           <section>
-            <div style={{ color: 'var(--text-dim)', marginBottom: 6 }}>My 3D presets</div>
+            <div className="rail-head">My 3D presets</div>
             {savedPresets.map((p) => (
-              <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
                 <button
-                  style={{ ...btn(false), flex: 1, textAlign: 'left' }}
+                  className="ctl"
+                  style={{ flex: '1 1 0', minWidth: 0, justifyContent: 'flex-start', overflow: 'hidden', textOverflow: 'ellipsis' }}
                   onClick={() => setControls((c) => ({ ...c, render3d: { ...DEFAULT_RENDER3D, ...p.settings } }))}
                   title="apply this saved style"
                 >
                   {p.name}
                 </button>
                 <button
+                  {...chip(defaultPreset === p.name)}
                   onClick={() => toggleDefaultPreset(p.name)}
-                  title={defaultPreset === p.name ? 'default on app start — click to unset' : 'set as the default on app start'}
-                  style={{
-                    ...btn(defaultPreset === p.name),
-                    padding: '4px 7px',
-                    color: defaultPreset === p.name ? '#ffd54a' : 'var(--text)',
-                  }}
+                  title={defaultPreset === p.name ? 'default on app start. Click to unset.' : 'set as the default on app start'}
+                  style={{ padding: '0 8px' }}
                 >
-                  ★
+                  Default
                 </button>
-                <button
-                  onClick={() => deletePreset(p.name)}
-                  title="delete this saved style"
-                  style={{ ...btn(false), padding: '4px 7px' }}
-                >
-                  ✕
+                <button className="ctl" onClick={() => deletePreset(p.name)} title="delete this saved style" style={{ padding: '0 8px' }}>
+                  Delete
                 </button>
               </div>
             ))}
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 4 }}>
               <input
                 value={presetName}
                 onChange={(e) => setPresetName(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') savePreset();
                 }}
-                placeholder="name current look…"
+                placeholder="Name the current look…"
+                aria-label="Preset name"
                 style={{
                   flex: 1,
                   minWidth: 0,
+                  height: 'var(--ctl-h)',
                   background: 'var(--panel-2)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 6,
-                  padding: '4px 8px',
-                  fontSize: 12,
+                  border: '1px solid var(--ctl-border)',
+                  borderRadius: 'var(--ctl-radius)',
+                  padding: '0 8px',
+                  fontSize: 'var(--fs-meta)',
                   color: 'var(--text)',
                 }}
               />
-              <button style={btn(false)} onClick={savePreset} disabled={!presetName.trim()}>
+              <button className="ctl" onClick={savePreset} disabled={!presetName.trim()}>
                 Save
               </button>
             </div>
@@ -1604,31 +2062,31 @@ export default function CbctApp() {
 
           {viewMode === 'mpr' && !isXray && (
           <section>
-            <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, marginBottom: 8 }}>
+            <label className="rail-check">
               <input
                 type="checkbox"
                 checked={controls.planeLines}
                 onChange={(e) => setControls((c) => ({ ...c, planeLines: e.target.checked }))}
               />
-              plane lines (C) — synced on all three views
+              Plane lines (C), synced on all three views
             </label>
-            <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12, marginBottom: 8 }}>
+            <label className="rail-check">
               <input
                 type="checkbox"
                 checked={controls.showOverlay}
                 onChange={(e) => setControls((c) => ({ ...c, showOverlay: e.target.checked }))}
               />
-              show overlays (O) — lines, measurements, labels
+              Show overlays (O): lines, measurements, labels
             </label>
             <button
-              style={{ ...btn(false), width: '100%', marginBottom: 6 }}
+              className="ctl ctl-wide" style={{ marginBottom: 8 }}
               onClick={() => setControls((c) => ({ ...c, resetNonce: c.resetNonce + 1 }))}
-              title="Cameras back to orthogonal — window and everything else untouched (R)"
+              title="Cameras back to orthogonal. Window and everything else untouched (R)."
             >
               Reset orientation (R)
             </button>
             <button
-              style={{ ...btn(false), width: '100%' }}
+              className="ctl ctl-wide"
               onClick={() =>
                 setControls((c) => ({
                   ...c,
@@ -1648,14 +2106,14 @@ export default function CbctApp() {
           {isXray && (
             <section>
               <button
-                style={{ ...btn(false), width: '100%', marginBottom: 6 }}
+                className="ctl ctl-wide" style={{ marginBottom: 8 }}
                 onClick={() => setControls((c) => ({ ...c, resetNonce: c.resetNonce + 1 }))}
-                title="Fit the radiograph to the pane — window untouched (R)"
+                title="Fit the radiograph to the pane. Window untouched (R)."
               >
                 Fit to pane (R)
               </button>
               <button
-                style={{ ...btn(false), width: '100%' }}
+                className="ctl ctl-wide"
                 onClick={() =>
                   setControls((c) => ({
                     ...c,
@@ -1672,12 +2130,44 @@ export default function CbctApp() {
             </section>
           )}
 
-          <div style={{ fontSize: 11, color: 'var(--text-dim)', lineHeight: 1.5 }}>
+          <div className="rail-note">
             {isXray
-              ? 'Radiograph: wheel zooms about the cursor · left-drag pans · double-click or R refits. Gray values are display-normalized (0-4095): window them via the histogram or sliders; they are not HU.'
-              : 'Measurements are true anatomical mm (isotropic voxels) — unlike pano mm, no projection magnification. Crosshairs: drag the lines to re-slice; wheel scrolls the hovered pane.'}
+              ? 'Radiograph: the wheel zooms about the cursor, left-drag pans, double-click or R refits. Gray values are display-normalized (0-4095): window them via the histogram or sliders; they are not HU.'
+              : 'Measurements are true anatomical mm (isotropic voxels): unlike pano mm, no projection magnification. Crosshairs: drag the lines to re-slice; wheel scrolls the hovered pane.'}
           </div>
         </aside>
+        {/* the user manual's drawer: a column of this row, so it narrows the viewer and covers nothing */}
+        {manualPage !== null && <ManualDrawer page={manualPage} onClose={() => setManualPage(null)} />}
+        {citeOpen && citation && <CiteDialog citation={citation} onClose={() => setCiteOpen(false)} />}
+      </div>
+      {/* the status line: the case facts, the first-run line while the phantom is on screen and
+          nothing of the reader's is open (it leaves by itself once an export is opened), and the
+          gesture legend of this mode. Always visible, full contrast for the facts and the link. */}
+      <div className="status-line" data-testid="status-line" style={{ order: 2 }}>
+        {current && (
+          <span className="status-facts">
+            {/* the case identity leads, the id everything else (exports, sidecars) is filed
+                under; the phantom is named once, in the volume list */}
+            {isDemoVol(current.anon)
+              ? ''
+              : `${(isFusedVol(current.anon) || isLocalVol(current.anon)) && current.label ? current.label : current.anon} · `}
+            {volLabel(current)} ·{' '}
+            {current.kind === 'mf' ? 'multiframe' : current.kind === 'xray' ? 'radiograph' : 'slices'} ·{' '}
+            {(current.spacing[0] * 1000).toFixed(0)} µm {current.kind === 'xray' ? 'pixels' : 'voxels'}
+          </span>
+        )}
+        {current && isDemoVol(current.anon) && !srcLabel && (
+          <span style={{ color: 'var(--text)' }} data-testid="first-run">
+            Built in, no patient data.{' '}
+            {IS_WEB && !inShell ? 'Your scan is read in this tab and never uploaded.' : 'Your scan is read on this computer and never uploaded.'}{' '}
+            <a href={STILLS_URL} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text)' }}>
+              See CBCTScope on a real scan
+            </a>
+          </span>
+        )}
+        <span className="status-legend" data-testid="status-legend">
+          {legend}
+        </span>
       </div>
     </div>
   );

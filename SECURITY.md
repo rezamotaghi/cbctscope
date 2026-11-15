@@ -36,8 +36,8 @@ checked against the code, what is left to the MCP host, and what is missing. Las
 A poisoned tool hides instructions in its name, description, or schema. A rug pull changes a
 tool after the user approved it.
 
-- **In place.** The tool definitions are static strings in `mcp/server.mjs`,
-  registered once before the transport connects. The server fetches nothing from the
+- **In place.** The tool definitions are static strings in `lib/shared/verbs.mjs`, which
+  `mcp/server.mjs` imports and registers once before the transport connects. The server fetches nothing from the
   network and never changes its tool list at runtime, so the definitions a host shows are
   the ones that run until the user installs a new version. The verb set is closed:
   navigation and visualization only, no code execution, and the viewer rejects any verb it
@@ -72,6 +72,11 @@ downscales it.
   snapshot before the model sees it.
 - **Missing.** Labels and view names pass through as written. There is no filter for
   instruction-like text, and pixels come from the scan, which can carry burned-in text.
+- **The in-page agent.** In the web build and the desktop app the clinician may switch on an
+  agent that runs on their own model account: text injected through a snapshot or a label
+  now reaches that account's model, still bounded by the same fifteen verbs, and the
+  provider key never leaves the tab's memory except in requests to the chosen provider.
+  See [docs/mcp.md](docs/mcp.md) (threat model) and manual section 9.6.
 
 ### Confused deputy against the localhost server
 
@@ -81,8 +86,12 @@ another tab.
 
 - **In place.** [middleware.ts](middleware.ts) runs on every path (matcher `/:path*`). It
   rejects any request whose `Host` is not `127.0.0.1`, `localhost`, or `[::1]`, which
-  defeats DNS rebinding. It rejects any request that carries a non-loopback or malformed
-  `Origin`, which defeats cross-origin POSTs. The server binds `127.0.0.1` (`-H 127.0.0.1`
+  defeats DNS rebinding. It rejects any request whose `Sec-Fetch-Site` is present and not
+  `same-origin` or `none`, GETs included, and any request whose `Origin`, when present, is
+  not the server's own origin exactly; that defeats cross-site requests, from a hostile page
+  or from another web server on this machine. The agent stream additionally requires
+  `Sec-Fetch-Site: same-origin`, so a cross-site GET cannot evict the viewer. The desktop
+  app's bridge (`desktop/bridge.mjs`) applies the same rules. The server binds `127.0.0.1` (`-H 127.0.0.1`
   in the `dev` and `start` scripts of `package.json`), so no other device can connect. The
   MCP server speaks stdio and opens no port. This Host and Origin check is the protection
   the official MCP SDKs switched on for their HTTP transports after these DNS-rebinding
@@ -116,8 +125,8 @@ instruction.
 CBCTScope is a single-user local tool. The assumption is that the browser, the server
 process, and the scans are all on one machine controlled by one person.
 
-- The server binds to `127.0.0.1` and rejects any request whose `Host` or `Origin` is not
-  loopback. That covers DNS rebinding, where a hostile domain re-resolves to `127.0.0.1` so a
+- The server binds to `127.0.0.1` and rejects any request whose `Host` is not loopback,
+  whose `Origin` is not its own origin, or whose `Sec-Fetch-Site` says another site. That covers DNS rebinding, where a hostile domain re-resolves to `127.0.0.1` so a
   victim's browser issues same-origin readable requests, and cross-site POSTs from a hostile
   page in another tab. Both the bind and the header checks are load-bearing. See
   [middleware.ts](middleware.ts).
@@ -129,7 +138,8 @@ process, and the scans are all on one machine controlled by one person.
 ## Data handling
 
 - Scans are read in place from the folder you pick. Nothing is copied or uploaded.
-- No telemetry, no analytics, no outbound network calls.
+- No telemetry, no analytics, no outbound network calls, except the requests of the opt-in
+  in-page agent to the model provider the clinician chose, after they switch it on.
 - Absolute file paths never reach the browser or the agent transcript. The UI shows a display
   label derived from the folder and file names you opened, plus technical geometry.
 - The only disk writes are an app-data folder (`~/.cbctscope`) holding annotation sidecars

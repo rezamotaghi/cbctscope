@@ -1,14 +1,15 @@
 # MPR
 
 > **At a glance**
-> - **The question:** what is here, in three dimensions: localize it, follow it across
->   planes, measure it in true millimetres, present it. The default read; when in doubt,
+> - **What the view shows:** what is here, in three dimensions: localize it, follow it across
+>   planes, measure it in true millimetres, present it. The default view; when in doubt,
 >   start here.
 > - **Start:** open the scan, press `R` for orthogonal planes, pick a window preset
 >   (**Bone**, **Teeth**, **Soft**, or **Auto**), click a structure to spot the crosshairs.
 > - **Three gestures:** the wheel scrolls the hovered pane; the left button runs the tool
->   (with **Crosshairs**, a click spots the crosshairs and a drag pans); right-drag rotates
->   the section. On the 3D pane, left-drag orbits and right-drag cuts in.
+>   (with **Crosshairs**, a left-click places the crosshairs and a left-drag pans);
+>   right-drag rotates the section. On the 3D pane, left-drag orbits and right-drag cuts
+>   in. The Keys card lists every gesture of the mode.
 > - **Leave it for:** a slice-by-slice survey (Grid), the dental arch (Pano), the condyles
 >   (TMJ), any other cut (Reslice), a film-like projection (Ceph), a density region
 >   (Region), two volumes of one subject (Stitch).
@@ -17,7 +18,7 @@
 
 ## What this mode is for
 
-MPR is the default read: three orthogonal slice panes (axial, sagittal, coronal) with
+MPR is the default view: three orthogonal slice panes (axial, sagittal, coronal) with
 linked crosshairs, plus a 3D render in the fourth pane. It answers the general question
 "what is here, in three dimensions": localizing a structure, following it across planes,
 measuring it in true millimetres, and presenting it as a labeled figure. Everything else
@@ -50,13 +51,20 @@ in the viewer is a specialization; when in doubt, start in MPR.
 
 ## The controls
 
-**Panes.** The screen is a 2 by 2 grid: AXIAL, SAGITTAL, CORONAL, 3D. Each slice pane
-shows its slice counter with the direction the count runs (`622/801 S→I`: slice 1 is the
-most superior; coronal counts P→A, sagittal R→L; the letters follow the live camera, so
-an obliqued pane reports the direction it actually scrolls along), patient-orientation
-letters computed from the live camera (they stay correct after oblique rotation), a live
-HU readout under the cursor (a 3 by 3 by 3 neighborhood mean), a slice slider on the
-right edge, and a flip button that mirrors the viewing direction.
+**Panes.** The screen is a 2 by 2 grid: AXIAL, SAGITTAL, CORONAL, 3D, with the
+objects list in a strip under it once there is something to list. Each slice pane shows,
+top left, its plane and slice counter with the direction the count runs (`622/801 S→I`:
+slice 1 is the most superior; coronal counts P→A, sagittal R→L; the letters follow the
+live camera, so an obliqued pane reports the direction it actually scrolls along);
+bottom right, the window (`W 4000 L 1000`); patient-orientation letters at the edge
+midpoints, computed from the live camera (they stay correct after oblique rotation); a
+yellow scale bar at the bottom centre; a live HU readout under the cursor, bottom left (a
+3 by 3 by 3 neighborhood mean); a slice slider on the right edge; and, top right, the
+**Reset view** and **Flip** buttons (section 3.7), with **Save view** in the axial pane.
+The pane that takes the wheel carries a thin blue frame. The 3D pane's top-right buttons
+orbit the render left, right, up and down (hold to keep turning) and reset its camera.
+The crosshair and the axial level are the reading place the other modes share (section
+3.3): leave for Pano and come back, and they are where you left them.
 
 **Tool palette** ("Tool (1-9, 0)"): Crosshairs, Pan, Length, Angle, Arrow, Text, Rect
 ROI, Ellipse ROI, Freehand, 3D ROI, on hotkeys 1 through 9 and 0; W/L on `W`. Arrow and
@@ -75,9 +83,11 @@ checkbox.
 brightest voxel across the slab instead of the average.
 
 **3D render, style.** A style picker with two parametric groups, Styles (Shaded, Shiny,
-Surface, Soft tissue, MIP, X-ray, X-ray shaded, B&W X-ray) and CBCT tuned (bone + teeth,
-teeth high density, translucent bone with solid teeth), plus generic CT presets that
-apply as-is without the adjust sliders. Surface, a bone-toned isosurface, is the default.
+Surface, Soft tissue, MIP, X-ray, X-ray shaded, B&W X-ray) and CBCT tuned (Bone and teeth,
+Teeth (high density), Translucent bone, solid teeth), plus **Air**, the rendering
+library's air preset, which applies as it is: the adjust sliders do not work on it. A
+saved view or saved 3D preset that names a generic CT preset from earlier versions opens
+on Shaded. Surface, a bone-toned isosurface, is the default.
 The shaded styles light off the render's opacity cloud with local ambient occlusion, so
 sockets and interproximal gaps self-shadow.
 
@@ -95,29 +105,33 @@ its sampling and sharpens again on idle. Perspective projection is a separate to
 section planes and a bounding box inside the render.
 
 **Crop 3D.** Per-axis keep ranges (R to L, A to P, I to S) that crop the render only; the
-slices are unaffected. "Un-crop + clear cuts" restores the full volume.
+slices are unaffected. "Un-crop and clear cuts" restores the full volume.
 
 **Cutaway.** Right-drag on the 3D pane opens a cut plane facing the camera; dragging up
 pushes it deeper, down backs it out. Later right-drags resume the same cut from its
-current depth; backing out past zero removes it (so does the scissors chip), and only
+current depth; backing out past zero removes it (so does the **Clear cuts** button,
+bottom left of the 3D pane), and only
 then does a new drag open a fresh plane facing wherever the camera is now.
 
-**Render eraser.** The "eraser" button on the 3D pane turns left-drag into a brush
+**Render eraser.** The **Eraser** button on the 3D pane turns left-drag into a brush
 (radius 1 to 12 mm) that erases what you touch on the render. It edits a 3D-only copy of
 the voxels; the slice panes never change. Undo, redo, and revert are on the same toolbar.
 
-**My 3D presets.** Save the current render settings under a name; the star marks one as
-the default applied on app start.
+**My 3D presets.** Save the current render settings under a name; **Default** beside a
+saved preset marks it as the one applied on app start (solid blue while it is), and
+**Delete** removes it.
 
-**Snapshot and views.** "snapshot" (header) saves the visible layout (annotations
-included) as a PNG. "save view (V)" stores all four cameras plus window and render
-settings under a name; the objects panel restores it in one click. Annotations, saved
+**Snapshot and views.** **Snapshot** (header) saves the visible layout (annotations
+included) as a PNG, with each slice pane's window and scale bar. **Save view** (`V`), in
+the axial pane's top-right buttons, stores all four cameras plus window and render
+settings under a name; the objects list under the panes restores it in one click. Annotations, saved
 views, and 3D ROIs persist per volume in the evidence sidecar and return when the volume
 is reopened.
 
 ## A reading workflow
 
-1. Open the scan and confirm the volume label, field of view, and voxel size in the header.
+1. Open the scan and confirm the volume label in the header's volume list, and the field of
+   view and voxel size in the status line at the bottom.
 2. Press R to start from orthogonal planes, then set the window: Bone or Teeth for the
    skeletal read, Soft for the soft tissues, Auto to return to the volume's own window.
 3. Scroll each pane through its full extent once before concentrating on any one finding,

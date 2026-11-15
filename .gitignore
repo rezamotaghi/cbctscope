@@ -1,15 +1,23 @@
 # dependencies
 /node_modules
+/deploy/node_modules/
 
 # next.js build output
 /.next/
 /out/
+/out-small/
+/out-base/
+# the prebuilt deployment (scripts/vercel-output.mjs) and any local Vercel link
+/.vercel/
+/test-results/
+/playwright-report/
 
 # MCP bundle staging + output (npm run mcpb); the bundle ships as a release asset
 /.mcpb/
 /dist/
 
 # generated
+/public/manual/
 next-env.d.ts
 *.tsbuildinfo
 
@@ -33,3 +41,8 @@ evidence/
 
 # agent-harness local config
 .claude/
+
+# desktop app packages (npm run desktop:build); binaries ship as release assets only
+/dist-desktop/
+# the release's site artifact, unzipped for the check of the public address
+/site-release/

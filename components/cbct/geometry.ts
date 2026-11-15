@@ -52,7 +52,7 @@ export function sliceIndexFor(id: string, sliderValue: number, n: number): numbe
 // Two conventions once coexisted on screen — MPR printed the pane index ("AXIAL 622/801") while
 // the Pano/TMJ/Reslice/Region scouts printed the buffer z ("AXIAL 180/801") for the SAME slice,
 // the two always summing to n+1 — which is a transcription hazard in a two-reader workflow.
-// Decision (2026-08-19): the PANE count, 1-based, wins everywhere — it is what the composed
+// The PANE count, 1-based, is used everywhere: it is what the composed
 // snapshots already bake in, what the MPR marks persist, and it matches how CT instance numbers
 // usually run. Every readout, scout caption, snapshot label and print caption goes through
 // these helpers, and the direction is printed beside the number so "622/801" can never again

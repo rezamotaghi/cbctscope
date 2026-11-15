@@ -150,20 +150,30 @@ export default function CbctHistogram({ data, lower, upper, onChange, threshold,
         }}
         title={
           thresholdMode
-            ? 'drag the line: the 3D render keeps only densities to its right · double-click = reset'
-            : 'drag the black/white lines: below black renders black, above white renders white · double-click a line = reset'
+            ? 'Drag the line: the 3D render keeps only densities to its right. Double-click resets.'
+            : 'Drag the black and white lines: below black renders black, above white renders white. Double-click a line to reset it.'
         }
       />
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: 'var(--sp-2)',
+          fontSize: 'var(--fs-meta)',
+          color: 'var(--text-dim)',
+          fontVariantNumeric: 'tabular-nums',
+          marginTop: 2,
+        }}
+      >
         {thresholdMode ? (
           <>
-            <span>transparent ◂</span>
-            <span>opacity threshold {threshold} {unit} ▸ rendered</span>
+            <span>Transparent below</span>
+            <span>Threshold {threshold} {unit}, rendered above</span>
           </>
         ) : (
           <>
-            <span>◂ black {lower} {unit}</span>
-            <span>white {upper} {unit} ▸</span>
+            <span>Black {lower} {unit}</span>
+            <span>White {upper} {unit}</span>
           </>
         )}
       </div>

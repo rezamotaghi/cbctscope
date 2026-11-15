@@ -1,11 +1,10 @@
 'use client';
-// ONE snapshot door for every room: the same button, the same icon, the same
+// ONE snapshot door for every room: the same button, the same
 // "what this room shows right now → one PNG" contract, living in the shell header so it
 // sits in the same place no matter which mode is open. Rooms with a richer bespoke
 // composer keep their behavior behind this shared face; rooms without one use the
 // generic canvas compositor below.
 import React from 'react';
-import { Camera } from 'lucide-react';
 
 /** The active room registers its composer here; the ONE header snapshot button calls it. */
 export type SnapRef = React.MutableRefObject<(() => void) | null>;
@@ -13,37 +12,25 @@ export type SnapRef = React.MutableRefObject<(() => void) | null>;
 export default function SnapshotButton({
   onClick,
   title,
-  label = 'snapshot',
+  label = 'Snapshot',
   disabled = false,
-  floating = false,
+  testId,
 }: {
   onClick: () => void;
   title?: string;
   label?: string;
   disabled?: boolean;
-  /** translucent-dark toolbar look instead of the chip look */
-  floating?: boolean;
+  /** the header's button carries snapshot-button: the desktop app's File menu clicks it (desktop/native.mjs) */
+  testId?: string;
 }) {
   return (
     <button
+      className="ctl"
+      data-testid={testId}
       onClick={onClick}
       disabled={disabled}
       title={title ?? 'snapshot: save what this room shows (as laid out on screen) as a PNG image'}
-      style={{
-        padding: floating ? '0 10px' : '4px 10px',
-        height: floating ? 24 : undefined,
-        borderRadius: floating ? 5 : 6,
-        border: '1px solid var(--border)',
-        background: floating ? 'rgba(27,31,39,0.9)' : 'var(--panel-2)',
-        color: 'var(--text)',
-        fontSize: floating ? 11 : 12,
-        cursor: 'pointer',
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 5,
-      }}
     >
-      <Camera size={13} strokeWidth={2} />
       {label}
     </button>
   );
@@ -95,7 +82,19 @@ export async function snapshotPaneCanvases(
     }
   }
 
-  ctx.fillStyle = '#aeb6c6';
+  // captions that sit in a strip above a pane (data-snap-caption) ride along at their place
+  for (const el of Array.from(root.querySelectorAll<HTMLElement>('[data-snap-caption]'))) {
+    const r = el.getBoundingClientRect();
+    const text = el.textContent?.trim();
+    if (r.width < 2 || !text) continue;
+    const cs = getComputedStyle(el);
+    ctx.fillStyle = cs.color;
+    ctx.font = `${cs.fontWeight} ${parseFloat(cs.fontSize) * scale}px system-ui, sans-serif`;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, (r.left - rootR.left) * scale, (r.top - rootR.top + r.height / 2) * scale, r.width * scale);
+  }
+
+  ctx.fillStyle = '#9aa3b2';
   ctx.font = `${12 * scale}px system-ui, sans-serif`;
   ctx.textBaseline = 'bottom';
   ctx.fillText(footer, 6 * scale, out.height - 5 * scale);

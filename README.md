@@ -1,13 +1,23 @@
 # CBCTScope
 
 **A complete, local-first CBCT and 2D radiograph viewer, built by a
-board-certified oral and maxillofacial radiologist. The first CBCT reading viewer with native AI-agent control, built on the rule the benchmarks now confirm: the agent moves the camera, the human reads.**
+board-certified oral and maxillofacial radiologist.**
+
+It can also be driven by an AI agent over MCP, under one rule: the agent moves
+the camera and never produces findings; the human reads.
 
 [![DOI: 10.5281/zenodo.21431452](docs/media/doi-badge.svg)](https://doi.org/10.5281/zenodo.21431452)
 
-**[Run it](#run-it)** (three steps) · **[Open your own scan](#opening-your-own-scan)** ·
-**[Reading guides](docs/reading-modes/)** · **[User manual](docs/manual/)** ·
-**[For AI agents](#ai-agent-control-mcp)** · **[Cite it](#author)**
+**[Website](https://cbctscope.com)** (in your browser, nothing installed) · **[Run it](#run-it)** (three steps) · **[Desktop app](https://github.com/rezamotaghi/cbctscope/releases)** (macOS, Windows) ·
+**[Open your own scan](#opening-your-own-scan)** · **[Reading guides](docs/reading-modes/)** · **[User manual](docs/manual/)** ·
+**[Agent control (MCP)](#ai-agent-control-mcp)** · **[Cite it](#author)**
+
+[![A real CBCT in MPR: axial, sagittal and coronal sections crossing at the skull base and sphenoid sinus in the bone window, beside a bone 3D render of the facial skeleton](docs/media/thumb-mpr.png)](docs/media/thumb-mpr.png)
+
+*Above: a real CBCT in MPR. Axial, sagittal and coronal sections cross at the
+skull base and the sphenoid sinus in the bone window, beside a bone 3D render
+of the facial skeleton. Shown with the written consent of the patient,
+de-identified before it was ever opened, and rendered in bone only.*
 
 - **Clinicians and students:** read the CBCT exports already on your computer
   in eight purpose-built modes, free, with no account, no upload, and nothing
@@ -17,17 +27,8 @@ board-certified oral and maxillofacial radiologist. The first CBCT reading viewe
   under identical display settings, for multi-reader studies, with NIfTI, STL,
   and PNG slice-stack export and a citable DOI for every release.
 - **Agent builders:** a built-in MCP server with fifteen navigation-only verbs,
-  a one-click Claude Desktop bundle, and an Agent Skill. The agent moves the
-  camera; the human reads.
-
-![An AI agent driving CBCTScope over MCP on a real CBCT: slice navigation down to the dentition, window presets, a bone 3D render, then the multi-slice grid, curved panoramic with cross-sections, TMJ, reslice and virtual cephalogram](docs/media/cbctscope-demo.gif)
-
-*Above: an agent driving the viewer. Slice navigation, the window presets,
-every mode switch, and the closing view reset are MCP verbs sent by the agent;
-the 3D orbit, the arch, the focal trough and the cephalogram contrast are the
-viewer's own one-click tools. The volume is the same real CBCT as the stills
-below: shown with written patient consent, de-identified before it was ever
-opened, and rendered in bone only, never as a soft-tissue surface.*
+  a one-click bundle for MCP hosts such as Claude Desktop, and an Agent Skill.
+  The agent moves the camera; the human reads.
 
 CBCTScope opens the CBCT exports already on your computer and reads them in
 eight purpose-built modes: MPR with 3D rendering, multi-slice grid, curved
@@ -38,12 +39,14 @@ the same display settings. It is free, open source, and local-first: no
 account, no cloud, no upload, ever. No agent is required; CBCTScope is a
 complete standalone viewer.
 
-It is also, to our knowledge, the first purpose-built CBCT reading viewer with
-native AI-agent control: through a built-in
-[MCP](https://modelcontextprotocol.io) server, an agent opens scans, switches
-reading modes, sets the window, moves through slices, and takes snapshots. The
-agent moves the camera. The human reads. That split was the design from the
-first commit, and it is where the evidence has since landed (see "Why this exists").
+Through a built-in [MCP](https://modelcontextprotocol.io) server, an agent
+can open scans, switch reading modes, set the window, move through slices,
+and take snapshots, and nothing more: it never produces findings. The agent
+moves the camera. The human reads. That split was the design from the first
+commit. To our knowledge,
+CBCTScope is the first purpose-built CBCT reading viewer with native AI-agent
+control; the neighboring projects, and how they differ, are under
+[Why this exists](#why-this-exists).
 
 > **Research use only. Not a medical device.** CBCTScope visualizes and
 > navigates volumes. It never produces findings, measurements-as-conclusions,
@@ -54,7 +57,7 @@ first commit, and it is where the evidence has since landed (see "Why this exist
 
 | MPR + 3D | Multi-slice grid | Curved panoramic | TMJ condyles |
 |---|---|---|---|
-| [![MPR: axial, sagittal, coronal and a bone 3D render, crosshairs on a molar, HU windowing, slab and MIP controls](docs/media/thumb-mpr.png)](docs/media/thumb-mpr.png) | [![Grid: nine parallel axial slices through the dentition with a sagittal scout, spacing and thickness controls](docs/media/thumb-grid.png)](docs/media/thumb-grid.png) | [![Pano: arch spline on the axial, curved panoramic of the arch, perpendicular cross-sections](docs/media/thumb-pano.png)](docs/media/thumb-pano.png) | [![TMJ: both condyles in axis-corrected sagittal sections, five per side, with the axis line drawn per condyle on the axial scout](docs/media/thumb-tmj.png)](docs/media/thumb-tmj.png) |
+| [![MPR: axial, sagittal, coronal and a bone 3D render, crosshairs at the skull base, the bone window, slab and MIP controls](docs/media/thumb-mpr.png)](docs/media/thumb-mpr.png) | [![Grid: nine parallel axial slices through the dentition with a sagittal scout, spacing and thickness controls](docs/media/thumb-grid.png)](docs/media/thumb-grid.png) | [![Pano: arch spline on the axial, curved panoramic of the arch, perpendicular cross-sections](docs/media/thumb-pano.png)](docs/media/thumb-pano.png) | [![TMJ: both condyles in axis-corrected sagittal sections, five per side, with the axis line drawn per condyle on the axial scout](docs/media/thumb-tmj.png)](docs/media/thumb-tmj.png) |
 
 *The four stills above are a real CBCT: a 16×16cm, 200 µm Planmeca ProMax
 volume, shown with the written consent of the patient and de-identified before
@@ -94,10 +97,10 @@ deleting the folder.
    downloads the viewer's components once (about 130 MB downloaded, 600 MB on
    disk: ten to fifteen seconds on the author's Mac and connection in
    September 2026, longer on a slow one); then your browser opens the viewer by itself. A built-in
-   **synthetic phantom** loads immediately: jaws, dental arches, teeth with
-   enamel and pulp, a metal crown, airway, sinuses, and TMJ condyles, all
-   procedurally generated. The full viewer works with zero patient data, and
-   the header says so until you open a scan of your own. **help** in the
+   **geometric test phantom** loads immediately: simple geometric shapes with
+   an arch of tooth-like cylinders, a test object for trying the controls, not
+   anatomy. The full viewer works with zero patient data, and
+   the status line says so until you open a scan of your own. **Help** in the
    header opens the reading guide for the mode you are in.
 
 To stop the viewer, close the starter's window or press Ctrl-C in it. Next
@@ -139,13 +142,52 @@ first launch both modes show the phantom.
 - **The start command warns that port 3810 is in use**: the viewer is already
   running in another window. One is enough: just open http://localhost:3810,
   or stop the older one first.
-- **"found N compressed DICOM file(s)"** when opening a scan: the viewer reads
+- **"These DICOM files are compressed"** when opening a scan: the viewer reads
   uncompressed DICOM only. Re-export from your scanner software with
   compression off.
 
+## Use it in the browser
+
+The same viewer also runs as a static web build: no install, no Node.js, just
+a current desktop browser. Each published release deploys it to
+[cbctscope.com](https://cbctscope.com), hosted on Vercel. It opens on the built-in phantom; **Open**, then **Open DICOMDIR or DICOM
+folder** or **Open a single DICOM file**, or a drop on the viewer, reads your
+own export, with a progress panel until the volume is on screen.
+
+**The scan never leaves your computer: the browser reads the files you choose
+into the tab, and the page sends them nowhere.** The site is static files with
+no server behind it, and its Content Security Policy forbids the page to
+contact any host but its own and the model providers of the in-page agent
+below, which receive nothing unless you switch the agent on. Marks are kept in the browser's own
+storage and travel as a marks file (**Save marks to file** / **Load marks from
+file**). The browser must hold the whole volume in memory, so a large volume
+shows a notice first; the repository viewer holds it in a tab as well and shows no notice. AI-agent control (MCP)
+needs the local app or the desktop app. Build it yourself with `npm run build:web`
+(writes `out/`). The user manual is served by the viewer itself, on the site and in the
+app, from **Help**.
+
+**The in-page agent** is the browser's answer to MCP, and it is off until you
+switch it on. Type a request ("show the left TMJ in sagittal, bone window") in
+the agent panel, and a model on your own account (Anthropic, OpenAI, Google
+Gemini, or a model server on your own computer such as llama-server, Ollama or
+LM Studio) moves the viewer with the same fifteen navigation verbs. Your API
+key stays in the tab's memory and is forgotten when the tab closes; the
+snapshots the agent asks for go to the provider you chose and nowhere else;
+the agent only moves the camera and nothing it says is a finding. The desktop
+app has the same panel next to its MCP bridge (manual section 9.6).
+
+**The desktop app** is the same web build in its own window with the agent
+bridge built in, so no Node.js and no browser tab: download the macOS dmg
+(signed and notarised by Apple) or the Windows installer (unsigned, so Windows
+shows its SmartScreen notice once) from the
+[releases page](https://github.com/rezamotaghi/cbctscope/releases). On the
+website, the header's **Download the desktop app** menu offers the same files
+as direct downloads, your own system first. The MCP
+setup below works with it unchanged (manual section 2.6).
+
 ## Opening your own scan
 
-Click **open** in the viewer header and pick a CBCT export: a folder of DICOM
+Click **Open** in the viewer header and pick a CBCT export: a folder of DICOM
 slices, a DICOMDIR tree, a single multiframe DICOM file, or one slice of a
 series (the whole series opens). Any export your scanner software produces as
 **uncompressed DICOM** works.
@@ -193,7 +235,7 @@ under identical display settings.
 
 ### Exporting
 
-The volume header has an **export** menu with three client-side formats: a PNG slice
+The volume header has an **Export** menu with three client-side formats: a PNG slice
 stack (a zip of one PNG per slice at the displayed window, plus a geometry `meta.json`),
 a NIfTI volume (`.nii.gz`, HU values, for Slicer, ITK-SNAP, nibabel, MONAI), and an STL
 surface mesh (marching cubes at a chosen HU threshold, honoring the 3D crop box, for
@@ -205,8 +247,10 @@ Downloads: nothing is uploaded, the same local-first constraint as reading.
 The safe behavior is the only behavior the software has:
 
 - Scans are read **in place** from the folder you pick. Nothing is copied or
-  uploaded anywhere; there is no account, no telemetry, no hosted instance,
-  and there never will be one.
+  uploaded anywhere; there is no account and no telemetry, and no instance
+  receives scans: the site is static files. The browser reads the scan into
+  the tab, and nothing leaves it unless you switch on the in-page agent, which
+  sends the snapshots it asks for to the model provider you chose.
 - Everything, including the AI-agent connection, stays on this machine. In
   technical terms: the server binds to 127.0.0.1 and rejects any request whose
   Host or Origin is not loopback, so neither another device on your network
@@ -221,6 +265,15 @@ The safe behavior is the only behavior the software has:
   pixels. Demo mode writes neither.
 
 ## AI-agent control (MCP)
+
+![An AI agent driving CBCTScope over MCP on a real CBCT: slice navigation down to the dentition, window presets, a bone 3D render, then the multi-slice grid, curved panoramic with cross-sections, TMJ, reslice and virtual cephalogram](docs/media/cbctscope-demo.gif)
+
+*Above: an agent driving the viewer. Slice navigation, the window presets,
+every mode switch, and the closing view reset are MCP verbs sent by the agent;
+the 3D orbit, the arch, the focal trough and the cephalogram contrast are the
+viewer's own one-click tools. The volume is the same real CBCT as the stills
+above: shown with written patient consent, de-identified before it was ever
+opened, and rendered in bone only, never as a soft-tissue surface.*
 
 If you use an AI assistant that speaks MCP (Claude Code, Claude Desktop, and
 others), it can drive the viewer for you: open a scan (or let you pick one in
@@ -259,7 +312,7 @@ CBCTScope is one of a pair of agent-native instruments built on the same princip
 
 ## Why this exists
 
-To our knowledge, CBCTScope is the first purpose-built CBCT reading viewer with native AI-agent control. It was built on one rule: the agent moves the camera, the human reads. The field has since arrived at the same place. The first benchmark of agents operating a radiology viewer ([ABRA](https://arxiv.org/abs/2605.11224), May 2026) found ten current models executing viewer actions at 89 percent or better while reaching correct outcomes on only 0 to 25 percent of real annotation tasks, and located the bottleneck in perception, not in tool orchestration. A navigation-only agent surface is the strong half of that result, by design. Neighboring projects exist and deserve credit: [dicom-mcp](https://github.com/ChristianHinge/dicom-mcp) and the [Flux Inc. DICOM MCP server](https://github.com/fluxinc/dicom-mcp-server) query PACS metadata over MCP, [dicom-viewer-mcp-app](https://github.com/ThalesMMS/dicom-viewer-mcp-app) prototypes MCP-driven DICOM slice rendering, and [mcp-slicer](https://github.com/zhaoyouj/mcp-slicer) drives 3D Slicer through raw Python execution. [PrismaMRI](https://github.com/AbramovychYurii/PrismaMRI) is a general MRI and CT viewer whose Claude Desktop MCP bridge, since 31/05/26, lets the agent navigate, set the window, measure, pin findings graded by severity, and write a structured description of the study that the user can export as a PDF report. The Agent module of [Slicer Automated Dental Tools](https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools), since 20/07/26, has a local model (Qwen3-8B through Ollama) pick, configure, and run one of the extension's CBCT and intraoral-scan analysis tools, such as segmentation, landmarking, or orientation, from a natural-language request inside 3D Slicer. None of these six is a purpose-built CBCT reading environment, and none constrains the agent to a small set of clinical navigation verbs: each gives the agent something other than the camera, PACS queries, code execution, analysis tools, or the findings themselves. CBCTScope does both: a dental and maxillofacial reading workflow, plus an agent surface that is deliberately navigation-only.
+CBCTScope was built on one rule: the agent moves the camera, the human reads. The field has since arrived at the same place. The first benchmark of agents operating a radiology viewer ([ABRA](https://arxiv.org/abs/2605.11224), May 2026) found ten current models executing viewer actions at 89 percent or better while reaching correct outcomes on only 0 to 25 percent of real annotation tasks, and located the bottleneck in perception, not in tool orchestration. A navigation-only agent surface is the strong half of that result, by design. Neighboring projects exist and deserve credit: [dicom-mcp](https://github.com/ChristianHinge/dicom-mcp) and the [Flux Inc. DICOM MCP server](https://github.com/fluxinc/dicom-mcp-server) query PACS metadata over MCP, [dicom-viewer-mcp-app](https://github.com/ThalesMMS/dicom-viewer-mcp-app) prototypes MCP-driven DICOM slice rendering, and [mcp-slicer](https://github.com/zhaoyouj/mcp-slicer) drives 3D Slicer through raw Python execution. [PrismaMRI](https://github.com/AbramovychYurii/PrismaMRI) is a general MRI and CT viewer whose Claude Desktop MCP bridge, since 31/05/26, lets the agent navigate, set the window, measure, pin findings graded by severity, and write a structured description of the study that the user can export as a PDF report. The Agent module of [Slicer Automated Dental Tools](https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools), since 20/07/26, has a local model (Qwen3-8B through Ollama) pick, configure, and run one of the extension's CBCT and intraoral-scan analysis tools, such as segmentation, landmarking, or orientation, from a natural-language request inside 3D Slicer. None of these six is a purpose-built CBCT reading environment, and none constrains the agent to a small set of clinical navigation verbs: each gives the agent something other than the camera, PACS queries, code execution, analysis tools, or the findings themselves. CBCTScope does both: a dental and maxillofacial reading workflow, plus an agent surface that is deliberately navigation-only.
 
 ## Development
 
@@ -267,7 +320,7 @@ To our knowledge, CBCTScope is the first purpose-built CBCT reading viewer with 
 npm run dev          # dev server on :3810
 npm run typecheck    # tsc
 npm run lint         # eslint
-npm test             # vitest: geometry, reformats, registration, region growing, HU windowing, phantom, manual + citation drift
+npm test             # vitest: geometry, reformats, registration, region growing, HU windowing, phantom, manual, citation and posture drift
 npm run build        # production build
 ```
 
@@ -286,7 +339,3 @@ cite it (see
 
 [AGPL-3.0-or-later](LICENSE). Free to use, study, and modify. If you build a product or
 service on this code, its source must be open under the same terms.
-
-For uses the AGPL does not fit (closed-source products, commercial integration), a
-separate commercial license is available: reach me through the contact page at
-[rezamotaghi.com/contact](https://rezamotaghi.com/contact).

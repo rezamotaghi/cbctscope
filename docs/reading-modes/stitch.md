@@ -1,13 +1,13 @@
 # Stitch
 
 > **At a glance**
-> - **The question:** align and merge two scans of the same subject into one volume when
+> - **What the view shows:** align and merge two scans of the same subject into one volume when
 >   the region of interest spans both.
 > - **Start:** with the base volume open as A, pick B from the same-patient candidates,
->   keep the **color** overlay, run **auto align**, refine with the sliders until the
->   colored fringes are gone, then **bake & load**.
+>   keep the **Color** overlay, run **Auto align**, refine with the sliders until the
+>   colored fringes are gone, then **Bake and load**.
 > - **Three gestures:** the wheel over any preview steps the compared slice; drag a slider
->   to nudge one axis; double-click a slider to zero it.
+>   to nudge one axis; double-click a slider to zero it. The Keys card lists every gesture of the mode.
 > - **Leave it for:** anything that is not a rigid difference between two scans of one
 >   subject: distortion, growth, or a different acquisition geometry cannot be corrected
 >   here.
@@ -34,23 +34,24 @@ volume is A; you pick B from the catalog.
 
 | Control | Options or range | What it does |
 |---|---|---|
-| Volume picker | A (green), B (magenta) | A is the current volume; pick B from the same-patient candidates in the catalog. Fused volumes are excluded as inputs. |
-| auto align | button | Finds the best translation by maximizing density cross-correlation (an NCC hill-climb) over the overlap. |
-| auto + rotation | button | Also searches rotation; slower. |
-| reset transform | button | Returns B to the identity transform. |
-| Manual sliders | translation X, Y, Z (-60 to 60 mm); rotation rX, rY, rZ (-20 to 20 degrees) | In the toolbar above the previews; double-click a slider to zero that axis. |
-| Overlay mode | color, blend, checker, A, B | color: A green, B magenta, so overlap reads neutral grey and misalignment shows as colored fringes; blend: the average of the two; checker: alternating tiles of A and B; A or B: that volume only. |
-| Preview | axial, sagittal, coronal | Rendered at A's center. An overlap NCC readout updates whenever the transform settles; higher is better, and it turns green above a threshold. |
-| bake & load | button | Resamples both volumes onto one shared grid, averaging the overlap, registers the fused volume, uploads it to the server (the viewer process on this machine), and switches the viewer to it in MPR. The fused volume gets a `fused_` id and lives in server memory for this session only. |
+| Panes | axial, sagittal, coronal | Each shows its plane top left, followed by the compared slice's offset once you step off the centre, and the window bottom right; the pane that takes the wheel carries a thin blue frame. |
+| Volume picker | A (green), B (magenta) | A is the current volume; pick B (the list starts at **Pick volume B (magenta)**) from the same-patient candidates in the catalog. Fused volumes are excluded as inputs. |
+| Auto align | button | Finds the best translation by maximizing density cross-correlation (an NCC hill-climb) over the overlap. |
+| Auto with tilt | button | Also searches rotation; slower. |
+| Reset transform | button | Returns B to the identity transform. |
+| Manual sliders | translation X, Y, Z (-60 to 60 mm); Rotation X, Rotation Y, Rotation Z (-20 to 20 degrees) | In the toolbar above the previews; double-click a slider to zero that axis. |
+| Overlay | Color, Blend, Checker, A, B | Color: A green, B magenta, so overlap reads neutral grey and misalignment shows as colored fringes; Blend: the average of the two; Checker: alternating tiles of A and B; A or B: that volume only. The selected overlay is solid blue. |
+| Preview | axial, sagittal, coronal | Rendered at A's center. An Overlap NCC readout updates whenever the transform settles; higher is better, and it turns green above a threshold. |
+| Bake and load | button | Resamples both volumes onto one shared grid, averaging the overlap, registers the fused volume, and switches the viewer to it in MPR. The fused volume gets a `fused_` id and lives in memory for this session only: in this tab on the website, in this app in the desktop app, and in the local server process when the viewer runs from the repository. Nothing is uploaded. |
 | Window | shared sidebar | The shared Window (HU) presets, center, width, and invert control the preview. |
 
 ## A reading workflow
 
 1. Confirm A is the volume you want as the base, then pick B from the same patient; the
    picker only offers same-catalog candidates.
-2. Use the color overlay from the start: perfect overlap reads neutral, and any colored
+2. Use the Color overlay from the start: perfect overlap reads neutral, and any colored
    fringe is misalignment you can see directly.
-3. Run auto align first for the translation, then auto + rotation if the two scans are
+3. Run Auto align first for the translation, then Auto with tilt if the two scans are
    also rotated relative to each other.
 4. Refine by hand with the sliders while watching both the fringes and the NCC readout;
    wheel over any preview steps the compared slice, so alignment can be verified away
@@ -58,9 +59,9 @@ volume is A; you pick B from the catalog.
    nudge the axis whose fringe is largest.
 5. Cross-check the alignment on all three planes, not just one; a transform that looks
    right axially can still be off in the superior-inferior direction.
-6. Switch to blend or checker to confirm continuity of structures across the seam once
-   the color overlay looks aligned.
-7. When the fringes are minimal and the NCC is as high as it will go, bake and load, then
+6. Switch to Blend or Checker to confirm continuity of structures across the seam once
+   the Color overlay looks aligned.
+7. When the fringes are minimal and the NCC is as high as it will go, press Bake and load, then
    read the fused volume in MPR and the other modes as usual.
 8. Remember the fused volume is session-only; re-derive it if you need it again later.
 
@@ -80,6 +81,6 @@ differ by a rigid body transform and cannot correct for distortion, growth, or
 differences in acquisition geometry between them. It is meant for two scans of the same
 subject; aligning unrelated volumes is meaningless. The NCC score measures overlap
 similarity, not anatomical correctness, and the reader's eyes on the fringes are the real
-check. The fused volume is held in server memory for the session and is not persisted.
+check. The fused volume is held in memory (the tab's, the desktop app's, or the local server's) for the session and is not persisted.
 CBCTScope is navigation and visualization only: no findings, no diagnoses. Research use
 only; not a medical device.

@@ -3,12 +3,14 @@
 //    region's exact presentation can be returned to with one click;
 //  - snapshots: compose the visible pane canvases + their annotation SVG layers into one PNG
 //    (stills for teaching files / figures);
-//  - the persistence sidecar client: annotations, views, and 3D ROIs round-trip through
-//    /api/cbct/[anon]/evidence as one JSON file per volume, so marks survive close/reopen.
+//  - the persistence sidecar client: annotations, views, and 3D ROIs round-trip through the
+//    volume source (./source) as one JSON record per volume, so marks survive close/reopen.
 //    World coordinates only — the volume's FrameOfReference is deterministic per anon id,
 //    so a restored annotation lands exactly where it was drawn.
+import { z } from 'zod';
 import type { CbctControls } from './CbctViewport';
 import type { Roi3d } from './evidence3d';
+import { source } from './source';
 
 export interface SavedCam {
   position: number[];
@@ -89,11 +91,11 @@ export function serializeAnnotations(annotations: unknown[]): unknown[] {
 
 export async function fetchEvidence(anon: string): Promise<EvidenceFile | null> {
   try {
-    const r = await fetch(`/api/cbct/${anon}/evidence`);
-    if (!r.ok) return null;
-    const j = (await r.json()) as EvidenceFile & { exists?: boolean };
-    if (j.exists === false || j.schema !== EVIDENCE_SCHEMA) return null;
-    return j;
+    const raw = await source.getEvidence(anon);
+    if (!raw) return null;
+    // a stored record passes the same validation as a loaded file before anything restores it
+    const checked = validateEvidence(raw, anon);
+    return 'file' in checked ? checked.file : null;
   } catch {
     return null;
   }
@@ -101,15 +103,149 @@ export async function fetchEvidence(anon: string): Promise<EvidenceFile | null> 
 
 export async function putEvidence(file: EvidenceFile): Promise<boolean> {
   try {
-    const r = await fetch(`/api/cbct/${file.anon}/evidence`, {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(file),
-    });
-    return r.ok;
+    return await source.putEvidence(file);
   } catch {
     return false;
   }
+}
+
+/** every string inside `v` with `from` replaced by `to` (plain JSON in, plain JSON out) */
+function rekeyStrings(v: unknown, from: string, to: string): unknown {
+  if (typeof v === 'string') return v.split(from).join(to);
+  if (Array.isArray(v)) return v.map((x) => rekeyStrings(x, from, to));
+  if (v && typeof v === 'object') {
+    return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, rekeyStrings(x, from, to)]));
+  }
+  return v;
+}
+
+// ---------------- the marks-file schema ----------------
+// Zod schemas for what a marks file (or a stored sidecar) may carry. An entry that fails is
+// dropped and counted, never restored; the rest loads. Fields the viewer does not read pass
+// through (loose objects), the ones it does are typed.
+
+/** the annotation tools whose marks the viewer restores (Cornerstone toolName values) */
+export const MARK_TOOLS = ['Length', 'Angle', 'ArrowAnnotate', 'Label', 'RectangleROI', 'EllipticalROI', 'PlanarFreehandROI'] as const;
+
+const finite = z.number().finite();
+const vec3 = z.tuple([finite, finite, finite]);
+
+export const AnnotationSchema = z.looseObject({
+  annotationUID: z.string().max(200).optional(),
+  metadata: z.looseObject({
+    toolName: z.enum(MARK_TOOLS),
+    FrameOfReferenceUID: z.string().max(200).optional(),
+    referencedImageId: z.string().max(2000).optional(),
+    volumeId: z.string().max(2000).optional(),
+    viewPlaneNormal: vec3.optional(),
+    viewUp: vec3.optional(),
+    cameraPosition: vec3.optional(),
+    cameraFocalPoint: vec3.optional(),
+  }),
+  data: z.looseObject({
+    handles: z.looseObject({ points: z.array(vec3).max(10_000) }),
+    label: z.string().max(10_000).optional(),
+    text: z.string().max(10_000).optional(),
+  }),
+});
+
+const CamSchema = z.object({
+  position: vec3,
+  focalPoint: vec3,
+  viewUp: vec3,
+  parallelScale: finite.optional(),
+});
+
+export const SavedViewSchema = z.object({
+  id: z.string().max(200),
+  name: z.string().max(500),
+  cameras: z.record(z.string().max(100), CamSchema),
+  patch: z.record(z.string().max(100), z.unknown()),
+  by: z.literal('agent').optional(),
+});
+
+export const RoiSchema = z.object({
+  id: z.string().max(200),
+  center: vec3,
+  axes: z.tuple([vec3, vec3, vec3]),
+  half: vec3,
+  stats: z.object({ nVoxels: finite, meanHu: finite, sdHu: finite, minHu: finite, maxHu: finite, volumeCm3: finite }),
+  visible: z.boolean().optional().default(true),
+});
+
+const EvidenceShape = z.object({
+  schema: z.literal(EVIDENCE_SCHEMA),
+  anon: z.string().max(200).optional(),
+  saved_at: z.string().max(100).optional(),
+  annotations: z.array(z.unknown()).max(100_000).optional(),
+  views: z.array(z.unknown()).max(10_000).optional(),
+  rois3d: z.array(z.unknown()).max(10_000).optional(),
+  traces: z.array(z.unknown()).max(10_000).optional(),
+});
+
+/** each entry that passes `schema`, and how many did not */
+function keep<T>(items: unknown[] | undefined, schema: z.ZodType<T>): { ok: T[]; dropped: number } {
+  const ok: T[] = [];
+  let dropped = 0;
+  for (const it of items ?? []) {
+    const r = schema.safeParse(it);
+    if (r.success) ok.push(r.data);
+    else dropped++;
+  }
+  return { ok, dropped };
+}
+
+/**
+ * Validate a parsed marks file or stored sidecar for the volume `anon` and re-key it there.
+ * The volume id is not required to match: the local app and the web build derive different
+ * ids for the same export, so a file saved by one must load in the other. The file is
+ * re-keyed to `anon`, including the old id inside the annotations' own metadata (the
+ * FrameOfReference `cbctscope.<id>` and the volume references), so a restored mark is bound
+ * to the volume on screen and nothing else. Entries that fail their schema are dropped and
+ * counted. Never throws: a hostile file (deep nesting that overflows the stack) becomes a
+ * plain sentence.
+ */
+export function validateEvidence(j: unknown, anon: string): { file: EvidenceFile; dropped: number } | { error: string } {
+  try {
+    const top = EvidenceShape.safeParse(j);
+    if (!top.success) return { error: 'That file is not a CBCTScope marks file.' };
+    const t = top.data;
+    const from = t.anon && t.anon !== anon ? t.anon : null;
+    const rekey = (v: unknown[] | undefined): unknown[] | undefined => (v && from ? (rekeyStrings(v, from, anon) as unknown[]) : v);
+    const annotations = keep(rekey(t.annotations), AnnotationSchema);
+    const views = keep(rekey(t.views), SavedViewSchema);
+    const rois = keep(rekey(t.rois3d), RoiSchema);
+    const file: EvidenceFile = {
+      schema: EVIDENCE_SCHEMA,
+      anon,
+      saved_at: t.saved_at ?? new Date().toISOString(),
+      annotations: annotations.ok,
+      views: views.ok as SavedView[],
+      rois3d: rois.ok as Roi3d[],
+      // pano traces have their own sanitiser (traces.ts sanitizeTraces) on restore
+      ...(t.traces ? { traces: rekey(t.traces) } : {}),
+    };
+    return { file, dropped: annotations.dropped + views.dropped + rois.dropped };
+  } catch (err) {
+    if (err instanceof RangeError) return { error: 'That marks file is nested too deeply to read.' };
+    return { error: 'That marks file could not be read.' };
+  }
+}
+
+/**
+ * Parse a marks file the reader loads ("Load marks from file") for the volume on screen:
+ * JSON, then validateEvidence. Returns the file and the number of entries dropped, or a
+ * sentence for the reader. Nothing is stored here; the caller stores only a valid file.
+ */
+export function parseMarksFile(text: string, anon: string): { file: EvidenceFile; dropped: number } | { error: string } {
+  let j: unknown;
+  try {
+    j = JSON.parse(text);
+  } catch (err) {
+    if (err instanceof RangeError) return { error: 'That marks file is nested too deeply to read.' };
+    return { error: 'That file is not a CBCTScope marks file (it is not JSON).' };
+  }
+  return validateEvidence(j, anon);
 }
 
 // ---------------- snapshot composition ----------------
@@ -119,6 +255,10 @@ export interface SnapPane {
   /** the Cornerstone annotation SVG layer over the canvas (null ⇒ canvas only) */
   svg: SVGSVGElement | null;
   label: string;
+  /** the window readout drawn bottom right ("W 4000 L 1000"), as the pane shows it */
+  wl?: string;
+  /** the scale bar drawn bottom centre: its length as a fraction of the pane width, and its label */
+  scale?: { frac: number; label: string };
 }
 
 function svgToImage(svg: SVGSVGElement): Promise<HTMLImageElement | null> {
@@ -176,8 +316,27 @@ export async function composeSnapshot(panes: SnapPane[], footer: string): Promis
     ctx.textBaseline = 'top';
     ctx.shadowColor = '#000';
     ctx.shadowBlur = 4;
-    ctx.fillStyle = '#dfe5f0';
+    ctx.fillStyle = '#e6e9ef';
     ctx.fillText(p.label, x + 8, y + 6);
+    ctx.font = `${fs}px system-ui, sans-serif`;
+    ctx.textBaseline = 'bottom';
+    if (p.wl) ctx.fillText(p.wl, x + p.canvas.width - ctx.measureText(p.wl).width - 8, y + p.canvas.height - 6);
+    if (p.scale) {
+      const bw = p.scale.frac * p.canvas.width;
+      const tw2 = ctx.measureText(p.scale.label).width;
+      const bx = x + (p.canvas.width - bw - fs / 2 - tw2) / 2;
+      const by = y + p.canvas.height - 6 - fs * 1.6;
+      ctx.strokeStyle = '#ffd54a';
+      ctx.fillStyle = '#ffd54a';
+      ctx.lineWidth = Math.max(2, fs / 7);
+      ctx.beginPath();
+      ctx.moveTo(bx, by - fs / 2);
+      ctx.lineTo(bx, by);
+      ctx.lineTo(bx + bw, by);
+      ctx.lineTo(bx + bw, by - fs / 2);
+      ctx.stroke();
+      ctx.fillText(p.scale.label, bx + bw + fs / 2, by + fs / 3);
+    }
     ctx.shadowBlur = 0;
   }
   ctx.font = `${fs}px system-ui, sans-serif`;

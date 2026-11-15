@@ -5,13 +5,19 @@ is uploaded, the same local-first rule as reading.
 
 ## 7.1 Snapshots
 
-The header's **snapshot** button (next to export, same place in every mode)
+The header's **Snapshot** button (next to Export, same place in every mode)
 saves a PNG of what the current mode shows, exactly as displayed, to your
 Downloads folder. Each mode composes its own image behind that one button:
 MPR captures its visible layout with annotations, Grid its scout and tiles,
 Ceph the cephalogram with its caption, Reslice the whole stack, and the other
 modes their panes as laid out on screen. This is the "what I see right now"
 door, for figures, teaching files, and reports written elsewhere.
+
+In the desktop app, **Save Snapshot…** in the File menu (`Cmd-S` on macOS,
+`Ctrl-S` on Windows) presses the same button. The app then shows a save
+panel titled **Save snapshot**, starting in Downloads with the snapshot's
+file name. With no image on screen, where the button is absent, the item
+does nothing.
 
 A 2D radiograph answers the same button. Because it is a single image rather
 than a layout, its snapshot is the whole frame at full resolution with the
@@ -20,7 +26,7 @@ reading aid and do not crop the saved PNG.
 
 ## 7.2 The export menu
 
-**⇩ export** in the header exports the current **volume** (it is hidden for 2D
+**Export** in the header exports the current **volume** (it is hidden for 2D
 radiographs). Three formats, all computed in the browser and saved to
 Downloads:
 
@@ -52,3 +58,26 @@ itself rather than running its buttons off the bottom of the screen.
 > written by your browser to your Downloads folder and nowhere else. What you
 > do with an exported file is then outside the program's control; the
 > patient-data responsibility travels with the file.
+
+## 7.3 The marks file (web build)
+
+In the web build (section 2.5) marks are kept in the browser's own storage,
+one record per volume, so they survive closing the tab in that browser. To
+carry them to another browser or computer, the **Open** menu offers:
+
+- **Save marks to file** downloads the marks of the volume on screen
+  (measurements, labels, saved views, 3D ROIs, pano traces) as
+  `<volume id>_marks.json`. It holds labels, world-mm coordinates, and HU
+  statistics, the same content as the local app's sidecar. Never pixels.
+- **Load marks from file** replaces the marks of the volume on screen with
+  a marks file saved earlier for that same scan. The viewer does not refuse a
+  file by its volume id: the local app and the web build derive different ids
+  for the same export, so a file saved by one loads in the other. The loaded
+  marks are bound to the volume on screen. Marks are world-mm coordinates of
+  one scan, so load a file only onto the scan it was saved from: on another
+  scan the marks land in the wrong places. Each mark is checked before it is
+  stored: a measurement of an unknown tool, a point that is not three numbers,
+  or a malformed saved view or ROI is left out, and the viewer says how many
+  entries it left out; the rest loads. A file that is not a marks file, or is
+  too deeply nested to read, is refused with a plain message and nothing is
+  stored.

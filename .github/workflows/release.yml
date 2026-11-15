@@ -1,0 +1,282 @@
+name: Release
+
+# The web build ships from a published release only (docs/web-build.md, section 9); a push
+# deploys nothing, and the Vercel project is not connected to the repository, so this workflow is
+# the site's one way out. Every build job waits for the full test job (typecheck, lint, unit,
+# the web build, the end-to-end suite). The desktop jobs build with a read-only token and
+# upload their packages as workflow artifacts; one publish job, the only one with contents:
+# write, attaches them to the release. Signing and notarisation secrets reach the packaging
+# step only; the Vercel token and ids reach the deploy step only. The site and the installers
+# go public together: the deploy waits for the publish job, and its first step checks once
+# that this release is GitHub's latest (where the download menu's links lead) and carries all
+# three installers the menu links to, and fails otherwise, so a failed or skipped desktop build
+# leaves the site as it was instead of linking to a release without installers.
+on:
+  release:
+    types: [published]
+
+# Least privilege: every job reads the repo; only publish writes, to the release.
+permissions:
+  contents: read
+
+concurrency:
+  group: site
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # full history: tests/manual.test.ts reads git history to check CITATION.cff
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build:web
+      # the tests that read the export (skipped by npm test, before it exists)
+      - run: npx vitest run tests/webBudget.test.ts tests/siteExport.test.ts
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # the site answers at the root of https://cbctscope.com: no base path
+      - name: Build the web target
+        run: npm run build:web
+        env:
+          NEXT_PUBLIC_BASE_PATH: ''
+      # the deploy job uploads these files and checks the served site against them
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: site
+          path: out
+          if-no-files-found: error
+          # the owner's check of the public address after the DNS change reads these files
+          retention-days: 30
+
+  # A job whose ancestor was skipped is itself skipped unless its own `if:` says otherwise, and
+  # the mac job is skipped without signing secrets; so this asks for the two results it needs.
+  # The Vercel CLI is the one exact version pinned in deploy/package.json, installed from
+  # deploy/package-lock.json and kept out of the app's dependencies. It uploads the prebuilt
+  # deployment (scripts/vercel-output.mjs) from a folder outside the checkout, so nothing but
+  # the built site leaves the runner; then scripts/site-check.mjs fails the job unless the new
+  # deployment serves every file byte for byte as built, with its type and the three response
+  # headers.
+  deploy:
+    needs: [build, publish]
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.publish.result == 'success' }}
+    runs-on: ubuntu-latest
+    # the environment's secrets reach this job only, and only for a release tag
+    environment: production
+    # two installs, one upload of the built files and one check: minutes, not an hour
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      # the download menu links to three installers by fixed name on the latest release: unless
+      # this release is the latest and carries all three, attached by publish or by hand, the
+      # job fails here and the site stays as it was
+      - name: Check the release carries the installers
+        run: node scripts/release-assets.mjs
+        env:
+          RELEASE_ID: ${{ github.event.release.id }}
+          GITHUB_TOKEN: ${{ github.token }}
+      - run: npm ci
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: site
+          path: out
+      # the Vercel CLI lives in deploy/, with its own lockfile, outside the app's dependencies
+      - name: Install the Vercel CLI
+        run: npm ci
+        working-directory: deploy
+      - name: Lay out the prebuilt deployment
+        run: node scripts/vercel-output.mjs out "$RUNNER_TEMP/site"
+      - name: Deploy to production
+        run: |
+          deploy/node_modules/.bin/vercel deploy --prebuilt --prod --cwd "$RUNNER_TEMP/site" > "$RUNNER_TEMP/deploy.txt"
+          cat "$RUNNER_TEMP/deploy.txt"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TELEMETRY_DISABLED: '1'
+      # the deployment's own address, behind Deployment Protection, so the check works before
+      # and after the domain's address records point at Vercel
+      - name: Check the deployment as served
+        run: node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out --attempts 1
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+
+  # ---------------------------------------------------------------- the desktop app
+  # Signing and notarisation credentials, stored as repository secrets (names
+  # only; electron-builder 26.18.0 reads them from the environment):
+  #   CSC_LINK            the Developer ID Application certificate, a .p12 exported from the
+  #                       keychain, base64-encoded on one line
+  #   CSC_KEY_PASSWORD    the password of that .p12
+  #   APPLE_API_KEY       the App Store Connect API key (.p8), base64-encoded on one line
+  #   APPLE_API_KEY_ID    that key's Key ID
+  #   APPLE_API_ISSUER    the Issuer ID of the App Store Connect team
+  # Secrets cannot appear in a job's `if:` (GitHub's documented limit), so this job turns
+  # their presence into an output. Without CSC_LINK the mac job is skipped, and the deploy job
+  # ships the site only if the mac installers were attached to the release by hand; otherwise
+  # it fails before the upload and the site stays as it was.
+  desktop-gate:
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      signing: ${{ steps.check.outputs.signing }}
+    steps:
+      - id: check
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+        run: |
+          if [ -n "$CSC_LINK" ]; then echo "signing=true" >> "$GITHUB_OUTPUT"; else echo "signing=false" >> "$GITHUB_OUTPUT"; fi
+
+  desktop-mac:
+    needs: [test, desktop-gate]
+    if: ${{ needs.desktop-gate.outputs.signing == 'true' }}
+    runs-on: macos-latest
+    # notarytool gives up after 45 minutes (scripts/desktop-notarize.mjs); this bounds the rest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # the app serves the build from the root of its own loopback origin: no base path
+      - name: Build the web target
+        run: npm run build:web
+        env:
+          NEXT_PUBLIC_BASE_PATH: ''
+      # signs the app with hardened runtime and a timestamp, notarises and staples it, signs the
+      # dmg (electron-builder.yml), then scripts/desktop.mjs notarises, staples and validates
+      # each dmg. notarytool reads the API key from a file, so the base64 secret is decoded into
+      # the runner's temporary folder for this step only and removed when it ends.
+      - name: Package, sign and notarise
+        run: |
+          key="$RUNNER_TEMP/AuthKey.p8"
+          trap 'rm -f "$key"' EXIT
+          umask 077
+          printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode > "$key"
+          APPLE_API_KEY="$key" npm run desktop:build -- --mac --publish never
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+      # the released images carry a ticket and pass Gatekeeper's check for a downloaded dmg
+      - name: Check the dmg tickets
+        run: |
+          for dmg in dist-desktop/*.dmg; do
+            xcrun stapler validate "$dmg"
+            spctl --assess --type open --context context:primary-signature -v "$dmg"
+          done
+      # The download menu's direct links (components/downloads.ts) need names that are the same
+      # in every release. Each fixed name is a byte copy of the versioned dmg, made only now that
+      # it is signed, notarised, stapled and checked, never a rebuild: the stapled ticket is
+      # written into the dmg itself, so the copy carries it. cmp proves the bytes are the same;
+      # stapler and spctl check each copy as they checked the original.
+      - name: Copy the dmgs to their fixed names
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          copy() {
+            cp "$1" "$2"
+            cmp "$1" "$2"
+            xcrun stapler validate "$2"
+            spctl --assess --type open --context context:primary-signature -v "$2"
+          }
+          copy "dist-desktop/CBCTScope-${version}-arm64.dmg" "dist-desktop/CBCTScope-mac-arm64.dmg"
+          copy "dist-desktop/CBCTScope-${version}-x64.dmg" "dist-desktop/CBCTScope-mac-x64.dmg"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-mac
+          path: |
+            dist-desktop/*.dmg
+            dist-desktop/*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  # Windows ships unsigned (docs/web-build.md, section 10), so this job needs no secret and
+  # runs on every release.
+  desktop-win:
+    needs: test
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build the web target
+        run: npm run build:web
+        env:
+          NEXT_PUBLIC_BASE_PATH: ''
+      - name: Package (unsigned)
+        run: npm run desktop:build -- --win --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      # the download menu's direct link: a byte copy of the versioned installer under the name
+      # that is the same in every release (components/downloads.ts), never a rebuild
+      - name: Copy the installer to its fixed name
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          cp "dist-desktop/CBCTScope-${version}-setup.exe" "dist-desktop/CBCTScope-windows-setup.exe"
+          cmp "dist-desktop/CBCTScope-${version}-setup.exe" "dist-desktop/CBCTScope-windows-setup.exe"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-win
+          path: dist-desktop/*.exe
+          if-no-files-found: error
+          retention-days: 7
+
+  # The one job that writes to the release: it downloads what the desktop jobs built and
+  # attaches it. The mac job is skipped without signing secrets; this job then attaches the
+  # Windows packages only, and the deploy job, which checks the release once and never waits,
+  # fails unless the mac installers were attached to the release by hand.
+  publish:
+    needs: [desktop-mac, desktop-win]
+    if: ${{ always() && needs.desktop-win.result == 'success' && (needs.desktop-mac.result == 'success' || needs.desktop-mac.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: desktop-*
+          path: packages
+          merge-multiple: true
+      - name: Attach the packages to the release
+        run: gh release upload "$TAG" packages/* --clobber --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}

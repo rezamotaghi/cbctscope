@@ -24,11 +24,11 @@ The attack: a server hides instructions in its tool descriptions, or changes the
 
 What CBCTScope does:
 
-- The verb set is closed. The fifteen tools are registered once at startup from fixed text in `mcp/server.mjs`; the server never adds, edits, or removes a tool while it runs.
+- The verb set is closed. The fifteen tools are registered once at startup from fixed text in `lib/shared/verbs.mjs` (imported by `mcp/server.mjs`, and by the in-page agent below); the server never adds, edits, or removes a tool while it runs.
 - `tools/list` is deterministic: the SDK lists the tools in registration order, so one release always presents the same list.
 - No verb executes code. A poisoned instruction can at most make the agent navigate, bookmark, or capture.
 - Every tool declares annotations (read-only or not, never destructive, never open-world). They are hints: the specification tells hosts to treat annotations as untrusted unless the server is trusted, and a host may show them or ignore them.
-- Descriptions change only with a release. Read them in `mcp/server.mjs` or the bundle's `manifest.json` before you update.
+- Descriptions change only with a release. Read them in `lib/shared/verbs.mjs` or the bundle's `manifest.json` before you update.
 
 Left to the host: displaying the descriptions and annotations, pinning the reviewed definitions, and asking again when they change. Another server in the same host session can carry poisoned descriptions that steer the model's use of CBCTScope, for example to pass snapshots to its own tools. Connect CBCTScope only alongside servers you have reviewed.
 
@@ -52,8 +52,8 @@ What CBCTScope does:
 
 - The MCP server speaks stdio to its host and listens on nothing.
 - The viewer binds to `127.0.0.1` (`npm run dev`, `npm run demo`, `npm start`).
-- `middleware.ts` runs on every path, the agent bridge included. It answers 403 to any request whose `Host` is not `127.0.0.1`, `localhost`, or `[::1]`, and to any request that carries an `Origin` that is malformed or not loopback. A rebound request still carries the attacker's hostname in `Host`, so it fails.
-- A page served from another port on this machine counts as loopback. [SECURITY.md](../SECURITY.md) places anything that runs on the machine inside the trust boundary.
+- `middleware.ts` runs on every path, the agent bridge included, and the desktop app's bridge (`desktop/bridge.mjs`) applies the same rules. It answers 403 to any request whose `Host` is not `127.0.0.1`, `localhost`, or `[::1]`; to any request whose `Sec-Fetch-Site` header is present and not `same-origin` or `none`, GETs included; to any request whose `Origin`, when present, is not the server's own origin exactly (scheme, loopback host and port); and to `/api/agent/events` without `Sec-Fetch-Site: same-origin`, which the page's own EventSource sends. A rebound request still carries the attacker's hostname in `Host`, so it fails. A cross-site GET can no longer subscribe to the stream and evict the viewer (reproduced and pinned in `tests/desktopBridge.test.ts` and `tests/middleware.test.ts`).
+- A page served by another web server on this machine (another port) is same-site at best and is refused. A non-browser process sends neither header and may still POST commands: the MCP server and the smoke check are such processes. [SECURITY.md](../SECURITY.md) places anything that runs on the machine inside the trust boundary.
 
 The same class hit the official MCP SDKs: [CVE-2025-66414](https://nvd.nist.gov/vuln/detail/CVE-2025-66414) (TypeScript, before 1.24.0), [CVE-2025-66416](https://nvd.nist.gov/vuln/detail/CVE-2025-66416) (Python, before 1.23.0), [CVE-2026-34742](https://nvd.nist.gov/vuln/detail/CVE-2026-34742) (Go, before 1.4.0), and [CVE-2026-35568](https://nvd.nist.gov/vuln/detail/CVE-2026-35568) (Java, before 1.0.0). Each concerns an HTTP server on localhost that did not check the `Host` header; the TypeScript and Python advisories state that stdio servers are unaffected. CBCTScope's MCP server uses stdio (TypeScript SDK 2.4.0), and the viewer's HTTP bridge carries the equivalent check in `middleware.ts`.
 
@@ -73,6 +73,16 @@ Left to the host: the confirmation before each call, and the control that stops 
 
 Missing: there is no rate limit on the agent command bus, although the MCP specification (revisions 2025-11-25 and 2026-07-28) says servers MUST rate limit tool invocations. A per-process cap is queued for a later release.
 
+### The in-page agent
+
+The web build and the desktop app carry a second caller of the same verbs: an opt-in agent inside the page, on the clinician's own model account (Anthropic, OpenAI, Google Gemini, or an OpenAI-compatible server on loopback; manual section 9.6). It changes the threat model in three ways and keeps one thing fixed.
+
+- Prompt injection through snapshots and labels now reaches the clinician's own model account. A crafted image or folder name is read by the model the clinician pays for, under that provider's data terms. The agent's system prompt states the fence and says that results and snapshots are data, never instructions; that is a mitigation, not a defence. The in-page agent scales a snapshot down to at most 2000 px on its longer side before sending it (the providers' image limits); otherwise the image is the on-screen layout, as above.
+- The key never reaches the viewer's page after it is typed. The panel posts it once to the agent frame, a static page (`agent-frame.html`) in an `<iframe sandbox="allow-scripts">` without `allow-same-origin`, and forgets it. The frame has an opaque origin, so it cannot read the viewer's storage or DOM; it holds the key in module memory only (`components/cbct/agent/frame/keyStore.ts`), never in the browser's storage or a cookie (`tests/agentPolicy.test.ts` scans the agent's code for those APIs), sends it only to the chosen provider, and loses it when the tab closes or the agent is switched off (the frame is removed).
+- The viewer gains no outbound host. Its Content Security Policy keeps `connect-src 'self'`; only the frame's own policy names the three provider API hosts and loopback. Page and frame exchange messages with explicit window and origin checks on both sides and a per-session nonce; tool calls come back from the frame and run in the page through the same verb handling. The end-to-end suite fails on any off-origin request in every other test, and `tests/e2e/agent.spec.ts` proves that Cancel sends nothing, that every provider request comes from the frame (origin `null`), and that it goes to the chosen endpoint only.
+- The model's words are labelled and filtered. The panel shows model prose only in a block headed "Model text. Not a reading, not a finding.", apart from the steps and the status. A reading-term guard (`lib/shared/readingTerms.mjs`) replaces any text that carries report vocabulary (radiolucency, lesion, fracture, cyst, "consistent with", findings, and the like) with a fixed sentence saying the model offered an interpretation and CBCTScope does not display readings. The guard is a word filter, not a judge: a paraphrase passes it. The fence remains the clinician's.
+- The surface stays the fifteen verbs. The page offers the model the tool list of the MCP server, from the same module (`tests/agentTools.test.ts` compares the two over stdio, name for name and schema for schema), executes them through the same verb handling in the page, checks each call's arguments against the verb's schema, and stops a request after 12 tool calls. `open_scan` and `pick_scan` answer that the clinician opens the scan.
+
 ## Architecture
 
 ```
@@ -80,6 +90,8 @@ agent host ──stdio──> mcp/server.mjs ──HTTP──> viewer server ─
                                                 (localhost:3810)        executes and
                                                                         answers back
 ```
+
+The in-page agent (manual section 9.6) skips the first three hops: it calls the clinician's model provider from the page and hands each tool call to the same verb handling through an in-memory queue (`pageTransport`).
 
 The MCP server is a thin proxy: it forwards each verb to `POST /api/agent/command`, the viewer server relays it over a server-sent-events channel to the open browser tab, the UI executes it against live state and posts the result back. Verbs that belong to one reading mode (slices, arch position, saved views) are answered by the mounted mode component; a verb the current mode cannot serve fails fast with a clear error instead of hanging. Both the viewer and the browser tab must be running; the MCP server reports a clear error otherwise.
 
@@ -264,7 +276,7 @@ Sources: [OpenAI MCP docs](https://learn.chatgpt.com/docs/extend/mcp); [Claude r
 | `viewer_state` | none | What is on screen: volume, mode, window, inversion, slice positions in the pane count with direction (MPR), the grid window or the pano arch position, 3D style, saved views. |
 | `set_view_mode` | `mode` | One of `mpr`, `grid`, `pano`, `tmj`, `reslice`, `ceph`, `region`, `stitch`. |
 | `set_window_level` | `preset` or `center` + `width`, optional `invert` | HU display window. Presets: `Auto`, `Bone`, `Teeth`, `Soft`. |
-| `set_3d_style` | `style` | The 3D pane's rendering style (MPR): `style:shaded`, `style:shiny`, `style:surface`, `style:soft-tissue`, `style:mip`, `style:xray`, `style:xray-shaded`, `style:bw-xray`, `cbct:bone-teeth`, `cbct:teeth`, `cbct:translucent`. Each loads its own default threshold. |
+| `set_3d_style` | `style` | The 3D pane's rendering style (MPR): `style:shaded`, `style:shiny`, `style:surface`, `style:soft-tissue`, `style:mip`, `style:xray`, `style:xray-shaded`, `style:bw-xray`, `cbct:bone-teeth`, `cbct:teeth`, `cbct:translucent`, `CT-Air` (the Air chip: the library's air preset, applied as it is, so the adjust sliders do not apply). Each loads its own default threshold. |
 | `navigate_slice` | `pane`, `index` or `delta` | Move to a slice in the pane's own count: 0-based, counting the way the label does (axial superior→inferior, coronal posterior→anterior, sagittal right→left), so `AXIAL 622/801 S→I` is `index: 621`; a positive `delta` moves toward the label's "to" end. **MPR**: moves that pane. **Grid**: moves the window centre along the grid's plane; `pane` switches the plane; `delta` steps whole grid spacings. **Pano**: `pane: "axial"` moves the axial editor slice. Other modes answer with a clear error. |
 | `navigate_arch` | `position_mm` or `delta_mm` | Pano: center the cross-sections at a position along the drawn arch, in mm from the patient-right end (the arc ruler). Needs an arch; the human draws it. |
 | `list_views` | none | Saved views of the selected volume (MPR): id, name, and who saved it (`reader` or `agent`). |

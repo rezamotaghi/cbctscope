@@ -1,5 +1,6 @@
 'use client';
-// Agent bridge (client half): subscribes to /api/agent/events and executes navigation and
+// Agent bridge (client half): listens on an AgentTransport (./agentTransport: the loopback
+// SSE bridge in the repo, an in-page queue later) and executes navigation and
 // visualization commands against the live app state. Every verb moves the camera, restores
 // a presentation, or reads pixels; none produces findings — the human reads the images.
 //
@@ -8,6 +9,7 @@
 // views, the mode's part of the state). An event nobody consumes fails fast with a clear
 // error, so a verb the current mode cannot serve never hangs.
 import { useEffect, useRef } from 'react';
+import type { AgentCommand, AgentTransport } from './agentTransport';
 
 export interface AgentHandlers {
   /** current app state summary (volume, view mode, window, 3D style) */
@@ -19,12 +21,6 @@ export interface AgentHandlers {
   resetView: (full: boolean) => string | null;
   /** a newer viewer tab took over the agent connection (single-viewer contract) */
   onEvicted?: () => void;
-}
-
-interface AgentCommand {
-  id: string;
-  verb: string;
-  args: Record<string, unknown>;
 }
 
 /** Reply signature every mode-side listener uses: ok, an error for the agent, data for the state. */
@@ -119,23 +115,13 @@ async function captureSnapshot(): Promise<{ ok: boolean; result?: unknown; error
   }
 }
 
-export function useAgentBridge(handlers: AgentHandlers) {
-  // latest-handlers ref so the SSE subscription is set up exactly once
+/** Execute agent verbs arriving on `transport` (agentChannel.ts: the page queue plus this surface's loopback channel). */
+export function useAgentBridge(handlers: AgentHandlers, transport: AgentTransport) {
+  // latest-handlers ref so the subscription is set up exactly once
   const ref = useRef(handlers);
   ref.current = handlers;
 
   useEffect(() => {
-    // dead = this effect instance was cleaned up (unmount, or StrictMode's throwaway first
-    // mount). A late 'evicted' for a dead subscription must not flag the banner: the
-    // eviction came from this same tab's own replacement subscription, not a rival tab.
-    let dead = false;
-    const es = new EventSource('/api/agent/events');
-    // a newer tab subscribed: this tab is no longer the viewer — stop listening for good
-    // (no auto-reconnect, which would evict the newer tab right back)
-    es.addEventListener('evicted', () => {
-      es.close();
-      if (!dead) ref.current.onEvicted?.();
-    });
     // the App's summary plus whatever the mounted mode answers (slices, grid, pano, views)
     const fullState = async () => {
       const q = await ask('query', {}, '');
@@ -151,13 +137,7 @@ export function useAgentBridge(handlers: AgentHandlers) {
       if (!r.ok) throw new Error(r.error ?? `${name} failed`);
       return r.data ?? {};
     };
-    es.onmessage = async (msg) => {
-      let cmd: AgentCommand;
-      try {
-        cmd = JSON.parse(msg.data);
-      } catch {
-        return;
-      }
+    const run = async (cmd: AgentCommand) => {
       let ok = true;
       let result: unknown;
       let error: string | undefined;
@@ -216,19 +196,11 @@ export function useAgentBridge(handlers: AgentHandlers) {
         ok = false;
         error = e instanceof Error ? e.message : String(e);
       }
-      try {
-        await fetch('/api/agent/result', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: cmd.id, ok, result, error }),
-        });
-      } catch {
-        /* server gone — nothing to report to */
-      }
+      await transport.reply(cmd.id, { ok, result, error });
     };
-    return () => {
-      dead = true;
-      es.close();
-    };
-  }, []);
+    return transport.subscribe(
+      (cmd) => void run(cmd),
+      () => ref.current.onEvicted?.(),
+    );
+  }, [transport]);
 }

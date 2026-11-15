@@ -74,14 +74,57 @@ describe('user manual tracks the app (docs/manual/)', () => {
     }
   });
 
-  it('the interface chapter documents the help menu, names the phantom, and carries the header still', () => {
+  it('the interface chapter documents every header control and the status line, names the phantom, and carries the header still', () => {
     const chapter = read('docs/manual/03-interface.md');
-    expect(appSrc, 'the header help menu was removed or renamed').toContain('help ▾');
-    expect(chapter, '03-interface.md must document the help menu').toContain('**help ▾**');
-    expect(appSrc, 'the phantom label was removed or renamed').toContain("'Synthetic phantom'");
-    expect(chapter, '03-interface.md must name the phantom as the header does').toContain('**Synthetic phantom**');
+    // the header's controls, in their order, as the reader sees them
+    const header = appSrc.slice(appSrc.indexOf('<header'), appSrc.indexOf('</header>'));
+    for (const label of ['Open', 'Keys', 'Help']) {
+      expect(header, `the header control "${label}" was removed or renamed`).toMatch(new RegExp(`>\\s*${label}\\s*<`));
+      expect(chapter, `03-interface.md must document the header control "${label}"`).toContain(`**${label}**`);
+    }
+    expect(read('components/cbct/ExportMenu.tsx')).toMatch(/>\s*Export\s*</);
+    expect(chapter, '03-interface.md must document Export').toContain('**Export**');
+    expect(read('components/cbct/SnapshotButton.tsx')).toContain("label = 'Snapshot'");
+    expect(chapter, '03-interface.md must document Snapshot').toContain('**Snapshot**');
+    expect(read('components/cbct/agent/AgentPanel.tsx')).toContain("'Agent on' : 'Agent'");
+    expect(chapter, '03-interface.md must document the Agent button').toContain('**Agent**');
+    for (const line of ['CBCT and radiograph viewer', 'See CBCTScope on a real scan', 'never uploaded']) {
+      expect(appSrc, `"${line}" was removed or renamed`).toContain(line);
+      expect(chapter, `03-interface.md must quote "${line}"`).toContain(line);
+    }
+    // the phantom has one name, the same in the catalog and the viewer
+    expect(appSrc, 'the phantom label was removed or renamed').toContain("PHANTOM_NAME = 'Geometric test phantom'");
+    expect(read('lib/shared/phantom.ts'), 'the catalog names the phantom as the viewer does').toContain(
+      "PHANTOM_LABEL = 'Geometric test phantom'",
+    );
+    expect(chapter, '03-interface.md must name the phantom as the header does').toContain('**Geometric test phantom**');
     expect(chapter, '03-interface.md must embed the header still').toContain('../media/manual/header.webp');
     expect(existsSync(path.join(root, 'docs/media/manual/header.webp')), 'header still').toBe(true);
+  });
+
+  it('every still is embedded and every embedded still exists', () => {
+    // the website, the download menu, the desktop app and its disk image, each where the text describes it
+    const placed: [string, string][] = [
+      ['docs/manual/02-installation.md', 'site.webp'],
+      ['docs/manual/02-installation.md', 'desktop-app.webp'],
+      ['docs/manual/02-installation.md', 'disk-image.webp'],
+      ['docs/manual/03-interface.md', 'download-menu.webp'],
+    ];
+    for (const [file, still] of placed) expect(read(file), `${file} must embed ${still}`).toContain(`](../media/manual/${still})`);
+    const pages = [
+      ...readdirSync(path.join(root, 'docs/manual')).filter((n) => n.endsWith('.md')).map((n) => `docs/manual/${n}`),
+      ...readdirSync(path.join(root, 'docs/reading-modes')).filter((n) => n.endsWith('.md')).map((n) => `docs/reading-modes/${n}`),
+    ];
+    const embedded = new Set<string>();
+    for (const file of pages) {
+      for (const m of read(file).matchAll(/!\[[^\]]+\]\(\.\.\/media\/manual\/([^)]+)\)/g)) {
+        embedded.add(m[1]);
+        expect(existsSync(path.join(root, 'docs/media/manual', m[1])), `${file} embeds a missing still ${m[1]}`).toBe(true);
+      }
+    }
+    for (const name of readdirSync(path.join(root, 'docs/media/manual')).filter((n) => !n.startsWith('.'))) {
+      expect(embedded.has(name), `docs/media/manual/${name} is embedded by no manual page`).toBe(true);
+    }
   });
 
   it('every window preset is documented in the display chapter', () => {
@@ -122,6 +165,50 @@ describe('user manual tracks the app (docs/manual/)', () => {
     }
   });
 
+  it('the web build menu entries, dialogues, and posture line are documented', () => {
+    const dialogs = read('components/cbct/WebDialogs.tsx');
+    const panel = read('components/cbct/OpenProgressPanel.tsx');
+    const scan = read('lib/browser/scan.ts');
+    const surface: [string, string, string][] = [
+      [appSrc, 'Open DICOMDIR or DICOM folder', 'docs/manual/04-opening-scans.md'],
+      [appSrc, 'Open a single DICOM file', 'docs/manual/04-opening-scans.md'],
+      [appSrc, 'Drop a DICOM folder, a DICOMDIR or a single file here', 'docs/manual/04-opening-scans.md'],
+      [read('desktop/native.mjs'), 'Open DICOMDIR or DICOM Folder…', 'docs/manual/02-installation.md'],
+      [read('desktop/native.mjs'), 'Open a Single DICOM File…', 'docs/manual/04-opening-scans.md'],
+      [read('desktop/native.mjs'), 'Save Snapshot…', 'docs/manual/07-exporting.md'],
+      [read('desktop/native.mjs'), 'Check for Updates…', 'docs/manual/02-installation.md'],
+      [read('desktop/native.mjs'), 'Keyboard and Mouse Reference', 'docs/manual/12-shortcuts.md'],
+      [read('desktop/native.mjs'), 'Legal Notice', 'docs/manual/03-interface.md'],
+      [read('desktop/native.mjs'), 'CBCTScope is already running, or another program uses its port', 'docs/manual/02-installation.md'],
+      [read('desktop/native.mjs'), 'CBCTScope is already running, or another program', 'docs/manual/11-troubleshooting.md'],
+      ...['Cross-site requests are not allowed.', 'Cross-origin requests are not allowed.', 'CBCTScope only answers to localhost.', 'The agent stream is for the viewer page only.'].map(
+        (refusal): [string, string, string] => [read('desktop/bridge.mjs'), refusal, 'docs/manual/11-troubleshooting.md'],
+      ),
+      [appSrc, 'Download the desktop app', 'docs/manual/02-installation.md'],
+      [panel, 'Reading headers', 'docs/manual/04-opening-scans.md'],
+      [panel, 'Assembling the volume', 'docs/manual/04-opening-scans.md'],
+      [panel, 'Preparing the display', 'docs/manual/04-opening-scans.md'],
+      [scan, 'No DICOM volume found in', 'docs/manual/04-opening-scans.md'],
+      [appSrc, 'Save marks to file', 'docs/manual/07-exporting.md'],
+      [appSrc, 'Load marks from file', 'docs/manual/07-exporting.md'],
+      [appSrc, 'Research use only.', 'docs/manual/02-installation.md'],
+      [appSrc, 'Not a medical device.', 'docs/manual/02-installation.md'],
+      [appSrc, 'Source code repository', 'docs/manual/03-interface.md'],
+      [read('components/links.ts'), '/releases/latest', 'docs/manual/02-installation.md'],
+      // the header's download menu (components/downloads.ts): its entries, its note, its fixed names
+      ...['Mac with Apple silicon', 'Mac with Intel', 'All downloads and release notes', 'Which Mac? Apple menu, About This Mac.', 'CBCTScope-mac-arm64.dmg', 'CBCTScope-mac-x64.dmg', 'CBCTScope-windows-setup.exe'].map(
+        (s) => [read('components/downloads.ts'), s, 'docs/manual/02-installation.md'] as [string, string, string],
+      ),
+      [dialogs, 'Research use only', 'docs/manual/04-opening-scans.md'],
+      [dialogs, 'I understand', 'docs/manual/04-opening-scans.md'],
+      [dialogs, 'Large volume', 'docs/manual/04-opening-scans.md'],
+    ];
+    for (const [src, label, file] of surface) {
+      expect(src, `the web build label "${label}" was removed or renamed`).toContain(label);
+      expect(read(file), `${file} must name "${label}"`).toContain(label);
+    }
+  });
+
   it('the manifest and the manual directory agree', () => {
     const manifest = JSON.parse(read('docs/manual/manifest.json')) as { chapters: { file: string; title: string }[] };
     for (const { file } of manifest.chapters) expect(existsSync(path.join(root, file)), `manifest entry ${file}`).toBe(true);
@@ -132,12 +219,55 @@ describe('user manual tracks the app (docs/manual/)', () => {
     }
   });
 
+  it('every manual page has its own HTML title and meta description in the manifest', () => {
+    // pageTitle and description become the page's <title> and meta description only
+    // (scripts/manual-html.mjs): the question the page answers, in sentence case, plain words
+    const manifest = JSON.parse(read('docs/manual/manifest.json')) as {
+      description?: string;
+      chapters: { file: string; title: string; pageTitle?: string; description?: string }[];
+    };
+    expect((manifest.description ?? '').length, 'the manual index needs a description').toBeGreaterThan(50);
+    const titles = new Set<string>();
+    for (const c of manifest.chapters) {
+      const t = c.pageTitle ?? '';
+      const d = c.description ?? '';
+      expect(t, `${c.file} needs a pageTitle in manifest.json`).not.toBe('');
+      expect(d, `${c.file} needs a description in manifest.json`).not.toBe('');
+      expect(t.length, `${c.file}: pageTitle is too long for a search result`).toBeLessThanOrEqual(75);
+      expect(d.length, `${c.file}: description length`).toBeGreaterThanOrEqual(60);
+      expect(d.length, `${c.file}: description length`).toBeLessThanOrEqual(200);
+      expect(t[0], `${c.file}: pageTitle starts with a capital`).toMatch(/[A-Z]/);
+      expect(d, `${c.file}: description is full sentences`).toMatch(/\.$/);
+      // sentence case: after the first word, a capitalised word is a name or an abbreviation
+      const NAMES = /^(CBCTScope|CBCT|DICOM|DICOMDIR|USB|MPR|TMJ|TMJs|PNG|NIfTI|STL|HU|MIP|Mac|Windows|Node\.js|BibTeX|Dr\.|Reza|Motaghi|Pano|Grid|Reslice|Ceph|Region|Stitch)$/;
+      for (const w of t.split(/[\s:,()]+/).slice(1).filter(Boolean)) {
+        if (/^[A-Z]/.test(w)) expect(w, `${c.file}: pageTitle is in sentence case`).toMatch(NAMES);
+      }
+      expect(`${t} ${d}`, `${c.file}: an em or en dash`).not.toMatch(/[—–]/);
+      expect(titles.has(t), `${c.file}: pageTitle repeats another page's`).toBe(false);
+      titles.add(t);
+    }
+  });
+
+  it('the Help menu entries for the site pages and the citation are documented', () => {
+    const chapter = read('docs/manual/03-interface.md');
+    for (const label of ['About CBCTScope', 'Cite this software', 'Legal notice', 'Close page']) {
+      const src = label === 'Close page' ? read('components/cbct/ManualDrawer.tsx') : appSrc;
+      expect(src, `the Help menu label "${label}" was removed or renamed`).toContain(label);
+      expect(chapter, `03-interface.md must name "${label}"`).toContain(`**${label}**`);
+    }
+  });
+
   it('the front page and the citation file state the current version', () => {
     const version = (JSON.parse(read('package.json')) as { version: string }).version;
     expect(read('docs/manual/00-front.md'), `00-front.md must state version ${version}`).toContain(version);
     // CITATION.cff feeds the Zenodo deposit metadata on every GitHub release —
     // a stale version there ships a wrong citation.
     expect(read('CITATION.cff'), `CITATION.cff must state version ${version}`).toContain(`version: ${version}`);
+    // the Agent Skill ships on its own to agent hosts, so its metadata names the release it teaches
+    expect(read('skills/cbctscope-reading/SKILL.md'), `skills/cbctscope-reading/SKILL.md metadata.version must be "${version}"`).toMatch(
+      new RegExp(`^metadata:\\n(?: {2}.*\\n)*? {2}version: "${version.replace(/\./g, '\\.')}"$`, 'm'),
+    );
   });
 
   it('the citation file carries a release date at least as new as the version bump', () => {
@@ -171,8 +301,8 @@ describe('user manual tracks the app (docs/manual/)', () => {
     // The ritual: the bump commit resets doi: to the concept DOI, because the previous
     // release's version DOI becomes a wrong self-citation the moment the version changes;
     // the new version DOI exists only after the release and is pinned in a follow-up
-    // commit. The v1.5.0 bump shipped the v1.4.0 DOI with green gates, caught only in
-    // review — hence this check. Bumps up to 1.5.0 predate it and stay green.
+    // commit. Without this check a bump that keeps the previous version DOI passes every
+    // other gate. Bumps up to 1.5.0 predate the check and stay green.
     const CONCEPT_DOI = '10.5281/zenodo.21431452';
     const version = (JSON.parse(read('package.json')) as { version: string }).version;
     const [major, minor] = version.split('.').map(Number);
@@ -205,4 +335,29 @@ describe('user manual tracks the app (docs/manual/)', () => {
     const files = readdirSync(path.join(root, 'docs/manual')).filter((n) => n.endsWith('.md'));
     for (const name of files) expect(read(`docs/manual/${name}`), `${name} contains an em/en dash`).not.toMatch(/[—–]/);
   });
+
+  it('no run of four or more words is repeated back to back within a paragraph or list item', () => {
+    const manifest = JSON.parse(read('docs/manual/manifest.json')) as { chapters: { file: string }[] };
+    expect(doubledRuns('drop. In the desktop app,\nIn the desktop app, the File menu')).toEqual(['in the desktop app']);
+    expect(doubledRuns('said "these files are not dicom".\n- **"These files are not DICOM images"**')).toEqual([]);
+    for (const { file } of manifest.chapters) expect(doubledRuns(read(file)), file).toEqual([]);
+  });
 });
+
+/**
+ * The runs of four or more words a text repeats back to back, within one paragraph or list item
+ * (a blank line or a line that starts a list item, heading or table row ends a block).
+ */
+function doubledRuns(text: string): string[] {
+  const found: string[] = [];
+  const blocks = text.split(/\n\s*\n|\n(?=\s*(?:[-*+]|\d+\.|#|\|)\s)/);
+  for (const block of blocks) {
+    const w = block.toLowerCase().match(/[a-z0-9][a-z0-9'-]*/g) ?? [];
+    for (let n = 4; 2 * n <= w.length; n += 1) {
+      for (let i = 0; i + 2 * n <= w.length; i += 1) {
+        if (w.slice(i, i + n).join(' ') === w.slice(i + n, i + 2 * n).join(' ')) found.push(w.slice(i, i + n).join(' '));
+      }
+    }
+  }
+  return found;
+}

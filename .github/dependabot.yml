@@ -1,10 +1,12 @@
 version: 2
 updates:
-  # The viewer (root package.json) and the MCP server (mcp/package.json).
+  # The viewer (root package.json), the MCP server (mcp/package.json) and the site's
+  # deploy tool (deploy/package.json, the Vercel CLI alone).
   - package-ecosystem: npm
     directories:
       - '/'
       - '/mcp'
+      - '/deploy'
     schedule:
       interval: weekly
     open-pull-requests-limit: 3

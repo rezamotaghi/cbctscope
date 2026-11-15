@@ -1,12 +1,15 @@
 # CBCTScope User Manual
 
 **A complete, local-first CBCT and 2D radiograph viewer, built by a
-board-certified oral and maxillofacial radiologist. The first CBCT reading viewer with native AI-agent control, built on the rule the benchmarks now confirm: the agent moves the camera, the human reads.**
+board-certified oral and maxillofacial radiologist.**
+
+It can also be driven by an AI agent over MCP, under one rule: the agent moves
+the camera, the human reads.
 
 | | |
 |---|---|
-| Software version | 2.0.0 |
-| Manual revision | October 2026 |
+| Software version | 2.1.0 |
+| Manual revision | November 2026 |
 | Author | Dr. Reza Motaghi, oral and maxillofacial radiologist |
 | Project page | <https://github.com/rezamotaghi/cbctscope> |
 | Contact | <https://rezamotaghi.com/contact> |
@@ -27,7 +30,7 @@ for research, education, and methodological work such as multi-reader studies.
 ## How to read this manual
 
 - **Bold** text names an element you can see in the interface, such as the
-  **open** button.
+  **Open** button.
 - `Code` text is something you type, or a key you press, such as `npm run demo`
   or `R`.
 - A blockquote marked **Note** adds context; one marked **Caution** prevents a
@@ -43,7 +46,6 @@ troubleshooting, and the keyboard and mouse reference.
 
 CBCTScope is free software under the AGPL-3.0-or-later license. If you use it
 in research, please cite it: the citation record is the `CITATION.cff` file in
-the repository, and the archived releases carry DOI
-[10.5281/zenodo.21431452](https://doi.org/10.5281/zenodo.21431452). For uses
-the AGPL does not fit, a commercial license is available through the contact
-page above.
+the repository (the viewer's **Help** menu, **Cite this software**, shows it as
+a reference line and a BibTeX entry), and the archived releases carry DOI
+[10.5281/zenodo.21431452](https://doi.org/10.5281/zenodo.21431452).

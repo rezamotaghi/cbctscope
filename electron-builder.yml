@@ -1,0 +1,103 @@
+# The desktop app (docs/web-build.md, sections 9, 10 and 12): the static web build (out/) in
+# Electron, plus the loopback bridge host (desktop/bridge.mjs). electron-builder 26.18.0.
+#   npm run desktop:build   package for this OS; signs and notarises only when the credentials
+#                           are present (scripts/desktop.mjs says which ones)
+appId: com.cbctscope.app
+productName: CBCTScope
+copyright: © 2026 Reza Motaghi. AGPL-3.0-or-later.
+directories:
+  output: dist-desktop
+files:
+  - desktop/**
+  # the icon sources stay out of the package; the icns and ico are read from mac.icon / win.icon
+  - "!desktop/icon/**"
+  - out/**
+  - package.json
+  # the viewer's npm dependencies are already bundled into out/; the main process needs none
+  - "!node_modules/**"
+npmRebuild: false
+# macOS Info.plist: the app transport policy refuses arbitrary loads (electron-builder sets them
+# allowed after extendInfo, so the hook rewrites the key, then checks every key below is gone)
+afterPack: ./scripts/desktop-after-pack.mjs
+asar: true
+# Electron fuses, flipped in the binary after packing and before signing (electron-builder 26.18.0
+# `electronFuses`, docs: website/docs/tutorials/adding-electron-fuses.md). The app never runs as
+# plain Node, ignores NODE_OPTIONS and the inspect flags, and loads only its own integrity-checked
+# app.asar.
+# resetAdHocDarwinSignature re-signs the patched binary ad hoc, so an unsigned build
+# (CSC_IDENTITY_AUTO_DISCOVERY=false) still launches on Apple silicon (measured 04/11/26: without
+# it the kernel kills the app, Code Signature Invalid, in IsRunAsNodeEnabled); a signed build is
+# signed by electron-builder after the fuses anyway.
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  resetAdHocDarwinSignature: true
+mac:
+  category: public.app-category.utilities
+  # desktop/icon/: one SVG source, rendered by `npm run icon` (scripts/icon.mjs)
+  icon: desktop/icon/icon.icns
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: desktop/entitlements.mac.plist
+  entitlementsInherit: desktop/entitlements.mac.plist
+  # 26.x: notarisation runs whenever credentials are in the environment (APPLE_KEYCHAIN_PROFILE,
+  # or APPLE_API_KEY + APPLE_API_KEY_ID + APPLE_API_ISSUER, or APPLE_ID +
+  # APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID) and is skipped with a warning otherwise.
+  # scripts/desktop.mjs points a local signed build at the keychain profile `notary`.
+  notarize: true
+  # the app asks for no camera, microphone, Bluetooth or audio capture: Electron's default usage
+  # strings go (a null removes the key)
+  extendInfo:
+    NSCameraUsageDescription: null
+    NSMicrophoneUsageDescription: null
+    NSBluetoothAlwaysUsageDescription: null
+    NSBluetoothPeripheralUsageDescription: null
+    NSAudioCaptureUsageDescription: null
+  artifactName: ${productName}-${version}-${arch}-mac.${ext}
+# The disk image (docs/web-build.md, section 12): the architecture is in the file name only; the
+# volume reads "CBCTScope 2.1.0". The window is scripts/dmg-background.mjs's picture (a 1x and a
+# @2x png, which electron-builder joins into one tiff and sizes the window from). electron-builder
+# ignores `window` whenever `background` is set, so `window` here only documents the picture's
+# size and changes nothing; the icon centres match the picture, and
+# tests/dmgWindow.test.ts keeps them equal to DMG_LAYOUT. `sign` signs the dmg with the app's
+# Developer ID identity when there is one; scripts/desktop.mjs then notarises, staples and
+# validates it.
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  title: ${productName} ${version}
+  background: desktop/icon/dmg-background.png
+  window:
+    width: 640
+    height: 400
+  iconSize: 112
+  contents:
+    - x: 176
+      y: 212
+      type: file
+    - x: 464
+      y: 212
+      type: link
+      path: /Applications
+  sign: true
+# unsigned (docs/web-build.md, section 10): SmartScreen warns on first run
+win:
+  icon: desktop/icon/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+nsis:
+  artifactName: ${productName}-${version}-setup.${ext}
+  oneClick: false
+  perMachine: false
+portable:
+  artifactName: ${productName}-${version}-portable.${ext}

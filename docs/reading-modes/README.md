@@ -4,15 +4,15 @@ One guide per reading mode, each opening with an at-a-glance card and a still of
 reader moves through a volume in that mode, which controls serve which question, and where
 the mode stops.
 
-| Mode | The clinical question it answers |
+| Mode | What the view shows |
 |---|---|
 | [MPR](mpr.md) | What is here, in three dimensions: localize, follow across planes, measure in true mm, and present it. |
 | [Grid](grid.md) | Show this whole region slice by slice at a glance, at a chosen spacing and any angle. |
 | [Pano](pano.md) | Survey the dental arch and jaws in one panoramic layout, then see any point in cross-section. |
 | [TMJ](tmj.md) | What does each condyle look like in sections corrected to its own axis, and how do the sides compare? |
 | [Reslice](reslice.md) | Cut a fresh slice stack along any line or curve the fixed planes do not give. |
-| [Ceph](ceph.md) | An overall skeletal impression in a familiar projected radiographic format, reproducible off the same scan. |
-| [Region](region.md) | How large is this connected region by density, and where is it narrowest (the airway read)? |
+| [Ceph](ceph.md) | An overall skeletal overview in a familiar projected radiographic format, reproducible off the same scan. |
+| [Region](region.md) | How large is this connected region by density, and where is it narrowest (the airway view)? |
 | [Stitch](stitch.md) | Align and merge two scans of the same subject into one volume when coverage spans both. |
 
 ## The fence

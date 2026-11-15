@@ -1,7 +1,8 @@
 'use client';
-// Shared client-side CBCT volume data: fetch + cache of the normalized Int16 HU buffer from
-// /api/cbct. Used by BOTH CbctViewport (Cornerstone volume rendering) and CbctPano (direct
-// CPU curved-reformat sampling). Pure fetch/cache — no Cornerstone imports here.
+// Shared client-side CBCT volume data: load + cache of the normalized Int16 HU buffer from
+// the volume source (./source). Used by BOTH CbctViewport (Cornerstone volume rendering) and
+// CbctPano (direct CPU curved-reformat sampling). Pure load/cache, no Cornerstone imports here.
+import { source } from './source';
 
 export interface CbctMeta {
   anon: string;
@@ -61,23 +62,8 @@ export async function loadVolumeData(
   const pending = inflight.get(anon);
   if (pending) return pending;
   const p = (async () => {
-    const metaRes = await fetch(`/api/cbct/${anon}`);
-    if (!metaRes.ok) throw new Error('metadata fetch failed');
-    const meta = (await metaRes.json()) as CbctMeta;
-    const dataRes = await fetch(`/api/cbct/${anon}/data`);
-    if (!dataRes.ok || !dataRes.body) throw new Error('voxel fetch failed');
-    const total = Number(dataRes.headers.get('Content-Length') || meta.bytes);
-    const raw = new Uint8Array(total);
-    const reader = dataRes.body.getReader();
-    let off = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      raw.set(value, off);
-      off += value.length;
-      onProgress?.(off / total);
-    }
-    const scalar = new Int16Array(raw.buffer, 0, Math.floor(total / 2)); // 16-bit end-to-end
+    const meta: CbctMeta = await source.meta(anon);
+    const scalar = await source.data(anon, onProgress); // 16-bit end-to-end
     const entry = { meta, scalar };
     volCache.set(anon, entry);
     while (volCache.size > 2) volCache.delete(volCache.keys().next().value as string);
@@ -89,4 +75,20 @@ export async function loadVolumeData(
   } finally {
     inflight.delete(anon);
   }
+}
+
+// "this volume's first frame is on screen": the MPR viewport announces it after its first
+// render; the shell ends an open's progress panel on it (the other rooms draw on the CPU in
+// the same task that reports their meta, so the shell treats that report as the frame)
+const shownListeners = new Set<(anon: string) => void>();
+
+export function announceShown(anon: string): void {
+  for (const l of shownListeners) l(anon);
+}
+
+export function onVolumeShown(listener: (anon: string) => void): () => void {
+  shownListeners.add(listener);
+  return () => {
+    shownListeners.delete(listener);
+  };
 }
