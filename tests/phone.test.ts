@@ -16,11 +16,11 @@ describe('the phone page', () => {
     expect(css.split(`@media ${PHONE_MEDIA} {`)).toHaveLength(2);
   });
 
-  it('decides by the device in both orientations: a coarse pointer that cannot hover, under 768 px in width or height', () => {
+  it('decides by the device in both orientations: a coarse pointer that cannot hover, under 600 px in width or height', () => {
     const parts = PHONE_MEDIA.split(',').map((q) => q.trim());
     expect(parts).toEqual([
-      '(pointer: coarse) and (hover: none) and (max-width: 767px)',
-      '(pointer: coarse) and (hover: none) and (max-height: 767px)',
+      '(pointer: coarse) and (hover: none) and (max-width: 599px)',
+      '(pointer: coarse) and (hover: none) and (max-height: 599px)',
     ]);
   });
 

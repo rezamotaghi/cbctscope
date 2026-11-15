@@ -56,6 +56,10 @@ import { REPO_URL, RELEASES_URL, STILLS_URL } from '@/components/links';
 import { downloadEntries } from '@/components/downloads';
 import { onMenuButtonKeyDown, onMenuKeyDown, useDismiss, useKeepInViewport } from './menus';
 
+/** the narrow-window notice, per pointer: a mouse or trackpad, and a touch device (app/globals.css picks one) */
+const NARROW_NOTICE_POINTER = 'This window is too narrow to read in. Widen it to at least 768 px, or zoom out with Ctrl or Command and the minus key.';
+const NARROW_NOTICE_TOUCH = 'This screen is too narrow to read in upright. Turn the device sideways.';
+
 interface ListEntry {
   anon: string;
   /** 'mf' | 'slices' = CBCT volume · 'xray' = single 2D radiograph */
@@ -838,11 +842,15 @@ export default function CbctApp({ citation }: { citation?: Citation }) {
           </button>
         </div>
       )}
-      {/* below 768 CSS px (a narrow, split or zoomed window on a computer; a phone never mounts
-          the viewer): the viewer stays as it is, and this says why it is cramped and what to do.
-          It comes first in the document so it is read first; CSS order shows it under the header. */}
+      {/* below 768 CSS px (a narrow, split or zoomed window on a computer, or a small tablet held
+          upright; a phone never mounts the viewer): the viewer stays as it is, and this says why
+          it is cramped and what to do. It comes first in the document so it is read first; CSS
+          order shows it under the header. The stylesheet shows one wording by the pointer, from
+          the first paint: widen or zoom out with a mouse or trackpad, turn sideways on a touch
+          device (a coarse pointer that cannot hover). */}
       <div className="narrow-notice" role="note" data-testid="narrow-notice">
-        This window is too narrow to read in. Widen it to at least 768 px, or zoom out with Ctrl or Command and the minus key.
+        <span className="narrow-pointer">{NARROW_NOTICE_POINTER}</span>
+        <span className="narrow-touch">{NARROW_NOTICE_TOUCH}</span>
       </div>
       {/* the header: one row where the width holds it, in reading order: what this is, the
           modes, the volume, the actions, then Keys, Help, Agent and the desktop download */}

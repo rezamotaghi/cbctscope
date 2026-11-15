@@ -4,6 +4,7 @@
 // finds them, and every link, in the exported HTML. docs/posture.md, rule 2: a first sentence
 // names the viewer and its author and no AI word.
 import { AUTHOR_PROJECT_URL, RELEASES_URL, REPO_URL } from './links';
+import { SITE_NAME } from './site';
 import { SITE_URL } from './siteAddress.mjs';
 
 /** the author as the manual's author line and the About badge name him */
@@ -44,15 +45,26 @@ export const PHONE_STILL = {
   height: 685,
   alt: 'CBCTScope reading a real CBCT in MPR: axial, sagittal and coronal slices of the jaws with the crosshairs on a molar, a bone-only 3D render, and the tool and window controls beside them.',
 };
-/** the three controls: the manual, the release page (a phone cannot run the installers), and a mail to oneself */
-export const PHONE_ACTIONS: readonly (SiteLink & { testId: string })[] = [
+/**
+ * What the third control hands the phone's share sheet (components/ShareLink.tsx): the site's
+ * name and canonical address, nothing else.
+ */
+export const PHONE_SHARE = { title: SITE_NAME, url: SITE_URL } as const;
+/**
+ * The three controls: the manual, the release page (a phone cannot run the installers), and the
+ * site's address sent to oneself: the phone's share sheet where the browser has one, else a mail.
+ */
+export const PHONE_ACTIONS: readonly (SiteLink & { testId: string; share?: typeof PHONE_SHARE })[] = [
   { href: 'manual/index.html', label: 'User manual', testId: 'phone-manual' },
   { href: RELEASES_URL, label: 'Desktop app downloads', external: true, testId: 'phone-downloads' },
   {
-    // no recipient: the phone's own mail app opens and the reader addresses it; the page sends nothing
-    href: `mailto:?subject=${encodeURIComponent('CBCTScope')}&body=${encodeURIComponent(SITE_URL)}`,
+    // no recipient: the phone's own mail app opens and the reader addresses it; the page sends
+    // nothing. Where navigator.share exists a tap opens the share sheet instead, and this href is
+    // what remains without JavaScript, without the API, or when the sheet fails to open.
+    href: `mailto:?subject=${encodeURIComponent(SITE_NAME)}&body=${encodeURIComponent(SITE_URL)}`,
     label: 'Send this link to myself',
     testId: 'phone-mail',
+    share: PHONE_SHARE,
   },
 ];
 

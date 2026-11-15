@@ -110,8 +110,10 @@ what teaches the mouse, so the header keeps to controls:
 
 In a window narrower than 768 px a notice above the viewer, read before the
 header, says the window is too narrow to read in and to widen it or zoom out
-(Ctrl or Command and the minus key). The viewer, the open scan and the agent
-stay as they are. A phone gets a short page instead of the viewer
+(Ctrl or Command and the minus key). On a touch device, such as a small
+tablet held upright, it says instead that the screen is too narrow to read
+in upright and to turn the device sideways. The viewer, the open scan and
+the agent stay as they are. A phone gets a short page instead of the viewer
 (section 2.1).
 
 ## 3.3 The mode area

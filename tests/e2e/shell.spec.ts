@@ -111,8 +111,10 @@ test('below 768 px on a computer the viewer stays mounted under a full-contrast 
   await load(page, 700, 900);
   const notice = page.getByTestId('narrow-notice');
   await expect(notice).toBeVisible();
+  // the mouse wording only: the touch wording is in the document but not displayed
   await expect(notice).toHaveText(
     'This window is too narrow to read in. Widen it to at least 768 px, or zoom out with Ctrl or Command and the minus key.',
+    { useInnerText: true },
   );
   expect(await notice.evaluate((el) => getComputedStyle(el).color)).toBe('rgb(230, 233, 239)');
   await expect(page.getByTestId('phone-landing')).toHaveCount(0);

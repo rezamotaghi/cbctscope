@@ -7,9 +7,12 @@
 // then a picture, the line that CBCTScope reads scans on a computer, three full-width controls
 // and a short row of links. app/globals.css shows those, and hides the loading line and the long
 // list, on a phone (components/phone.ts), from the first paint; on a phone the viewer is never
-// mounted. No hooks: it renders the same on the server and in the browser.
+// mounted. No hooks: it renders the same on the server and in the browser. The phone page is
+// still hydrated (HomeViewer renders this component on a phone), which is how the share control's
+// click handler (components/ShareLink.tsx) is attached there.
 import React from 'react';
 import { AUTHOR_URL } from './links';
+import ShareLink from './ShareLink';
 import {
   HOME_AUTHOR_NAME,
   HOME_LEAD,
@@ -91,7 +94,9 @@ function PhonePart() {
       <p className="phone-computer">{PHONE_COMPUTER}</p>
       <nav className="phone-actions" aria-label="CBCTScope on a computer">
         {PHONE_ACTIONS.map((a) =>
-          a.external ? (
+          a.share ? (
+            <ShareLink key={a.href} className="phone-action" testId={a.testId} href={a.href} label={a.label} share={a.share} />
+          ) : a.external ? (
             <a key={a.href} className="phone-action" data-testid={a.testId} href={a.href} target="_blank" rel="noopener noreferrer">
               {a.label}
             </a>

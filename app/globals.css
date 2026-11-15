@@ -430,8 +430,11 @@ textarea:focus-visible,
   }
 }
 
-/* below 768 CSS px on a computer (a narrow, split or zoomed window): the viewer stays mounted,
-   and a full-contrast notice above it says the window is too narrow to read in and what to do */
+/* below 768 CSS px (a narrow, split or zoomed window on a computer, or a small tablet held
+   upright): the viewer stays mounted, and a full-contrast notice above it says the window is too
+   narrow to read in and what to do. Its wording follows the pointer from the first paint: widen
+   or zoom out with a mouse or trackpad; turn the device sideways on a coarse pointer that cannot
+   hover (a finger), the same features components/phone.ts reads. */
 .narrow-notice {
   display: none;
   order: 1; /* first in the document, shown under the header */
@@ -444,6 +447,17 @@ textarea:focus-visible,
 @media (max-width: 767px) {
   .narrow-notice {
     display: block;
+  }
+}
+.narrow-touch {
+  display: none;
+}
+@media (pointer: coarse) and (hover: none) {
+  .narrow-pointer {
+    display: none;
+  }
+  .narrow-touch {
+    display: inline;
   }
 }
 
@@ -567,7 +581,7 @@ body > div.site-intro {
 .phone-page {
   display: none;
 }
-@media (pointer: coarse) and (hover: none) and (max-width: 767px), (pointer: coarse) and (hover: none) and (max-height: 767px) {
+@media (pointer: coarse) and (hover: none) and (max-width: 599px), (pointer: coarse) and (hover: none) and (max-height: 599px) {
   .site-intro .intro-links,
   .site-intro .site-loading,
   .site-intro .site-nojs {

@@ -23,14 +23,20 @@
   computer the viewer stays open at any window size: in a window narrower
   than 768 px (narrowed, split beside another window, or zoomed in) a notice
   above the viewer says it is too narrow to read in and to widen the window
-  or zoom out, and nothing you have open is lost.
+  or zoom out, and nothing you have open is lost. On a touch tablet held
+  upright and narrower than 768 px, such as an iPad mini, the notice says
+  instead that the screen is too narrow upright and to turn the device
+  sideways.
 - **Not a phone.** On a phone, in either orientation, cbctscope.com shows a
   short page instead of the viewer: what CBCTScope is, a picture of it, the
   line that it reads scans on a computer, and buttons for the user manual,
-  the desktop app downloads, and "Send this link to myself", which opens a
-  new message in your phone's mail app that carries the site's address; you
-  choose the recipient. A tablet at least 768 px on both sides gets the
-  viewer.
+  the desktop app downloads, and "Send this link to myself", which opens
+  your phone's share sheet with the site's address, so you can send it to
+  your computer, message it, save it to a note, or copy it; where the
+  browser has no share sheet, it opens a new message in your phone's mail
+  app that carries the address, and you choose the recipient. The page
+  sends nothing itself. A tablet, at least 600 px on its shorter side, gets
+  the viewer.
 - **macOS, Windows, or Linux.** The file-open dialog is native on macOS and
   Windows; on Linux it uses the desktop's dialog helper (zenity or kdialog,
   one of which most distributions ship). Section 4.4 gives a one-line

@@ -2,7 +2,8 @@
 // manual section 2.1), in touch contexts: a coarse pointer that cannot hover, as Chromium's
 // mobile emulation reports it (checked with matchMedia before anything relies on it). On a
 // phone, in either orientation, the viewer never mounts and its code, WASM and volume are never
-// requested; a tablet of 768 by 1024 or more gets the viewer.
+// requested. The line is 600 px on the shorter side: phones end near 440 px, so every tablet,
+// the iPad mini's 744 by 1133 included, gets the viewer.
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import { guardPage, waitForVolume } from './helpers';
 
@@ -146,6 +147,183 @@ test('a touch tablet of 1024 x 768 gets the viewer, without the narrow-window no
   await waitForVolume(page);
   await expect(page.getByTestId('phone-landing')).toHaveCount(0);
   await expect(page.getByTestId('narrow-notice')).toBeHidden();
+  expect(problems).toEqual([]);
+  await ctx.close();
+});
+
+const TURN = 'This screen is too narrow to read in upright. Turn the device sideways.';
+
+/** what of the viewer's header, pane buttons and open menus lies outside the viewport */
+async function offScreen(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const vw = document.documentElement.clientWidth;
+    const vh = document.documentElement.clientHeight;
+    return Array.from(
+      document.querySelectorAll<HTMLElement>('header button, header select, header a, main [data-pane] button, main [data-pane] input, [role="menu"]'),
+    )
+      .filter((el) => getComputedStyle(el).visibility !== 'hidden')
+      .map((el) => ({ name: el.getAttribute('aria-label') || el.textContent?.trim().slice(0, 30) || el.tagName, r: el.getBoundingClientRect() }))
+      .filter(({ r }) => r.width > 0 && (r.left < -0.5 || r.top < -0.5 || r.right > vw + 0.5 || r.bottom > vh + 0.5))
+      .map(({ name, r }) => `${name} at ${Math.round(r.left)},${Math.round(r.top)} to ${Math.round(r.right)},${Math.round(r.bottom)}`);
+  });
+}
+
+test('an iPad mini upright at 744 x 1133 gets the viewer under the turn-sideways notice, with nothing off the screen', async ({ browser, baseURL }) => {
+  const { ctx, page, problems } = await touch(browser, baseURL as string, 744, 1133);
+  await page.goto('/');
+  await expectPhoneMedia(page);
+  await waitForVolume(page);
+  await expect(page.getByTestId('phone-landing')).toHaveCount(0);
+  const notice = page.getByTestId('narrow-notice');
+  await expect(notice).toBeVisible();
+  await expect(notice).toHaveText(TURN, { useInnerText: true });
+  expect(await sideways(page)).toBeLessThanOrEqual(0);
+  await expect(page.locator('main [data-overlay="buttons"] button').first()).toBeVisible({ timeout: 60_000 });
+  expect(await offScreen(page), 'with every menu closed').toEqual([]);
+  // each of the header's menus, opened by a tap, stays on the screen
+  const menus = page.locator('header [aria-haspopup="menu"]');
+  const n = await menus.count();
+  expect(n).toBeGreaterThan(0);
+  for (let i = 0; i < n; i++) {
+    const b = menus.nth(i);
+    const name = (await b.getAttribute('aria-label')) || (await b.innerText());
+    await b.tap();
+    await expect(page.getByRole('menu').first(), name).toBeVisible();
+    expect(await offScreen(page), `with ${name} open`).toEqual([]);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+  }
+  await expect(page.getByText(/Loading volume/)).toHaveCount(0);
+  await page.screenshot({ path: test.info().outputPath('touch-744x1133.png') });
+  expect(problems).toEqual([]);
+  await ctx.close();
+});
+
+test('an iPad mini sideways at 1133 x 744 gets the viewer with no notice', async ({ browser, baseURL }) => {
+  const { ctx, page, problems } = await touch(browser, baseURL as string, 1133, 744);
+  await page.goto('/');
+  await expectPhoneMedia(page);
+  await waitForVolume(page);
+  await expect(page.getByTestId('phone-landing')).toHaveCount(0);
+  await expect(page.getByTestId('narrow-notice')).toBeHidden();
+  expect(await sideways(page)).toBeLessThanOrEqual(0);
+  await expect(page.locator('main [data-overlay="buttons"] button').first()).toBeVisible({ timeout: 60_000 });
+  expect(await offScreen(page)).toEqual([]);
+  await expect(page.getByText(/Loading volume/)).toHaveCount(0);
+  await page.screenshot({ path: test.info().outputPath('touch-1133x744.png') });
+  expect(problems).toEqual([]);
+  await ctx.close();
+});
+
+test('a touch screen of 600 x 960, the line itself, gets the viewer', async ({ browser, baseURL }) => {
+  const { ctx, page, problems } = await touch(browser, baseURL as string, 600, 960);
+  await page.goto('/');
+  await expectPhoneMedia(page);
+  await waitForVolume(page);
+  await expect(page.getByTestId('phone-landing')).toHaveCount(0);
+  await expect(page.getByTestId('narrow-notice')).toHaveText(TURN, { useInnerText: true });
+  expect(problems).toEqual([]);
+  await ctx.close();
+});
+
+// every phone size, and one pixel under the line, upright and sideways: the phone page
+for (const [w, h] of [
+  [599, 960],
+  [320, 568],
+  [375, 812],
+  [430, 932],
+] as const) {
+  for (const [width, height] of [
+    [w, h],
+    [h, w],
+  ] as const) {
+    test(`a touch screen of ${width} x ${height} gets the phone page`, async ({ browser, baseURL }) => {
+      const { ctx, page, problems } = await touch(browser, baseURL as string, width, height);
+      await page.goto('/');
+      await expectPhoneMedia(page);
+      await expect(page.getByTestId('phone-landing')).toBeVisible();
+      await settled(page);
+      await expect(page.locator('canvas')).toHaveCount(0);
+      expect(problems).toEqual([]);
+      await ctx.close();
+    });
+  }
+}
+
+// "Send this link to myself" (components/ShareLink.tsx): the share sheet where navigator.share
+// exists, the mail link where it does not. The page's navigator.share is a stub that records its
+// calls; a window listener in the bubble phase, after React's own, records whether the tap's
+// default (following the mailto:) was prevented, then prevents it so no mail client is asked for.
+type ShareMode = 'resolve' | 'abort' | 'absent';
+async function shareTap(browser: Browser, baseURL: string, mode: ShareMode) {
+  const t = await touch(browser, baseURL, 375, 812);
+  await t.page.addInitScript((m: ShareMode) => {
+    const w = window as unknown as { __shares: unknown[]; __defaults: boolean[] };
+    w.__shares = [];
+    w.__defaults = [];
+    if (m === 'absent') {
+      delete (Navigator.prototype as { share?: unknown }).share;
+      delete (navigator as { share?: unknown }).share;
+    } else {
+      Object.defineProperty(Navigator.prototype, 'share', {
+        configurable: true,
+        value: (data: unknown) => {
+          w.__shares.push(data);
+          return m === 'abort' ? Promise.reject(new DOMException('Share canceled', 'AbortError')) : Promise.resolve();
+        },
+      });
+    }
+    window.addEventListener('click', (e) => {
+      if (!(e.target as Element).closest('[data-testid="phone-mail"]')) return;
+      w.__defaults.push(e.defaultPrevented);
+      e.preventDefault();
+    });
+  }, mode);
+  await t.page.goto('/');
+  const link = t.page.getByTestId('phone-mail');
+  await expect(link).toBeVisible();
+  // hydrated: React has attached its props, and with them the click handler
+  await expect.poll(() => link.evaluate((el) => Object.keys(el).some((k) => k.startsWith('__reactProps')))).toBe(true);
+  const before = t.page.url();
+  await link.tap();
+  const record = () =>
+    t.page.evaluate(() => {
+      const w = window as unknown as { __shares: unknown[]; __defaults: boolean[] };
+      return { __shares: w.__shares, __defaults: w.__defaults };
+    });
+  await expect.poll(async () => (await record()).__defaults.length).toBe(1);
+  return { ...t, link, before, record };
+}
+
+test('with a share sheet, a tap shares the site address and title once and does not navigate', async ({ browser, baseURL }) => {
+  const { ctx, page, problems, link, before, record } = await shareTap(browser, baseURL as string, 'resolve');
+  const r = await record();
+  expect(r.__shares).toEqual([{ title: 'CBCTScope', url: 'https://cbctscope.com' }]);
+  expect(r.__defaults).toEqual([true]);
+  expect(page.url()).toBe(before);
+  await expect(link).toHaveAttribute('href', CONTROLS[2][1]);
+  expect(problems).toEqual([]);
+  await ctx.close();
+});
+
+test('a cancelled share sheet leaves the page where it is, with no mail link followed', async ({ browser, baseURL }) => {
+  const { ctx, page, problems, before, record } = await shareTap(browser, baseURL as string, 'abort');
+  const r = await record();
+  expect(r.__shares).toHaveLength(1);
+  expect(r.__defaults).toEqual([true]);
+  await page.evaluate(() => new Promise((res) => setTimeout(res, 50)));
+  expect(page.url()).toBe(before);
+  await expect(page.getByTestId('phone-landing')).toBeVisible();
+  expect(problems).toEqual([]);
+  await ctx.close();
+});
+
+test('without navigator.share the control stays a plain mailto: link and the tap keeps its default', async ({ browser, baseURL }) => {
+  const { ctx, problems, link, record } = await shareTap(browser, baseURL as string, 'absent');
+  const r = await record();
+  expect(r.__shares).toEqual([]);
+  expect(r.__defaults, 'the link default was not prevented').toEqual([false]);
+  await expect(link).toHaveAttribute('href', CONTROLS[2][1]);
   expect(problems).toEqual([]);
   await ctx.close();
 });
