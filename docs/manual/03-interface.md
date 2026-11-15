@@ -64,8 +64,10 @@ left to right:
    privacy summary) and **Legal notice** (the legal notice, privacy, research
    use, licence and warranty) open the same way: in the drawer, with
    **Close page**, or in a new tab on the website. **Cite this software** opens a small
-   dialogue with a reference line and a BibTeX entry, both taken from the
-   repository's citation file, each with a copy button that copies it to the
+   dialogue with a reference line and a BibTeX entry: the authors, title,
+   version and year from the repository's citation file,
+   and the project's DOI, which always leads to the newest archived version;
+   each has a copy button that copies it to the
    clipboard when clicked; **Close** or Escape closes it. The links inside the
    manual to other pages of the project open only when you click them; the
    viewer itself never contacts the network (chapter 10).

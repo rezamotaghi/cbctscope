@@ -1,7 +1,8 @@
 // /update: the page the desktop app's Check for Updates item opens in the browser, with the
 // installed version after the # sign (desktop/native.mjs updateUrl). The newest version is
 // read from package.json at build time; the release job deploys the site with every release,
-// so the site always knows it. The app contacts nothing: the browser loads this page, and the
+// and a site update between releases deploys only while the latest release is that version
+// (scripts/release-assets.mjs --site-update), so the site always knows it. The app contacts nothing: the browser loads this page, and the
 // part after the # never reaches a server. Not indexed and not in the sitemap
 // (scripts/sitemap.mjs NOINDEX_PAGES).
 import SitePage from '@/components/SitePage';

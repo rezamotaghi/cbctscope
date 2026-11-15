@@ -1,7 +1,7 @@
 {
   "name": "cbctscope-deploy",
   "private": true,
-  "description": "The Vercel CLI that deploys the site from the release job (docs/web-build.md, section 9). Not part of the app.",
+  "description": "The Vercel CLI that deploys the site from the release and site update workflows (docs/web-build.md, section 9). Not part of the app.",
   "license": "AGPL-3.0-or-later",
   "devDependencies": {
     "vercel": "65.5.0"

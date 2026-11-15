@@ -28,6 +28,13 @@ export const AUTHOR_GITHUB = 'https://github.com/rezamotaghi';
 /** the DOI resolver: a citation's DOI as a link the reader clicks (components/citation.ts) */
 export const DOI_RESOLVER = 'https://doi.org/';
 
+/**
+ * The project's concept DOI on Zenodo, which always resolves to the newest archived version.
+ * The site and the app cite it whatever CITATION.cff's doi: holds (components/citation.ts);
+ * tests/manual.test.ts checks that a version bump resets CITATION.cff to it.
+ */
+export const CONCEPT_DOI = '10.5281/zenodo.21431452';
+
 /** the legal page's links: the site host's and the installers' host's own privacy statements, and the Austrian data protection authority */
 export const VERCEL_PRIVACY_URL = 'https://vercel.com/legal/privacy-policy';
 export const GITHUB_PRIVACY_URL = 'https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement';

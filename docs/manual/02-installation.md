@@ -100,7 +100,8 @@ On first launch both modes show the built-in phantom.
 ## 2.5 The web build
 
 The viewer also runs in a browser with nothing installed: the **web build**,
-deployed to cbctscope.com by every published release. It is static files only,
+deployed to cbctscope.com by every published release, and between releases
+when only the website changes. It is static files only,
 with no server behind it. It needs only a current desktop
 browser with WebGL2; Chrome or Edge read folders most reliably (chapter 11).
 
@@ -261,9 +262,10 @@ right after About; near the end of **Help** on Windows, before About) and
 update page in your browser. The installed version travels after the `#`
 sign of the address, for example `https://cbctscope.com/update#from=2.1.0`:
 browsers keep that part of an address to themselves and do not send it to
-any server. The page compares it with the newest version, which the site
-knows because every release publishes the site again, and says which is
-newer: "You have CBCTScope 2.1.0. The newest version is 2.2.0." with the
+any server. The page compares it with the newest version, the latest
+release's, which the site always carries (every release publishes the site
+again, and an update of the website between releases keeps that version), and
+says which is newer: "You have CBCTScope 2.1.0. The newest version is 2.2.0." with the
 downloads and the release notes, or "You have the newest version of
 CBCTScope, 2.1.0.". For a version newer than the page knows (a build of your
 own, or a release the site has not caught up with) it says which version it

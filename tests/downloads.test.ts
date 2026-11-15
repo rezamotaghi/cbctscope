@@ -1,13 +1,14 @@
 // The header's download menu (components/downloads.ts) and the release job that makes its links
-// work: the fixed installer names, the link addresses, the per-system order, and release.yml
-// attaching byte copies under exactly those names after signing, notarisation and stapling.
+// work: the fixed installer names, the link addresses, the per-system order, release.yml
+// attaching byte copies under exactly those names after signing, notarisation and stapling, and
+// the guard of scripts/release-assets.mjs in its two modes (the release, the site update).
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { INSTALLER_NAMES, MAC_NOTE, downloadEntries, downloadSystem, installerUrl } from '../components/downloads';
 import { RELEASES_URL } from '../components/links';
-import { REQUIRED_ASSETS, latestProblem, missingAssets, nextPage } from '../scripts/release-assets.mjs';
+import { REQUIRED_ASSETS, checkSiteUpdate, latestProblem, missingAssets, nextPage, siteUpdateMissingLines, siteUpdateProblem, tagFor } from '../scripts/release-assets.mjs';
 
 const root = path.resolve(__dirname, '..');
 const workflowText = readFileSync(path.join(root, '.github/workflows/release.yml'), 'utf8');
@@ -209,5 +210,79 @@ describe('the deploy job ships the site only when the release carries the three 
 
   it('the rehearsal, which has no release, does not run it', () => {
     expect(readFileSync(path.join(root, '.github/workflows/site-rehearsal.yml'), 'utf8')).not.toMatch(/release-assets/);
+  });
+});
+
+describe('a site update ships only when the latest release is the version the site carries', () => {
+  const API = 'https://api.github.test';
+  const REPO = 'owner/repo';
+  const all = Object.values(INSTALLER_NAMES).map((name) => ({ name, state: 'uploaded' }));
+
+  /** a fetch that answers from a table of url to [status, body], and throws for any other url */
+  const fakeFetch = (table: Record<string, [number, unknown] | Error>) =>
+    (async (url: string | URL | Request) => {
+      const answer = table[String(url)];
+      if (!answer) throw new Error(`unexpected request ${String(url)}`);
+      if (answer instanceof Error) throw answer;
+      const [status, body] = answer;
+      return new Response(JSON.stringify(body), { status });
+    }) as typeof fetch;
+  const LATEST = `${API}/repos/${REPO}/releases/latest`;
+  const ASSETS = `${API}/repos/${REPO}/releases/77/assets?per_page=100`;
+  const check = (table: Record<string, [number, unknown] | Error>, version = '2.1.1') =>
+    checkSiteUpdate({ api: API, repository: REPO, token: '', version, fetchImpl: fakeFetch(table) });
+
+  it('the tag is v and the version', () => {
+    expect(tagFor('2.1.1')).toBe('v2.1.1');
+  });
+
+  it('passes when the latest release has the tag of the version, and refuses another tag, no latest release, or another answer', () => {
+    expect(siteUpdateProblem(200, 'v2.1.1', '2.1.1')).toBeNull();
+    expect(siteUpdateProblem(200, 'v2.1.0', '2.1.1')).toBe(
+      "release-assets: the latest release is v2.1.0, but package.json on this commit says 2.1.1, so the site would name a version whose installers are not published; publish v2.1.1 as a release instead (it deploys the site), or run the site update from a commit whose version is the latest release's",
+    );
+    // a tag without the v, or a release whose answer carries no tag, is not the version's tag
+    expect(siteUpdateProblem(200, '2.1.1', '2.1.1')).toMatch(/the latest release is 2\.1\.1, but package\.json/);
+    expect(siteUpdateProblem(200, null, '2.1.1')).toMatch(/the latest release is null/);
+    expect(siteUpdateProblem(404, null, '2.1.1')).toMatch(/no latest release.*publish v2\.1\.1 as the latest release with the release workflow/);
+    expect(siteUpdateProblem(500, null, '2.1.1')).toBe('release-assets: GitHub answered 500 for the latest release; run the site update again later');
+    expect(siteUpdateProblem(403, null, '2.1.1')).toMatch(/answered 403.*run the site update again/);
+  });
+
+  it('names each installer the latest release lacks, and says to attach it and run again', () => {
+    expect(siteUpdateMissingLines([], 'v2.1.1')).toEqual([]);
+    expect(siteUpdateMissingLines([INSTALLER_NAMES.macX64], 'v2.1.1')).toEqual([
+      'release-assets: release v2.1.1 lacks 1 of the 3 installers the download menu links to, so the site is not deployed:',
+      `  ${INSTALLER_NAMES.macX64}`,
+      'release-assets: attach them to release v2.1.1, then run the site update again',
+    ]);
+  });
+
+  it('reads the latest release, then that release\'s assets: tag equal and all three installers pass', async () => {
+    expect(await check({ [LATEST]: [200, { id: 77, tag_name: 'v2.1.1' }], [ASSETS]: [200, all] })).toEqual([]);
+  });
+
+  it('a different tag refuses before the assets are read', async () => {
+    const lines = await check({ [LATEST]: [200, { id: 77, tag_name: 'v2.1.0' }] });
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatch(/the latest release is v2\.1\.0, but package\.json on this commit says 2\.1\.1/);
+  });
+
+  it('no latest release refuses', async () => {
+    expect(await check({ [LATEST]: [404, { message: 'Not Found' }] })).toEqual([siteUpdateProblem(404, null, '2.1.1')]);
+  });
+
+  it('missing installers refuse, naming each', async () => {
+    const lines = await check({ [LATEST]: [200, { id: 77, tag_name: 'v2.1.1' }], [ASSETS]: [200, all.filter((a) => a.name !== INSTALLER_NAMES.windowsSetup)] });
+    expect(lines).toEqual(siteUpdateMissingLines([INSTALLER_NAMES.windowsSetup], 'v2.1.1'));
+  });
+
+  it('fails closed: a network error, a non-200 answer, or a version that is not major.minor.patch', async () => {
+    await expect(check({ [LATEST]: new TypeError('fetch failed') })).rejects.toThrow(/could not read the latest release.*fetch failed/);
+    await expect(check({ [LATEST]: [200, { id: 77, tag_name: 'v2.1.1' }], [ASSETS]: new TypeError('fetch failed') })).rejects.toThrow(/could not read the release's assets/);
+    await expect(check({ [LATEST]: [200, { id: 77, tag_name: 'v2.1.1' }], [ASSETS]: [502, {}] })).rejects.toThrow(/GitHub answered 502/);
+    await expect(check({ [LATEST]: [200, { tag_name: 'v2.1.1' }] })).rejects.toThrow(/carries no release id/);
+    expect(await check({ [LATEST]: [503, {}] })).toEqual([siteUpdateProblem(503, null, '2.1.1')]);
+    expect(await check({}, '2.1.1-beta')).toEqual(['release-assets: package.json\'s version "2.1.1-beta" is not major.minor.patch; set a release version there']);
   });
 });

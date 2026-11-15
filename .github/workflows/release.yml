@@ -1,8 +1,9 @@
 name: Release
 
-# The web build ships from a published release only (docs/web-build.md, section 9); a push
-# deploys nothing, and the Vercel project is not connected to the repository, so this workflow is
-# the site's one way out. Every build job waits for the full test job (typecheck, lint, unit,
+# The web build ships from a published release (docs/web-build.md, section 9), or between
+# releases, at the same version, from site-update.yml; a push deploys nothing, and the Vercel
+# project is not connected to the repository, so these two workflows are the site's only ways
+# out. Every build job waits for the full test job (typecheck, lint, unit,
 # the web build, the end-to-end suite). The desktop jobs build with a read-only token and
 # upload their packages as workflow artifacts; one publish job, the only one with contents:
 # write, attaches them to the release. Signing and notarisation secrets reach the packaging
@@ -18,10 +19,6 @@ on:
 # Least privilege: every job reads the repo; only publish writes, to the release.
 permissions:
   contents: read
-
-concurrency:
-  group: site
-  cancel-in-progress: false
 
 jobs:
   test:
@@ -81,8 +78,14 @@ jobs:
     needs: [build, publish]
     if: ${{ !cancelled() && needs.build.result == 'success' && needs.publish.result == 'success' }}
     runs-on: ubuntu-latest
-    # the environment's secrets reach this job only, and only for a release tag
+    # of the jobs written here, this one and site-update.yml's deploy read the environment's
+    # secrets; who could is set by the environment's rules (docs/web-build.md, section 9, step 11)
     environment: production
+    # only the deploys take turns, this one and site-update.yml's, so the tests and the installer
+    # builds never queue; a deploy waiting behind another can be replaced by a newer waiting one
+    concurrency:
+      group: site
+      cancel-in-progress: false
     # two installs, one upload of the built files and one check: minutes, not an hour
     timeout-minutes: 30
     steps:

@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
+import { CONCEPT_DOI } from '../components/links';
 
 const root = process.cwd();
 const read = (p: string) => readFileSync(path.join(root, p), 'utf8');
@@ -303,7 +304,6 @@ describe('user manual tracks the app (docs/manual/)', () => {
     // the new version DOI exists only after the release and is pinned in a follow-up
     // commit. Without this check a bump that keeps the previous version DOI passes every
     // other gate. Bumps up to 1.5.0 predate the check and stay green.
-    const CONCEPT_DOI = '10.5281/zenodo.21431452';
     const version = (JSON.parse(read('package.json')) as { version: string }).version;
     const [major, minor] = version.split('.').map(Number);
     if (major < 1 || (major === 1 && minor <= 5)) return;

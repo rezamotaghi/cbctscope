@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// The post-deploy check of the site (docs/web-build.md, section 9). The release job runs it
-// against the production deployment it just made, the rehearsal workflow against a preview,
-// and the owner against https://cbctscope.com once the address records point at Vercel.
+// The post-deploy check of the site (docs/web-build.md, section 9). The release and the site
+// update workflows run it against the production deployment they just made, the rehearsal
+// workflow against a preview, and the owner against https://cbctscope.com once the address
+// records point at Vercel.
 // Fail-closed: any problem exits 1.
 //
 //   node scripts/site-check.mjs --base <url> [--out out] [--attempts 3]
