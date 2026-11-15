@@ -16,7 +16,8 @@ export default defineConfig({
   workers: 1,
   retries: process.env.CI ? 1 : 0,
   timeout: 90_000,
-  reporter: process.env.CI ? 'github' : 'list',
+  // on GitHub: annotations for failures, and one line per test so a long run can be followed in the log
+  reporter: process.env.CI ? [['github'], ['list']] : 'list',
   use: {
     ...devices['Desktop Chrome'],
     viewport: { width: 1600, height: 1000 },
