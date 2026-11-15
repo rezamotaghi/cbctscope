@@ -35,13 +35,38 @@ export const FILE_INPUT = 'open-file-input';
 export const SNAPSHOT_BUTTON = 'snapshot-button';
 
 // ---------------------------------------------------------------- the menu's hooks into the page
+const SCRIPT_ESCAPES = {
+  '<': '\\u003C',
+  '>': '\\u003E',
+  '/': '\\u002F',
+  '\b': '\\b',
+  '\f': '\\f',
+  '\n': '\\n',
+  '\r': '\\r',
+  '\t': '\\t',
+  '\0': '\\0',
+  '\u2028': '\\u2028',
+  '\u2029': '\\u2029',
+};
+
+/**
+ * A string as a JavaScript literal for generated script text. JSON.stringify quotes it; the
+ * characters that could close a script element or end a line are then written as escapes, so
+ * the literal reads back as the same string wherever the script text is placed.
+ * @param {string} value
+ */
+export function scriptLiteral(value) {
+  return JSON.stringify(String(value)).replace(/[<>/\b\f\n\r\t\0\u2028\u2029]/g, (c) => SCRIPT_ESCAPES[c]);
+}
+
 /**
  * The script that clicks one of the page's controls by its test id, run with a user gesture so
  * a file picker or a download may follow. A control that is absent or disabled is left alone.
  * @param {string} testId
  */
 export function clickScript(testId) {
-  const sel = JSON.stringify(`[data-testid="${testId}"]`);
+  if (!/^[a-z][a-z0-9-]*$/.test(String(testId))) throw new TypeError(`clickScript: not a test id: ${JSON.stringify(testId)}`);
+  const sel = scriptLiteral(`[data-testid="${testId}"]`);
   return `(() => { const el = document.querySelector(${sel}); if (el && !el.disabled) el.click(); })(); void 0`;
 }
 
@@ -52,8 +77,8 @@ export function clickScript(testId) {
  * @param {string} [detail]
  */
 export function eventScript(name, detail) {
-  const init = detail === undefined ? '' : `, { detail: ${JSON.stringify(detail)} }`;
-  return `window.dispatchEvent(new CustomEvent(${JSON.stringify(name)}${init})); void 0`;
+  const init = detail === undefined ? '' : `, { detail: ${scriptLiteral(detail)} }`;
+  return `window.dispatchEvent(new CustomEvent(${scriptLiteral(name)}${init})); void 0`;
 }
 
 // ---------------------------------------------------------------- updates

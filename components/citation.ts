@@ -72,8 +72,8 @@ function referenceAuthors(list: CitationAuthor[]): string {
   return `${names.slice(0, -1).join(', ')}, & ${names[names.length - 1]}`;
 }
 
-/** BibTeX braces and specials escaped in a field value */
-const bib = (s: string) => s.replace(/([{}%&$#_])/g, '\\$1');
+/** BibTeX braces and specials escaped in a field value; a backslash is written as its own command */
+const bib = (s: string) => s.replace(/[\\{}%&$#_]/g, (c) => (c === '\\' ? '\\textbackslash{}' : `\\${c}`));
 
 /**
  * The citation a CITATION.cff text describes.

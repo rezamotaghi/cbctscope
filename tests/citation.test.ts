@@ -26,6 +26,11 @@ describe('the citation, from CITATION.cff', () => {
     expect(`${c.reference}\n${c.bibtex}`).not.toMatch(/[—–]/);
   });
 
+  it('the BibTeX entry escapes its specials, the backslash included', () => {
+    const c = citationFrom(cff.replace(/^title: .*$/m, 'title: A\\B {x} 50% R&D $1 #2 a_b'));
+    expect(c.bibtex).toContain('title     = {{A\\textbackslash{}B \\{x\\} 50\\% R\\&D \\$1 \\#2 a\\_b}}');
+  });
+
   it('follows the file: a changed version, release date or DOI changes the text', () => {
     const fixture = cff
       .replace(/^version: .*$/m, 'version: 9.8.7')

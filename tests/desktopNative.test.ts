@@ -13,6 +13,7 @@ import {
   debugSwitchIn,
   desktopUserAgent,
   eventScript,
+  scriptLiteral,
   FILE_INPUT,
   FOLDER_INPUT,
   LEGAL_PAGE,
@@ -168,6 +169,19 @@ describe('the menu bar', () => {
     );
     expect(eventScript(MANUAL_EVENT)).toBe('window.dispatchEvent(new CustomEvent("cbctscope:manual")); void 0');
     expect(eventScript(MANUAL_EVENT, SHORTCUTS_PAGE)).toBe('window.dispatchEvent(new CustomEvent("cbctscope:manual", { detail: "12-shortcuts.html" })); void 0');
+  });
+  it('a value written into a menu script reads back as the same string and cannot close a script element or a line', () => {
+    for (const value of ['plain', '</script><script>alert(1)//', 'a/b', 'quote " and \\ backslash', 'line\u2028sep\u2029end', 'tab\tnew\nline']) {
+      const literal = scriptLiteral(value);
+      expect(literal).not.toMatch(/[<>/\u2028\u2029\n]/);
+      expect(JSON.parse(literal)).toBe(value);
+    }
+    // the event's detail is data the page judges; it travels unchanged, as an escaped literal
+    expect(eventScript(MANUAL_EVENT, '../legal')).toBe('window.dispatchEvent(new CustomEvent("cbctscope:manual", { detail: "..\\u002Flegal" })); void 0');
+  });
+  it('the click script takes a test id and nothing else', () => {
+    for (const bad of ['', 'Snapshot', 'a"] , body', 'x y', '1abc', 'a_b']) expect(() => clickScript(bad)).toThrow(TypeError);
+    for (const id of [FOLDER_INPUT, FILE_INPUT, SNAPSHOT_BUTTON]) expect(() => clickScript(id)).not.toThrow();
   });
 });
 
