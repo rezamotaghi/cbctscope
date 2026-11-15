@@ -79,7 +79,9 @@ const bib = (s: string) => s.replace(/[\\{}%&$#_]/g, (c) => (c === '\\' ? '\\tex
  * The citation a CITATION.cff text describes.
  * @throws when the file lacks a title, an author, a version, a release date or a DOI
  */
-export function citationFrom(cff: string): Citation {
+export function citationFrom(source: string): Citation {
+  // a file checked out or saved with CRLF or CR line endings reads the same
+  const cff = source.replace(/\r\n?/g, '\n');
   const title = field(cff, 'title');
   const list = authors(cff);
   const version = field(cff, 'version');

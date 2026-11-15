@@ -46,6 +46,37 @@ jobs:
       - run: npx vitest run tests/webBudget.test.ts tests/siteExport.test.ts
       - run: npm run test:e2e
 
+  # The Windows desktop package, unsigned, exactly as the release builds it (release.yml,
+  # desktop-win): a fault that shows only on Windows is found here, on a push or a pull request,
+  # and not in a release.
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build the web target
+        run: npm run build:web
+        env:
+          NEXT_PUBLIC_BASE_PATH: ''
+      # the tests that read the export (skipped by npm test, before it exists)
+      - run: npx vitest run tests/webBudget.test.ts tests/siteExport.test.ts
+      - name: Package (unsigned)
+        run: npm run desktop:build -- --win --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: The installer and the portable build exist
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          ls -l "dist-desktop/CBCTScope-${version}-setup.exe"
+          ls -l dist-desktop/*.exe
+
   # Secret scan over the FULL history, not just the diff: the repo's privacy stance is a
   # claim about everything ever committed. Config (rules + allowlists) is .gitleaks.toml.
   # fetch-depth: 0 is required: a shallow clone would silently scan almost nothing.

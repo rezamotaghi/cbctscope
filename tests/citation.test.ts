@@ -26,6 +26,15 @@ describe('the citation, from CITATION.cff', () => {
     expect(`${c.reference}\n${c.bibtex}`).not.toMatch(/[—–]/);
   });
 
+  it('reads the file the same with Windows or old Mac line endings', () => {
+    const lf = citationFrom(cff.replace(/\r\n?/g, '\n'));
+    for (const eol of ['\r\n', '\r']) {
+      const c = citationFrom(cff.replace(/\r\n?/g, '\n').replace(/\n/g, eol));
+      expect(c).toEqual(lf);
+    }
+    expect(lf.authors.length).toBeGreaterThan(0);
+  });
+
   it('the BibTeX entry escapes its specials, the backslash included', () => {
     const c = citationFrom(cff.replace(/^title: .*$/m, 'title: A\\B {x} 50% R&D $1 #2 a_b'));
     expect(c.bibtex).toContain('title     = {{A\\textbackslash{}B \\{x\\} 50\\% R\\&D \\$1 \\#2 a\\_b}}');

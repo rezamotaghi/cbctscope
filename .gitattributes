@@ -1,3 +1,7 @@
+# Text files are checked out with LF line endings on every system, so a Windows checkout reads
+# and builds the same bytes as macOS and Linux (git's Windows default would rewrite them CRLF).
+* text=auto eol=lf
+
 # The Windows starter keeps CRLF line endings byte for byte (the batch-file convention);
 # never let git rewrite them on checkout, in the index, or in the GitHub ZIP.
 *.bat -text
