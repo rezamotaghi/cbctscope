@@ -2,12 +2,14 @@
 // CITATION.cff, the one source of truth. The About page and app/page.tsx read the file at
 // build time (lib/server/citation.ts) and hand its text to citationFrom; nothing is fetched.
 //
-// The DOI is the one CITATION.cff names. The release ritual (AGENTS.md) resets it to the
-// concept DOI in the version-bump commit, and a release builds the site from its tag, which
-// is that commit, so a release's build cites the concept DOI (it resolves to the latest
-// version). A site update builds from main, which after the DOI-pin commit names that
-// version's DOI. The version line says which release the reader used.
-import { DOI_RESOLVER } from './links';
+// The DOI is always the concept DOI (CONCEPT_DOI in components/links.ts), which resolves to
+// the newest archived version, whatever CITATION.cff's doi: holds. The file keeps its own
+// ritual for GitHub and Zenodo (the concept DOI at the version bump, the version DOI pinned
+// after the release), but the site can be updated from main between releases, with newer
+// pages and viewer code than that version's archive, so citing the version DOI would claim
+// more than is true. The version line names the latest release, the version the site carries
+// (in the desktop app, the app's own version).
+import { CONCEPT_DOI, DOI_RESOLVER } from './links';
 
 export interface CitationAuthor {
   family: string;
@@ -77,8 +79,8 @@ function referenceAuthors(list: CitationAuthor[]): string {
 const bib = (s: string) => s.replace(/[\\{}%&$#_]/g, (c) => (c === '\\' ? '\\textbackslash{}' : `\\${c}`));
 
 /**
- * The citation a CITATION.cff text describes.
- * @throws when the file lacks a title, an author, a version, a release date or a DOI
+ * The citation a CITATION.cff text describes, with the concept DOI.
+ * @throws when the file lacks a title, an author, a version or a release date
  */
 export function citationFrom(source: string): Citation {
   // a file checked out or saved with CRLF or CR line endings reads the same
@@ -87,8 +89,8 @@ export function citationFrom(source: string): Citation {
   const list = authors(cff);
   const version = field(cff, 'version');
   const year = /^(\d{4})-/.exec(field(cff, 'date-released'))?.[1] ?? '';
-  const doi = field(cff, 'doi');
-  const missing = Object.entries({ title, authors: list.length ? 'x' : '', version, year, doi })
+  const doi = CONCEPT_DOI;
+  const missing = Object.entries({ title, authors: list.length ? 'x' : '', version, year })
     .filter(([, v]) => !v)
     .map(([k]) => k);
   if (missing.length) throw new Error(`CITATION.cff: missing ${missing.join(', ')}`);

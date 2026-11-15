@@ -297,19 +297,35 @@ notes" still reaches every file.
 **The site update.** `site-update.yml`, named **Site update**, runs on `workflow_dispatch`
 only, from the Actions tab with `main` selected under **Use workflow from**:
 
-1. `test`: the release's `test` job, step for step (typecheck, lint, unit, the web build, the
+1. `ref`, one cheap step that every other job needs: it fails the run at once unless it is
+   on `refs/heads/main`, saying to start it again with `main` selected, so a wrong ref never
+   starts the suites.
+2. `test`: the release's `test` job, step for step (typecheck, lint, unit, the web build, the
    tests that read the export, the end-to-end suite); `tests/siteDeploy.test.ts` fails when
    the two step lists differ.
-2. `build`, beside it: the release's `build` job, step for step, the `site` artifact for the
+3. `build`, beside it: the release's `build` job, step for step, the `site` artifact for the
    root of the domain, kept 30 days.
-3. `deploy`, once both succeeded, in the environment `production`, with the release's least
-   privilege (reading the repository), its 30-minute limit and its concurrency group `site`,
-   so a site update and a release never deploy at once (one waits for the other). Its first
-   step fails the job unless the run is on `refs/heads/main`, saying to start it again with
-   `main` selected. Then, before the Vercel CLI is installed or anything is uploaded,
+4. `deploy`, once all three succeeded, in the environment `production`, with the release's
+   least privilege (reading the repository) and its 30-minute limit. Its first step checks the
+   ref again, since this is the job that touches production. Then, before the Vercel CLI is
+   installed or anything is uploaded,
    `node scripts/release-assets.mjs --site-update` is the version guard (below). After it come
    exactly the release's deploy steps 2 to 5 below: the artifact, the layout, `vercel deploy
    --prebuilt --prod`, and the check of the deployment's own address with three attempts.
+
+Only the two deploy jobs take turns: the release's `deploy` and the site update's `deploy`
+each carry the concurrency group `site` (`cancel-in-progress: false`), at the job and not the
+workflow, so tests and builds never queue and never hold up the other workflow. GitHub keeps
+one job of a group running and at most one waiting; a newer one replaces the waiting one, which
+is then cancelled. So a deploy waiting behind another can be cancelled by a third that starts
+waiting. When that happens, run the cancelled one again: for a release, **Re-run failed jobs**
+on its run (then a site update if `main` has moved, below); for a site update, start a new
+site update from `main`.
+
+**After a site update has gone out, start a new site update from `main` instead of re-running
+an older run.** A re-run builds and deploys its run's original commit, and the version guard
+passes because the version is the same, so re-running an older site update, or a release run
+after a later site update, puts older files back over newer ones.
 
 The version guard exists because the site carries a version: the update page names the one in
 `package.json`, and the download menu leads to the latest release's installers. It reads
@@ -327,9 +343,11 @@ release without its installers, never reaches the site. Each failure line says w
   again once GitHub answers;
 - a `package.json` version that is not major.minor.patch: set a release version there.
 
-A site update builds from `main`, not from a tag, so after the release's DOI-pin commit it
-cites that version's DOI rather than the concept DOI (section 14, Cite this software); both
-name the same version.
+The site's citation does not depend on which way it was deployed: its version line names the
+latest release, and its DOI is always the concept DOI, which resolves to the newest archived
+version (section 14, Cite this software). A site update builds from `main`, whose
+`CITATION.cff` names that version's DOI after the DOI-pin commit, and can serve newer pages
+and viewer code than that archive holds, so the site never cites a version DOI.
 
 ### The site on Vercel
 
@@ -353,8 +371,9 @@ same, after its own two guards):
    pass alike. A network error or any answer but 200 fails the job too. Nothing waits: a
    failure leaves the site as it was. To recover from missing files, attach them to the
    release, then use **Re-run failed jobs** on that workflow run; the re-run reads the same
-   release again, and the `site` artifact it deploys is kept 30 days. The names are
-   `REQUIRED_ASSETS` in the script; `tests/downloads.test.ts` fails if they differ from
+   release again, and the `site` artifact it deploys is kept 30 days. That re-run puts the
+   release's own files back on the site, so when `main` has moved since the release, start a
+   site update from `main` after it. The names are `REQUIRED_ASSETS` in the script; `tests/downloads.test.ts` fails if they differ from
    `components/downloads.ts`. The rehearsal has no release and does not run it; the site
    update runs its `--site-update` mode instead (above).
 2. It downloads the `site` artifact into `out/`, the files `build` made.
@@ -372,9 +391,12 @@ same, after its own two guards):
    follows the same pattern; electron-builder's `files` allowlist leaves it out, and
    `tsconfig.json` excludes it. Nothing is built on Vercel. The job runs in the GitHub
    environment `production`, whose secrets (`VERCEL_TOKEN`, `VERCEL_ORG_ID`,
-   `VERCEL_PROJECT_ID`, `VERCEL_AUTOMATION_BYPASS_SECRET`) no other job can read but the site
-   update's `deploy`; the first three reach this step only. `VERCEL_TELEMETRY_DISABLED=1`
-   keeps the CLI from reporting its use. Only the CLI's stdout is captured, and it must be exactly one https address, the new
+   `VERCEL_PROJECT_ID`, `VERCEL_AUTOMATION_BYPASS_SECRET`) are written to be read by this job
+   and the site update's `deploy` only, and the first three by this step only; who could read
+   them is set by the environment's rules (step 11 of the setup below), and
+   `tests/siteDeploy.test.ts` fails when any other file under `.github/` names the environment,
+   a production flag or one of the secrets. `VERCEL_TELEMETRY_DISABLED=1` keeps the CLI from
+   reporting its use. Only the CLI's stdout is captured, and it must be exactly one https address, the new
    deployment's own; anything else fails the job and prints what was captured. No documented
    flag forces plain output (`--json` and `--non-interactive` switch to JSON whose shape the
    docs do not give), so the default mode is used and the strict parse is the guard. The job
@@ -483,7 +505,8 @@ release, after its check passed, and only when the address records change at the
    carries all three the download menu links to, deploys production and checks the
    deployment; it must pass. If the deploy job fails naming missing installers, attach them
    to the release, then use **Re-run failed jobs** on that workflow run; the re-run reads the
-   same release again, and the `site` artifact is kept 30 days.
+   same release again, and the `site` artifact is kept 30 days. Once site updates have gone
+   out, such a re-run puts the release's older files back: follow it with a site update.
 9. Only then, at Porkbun, change the site's address records: for `cbctscope.com` an **A**
    record with the value shown in the Vercel dashboard, for `www` a **CNAME** with the value
    shown there, removing any older A, AAAA or CNAME records for those two names. The mail
@@ -498,11 +521,12 @@ release, after its check passed, and only when the address records change at the
 11. Before the first site update, allow it into `production`: Settings, Environments,
     `production`, under **Deployment branches and tags**, **Add deployment branch or tag
     rule**, Ref type **Branch**, name pattern `main`, **Add rule**. The page then lists two
-    rules, the tag `v*` and the branch `main`. This widens the environment: any workflow run on
-    `main` that names `production` can read the Vercel secrets, not only a release, so a change
-    to a workflow on `main` is a change to who can deploy. Without the rule, GitHub refuses the
+    rules, the tag `v*` and the branch `main`. This widens the environment: any job in a run
+    on `main` or a `v*` tag that names `production` can read the Vercel secrets, not only the
+    two deploy jobs, so a change to a workflow on `main` is a change to who can deploy. Without the rule, GitHub refuses the
     site update's `deploy` job before it starts: the run fails after `test` and `build` with
-    the job marked failed and none of its steps run, and the run's page carries an
+    the job marked failed and none of its steps run (`ref` has already passed), and the run's
+    page carries an
     annotation in words like `Branch "main" is not allowed to deploy to production due to
     environment protection rules.` Add the rule and run the site update again.
 
@@ -677,8 +701,9 @@ How it is built:
   the three fixed installer names are attached, and fails otherwise, so the site goes live
   only once the installers are on the release the menu's links reach. `site-update.yml`
   (section 9) deploys the website alone from `main` between releases, with the same test and
-  build jobs and the same deploy steps, after a guard that GitHub's latest release is the
-  version in `package.json` and carries the three installers. A release without the
+  build jobs and the same deploy steps, after a first job that refuses any ref but `main` and
+  a guard that GitHub's latest release is the version in `package.json` and carries the three
+  installers. Only the two deploy jobs share the concurrency group `site`. A release without the
   mac secrets skips the mac job; the Windows job and `publish` still run and attach the
   Windows packages only, and `deploy` ships the site only if the macOS installers were
   attached to the release by hand; otherwise it fails before the upload and the site stays
@@ -841,17 +866,20 @@ one site address (`components/siteAddress.mjs`: `SITE_URL`, `https://cbctscope.c
   `components/SitePage.tsx`; every address in them is relative, so the base path holds. In the
   local app and the desktop app the Help menu shows them in the drawer beside the viewer
   (`SITE_PAGES` in `ManualDrawer.tsx`); on the website it opens them in a new tab.
-- **Cite this software.** One source, `CITATION.cff`: `lib/server/citation.ts` reads it while
-  the pages render and `components/citation.ts` derives the reference line (authors, year,
-  title, version, the DOI as a link) and a BibTeX entry. The Help menu's dialogue
+- **Cite this software.** From `CITATION.cff` and the concept DOI: `lib/server/citation.ts`
+  reads the file while the pages render and `components/citation.ts` derives the reference
+  line (authors, year, title and version from the file, the concept DOI as a link) and a
+  BibTeX entry. The Help menu's dialogue
   (`components/cbct/CiteDialog.tsx`) and the About page show both, each with a copy button
-  that writes the clipboard on a click. The DOI is the one the file names: the version-bump
-  commit resets it to the concept DOI and a release builds the site from its tag, so a
-  release's build cites the concept DOI; a site update builds from `main`, which after the
-  DOI-pin commit names that version's DOI (section 9). Both name the version the site carries.
+  that writes the clipboard on a click. The version line names the latest release, the version
+  the site carries (in the desktop app, the app's own), and the DOI is always the concept DOI (`CONCEPT_DOI` in
+  `components/links.ts`), which resolves to the newest archived version, whatever the file's
+  `doi:` holds: a site update can serve newer code than one version's archive (section 9).
+  `CITATION.cff` keeps its own ritual for GitHub and Zenodo (the concept DOI at the version
+  bump, the version DOI pinned after the release).
 - **Structured data.** The home and About pages carry one JSON-LD `WebApplication`
   (`components/jsonLd.ts`): name, the site claim, category, systems, free, licence, the version
-  from `package.json`, the address, the repository, the DOI, and the author as a `Person` with
+  from `package.json`, the address, the repository, the concept DOI, and the author as a `Person` with
   his site, ORCID and GitHub profile. No ratings, reviews or medical types. The block is a data
   block the browser never executes, so `scripts/build-web.mjs` gives it no `script-src` hash.
 - **`sitemap.xml` and `robots.txt`**, written by `scripts/sitemap.mjs` after the export from

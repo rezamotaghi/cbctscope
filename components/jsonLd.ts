@@ -1,7 +1,7 @@
 // The structured data of the home page and the About page (schema.org JSON-LD): the viewer, its
 // author and its DOI as one record. Only what the repository states: the name and description
-// from the site constants, the version from package.json, the licence, the source, the DOI
-// CITATION.cff names, and the author with his ORCID and GitHub profile (CITATION.cff and the
+// from the site constants, the version from package.json, the licence, the source, the concept
+// DOI (the citation's, components/citation.ts), and the author with his ORCID and GitHub profile (CITATION.cff and the
 // repository address). No ratings, no reviews, no medical types.
 //
 // The block is a data block (type="application/ld+json"): the browser never executes it, and

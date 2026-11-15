@@ -4,7 +4,7 @@
 // installers are attached, the site update deploys production from main only when the latest
 // release is the version it carries, the rehearsal deploys a preview only, CI deploys nothing,
 // and the Vercel secrets reach the deploy steps alone.
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
@@ -294,11 +294,16 @@ describe('the site update (site-update.yml)', () => {
   const REF = 'Refuse a run from any ref but main';
   const GUARD = 'Check the latest release is this version and carries the installers';
 
-  it('is started by hand only, and shares the release\'s concurrency group so the two never deploy at once', () => {
+  it('is started by hand only, and only the two deploy jobs share a concurrency group, so the tests and builds never queue', () => {
     expect(siteUpdate.on).toEqual({ workflow_dispatch: null });
-    expect(siteUpdate.concurrency).toEqual({ group: 'site', 'cancel-in-progress': false });
-    expect(siteUpdate.concurrency).toEqual(release.concurrency);
-    expect(rehearsal.concurrency).not.toEqual(release.concurrency);
+    const group = { group: 'site', 'cancel-in-progress': false };
+    for (const wf of [release, siteUpdate]) {
+      expect(wf.concurrency).toBeUndefined();
+      for (const [name, j] of Object.entries(wf.jobs)) {
+        expect((j as Job & { concurrency?: unknown }).concurrency, name).toEqual(name === 'deploy' ? group : undefined);
+      }
+    }
+    expect(rehearsal.concurrency).not.toEqual(group);
   });
 
   it('its test job runs the release\'s test steps, and its build job builds the site as the release does', () => {
@@ -307,12 +312,19 @@ describe('the site update (site-update.yml)', () => {
     const upload = steps(siteUpdate, 'build').find((s) => s.uses?.startsWith('actions/upload-artifact@'));
     // the owner's check of the public address reads the kept artifact
     expect(upload?.with).toMatchObject({ name: 'site', path: 'out', 'retention-days': 30 });
-    expect(Object.keys(siteUpdate.jobs)).toEqual(['test', 'build', 'deploy']);
-    expect(siteUpdate.jobs.deploy.needs).toEqual(['test', 'build']);
+    expect(Object.keys(siteUpdate.jobs)).toEqual(['ref', 'test', 'build', 'deploy']);
+    expect(siteUpdate.jobs.test.needs).toBe('ref');
+    expect(siteUpdate.jobs.build.needs).toBe('ref');
+    expect(siteUpdate.jobs.deploy.needs).toEqual(['ref', 'test', 'build']);
   });
 
-  it('refuses a run from any ref but main first, with a line that says what to do', () => {
+  it('refuses a run from any ref but main in a first job every other job needs, and again first in deploy', () => {
+    // the ref job is the one cheap step: no checkout, no install, no environment
+    expect(steps(siteUpdate, 'ref')).toHaveLength(1);
+    expect(siteUpdate.jobs.ref.needs).toBeUndefined();
+    expect(siteUpdate.jobs.ref.environment).toBeUndefined();
     expect(at(REF)).toBe(0);
+    expect(deploySteps[0]).toEqual(steps(siteUpdate, 'ref')[0]);
     const run = deploySteps[0].run ?? '';
     expect(run).toContain('if [ "$GITHUB_REF" != "refs/heads/main" ]; then');
     expect(run).toMatch(/deploys from main only: start it again with main selected/);
@@ -340,17 +352,90 @@ describe('the site update (site-update.yml)', () => {
     }
   });
 
-  it('the rehearsal and CI never deploy to production', () => {
-    for (const [f, wf] of [
-      ['site-rehearsal.yml', rehearsal],
-      ['ci.yml', ci],
-    ] as const) {
-      for (const [name, j] of Object.entries(wf.jobs)) {
-        const text = (j.steps ?? []).map((s) => s.run ?? '').join('\n');
-        expect(text, `${f}: ${name}`).not.toMatch(/--prod\b|--environment/);
-        expect(j.environment, `${f}: ${name}`).not.toBe('production');
-      }
+});
+
+// With the environment rule for main (docs/web-build.md, section 9, step 11), any job on main
+// that names production can read the Vercel secrets. So no file under .github/ but the two
+// deploying workflows may name the production environment (as a string or a mapping, in any
+// expression), pass a production flag to a CLI, or name a Vercel secret, except the rehearsal's
+// job in its own environment. Every string value is read, comments are not.
+const DEPLOYERS = ['.github/workflows/release.yml', '.github/workflows/site-update.yml'];
+const VERCEL_SECRET = /VERCEL_(TOKEN|ORG_ID|PROJECT_ID|AUTOMATION_BYPASS_SECRET)/;
+const PROD_FLAG = /--prod\b|--(target|environment)[\s=]+['"]?production/i;
+
+/** what in a parsed YAML file could reach production or its secrets */
+export function productionProblems(doc: unknown): string[] {
+  const problems: string[] = [];
+  const walk = (node: unknown, where: string, rehearsalJob: boolean) => {
+    if (typeof node === 'string') {
+      if (PROD_FLAG.test(node)) problems.push(`${where}: a production flag in "${node}"`);
+      if (!rehearsalJob && VERCEL_SECRET.test(node)) problems.push(`${where}: a Vercel secret in "${node}"`);
+      return;
     }
-    expect(read('.github/workflows/ci.yml')).not.toMatch(/vercel/i);
+    if (Array.isArray(node)) return node.forEach((n, i) => walk(n, `${where}[${i}]`, rehearsalJob));
+    if (!node || typeof node !== 'object') return;
+    for (const [k, v] of Object.entries(node)) {
+      if (k === 'environment' && /production/i.test(JSON.stringify(v))) problems.push(`${where}.environment: names production`);
+      if (VERCEL_SECRET.test(k) && !rehearsalJob) problems.push(`${where}.${k}: a Vercel secret's name as a key`);
+      walk(v, `${where}.${k}`, rehearsalJob);
+    }
+  };
+  const top = (doc ?? {}) as Record<string, unknown>;
+  for (const [k, v] of Object.entries(top)) {
+    if (k !== 'jobs' || !v || typeof v !== 'object') {
+      walk({ [k]: v }, '', false);
+      continue;
+    }
+    for (const [name, job] of Object.entries(v as Record<string, unknown>)) {
+      const env = (job as { environment?: unknown } | null)?.environment;
+      walk({ [name]: job }, '.jobs', env === 'rehearsal');
+    }
+  }
+  return problems;
+}
+
+describe('only release.yml and site-update.yml can reach production', () => {
+  const yamlFiles = (dir: string): string[] =>
+    readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? yamlFiles(`${dir}/${e.name}`) : /\.ya?ml$/.test(e.name) ? [`${dir}/${e.name}`] : [],
+    );
+  const files = yamlFiles('.github');
+
+  it('reads every YAML file under .github/, the workflows, CodeQL and Dependabot included', () => {
+    for (const f of ['ci.yml', 'codeql.yml', 'site-rehearsal.yml', 'release.yml', 'site-update.yml']) expect(files).toContain(`.github/workflows/${f}`);
+    expect(files).toContain('.github/dependabot.yml');
+  });
+
+  it('no other file names the production environment, a production flag or a Vercel secret outside the rehearsal\'s job', () => {
+    for (const f of files.filter((x) => !DEPLOYERS.includes(x))) expect(productionProblems(yaml.load(read(f))), f).toEqual([]);
+  });
+
+  it('the check finds each form, so it does not pass by finding nothing', () => {
+    // the two deploying workflows trip it, by the environment, the flag and the secrets
+    for (const f of DEPLOYERS) {
+      const found = productionProblems(yaml.load(read(f))).join('\n');
+      expect(found, f).toMatch(/environment: names production/);
+      expect(found, f).toMatch(/a production flag/);
+      expect(found, f).toMatch(/a Vercel secret/);
+    }
+    const mutate = (edit: (wf: Workflow) => void, file = '.github/workflows/ci.yml') => {
+      const wf = yaml.load(read(file)) as Workflow;
+      edit(wf);
+      return productionProblems(wf);
+    };
+    const step = (wf: Workflow, s: Step) => wf.jobs.build.steps?.push(s);
+    expect(mutate((wf) => (wf.jobs.build.environment = 'production'))).toEqual(['.jobs.build.environment: names production']);
+    expect(mutate((wf) => (wf.jobs.build.environment = { name: 'production', url: 'https://cbctscope.com' }))).toEqual(['.jobs.build.environment: names production']);
+    expect(mutate((wf) => (wf.jobs.build.environment = "${{ github.ref == 'refs/heads/main' && 'production' || 'rehearsal' }}"))).toHaveLength(1);
+    for (const run of ['npx vercel deploy --prod', 'vercel deploy --target production', 'vercel deploy --target=production', 'vercel pull --environment=production']) {
+      expect(mutate((wf) => step(wf, { run })), run).toEqual([expect.stringMatching(/a production flag/)]);
+    }
+    expect(mutate((wf) => step(wf, { run: 'x', env: { T: '${{ secrets.VERCEL_TOKEN }}' } }))).toEqual([expect.stringMatching(/a Vercel secret/)]);
+    expect(mutate((wf) => ((wf as unknown as { env: unknown }).env = { VERCEL_ORG_ID: 'x' }))).toEqual([expect.stringMatching(/a Vercel secret's name as a key/)]);
+    // the rehearsal's job may name the Vercel secrets only in its own environment, and never --prod
+    expect(mutate((wf) => (wf.jobs.rehearse.environment = 'staging'), '.github/workflows/site-rehearsal.yml').length).toBeGreaterThan(0);
+    expect(mutate((wf) => wf.jobs.rehearse.steps?.push({ run: 'vercel deploy --prebuilt --prod' }), '.github/workflows/site-rehearsal.yml')).toEqual([expect.stringMatching(/a production flag/)]);
+    // a file without jobs, like Dependabot's, is read too
+    expect(productionProblems({ updates: [{ registries: ['${{ secrets.VERCEL_TOKEN }}'] }] })).toEqual([expect.stringMatching(/a Vercel secret/)]);
   });
 });
