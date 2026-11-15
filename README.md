@@ -149,9 +149,10 @@ first launch both modes show the phantom.
 ## Use it in the browser
 
 The same viewer also runs as a static web build: no install, no Node.js, just
-a current desktop browser. Each published release deploys it to
-[cbctscope.com](https://cbctscope.com), hosted on Vercel, and a change to the
-website alone can go out between releases at the same version. It opens on the built-in phantom; **Open**, then **Open DICOMDIR or DICOM
+a current desktop browser. It is served at
+[cbctscope.com](https://cbctscope.com), hosted on Vercel, which builds and
+publishes it from the `main` branch; the desktop installers come from the
+GitHub releases. It opens on the built-in phantom; **Open**, then **Open DICOMDIR or DICOM
 folder** or **Open a single DICOM file**, or a drop on the viewer, reads your
 own export, with a progress panel until the volume is on screen.
 

@@ -1,17 +1,13 @@
 name: Release
 
-# The web build ships from a published release (docs/web-build.md, section 9), or between
-# releases, at the same version, from site-update.yml; a push deploys nothing, and the Vercel
-# project is not connected to the repository, so these two workflows are the site's only ways
-# out. Every build job waits for the full test job (typecheck, lint, unit,
-# the web build, the end-to-end suite). The desktop jobs build with a read-only token and
-# upload their packages as workflow artifacts; one publish job, the only one with contents:
-# write, attaches them to the release. Signing and notarisation secrets reach the packaging
-# step only; the Vercel token and ids reach the deploy step only. The site and the installers
-# go public together: the deploy waits for the publish job, and its first step checks once
-# that this release is GitHub's latest (where the download menu's links lead) and carries all
-# three installers the menu links to, and fails otherwise, so a failed or skipped desktop build
-# leaves the site as it was instead of linking to a release without installers.
+# A published release (docs/web-build.md, section 9) builds the desktop installers and attaches
+# them to the release; Zenodo archives it and mints its DOI. It does not deploy the website:
+# Vercel builds and publishes the site from main on its own. Every build job waits for the full
+# test job (typecheck, lint, unit, the web build, the end-to-end suite). The desktop jobs build
+# with a read-only token and upload their packages as workflow artifacts; one publish job, the
+# only one with contents: write, attaches them to the release. Signing and notarisation secrets
+# reach the packaging step only. A last job checks that the release is GitHub's latest and
+# carries the three installers the site's download menu links to, and turns the run red if not.
 on:
   release:
     types: [published]
@@ -42,93 +38,6 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
 
-  build:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      # the site answers at the root of https://cbctscope.com: no base path
-      - name: Build the web target
-        run: npm run build:web
-        env:
-          NEXT_PUBLIC_BASE_PATH: ''
-      # the deploy job uploads these files and checks the served site against them
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: site
-          path: out
-          if-no-files-found: error
-          # the owner's check of the public address after the DNS change reads these files
-          retention-days: 30
-
-  # A job whose ancestor was skipped is itself skipped unless its own `if:` says otherwise, and
-  # the mac job is skipped without signing secrets; so this asks for the two results it needs.
-  # The Vercel CLI is the one exact version pinned in deploy/package.json, installed from
-  # deploy/package-lock.json and kept out of the app's dependencies. It uploads the prebuilt
-  # deployment (scripts/vercel-output.mjs) from a folder outside the checkout, so nothing but
-  # the built site leaves the runner; then scripts/site-check.mjs fails the job unless the new
-  # deployment serves every file byte for byte as built, with its type and the three response
-  # headers.
-  deploy:
-    needs: [build, publish]
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.publish.result == 'success' }}
-    runs-on: ubuntu-latest
-    # of the jobs written here, this one and site-update.yml's deploy read the environment's
-    # secrets; who could is set by the environment's rules (docs/web-build.md, section 9, step 11)
-    environment: production
-    # only the deploys take turns, this one and site-update.yml's, so the tests and the installer
-    # builds never queue; a deploy waiting behind another can be replaced by a newer waiting one
-    concurrency:
-      group: site
-      cancel-in-progress: false
-    # two installs, one upload of the built files and one check: minutes, not an hour
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 22
-          cache: npm
-      # the download menu links to three installers by fixed name on the latest release: unless
-      # this release is the latest and carries all three, attached by publish or by hand, the
-      # job fails here and the site stays as it was
-      - name: Check the release carries the installers
-        run: node scripts/release-assets.mjs
-        env:
-          RELEASE_ID: ${{ github.event.release.id }}
-          GITHUB_TOKEN: ${{ github.token }}
-      - run: npm ci
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: site
-          path: out
-      # the Vercel CLI lives in deploy/, with its own lockfile, outside the app's dependencies
-      - name: Install the Vercel CLI
-        run: npm ci
-        working-directory: deploy
-      - name: Lay out the prebuilt deployment
-        run: node scripts/vercel-output.mjs out "$RUNNER_TEMP/site"
-      - name: Deploy to production
-        run: |
-          deploy/node_modules/.bin/vercel deploy --prebuilt --prod --cwd "$RUNNER_TEMP/site" > "$RUNNER_TEMP/deploy.txt"
-          cat "$RUNNER_TEMP/deploy.txt"
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VERCEL_TELEMETRY_DISABLED: '1'
-      # the deployment's own address, behind Deployment Protection, so the check works before
-      # and after the domain's address records point at Vercel
-      - name: Check the deployment as served
-        run: node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out --attempts 3
-        env:
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-
   # ---------------------------------------------------------------- the desktop app
   # Signing and notarisation credentials, stored as repository secrets (names
   # only; electron-builder 26.18.0 reads them from the environment):
@@ -139,9 +48,8 @@ jobs:
   #   APPLE_API_KEY_ID    that key's Key ID
   #   APPLE_API_ISSUER    the Issuer ID of the App Store Connect team
   # Secrets cannot appear in a job's `if:` (GitHub's documented limit), so this job turns
-  # their presence into an output. Without CSC_LINK the mac job is skipped, and the deploy job
-  # ships the site only if the mac installers were attached to the release by hand; otherwise
-  # it fails before the upload and the site stays as it was.
+  # their presence into an output. Without CSC_LINK the mac job is skipped, and the installers
+  # job fails unless the mac installers were attached to the release by hand.
   desktop-gate:
     needs: test
     runs-on: ubuntu-latest
@@ -264,8 +172,8 @@ jobs:
 
   # The one job that writes to the release: it downloads what the desktop jobs built and
   # attaches it. The mac job is skipped without signing secrets; this job then attaches the
-  # Windows packages only, and the deploy job, which checks the release once and never waits,
-  # fails unless the mac installers were attached to the release by hand.
+  # Windows packages only, and the installers job, which checks the release once and never
+  # waits, fails unless the mac installers were attached to the release by hand.
   publish:
     needs: [desktop-mac, desktop-win]
     if: ${{ always() && needs.desktop-win.result == 'success' && (needs.desktop-mac.result == 'success' || needs.desktop-mac.result == 'skipped') }}
@@ -283,3 +191,25 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name }}
+
+  # The site's download menu (components/downloads.ts) links to three installers by fixed name
+  # through /releases/latest/download/<name>. This job turns the run red unless this release is
+  # GitHub's latest release and carries all three, attached by publish or by hand
+  # (scripts/release-assets.mjs). It gates nothing: the site is Vercel's, published from main
+  # whether or not this passes. A red run here means the menu's links lead to missing files
+  # until the release is fixed.
+  installers:
+    needs: publish
+    runs-on: ubuntu-latest
+    # one read of the release, no install
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: Check the release carries the installers
+        run: node scripts/release-assets.mjs
+        env:
+          RELEASE_ID: ${{ github.event.release.id }}
+          GITHUB_TOKEN: ${{ github.token }}

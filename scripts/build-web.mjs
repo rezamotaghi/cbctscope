@@ -2,6 +2,11 @@
 // npm run build:web: the static web build (docs/web-build.md, section 3), cross-platform.
 //
 //   node scripts/build-web.mjs [--out <dir>]
+//   node scripts/build-web.mjs --site    the build for https://cbctscope.com (npm run build:vercel)
+//
+// --site builds out/ for the root of the domain with the environment of scripts/site-env.mjs:
+// no base path, no variable Vercel sets, Next's telemetry off. It prints the Node.js version
+// first, so a build log on any host says which one built the site.
 //
 // 0. Renders the user manual into public/manual/ (scripts/manual-html.mjs), so the export
 //    carries it as manual/ and step 3 gives its pages the CSP like every other page.
@@ -24,6 +29,7 @@ import { webCsp } from '../components/webCsp.mjs';
 import { writeManual } from './manual-html.mjs';
 import { AGENT_FRAME_FILE, writeAgentFrame } from './agent-frame.mjs';
 import { writeSitemap } from './sitemap.mjs';
+import { siteBuildEnv } from './site-env.mjs';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -34,12 +40,14 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const outFlag = args.indexOf('--out');
 const outDir = outFlag >= 0 ? args[outFlag + 1] : 'out';
-if (!outDir || outDir.startsWith('-')) {
-  console.error('usage: node scripts/build-web.mjs [--out <dir>]');
+const site = args.includes('--site');
+if (!outDir || outDir.startsWith('-') || (site && outFlag >= 0)) {
+  console.error('usage: node scripts/build-web.mjs [--out <dir> | --site]');
   process.exit(2);
 }
+if (site) console.log(`build:web: the site's build, Node.js ${process.version}`);
 
-const env = { ...process.env, CBCTSCOPE_TARGET: 'web', NEXT_PUBLIC_CBCTSCOPE_TARGET: 'web' };
+const env = { ...(site ? siteBuildEnv(process.env) : process.env), CBCTSCOPE_TARGET: 'web', NEXT_PUBLIC_CBCTSCOPE_TARGET: 'web' };
 if (outDir !== 'out') env.CBCTSCOPE_OUT_DIR = outDir;
 else delete env.CBCTSCOPE_OUT_DIR;
 

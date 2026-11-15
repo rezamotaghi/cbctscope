@@ -23,6 +23,7 @@
     "mcp:smoke": "node scripts/mcp-smoke.mjs",
     "mcpb": "node scripts/mcpb.mjs",
     "build:web": "node scripts/build-web.mjs",
+    "build:vercel": "node scripts/build-web.mjs --site && node scripts/vercel-output.mjs",
     "test:e2e": "node scripts/e2e.mjs",
     "desktop": "node scripts/desktop.mjs dev",
     "desktop:build": "node scripts/desktop.mjs build",

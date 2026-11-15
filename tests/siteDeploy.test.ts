@@ -1,31 +1,53 @@
-// The site's deployment on Vercel (docs/web-build.md, section 9): the prebuilt layout and its
-// headers (scripts/vercel-output.mjs), the post-deploy check's pure parts (scripts/site-check.mjs),
-// and the workflows that use them: the release job deploys production only after the
-// installers are attached, the site update deploys production from main only when the latest
-// release is the version it carries, the rehearsal deploys a preview only, CI deploys nothing,
-// and the Vercel secrets reach the deploy steps alone.
+// The site on Vercel (docs/web-build.md, section 9): Vercel's Git integration builds every push
+// with vercel.json, whose build command runs the site's web build and then the layout
+// (scripts/vercel-output.mjs, the one place the response headers live); no workflow deploys or
+// can reach a Vercel secret; the alarm after a production deployment (site-check.yml) runs the
+// live mode of scripts/site-check.mjs, whose pure parts are tested here with fixtures; the byte
+// mode stays for an export on disk.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { CONTENT_TYPES, bodyProblem, checkList, contentTypeProblem, deploymentUrl, exportFiles, headerProblems, protectionMessage, refuseProduction, sitemapPaths } from '../scripts/site-check.mjs';
-import { FRAME_HEADERS, SITE_HEADERS, headersFor, vercelConfig, writeVercelOutput } from '../scripts/vercel-output.mjs';
+import {
+  CONTENT_TYPES,
+  FORBIDDEN_MARKERS,
+  LIVE_FILES,
+  MISSING_PATH,
+  checkList,
+  commitProblem,
+  contentTypeProblem,
+  exportFiles,
+  forbiddenMarkers,
+  headerProblems,
+  liveList,
+  newestSentence,
+  offOriginAssets,
+  pageAssets,
+  protectionMessage,
+  sitemapPaths,
+  typeFileFor,
+  versionProblem,
+} from '../scripts/site-check.mjs';
+import { SITE_ENV, STRIPPED, siteBuildEnv } from '../scripts/site-env.mjs';
+import { COMMIT_HEADER, FRAME_HEADERS, SITE_HEADERS, commitFrom, headersFor, vercelConfig, writeVercelOutput } from '../scripts/vercel-output.mjs';
 
 const root = path.resolve(__dirname, '..');
 const read = (rel: string) => readFileSync(path.join(root, rel), 'utf8');
 const rootRequire = createRequire(path.join(root, 'package.json'));
 const yaml = createRequire(rootRequire.resolve('electron-builder'))('js-yaml') as { load: (s: string) => unknown };
+const minimatch = rootRequire('minimatch') as (name: string, pattern: string) => boolean;
 
 type Step = { name?: string; uses?: string; run?: string; with?: Record<string, unknown>; env?: Record<string, string> };
-type Job = { needs?: string | string[]; if?: string; permissions?: Record<string, string>; environment?: unknown; steps?: Step[] };
+type Job = { needs?: string | string[]; if?: string; permissions?: Record<string, string>; environment?: unknown; 'timeout-minutes'?: number; steps?: Step[] };
 type Workflow = { on: Record<string, unknown>; permissions: Record<string, string>; concurrency?: unknown; jobs: Record<string, Job> };
-const release = yaml.load(read('.github/workflows/release.yml')) as Workflow;
-const rehearsal = yaml.load(read('.github/workflows/site-rehearsal.yml')) as Workflow;
-const siteUpdate = yaml.load(read('.github/workflows/site-update.yml')) as Workflow;
+const alarm = yaml.load(read('.github/workflows/site-check.yml')) as Workflow;
 const ci = yaml.load(read('.github/workflows/ci.yml')) as Workflow;
+const vercel = JSON.parse(read('vercel.json')) as Record<string, unknown>;
+const pkg = JSON.parse(read('package.json')) as { scripts: Record<string, string>; engines: Record<string, string>; dependencies: Record<string, string>; devDependencies: Record<string, string> };
+const SHA = 'fa1eade47b73733d6312d5abfad33ce9e4068081';
 
-/** a miniature export: the files the layout and the check read */
+/** a miniature export: the files the layout and the byte check read */
 const tmp = mkdtempSync(path.join(os.tmpdir(), 'cbctscope-site-'));
 const out = path.join(tmp, 'out');
 const files: Record<string, string> = {
@@ -49,14 +71,126 @@ for (const [rel, body] of Object.entries(files)) {
 }
 afterAll(() => rmSync(tmp, { recursive: true, force: true }));
 
-describe('the prebuilt deployment (scripts/vercel-output.mjs)', () => {
-  it('copies the export byte for byte and writes a Build Output API v3 config', () => {
+describe('vercel.json: Vercel builds the site from the repository', () => {
+  it('has exactly these keys: no framework preset, npm ci, the site build, and no Dependabot deployments', () => {
+    expect(vercel).toEqual({
+      $schema: 'https://openapi.vercel.sh/vercel.json',
+      framework: null,
+      installCommand: 'npm ci',
+      buildCommand: 'npm run build:vercel',
+      git: { deploymentEnabled: { 'dependabot/**': false } },
+    });
+  });
+
+  it('defines no header, route or redirect of its own: the layout script is the one place', () => {
+    for (const key of ['headers', 'routes', 'rewrites', 'redirects', 'cleanUrls', 'trailingSlash', 'outputDirectory', 'env', 'build', 'github'])
+      expect(vercel, key).not.toHaveProperty(key);
+    expect(read('vercel.json')).not.toMatch(/frame-ancestors|nosniff|X-Frame-Options/i);
+  });
+
+  it('the Dependabot pattern matches its branches and no other (minimatch, as Vercel documents)', () => {
+    const [pattern] = Object.keys((vercel.git as { deploymentEnabled: Record<string, boolean> }).deploymentEnabled);
+    for (const b of ['dependabot/npm_and_yarn/next-15.5.23', 'dependabot/npm_and_yarn/mcp/zod-4.3.0', 'dependabot/github_actions/actions/checkout-7.1.0']) expect(minimatch(b, pattern), b).toBe(true);
+    for (const b of ['main', 'vercel-deploys', 'fix/dependabot', 'dependabot']) expect(minimatch(b, pattern), b).toBe(false);
+  });
+
+  it('the build command runs the site build and ends in the layout script', () => {
+    const steps = pkg.scripts['build:vercel'].split('&&').map((s) => s.trim());
+    expect(steps).toEqual(['node scripts/build-web.mjs --site', 'node scripts/vercel-output.mjs']);
+    expect(steps.at(-1)).toBe('node scripts/vercel-output.mjs');
+    // the layout's defaults are the export of that build and the project root, where Vercel reads .vercel/output
+    expect(read('scripts/vercel-output.mjs')).toContain("const [outDir = 'out', dest = '.'] = process.argv.slice(2);");
+    expect(read('.gitignore')).toMatch(/^\/\.vercel\/$/m);
+  });
+
+  it('npm ci downloads nothing the site build does not use: no Electron binary, no Playwright browser', () => {
+    const lock = JSON.parse(read('package-lock.json')) as { packages: Record<string, { hasInstallScript?: boolean; version?: string }> };
+    // Electron fetches its binary on first use, not on install; a release that brings back an
+    // install step fails here, and the site's build then needs ELECTRON_SKIP_BINARY_DOWNLOAD
+    for (const p of ['node_modules/electron', 'node_modules/@playwright/test', 'node_modules/playwright', 'node_modules/playwright-core']) {
+      expect(lock.packages[p], p).toBeDefined();
+      expect(lock.packages[p].hasInstallScript, p).toBeUndefined();
+    }
+    expect(JSON.parse(read('node_modules/electron/package.json')).scripts ?? {}).not.toHaveProperty('postinstall');
+  });
+
+  it('the site build sees no variable Vercel sets, the root of the domain, and Next telemetry off', () => {
+    const given = {
+      PATH: '/usr/bin',
+      HOME: '/root',
+      VERCEL: '1',
+      VERCEL_ENV: 'preview',
+      VERCEL_URL: 'cbctscope-abc.vercel.app',
+      VERCEL_BRANCH_URL: 'cbctscope-git-x.vercel.app',
+      VERCEL_PROJECT_PRODUCTION_URL: 'cbctscope.com',
+      VERCEL_GIT_COMMIT_SHA: SHA,
+      NEXT_PUBLIC_VERCEL_URL: 'cbctscope-abc.vercel.app',
+      NOW_REGION: 'dev1',
+      NEXT_PUBLIC_BASE_PATH: '/cbctscope',
+      NEXT_PUBLIC_CBCTSCOPE_SIZE_NOTICE_MIB: '1',
+      CBCTSCOPE_OUT_DIR: 'out-small',
+      CI: '1',
+    };
+    expect(siteBuildEnv(given)).toEqual({ PATH: '/usr/bin', HOME: '/root', CI: '1', NEXT_PUBLIC_BASE_PATH: '', NEXT_TELEMETRY_DISABLED: '1' });
+    expect(SITE_ENV).toEqual({ NEXT_PUBLIC_BASE_PATH: '', NEXT_TELEMETRY_DISABLED: '1' });
+  });
+
+  it('every Vercel variable Next reads while it builds is stripped from the site build', () => {
+    const found = new Set<string>();
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (e.name.endsWith('.js')) for (const m of readFileSync(p, 'utf8').matchAll(/process\.env\.((?:VERCEL|NOW)_?\w*)/g)) found.add(m[1]);
+      }
+    };
+    walk(path.join(root, 'node_modules/next/dist/lib/metadata'));
+    expect([...found]).toEqual(expect.arrayContaining(['VERCEL_ENV', 'VERCEL_URL']));
+    for (const name of found) expect(STRIPPED.test(name), name).toBe(true);
+  });
+
+  it('build-web --site uses that environment and says which Node.js built it', () => {
+    const src = read('scripts/build-web.mjs');
+    expect(src).toContain("const env = { ...(site ? siteBuildEnv(process.env) : process.env), CBCTSCOPE_TARGET: 'web', NEXT_PUBLIC_CBCTSCOPE_TARGET: 'web' };");
+    expect(src).toContain('Node.js ${process.version}');
+    // no page reads a Vercel variable either
+    for (const dir of ['app', 'components', 'lib']) {
+      const walk = (d: string): string[] =>
+        readdirSync(path.join(root, d), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(`${d}/${e.name}`) : /\.(tsx?|mjs)$/.test(e.name) ? [`${d}/${e.name}`] : []));
+      for (const f of walk(dir)) expect(read(f), f).not.toMatch(/process\.env\.(VERCEL|NEXT_PUBLIC_VERCEL)/);
+    }
+    expect(read('next.config.mjs')).not.toMatch(/VERCEL/);
+  });
+
+  it('engines lets every Node from 22 on run the repository', () => {
+    expect(pkg.engines).toEqual({ node: '>=22' });
+  });
+});
+
+describe('the layout (scripts/vercel-output.mjs)', () => {
+  it('copies the export byte for byte and writes a Build Output API v3 config with the headers', () => {
     const output = writeVercelOutput(out, tmp);
     for (const [rel, body] of Object.entries(files)) expect(readFileSync(path.join(output, 'static', rel), 'utf8'), rel).toBe(body);
     const config = JSON.parse(readFileSync(path.join(output, 'config.json'), 'utf8'));
     expect(config.version).toBe(3);
+    expect(config.routes[0].headers).toEqual(SITE_HEADERS);
+    expect(config.routes[1].headers).toEqual(FRAME_HEADERS);
     // the update page is left out of the sitemap but still answers at its address
     expect(config.overrides['update.html']).toEqual({ path: 'update', contentType: 'text/html; charset=utf-8' });
+  });
+
+  it('names the commit on every address when given one, and only a full SHA', () => {
+    expect(commitFrom(SHA)).toBe(SHA);
+    for (const bad of [undefined, '', 'main', SHA.slice(0, 7), SHA.toUpperCase(), `${SHA}\n`]) expect(commitFrom(bad), String(bad)).toBeNull();
+    const output = writeVercelOutput(out, tmp, SHA);
+    const { routes } = JSON.parse(readFileSync(path.join(output, 'config.json'), 'utf8'));
+    expect(routes[0].headers).toEqual({ ...SITE_HEADERS, [COMMIT_HEADER]: SHA });
+    expect(routes[1].headers).toEqual({ ...FRAME_HEADERS, [COMMIT_HEADER]: SHA });
+    expect(COMMIT_HEADER).toBe('X-CBCTScope-Commit');
+    // no page carries it: the static copy is the export, byte for byte
+    for (const [rel, body] of Object.entries(files)) expect(readFileSync(path.join(output, 'static', rel), 'utf8'), rel).toBe(body);
+    expect(JSON.stringify(vercelConfig([]))).not.toContain(COMMIT_HEADER);
+    expect(read('scripts/vercel-output.mjs')).toContain('commitFrom(process.env.VERCEL_GIT_COMMIT_SHA)');
   });
 
   it('serves Next\'s top-level pages at their extensionless addresses and leaves the manual\'s .html addresses alone', () => {
@@ -91,21 +225,95 @@ describe('the prebuilt deployment (scripts/vercel-output.mjs)', () => {
   });
 });
 
-describe('the post-deploy check (scripts/site-check.mjs)', () => {
-  it('takes the deployment address only when the CLI printed exactly one https address', () => {
-    expect(deploymentUrl('https://cbctscope-abc123-team.vercel.app\n')).toBe('https://cbctscope-abc123-team.vercel.app');
-    for (const bad of ['', 'Error: no token', 'https://a.vercel.app\nhttps://b.vercel.app', '{"url":"https://cbctscope-x.vercel.app"}', 'http://a.vercel.app']) {
-      expect(() => deploymentUrl(bad), bad).toThrow(/not exactly one https address/);
+describe('the live check (scripts/site-check.mjs --live)', () => {
+  const sitemap = files['sitemap.xml'];
+
+  it('checks the live sitemap\'s addresses, then the fixed files of the layout, each once', () => {
+    expect(LIVE_FILES).toEqual(['/robots.txt', '/sitemap.xml', '/icon.svg', '/apple-icon.png', '/og.png', '/update', '/agent-frame.html', '/manual/']);
+    expect(liveList(sitemap)).toEqual(['/', '/about', '/legal', '/manual/', '/manual/mpr.html', '/robots.txt', '/sitemap.xml', '/icon.svg', '/apple-icon.png', '/og.png', '/update', '/agent-frame.html']);
+    // the sitemap parser is the byte mode's: an address off the site or an empty sitemap fails
+    expect(() => liveList('<loc>https://example.com/x</loc>')).toThrow(/not on https:\/\/cbctscope.com/);
+    expect(() => liveList('<urlset></urlset>')).toThrow(/no address/);
+    expect(MISSING_PATH).toBe('/this-address-does-not-exist');
+  });
+
+  it('types an extensionless address or a folder as HTML', () => {
+    expect(typeFileFor('/')).toBe('/index.html');
+    expect(typeFileFor('/manual/')).toBe('/manual/index.html');
+    expect(typeFileFor('/update')).toBe('/update.html');
+    expect(typeFileFor('/og.png')).toBe('/og.png');
+    expect(contentTypeProblem(typeFileFor('/about'), 'text/html; charset=utf-8')).toBeNull();
+    expect(contentTypeProblem(typeFileFor('/about'), 'text/plain')).toMatch(/expected text\/html/);
+  });
+
+  it('lists the markers of Vercel\'s analytics, speed insights and toolbar in one place, and finds each', () => {
+    expect(FORBIDDEN_MARKERS).toEqual(['/_vercel/insights/', '/_vercel/speed-insights/', 'window.vaq', 'window.siq', '@vercel/analytics', '@vercel/speed-insights', 'https://vercel.live']);
+    const clean = '<html><head><script src="/_next/static/chunks/main.js"></script></head><body>window.value</body></html>';
+    expect(forbiddenMarkers(clean)).toEqual([]);
+    const injected = [
+      ['<script defer src="/_vercel/insights/script.js"></script>', '/_vercel/insights/'],
+      ['<script defer src="/_vercel/speed-insights/script.js"></script>', '/_vercel/speed-insights/'],
+      ['<script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>', 'window.vaq'],
+      ['<script>window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };</script>', 'window.siq'],
+      ['<script src="https://vercel.live/_next-live/feedback/feedback.js"></script>', 'https://vercel.live'],
+    ];
+    for (const [tag, marker] of injected) expect(forbiddenMarkers(clean.replace('</body>', `${tag}</body>`)), marker).toEqual([marker]);
+  });
+
+  it('collects every script and stylesheet a page references, resolved against the page', () => {
+    const html = [
+      '<link rel="stylesheet" href="/_next/static/css/a.css" data-precedence="next"/>',
+      '<link rel="preload" as="script" fetchPriority="low" href="/_next/static/chunks/webpack.js"/>',
+      '<link rel="preload" as="image" href="/og.png"/>',
+      '<link rel="canonical" href="https://cbctscope.com/manual/">',
+      '<link rel="icon" href="/icon.svg?53e3" type="image/svg+xml"/>',
+      '<script src="manual.js"></script>',
+      '<script async="" src="/_next/static/chunks/main.js"></script>',
+      '<script type="application/ld+json">{"@context":"https://schema.org"}</script>',
+      '<script>self.__next_f=[]</script>',
+    ].join('');
+    expect(pageAssets(html, 'https://cbctscope.com/manual/')).toEqual([
+      'https://cbctscope.com/manual/manual.js',
+      'https://cbctscope.com/_next/static/chunks/main.js',
+      'https://cbctscope.com/_next/static/css/a.css',
+      'https://cbctscope.com/_next/static/chunks/webpack.js',
+    ]);
+  });
+
+  it('fails a script or stylesheet on another origin, a protocol-relative one included', () => {
+    const page = 'https://cbctscope.com/';
+    expect(offOriginAssets(pageAssets('<script src="/_next/a.js"></script><link rel="stylesheet" href="b.css">', page), 'https://cbctscope.com')).toEqual([]);
+    const html = '<script src="https://va.example.com/script.js"></script><script src="//cdn.example.net/x.js"></script><link rel="stylesheet" href="http://cbctscope.com/c.css">';
+    expect(offOriginAssets(pageAssets(html, page), 'https://cbctscope.com')).toEqual([
+      'references https://va.example.com/script.js, which is not on https://cbctscope.com',
+      'references https://cdn.example.net/x.js, which is not on https://cbctscope.com',
+      'references http://cbctscope.com/c.css, which is not on https://cbctscope.com',
+    ]);
+  });
+
+  it('passes the update page only when it names the version in package.json', () => {
+    const page = `<main><p>${newestSentence('2.1.1')}</p></main>`;
+    expect(versionProblem(page, '2.1.1')).toBeNull();
+    expect(versionProblem(page, '2.2.0')).toBe('the update page does not say "The newest version of CBCTScope is 2.2.0."');
+    expect(versionProblem(page.replace('2.1.1.', '2.1.10.'), '2.1.1')).toMatch(/does not say/);
+    expect(versionProblem(page, '2.1.1-beta')).toBe('package.json\'s version "2.1.1-beta" is not major.minor.patch');
+  });
+
+  it('passes a response only from the deployment of the commit', () => {
+    expect(commitProblem(SHA, SHA)).toBeNull();
+    expect(commitProblem(null, SHA)).toBe(`X-CBCTScope-Commit is missing, expected ${SHA}`);
+    expect(commitProblem('0'.repeat(40), SHA)).toBe(`X-CBCTScope-Commit is ${'0'.repeat(40)}, expected ${SHA}`);
+  });
+
+  it('needs nothing installed: it imports only Node\'s modules and the repository\'s plain scripts', () => {
+    const graph = ['scripts/site-check.mjs', 'scripts/sitemap.mjs', 'scripts/vercel-output.mjs', 'scripts/agent-frame.mjs', 'components/siteAddress.mjs', 'components/webCsp.mjs'];
+    for (const f of graph) {
+      for (const m of read(f).matchAll(/^import .* from '([^']+)';$/gm)) expect(m[1], f).toMatch(/^(node:|\.\.?\/)/);
     }
   });
+});
 
-  it('a rehearsal refuses the public domain as its address', () => {
-    expect(() => refuseProduction('https://cbctscope.com')).toThrow(/must not check cbctscope.com/);
-    expect(() => refuseProduction('https://www.cbctscope.com/')).toThrow(/production address/);
-    expect(() => refuseProduction('https://cbctscope.vercel.app', ['cbctscope.vercel.app'])).toThrow(/production address/);
-    expect(() => refuseProduction('https://cbctscope-abc123-team.vercel.app')).not.toThrow();
-  });
-
+describe('the byte check of an export on disk (scripts/site-check.mjs --base)', () => {
   it('reports a protection wall once, naming the bypass secret', () => {
     expect(protectionMessage(29)).toBe("29 addresses answered 401 or 403: the deployment is behind Vercel's Deployment Protection, and VERCEL_AUTOMATION_BYPASS_SECRET is missing or wrong");
   });
@@ -159,283 +367,130 @@ describe('the post-deploy check (scripts/site-check.mjs)', () => {
       'X-Content-Type-Options is missing, expected "nosniff"',
     ]);
   });
-
-  it('passes identical bytes only, and names an injected script', () => {
-    const built = Buffer.from('<html><head></head><body>x</body></html>');
-    expect(bodyProblem(built, built)).toBeNull();
-    const injected = Buffer.from('<html><head></head><body>x<script src="https://vercel.live/_next-live/feedback/feedback.js"></script></body></html>');
-    expect(bodyProblem(injected, built)).toMatch(/first difference at byte 27; the served body carries vercel\.live/);
-    expect(bodyProblem(Buffer.from('<html>'), built)).toMatch(/served 6 bytes, built 40/);
-  });
 });
 
-describe('the workflows', () => {
-  const steps = (wf: Workflow, job: string) => wf.jobs[job].steps ?? [];
-  const runs = (wf: Workflow, job: string) => steps(wf, job).map((s) => s.run ?? '').join('\n');
-  const secretsIn = (s: Step) => JSON.stringify(s).match(/secrets\.\w+/g) ?? [];
+describe('the alarm after a deploy (site-check.yml)', () => {
+  const job = alarm.jobs.live;
+  const steps = job.steps ?? [];
 
-  it('the release builds the site for the root and deploys it to production only after build and publish', () => {
-    const build = steps(release, 'build').find((s) => s.name === 'Build the web target');
-    expect(build?.env).toEqual({ NEXT_PUBLIC_BASE_PATH: '' });
-    expect(release.jobs.deploy.needs).toEqual(['build', 'publish']);
-    expect(release.on).toEqual({ release: { types: ['published'] } });
-    const deploy = runs(release, 'deploy');
-    expect(deploy).toContain('node scripts/vercel-output.mjs out "$RUNNER_TEMP/site"');
-    expect(deploy).toContain('deploy/node_modules/.bin/vercel deploy --prebuilt --prod --cwd "$RUNNER_TEMP/site"');
-    expect(deploy).toContain('node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out');
-    // stdout only goes to the file the check reads
-    expect(deploy).toContain('> "$RUNNER_TEMP/deploy.txt"');
-    expect(deploy).not.toMatch(/2>&1|&>/);
-    // the check comes after the deploy, which comes after the layout
-    const names = steps(release, 'deploy').map((s) => s.name);
-    expect(names.indexOf('Check the deployment as served')).toBeGreaterThan(names.indexOf('Deploy to production'));
-    expect(names.indexOf('Deploy to production')).toBeGreaterThan(names.indexOf('Lay out the prebuilt deployment'));
+  it('runs on Vercel\'s deployment_status events and by hand, with read-only permissions', () => {
+    expect(alarm.on).toEqual({ deployment_status: null, workflow_dispatch: null });
+    expect(alarm.permissions).toEqual({ contents: 'read' });
+    expect(Object.keys(alarm.jobs)).toEqual(['live']);
+    expect(job.permissions).toBeUndefined();
+    expect(job.environment).toBeUndefined();
+    expect(job['timeout-minutes']).toBe(15);
   });
 
-  it('nothing of GitHub Pages is left, and no job asks for more than it needs', () => {
-    const text = read('.github/workflows/release.yml');
-    expect(text).not.toMatch(/pages|CNAME|nojekyll|id-token/i);
-    expect(release.permissions).toEqual({ contents: 'read' });
-    expect(release.jobs.deploy.permissions).toBeUndefined();
-    expect(rehearsal.permissions).toEqual({ contents: 'read' });
-    expect(read('.github/workflows/site-update.yml')).not.toMatch(/pages|CNAME|nojekyll|id-token/i);
-    expect(siteUpdate.permissions).toEqual({ contents: 'read' });
-    for (const [name, j] of Object.entries(siteUpdate.jobs)) expect(j.permissions, name).toBeUndefined();
+  it('checks a successful production deployment only (or a run by hand), never a preview', () => {
+    expect(job.if).toBe(
+      "${{ github.event_name == 'workflow_dispatch' || (github.event.deployment_status.state == 'success' && startsWith(github.event.deployment.environment, 'Production')) }}",
+    );
   });
 
-  it('a cancelled or failed run never deploys, and both deploying jobs have a time limit', () => {
-    expect(release.jobs.deploy.if).toBe("${{ !cancelled() && needs.build.result == 'success' && needs.publish.result == 'success' }}");
-    expect(release.jobs.deploy['timeout-minutes' as keyof Job]).toBe(30);
-    expect(rehearsal.jobs.rehearse['timeout-minutes' as keyof Job]).toBe(45);
-    expect(siteUpdate.jobs.deploy['timeout-minutes' as keyof Job]).toBe(30);
-    // no if: of its own, so the deploy runs only when test and build both succeeded
-    expect(siteUpdate.jobs.deploy.if).toBeUndefined();
+  it('runs the live mode on the event\'s commit, with no install and no secret', () => {
+    const runs = steps.map((s) => s.run).filter(Boolean);
+    expect(runs).toEqual(['node scripts/site-check.mjs --live --commit "$COMMIT"']);
+    expect(steps.find((s) => s.run)?.env).toEqual({ COMMIT: '${{ github.event.deployment.sha || github.sha }}' });
+    // the checkout is the event's own commit: no ref of its own
+    const checkout = steps.find((s) => s.uses?.startsWith('actions/checkout@'));
+    expect(checkout?.with).toBeUndefined();
+    expect(read('.github/workflows/site-check.yml')).not.toMatch(/secrets\.|npm ci|npm install/);
   });
 
-  it('the deploying jobs run in their GitHub environments, and no other job names a Vercel secret', () => {
-    expect(release.jobs.deploy.environment).toBe('production');
-    expect(rehearsal.jobs.rehearse.environment).toBe('rehearsal');
-    expect(siteUpdate.jobs.deploy.environment).toBe('production');
-    for (const [wf, keep] of [
-      [release, 'deploy'],
-      [rehearsal, 'rehearse'],
-      [siteUpdate, 'deploy'],
-    ] as const) {
-      for (const [name, j] of Object.entries(wf.jobs)) {
-        if (name !== keep) expect(JSON.stringify(j), name).not.toMatch(/VERCEL_/);
-      }
-    }
-  });
-
-  it('the Vercel secrets reach the deploy steps only', () => {
-    const vercel = ['secrets.VERCEL_TOKEN', 'secrets.VERCEL_ORG_ID', 'secrets.VERCEL_PROJECT_ID'];
-    for (const [wf, job, step] of [
-      [release, 'deploy', 'Deploy to production'],
-      [rehearsal, 'rehearse', 'Deploy a preview'],
-      [siteUpdate, 'deploy', 'Deploy to production'],
-    ] as const) {
-      for (const [name, j] of Object.entries(wf.jobs)) {
-        for (const s of j.steps ?? []) {
-          const used = secretsIn(s).filter((x) => x.startsWith('secrets.VERCEL_'));
-          if (name === job && s.name === step) expect(used.sort()).toEqual([...vercel].sort());
-          else if (['Check the preview as served', 'Check the deployment as served'].includes(s.name ?? '')) expect(used).toEqual(['secrets.VERCEL_AUTOMATION_BYPASS_SECRET']);
-          else expect(used, `${name}: ${s.name ?? s.uses ?? s.run}`).toEqual([]);
-        }
-      }
-      expect(steps(wf, job).find((s) => s.name === step)?.env?.VERCEL_TELEMETRY_DISABLED).toBe('1');
-    }
-  });
-
-  it('the rehearsal is started by hand and deploys a preview, never production', () => {
-    expect(rehearsal.on).toEqual({ workflow_dispatch: null });
-    const text = runs(rehearsal, 'rehearse');
-    expect(text).toContain('deploy/node_modules/.bin/vercel deploy --prebuilt --cwd "$RUNNER_TEMP/site"');
-    expect(text).not.toMatch(/--prod|--environment/);
-    expect(text).toContain('node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out --attempts 3 --rehearsal');
-    expect(steps(rehearsal, 'rehearse').find((s) => s.name === 'Build the web target')?.env).toEqual({ NEXT_PUBLIC_BASE_PATH: '' });
-  });
-
-  it('every action is pinned to a commit SHA, and the Vercel CLI to one exact version in deploy/, outside the app', () => {
-    for (const f of ['release.yml', 'site-rehearsal.yml', 'site-update.yml']) {
+  it('every action in every workflow is pinned to a commit SHA', () => {
+    for (const f of readdirSync(path.join(root, '.github/workflows'))) {
       for (const uses of read(`.github/workflows/${f}`).match(/uses: \S+/g) ?? []) expect(uses, f).toMatch(/@[0-9a-f]{40}$/);
     }
-    type Pkg = { private?: boolean; dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
-    const app = JSON.parse(read('package.json')) as Pkg;
-    expect({ ...app.dependencies, ...app.devDependencies }).not.toHaveProperty('vercel');
-    const appLock = JSON.parse(read('package-lock.json')) as { packages: Record<string, unknown> };
-    expect(appLock.packages).not.toHaveProperty('node_modules/vercel');
-    const tool = JSON.parse(read('deploy/package.json')) as Pkg;
-    expect(tool.private).toBe(true);
-    expect(tool.dependencies).toBeUndefined();
-    expect(Object.keys(tool.devDependencies ?? {})).toEqual(['vercel']);
-    expect(tool.devDependencies?.vercel).toMatch(/^\d+\.\d+\.\d+$/);
-    const toolLock = JSON.parse(read('deploy/package-lock.json')) as { packages: Record<string, { version: string }> };
-    expect(toolLock.packages['node_modules/vercel'].version).toBe(tool.devDependencies?.vercel);
-    // both workflows install the CLI from deploy/ and run it from there
-    for (const [wf, job] of [
-      [release, 'deploy'],
-      [rehearsal, 'rehearse'],
-      [siteUpdate, 'deploy'],
-    ] as const) {
-      const install = steps(wf, job).find((s) => s.name === 'Install the Vercel CLI') as (Step & { 'working-directory'?: string }) | undefined;
-      expect(install?.run).toBe('npm ci');
-      expect(install?.['working-directory']).toBe('deploy');
-    }
-    // electron-builder packages an allowlist that leaves deploy/ out
-    expect(read('electron-builder.yml')).not.toMatch(/deploy\//);
-    for (const f of ['release.yml', 'site-rehearsal.yml', 'site-update.yml']) expect(read(`.github/workflows/${f}`), f).not.toMatch(/npx\s+vercel|npm (i|install) -g|vercel@/);
+  });
+
+  it('the full suite still runs on every push to main and every pull request', () => {
+    expect(ci.on).toEqual({ push: { branches: ['main'] }, pull_request: null });
+    const runs = Object.values(ci.jobs).flatMap((j) => (j.steps ?? []).map((s) => s.run ?? ''));
+    for (const cmd of ['npm run typecheck', 'npm run lint', 'npm test', 'npm run build', 'npm run build:web', 'npm run test:e2e']) expect(runs, cmd).toContain(cmd);
   });
 });
 
-describe('the site update (site-update.yml)', () => {
-  const steps = (wf: Workflow, job: string) => wf.jobs[job].steps ?? [];
-  const deploySteps = steps(siteUpdate, 'deploy');
-  const at = (name: string) => deploySteps.findIndex((s) => s.name === name);
-  const REF = 'Refuse a run from any ref but main';
-  const GUARD = 'Check the latest release is this version and carries the installers';
-
-  it('is started by hand only, and only the two deploy jobs share a concurrency group, so the tests and builds never queue', () => {
-    expect(siteUpdate.on).toEqual({ workflow_dispatch: null });
-    const group = { group: 'site', 'cancel-in-progress': false };
-    for (const wf of [release, siteUpdate]) {
-      expect(wf.concurrency).toBeUndefined();
-      for (const [name, j] of Object.entries(wf.jobs)) {
-        expect((j as Job & { concurrency?: unknown }).concurrency, name).toEqual(name === 'deploy' ? group : undefined);
-      }
-    }
-    expect(rehearsal.concurrency).not.toEqual(group);
-  });
-
-  it('its test job runs the release\'s test steps, and its build job builds the site as the release does', () => {
-    expect(steps(siteUpdate, 'test')).toEqual(steps(release, 'test'));
-    expect(steps(siteUpdate, 'build')).toEqual(steps(release, 'build'));
-    const upload = steps(siteUpdate, 'build').find((s) => s.uses?.startsWith('actions/upload-artifact@'));
-    // the owner's check of the public address reads the kept artifact
-    expect(upload?.with).toMatchObject({ name: 'site', path: 'out', 'retention-days': 30 });
-    expect(Object.keys(siteUpdate.jobs)).toEqual(['ref', 'test', 'build', 'deploy']);
-    expect(siteUpdate.jobs.test.needs).toBe('ref');
-    expect(siteUpdate.jobs.build.needs).toBe('ref');
-    expect(siteUpdate.jobs.deploy.needs).toEqual(['ref', 'test', 'build']);
-  });
-
-  it('refuses a run from any ref but main in a first job every other job needs, and again first in deploy', () => {
-    // the ref job is the one cheap step: no checkout, no install, no environment
-    expect(steps(siteUpdate, 'ref')).toHaveLength(1);
-    expect(siteUpdate.jobs.ref.needs).toBeUndefined();
-    expect(siteUpdate.jobs.ref.environment).toBeUndefined();
-    expect(at(REF)).toBe(0);
-    expect(deploySteps[0]).toEqual(steps(siteUpdate, 'ref')[0]);
-    const run = deploySteps[0].run ?? '';
-    expect(run).toContain('if [ "$GITHUB_REF" != "refs/heads/main" ]; then');
-    expect(run).toMatch(/deploys from main only: start it again with main selected/);
-    expect(run).toContain('exit 1');
-  });
-
-  it('runs the version guard before the Vercel CLI is installed or anything is deployed', () => {
-    const guard = at(GUARD);
-    expect(guard).toBeGreaterThan(at(REF));
-    expect(guard).toBeGreaterThan(deploySteps.findIndex((s) => s.uses?.startsWith('actions/checkout@')));
-    for (const later of ['Install the Vercel CLI', 'Lay out the prebuilt deployment', 'Deploy to production', 'Check the deployment as served']) {
-      expect(guard, later).toBeLessThan(at(later));
-    }
-    expect(guard).toBeLessThan(deploySteps.findIndex((s) => s.uses?.startsWith('actions/download-artifact@')));
-    expect(deploySteps[guard].run).toBe('node scripts/release-assets.mjs --site-update');
-    expect(deploySteps[guard].env).toEqual({ GITHUB_TOKEN: '${{ github.token }}' });
-  });
-
-  it('after the guards, deploys exactly as the release does, and checks with three attempts', () => {
-    const releaseDeploy = steps(release, 'deploy').filter((s) => s.name !== 'Check the release carries the installers');
-    expect(deploySteps.filter((s) => s.name !== REF && s.name !== GUARD)).toEqual(releaseDeploy);
-    for (const wf of [release, siteUpdate]) {
-      const check = steps(wf, 'deploy').find((s) => s.name === 'Check the deployment as served');
-      expect(check?.run).toBe('node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out --attempts 3');
-    }
-  });
-
-});
-
-// With the environment rule for main (docs/web-build.md, section 9, step 11), any job on main
-// that names production can read the Vercel secrets. So no file under .github/ but the two
-// deploying workflows may name the production environment (as a string or a mapping, in any
-// expression), pass a production flag to a CLI, or name a Vercel secret, except the rehearsal's
-// job in its own environment. Every string value is read, comments are not.
-const DEPLOYERS = ['.github/workflows/release.yml', '.github/workflows/site-update.yml'];
+// GitHub does not deploy the site. No file under .github/ may run the Vercel CLI, name a
+// Vercel secret, run a job in a GitHub environment, or name a production or rehearsal
+// environment. The one word "Production" allowed is the alarm's test of the
+// environment Vercel reports its deployment under. Every string value and key is read; comments
+// are not.
 const VERCEL_SECRET = /VERCEL_(TOKEN|ORG_ID|PROJECT_ID|AUTOMATION_BYPASS_SECRET)/;
-const PROD_FLAG = /--prod\b|--(target|environment)[\s=]+['"]?production/i;
+const VERCEL_CLI = /\bvercel\s+(deploy|build|pull|promote|alias|link|env)\b|--prebuilt\b|--prod\b/i;
+const ENVIRONMENT_WORD = /\b(production|rehearsal)\b/i;
+const ALLOWED = { file: '.github/workflows/site-check.yml', where: '.jobs.live.if' };
 
-/** what in a parsed YAML file could reach production or its secrets */
-export function productionProblems(doc: unknown): string[] {
+/** what in a parsed YAML file deploys, reaches a Vercel secret, or names a GitHub environment */
+export function deployProblems(doc: unknown, file = ''): string[] {
   const problems: string[] = [];
-  const walk = (node: unknown, where: string, rehearsalJob: boolean) => {
+  const walk = (node: unknown, where: string) => {
     if (typeof node === 'string') {
-      if (PROD_FLAG.test(node)) problems.push(`${where}: a production flag in "${node}"`);
-      if (!rehearsalJob && VERCEL_SECRET.test(node)) problems.push(`${where}: a Vercel secret in "${node}"`);
+      if (VERCEL_CLI.test(node)) problems.push(`${where}: runs the Vercel CLI in "${node}"`);
+      if (VERCEL_SECRET.test(node)) problems.push(`${where}: a Vercel secret in "${node}"`);
+      if (ENVIRONMENT_WORD.test(node) && !(file === ALLOWED.file && where === ALLOWED.where)) problems.push(`${where}: names an environment in "${node}"`);
       return;
     }
-    if (Array.isArray(node)) return node.forEach((n, i) => walk(n, `${where}[${i}]`, rehearsalJob));
+    if (Array.isArray(node)) return node.forEach((n, i) => walk(n, `${where}[${i}]`));
     if (!node || typeof node !== 'object') return;
     for (const [k, v] of Object.entries(node)) {
-      if (k === 'environment' && /production/i.test(JSON.stringify(v))) problems.push(`${where}.environment: names production`);
-      if (VERCEL_SECRET.test(k) && !rehearsalJob) problems.push(`${where}.${k}: a Vercel secret's name as a key`);
-      walk(v, `${where}.${k}`, rehearsalJob);
+      if (k === 'environment') problems.push(`${where}.environment: a job in a GitHub environment`);
+      if (VERCEL_SECRET.test(k)) problems.push(`${where}.${k}: a Vercel secret's name as a key`);
+      walk(v, `${where}.${k}`);
     }
   };
-  const top = (doc ?? {}) as Record<string, unknown>;
-  for (const [k, v] of Object.entries(top)) {
-    if (k !== 'jobs' || !v || typeof v !== 'object') {
-      walk({ [k]: v }, '', false);
-      continue;
-    }
-    for (const [name, job] of Object.entries(v as Record<string, unknown>)) {
-      const env = (job as { environment?: unknown } | null)?.environment;
-      walk({ [name]: job }, '.jobs', env === 'rehearsal');
-    }
-  }
+  walk(doc, '');
   return problems;
 }
 
-describe('only release.yml and site-update.yml can reach production', () => {
+describe('no workflow deploys the site or can reach a Vercel secret', () => {
   const yamlFiles = (dir: string): string[] =>
     readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((e) =>
       e.isDirectory() ? yamlFiles(`${dir}/${e.name}`) : /\.ya?ml$/.test(e.name) ? [`${dir}/${e.name}`] : [],
     );
-  const files = yamlFiles('.github');
+  const all = yamlFiles('.github');
 
-  it('reads every YAML file under .github/, the workflows, CodeQL and Dependabot included', () => {
-    for (const f of ['ci.yml', 'codeql.yml', 'site-rehearsal.yml', 'release.yml', 'site-update.yml']) expect(files).toContain(`.github/workflows/${f}`);
-    expect(files).toContain('.github/dependabot.yml');
+  it('reads every YAML file under .github/: the four workflows and Dependabot', () => {
+    expect(all.sort()).toEqual(['.github/dependabot.yml', '.github/workflows/ci.yml', '.github/workflows/codeql.yml', '.github/workflows/release.yml', '.github/workflows/site-check.yml']);
   });
 
-  it('no other file names the production environment, a production flag or a Vercel secret outside the rehearsal\'s job', () => {
-    for (const f of files.filter((x) => !DEPLOYERS.includes(x))) expect(productionProblems(yaml.load(read(f))), f).toEqual([]);
+  it('none runs the Vercel CLI, names a Vercel secret, runs in a GitHub environment, or names production or rehearsal', () => {
+    for (const f of all) expect(deployProblems(yaml.load(read(f)), f), f).toEqual([]);
+    for (const f of all) expect(read(f), f).not.toMatch(/deploy\//);
+  });
+
+  it('the deploy tool is gone: no deploy/ folder, no vercel package, nothing for Dependabot to watch there', () => {
+    expect(existsSync(path.join(root, 'deploy'))).toBe(false);
+    expect({ ...pkg.dependencies, ...pkg.devDependencies }).not.toHaveProperty('vercel');
+    const lock = JSON.parse(read('package-lock.json')) as { packages: Record<string, unknown> };
+    expect(lock.packages).not.toHaveProperty('node_modules/vercel');
+    const dependabot = yaml.load(read('.github/dependabot.yml')) as { updates: { directories?: string[] }[] };
+    expect(dependabot.updates.flatMap((u) => u.directories ?? [])).toEqual(['/', '/mcp']);
   });
 
   it('the check finds each form, so it does not pass by finding nothing', () => {
-    // the two deploying workflows trip it, by the environment, the flag and the secrets
-    for (const f of DEPLOYERS) {
-      const found = productionProblems(yaml.load(read(f))).join('\n');
-      expect(found, f).toMatch(/environment: names production/);
-      expect(found, f).toMatch(/a production flag/);
-      expect(found, f).toMatch(/a Vercel secret/);
-    }
     const mutate = (edit: (wf: Workflow) => void, file = '.github/workflows/ci.yml') => {
       const wf = yaml.load(read(file)) as Workflow;
       edit(wf);
-      return productionProblems(wf);
+      return deployProblems(wf, file);
     };
     const step = (wf: Workflow, s: Step) => wf.jobs.build.steps?.push(s);
-    expect(mutate((wf) => (wf.jobs.build.environment = 'production'))).toEqual(['.jobs.build.environment: names production']);
-    expect(mutate((wf) => (wf.jobs.build.environment = { name: 'production', url: 'https://cbctscope.com' }))).toEqual(['.jobs.build.environment: names production']);
-    expect(mutate((wf) => (wf.jobs.build.environment = "${{ github.ref == 'refs/heads/main' && 'production' || 'rehearsal' }}"))).toHaveLength(1);
-    for (const run of ['npx vercel deploy --prod', 'vercel deploy --target production', 'vercel deploy --target=production', 'vercel pull --environment=production']) {
-      expect(mutate((wf) => step(wf, { run })), run).toEqual([expect.stringMatching(/a production flag/)]);
+    expect(mutate((wf) => (wf.jobs.build.environment = 'staging'))).toEqual(['.jobs.build.environment: a job in a GitHub environment']);
+    expect(mutate((wf) => (wf.jobs.build.environment = { name: 'production', url: 'https://cbctscope.com' }))).toEqual([
+      '.jobs.build.environment: a job in a GitHub environment',
+      '.jobs.build.environment.name: names an environment in "production"',
+    ]);
+    for (const run of ['npx vercel deploy', 'vercel build --prod', 'vercel deploy --prebuilt', 'node_modules/.bin/vercel pull --yes']) {
+      expect(mutate((wf) => step(wf, { run })), run).toEqual([expect.stringMatching(/runs the Vercel CLI/)]);
     }
-    expect(mutate((wf) => step(wf, { run: 'x', env: { T: '${{ secrets.VERCEL_TOKEN }}' } }))).toEqual([expect.stringMatching(/a Vercel secret/)]);
+    expect(mutate((wf) => step(wf, { run: 'x', env: { T: '${{ secrets.VERCEL_TOKEN }}' } }))).toEqual([expect.stringMatching(/a Vercel secret in/)]);
     expect(mutate((wf) => ((wf as unknown as { env: unknown }).env = { VERCEL_ORG_ID: 'x' }))).toEqual([expect.stringMatching(/a Vercel secret's name as a key/)]);
-    // the rehearsal's job may name the Vercel secrets only in its own environment, and never --prod
-    expect(mutate((wf) => (wf.jobs.rehearse.environment = 'staging'), '.github/workflows/site-rehearsal.yml').length).toBeGreaterThan(0);
-    expect(mutate((wf) => wf.jobs.rehearse.steps?.push({ run: 'vercel deploy --prebuilt --prod' }), '.github/workflows/site-rehearsal.yml')).toEqual([expect.stringMatching(/a production flag/)]);
+    expect(mutate((wf) => step(wf, { run: 'echo rehearsal' }))).toEqual([expect.stringMatching(/names an environment/)]);
+    // the allowance is for the alarm's own condition only
+    expect(mutate((wf) => (wf.jobs.live.steps![0].name = 'Production'), ALLOWED.file)).toEqual([expect.stringMatching(/names an environment/)]);
+    expect(mutate(() => {}, ALLOWED.file)).toEqual([]);
+    expect(deployProblems(alarm, 'elsewhere.yml')).toEqual([expect.stringMatching(/^\.jobs\.live\.if: names an environment/)]);
     // a file without jobs, like Dependabot's, is read too
-    expect(productionProblems({ updates: [{ registries: ['${{ secrets.VERCEL_TOKEN }}'] }] })).toEqual([expect.stringMatching(/a Vercel secret/)]);
+    expect(deployProblems({ updates: [{ registries: ['${{ secrets.VERCEL_TOKEN }}'] }] })).toEqual([expect.stringMatching(/a Vercel secret/)]);
   });
 });

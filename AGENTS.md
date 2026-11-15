@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Guidance for AI agents and contributors working in this repo. Read fully before non-trivial changes.
+Guidance for AI agents and contributors. Read fully before non-trivial changes.
 
 ## What this is
 
@@ -60,8 +60,8 @@ commit itself:
 npm run typecheck && npm run lint && npm test && npm run build && npm run build:web && npm run test:e2e
 ```
 
-All six must pass before a change is done. A change to the agent surface also runs `npm run mcp:smoke` against a live demo tab. GitHub adds CodeQL and Dependabot; every action is pinned to a commit SHA. Never run `npm run build` while a dev server is up; they share `.next` and a concurrent build corrupts it (recovery: stop the server, `rm -rf .next`).
+All six must pass before a change is done. A push to `main` publishes the website before CI runs: unfinished work stays on a branch. A change to the agent surface also runs `npm run mcp:smoke` against a live demo tab. GitHub adds CodeQL and Dependabot; every action is pinned to a commit SHA. Never run `npm run build` while a dev server is up; they share `.next` and a concurrent build corrupts it (recovery: stop the server, `rm -rf .next`).
 
-`tests/docs.test.ts` caps the size of this file, shrink-only: when `AGENTS.md` grows past the byte number in that test, trim the file, never raise the number.
+`tests/docs.test.ts` caps this file's size, shrink-only: trim the file, never raise the cap.
 
 The browser contract for every volume source is identical: Int16 LE HU voxels, x-fastest / y / z-ascending, plus a geometry JSON. Keep new sources on that contract and every reading mode works on them unchanged.

@@ -5,10 +5,9 @@
 // The DOI is always the concept DOI (CONCEPT_DOI in components/links.ts), which resolves to
 // the newest archived version, whatever CITATION.cff's doi: holds. The file keeps its own
 // ritual for GitHub and Zenodo (the concept DOI at the version bump, the version DOI pinned
-// after the release), but the site can be updated from main between releases, with newer
-// pages and viewer code than that version's archive, so citing the version DOI would claim
-// more than is true. The version line names the latest release, the version the site carries
-// (in the desktop app, the app's own version).
+// after the release), but the site is built from main, with newer pages and viewer code than
+// that version's archive, so citing the version DOI would claim more than is true. The version
+// line names the version the site carries (in the desktop app, the app's own version).
 import { CONCEPT_DOI, DOI_RESOLVER } from './links';
 
 export interface CitationAuthor {

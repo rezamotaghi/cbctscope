@@ -9,6 +9,8 @@ import { describe, expect, it } from 'vitest';
 import { HOME_LEAD, HOME_LINKS, HOME_NOSCRIPT, HOME_PRIVACY_WEB, HOME_RESEARCH, LEGAL_PURPOSE, PHONE_ACTIONS, PHONE_COMPUTER, PHONE_LINKS, PHONE_STILL } from '../components/sitePages';
 import { NOINDEX_PAGES, NOT_PAGES, sitemapPages, sitePages, sitePath } from '../scripts/sitemap.mjs';
 import { vercelConfig } from '../scripts/vercel-output.mjs';
+import { LIVE_FILES, exportFiles, forbiddenMarkers, offOriginAssets, pageAssets, typeFileFor, versionProblem } from '../scripts/site-check.mjs';
+import { SITE_URL } from '../components/siteAddress.mjs';
 import pkg from '../package.json';
 
 const out = path.join(process.cwd(), 'out');
@@ -237,5 +239,24 @@ describe.skipIf(!built)('the exported site', () => {
       expect(canon, file).toEqual([url]);
     }
     expect(read('404.html')).not.toContain('rel="canonical"');
+  });
+
+  // the live check after a deploy (scripts/site-check.mjs --live) reads these from the public
+  // site; here the export proves it would pass on the files this build made
+  it('holds what the live check asks for: its fixed files, same-origin assets, no host marker, the version on the update page', () => {
+    const moved = vercelConfig(sitePages(out)).overrides;
+    const served = new Set(exportFiles(out).map((f) => (moved[f] ? `/${moved[f].path}` : `/${f}`)));
+    for (const p of LIVE_FILES) expect(served.has(p) || served.has(`${p}index.html`), p).toBe(true);
+    for (const f of exportFiles(out).filter((x) => x.endsWith('.html'))) {
+      const html = read(f);
+      expect(forbiddenMarkers(html), f).toEqual([]);
+      const at = moved[f] ? `/${moved[f].path}` : `/${f}`;
+      const assets = pageAssets(html, new URL(at, SITE_URL).toString());
+      expect(offOriginAssets(assets, SITE_URL), f).toEqual([]);
+      for (const a of assets) expect(exportFiles(out), `${f}: ${a}`).toContain(new URL(a).pathname.slice(1));
+    }
+    expect(pageAssets(read('index.html'), SITE_URL).length).toBeGreaterThan(0);
+    expect(versionProblem(read('update.html'), pkg.version)).toBeNull();
+    expect(typeFileFor(LIVE_FILES[LIVE_FILES.length - 1])).toBe('/manual/index.html');
   });
 });

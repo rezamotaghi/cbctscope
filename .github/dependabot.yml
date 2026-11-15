@@ -1,12 +1,11 @@
 version: 2
 updates:
-  # The viewer (root package.json), the MCP server (mcp/package.json) and the site's
-  # deploy tool (deploy/package.json, the Vercel CLI alone).
+  # The viewer (root package.json) and the MCP server (mcp/package.json). Vercel does not build
+  # Dependabot's branches (vercel.json, git.deploymentEnabled).
   - package-ecosystem: npm
     directories:
       - '/'
       - '/mcp'
-      - '/deploy'
     schedule:
       interval: weekly
     open-pull-requests-limit: 3

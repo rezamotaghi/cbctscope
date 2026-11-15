@@ -1,6 +1,6 @@
 // The base path (docs/web-build.md, section 3): a build made with NEXT_PUBLIC_BASE_PATH=/cbctscope
 // can be served from a sub-path, so every chunk, the assembly Web Worker and the codec WASM
-// must load from under that prefix. The release builds the site for the root; this keeps the
+// must load from under that prefix. The site itself is built for the root; this keeps the
 // sub-path build working. out-base/ is that build, served under /cbctscope only
 // (anything at the bare origin is a 404), so a root-relative URL anywhere fails this test.
 //

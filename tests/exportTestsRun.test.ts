@@ -50,7 +50,14 @@ describe('the tests that read the export run in every pipeline', () => {
     expect(needed).toEqual(expect.arrayContaining(['tests/siteExport.test.ts', 'tests/webBudget.test.ts']));
   });
 
-  for (const wf of ['.github/workflows/ci.yml', '.github/workflows/release.yml', '.github/workflows/site-update.yml']) {
+  it('the workflows that build the web target are exactly the two checked below', () => {
+    const building = readdirSync(path.join(root, '.github/workflows'))
+      .filter((n) => /\.ya?ml$/.test(n) && /npm run build:web\b/.test(read(`.github/workflows/${n}`)))
+      .sort();
+    expect(building).toEqual(['ci.yml', 'release.yml']);
+  });
+
+  for (const wf of ['.github/workflows/ci.yml', '.github/workflows/release.yml']) {
     it(`${wf} runs each of them after build:web, in one job`, () => {
       const jobs = runAfterBuild(yaml.load(read(wf)) as Workflow);
       const covering = jobs.filter((named) => needed.every((t) => named.has(t)));

@@ -1,0 +1,43 @@
+name: Site check
+
+# The alarm after a deploy (docs/web-build.md, section 9). Vercel builds and publishes the site
+# from main by itself, and its GitHub integration reports each deployment back as a
+# deployment_status event. When a production deployment succeeds, this checks the public site,
+# https://cbctscope.com, as any visitor gets it: scripts/site-check.mjs --live waits until the
+# site answers with the event's commit, then checks every address, header and type, that every
+# script and stylesheet is on the site's own origin, that no analytics, speed-insights or toolbar
+# script is in a page, and that the update page names the version in package.json. It deploys
+# nothing and gates nothing: a red run means the live site needs a look, and Vercel's Instant
+# Rollback undoes a bad deploy. It reads only public addresses, so it needs no secret.
+#
+# A deployment_status run checks out the commit the event names, so the check and package.json
+# are that commit's. Preview deployments, and statuses other than success, skip the job. Run it
+# by hand from the Actions tab to check the site at any time; it then checks the commit at the
+# head of the branch it was started from and waits for the site to serve it.
+on:
+  deployment_status:
+  workflow_dispatch:
+
+# Least privilege: the job reads the repository and nothing more.
+permissions:
+  contents: read
+
+jobs:
+  live:
+    # the GitHub environment Vercel reports a production deployment under starts with
+    # "Production" (startsWith ignores case); Vercel's documentation does not spell the name out,
+    # so the first production deployment confirms it (docs/web-build.md, section 9)
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.deployment_status.state == 'success' && startsWith(github.event.deployment.environment, 'Production')) }}
+    runs-on: ubuntu-latest
+    # up to five minutes waiting for the commit, then a few runs of the check
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      # no install: the live mode needs only Node's own modules and the repository's scripts
+      - name: Check the public site
+        run: node scripts/site-check.mjs --live --commit "$COMMIT"
+        env:
+          COMMIT: ${{ github.event.deployment.sha || github.sha }}

@@ -13,10 +13,10 @@ viewer's code is shared by every surface; this file describes only what differs.
 | the web build (cbctscope.com) | static files only, no server anywhere | the browser reads the files the clinician opens; nothing leaves the tab | the opt-in in-page agent on the clinician's own model account (milestone 3, built) |
 | the packaged app (macOS signed and notarised; Windows unsigned) | the same static build in a desktop shell, plus a local bridge host | the browser engine reads the opened folder | MCP over the bridge host, the same contract as the repo, plus the in-page agent |
 
-One tagged release feeds all three. The pipeline runs the tests, builds the static site,
-builds and signs the desktop app and attaches it to the release, and only then deploys the
-site. Between releases, a site update started by hand deploys the website alone from `main`,
-at the same version (section 9). A push deploys nothing.
+The website ships from `main`: Vercel builds every push itself, a push to `main` becomes the
+production deployment and any other branch a private preview, and GitHub's tests run alongside
+as an alarm, not a gate. A tagged release builds and signs the desktop app and attaches it to the
+release; it deploys nothing (section 9).
 
 ## 2. Posture, now by construction in a browser
 
@@ -56,7 +56,7 @@ at the same version (section 9). A push deploys nothing.
 
 `npm run build:web` sets `CBCTSCOPE_TARGET=web` and `NEXT_PUBLIC_CBCTSCOPE_TARGET=web` and
 writes `out/`. In that target `next.config.mjs` sets `output: 'export'`, `images.unoptimized`,
-`basePath` from `NEXT_PUBLIC_BASE_PATH` (empty for the domain, which the release builds;
+`basePath` from `NEXT_PUBLIC_BASE_PATH` (empty for the domain, which the site's build sets;
 `/cbctscope` for a build served from a sub-path, kept working by the end-to-end suite), and `pageExtensions: ['tsx']` so that the route handlers (`route.ts`)
 and `middleware.ts` are not part of the target; static export supports neither. If
 `pageExtensions` does not exclude the middleware file in practice, the build script sidelines
@@ -258,34 +258,203 @@ Budget: the first measured bundle size becomes the budget with ten percent headr
 in the test.
 
 Gates: the existing four plus `npm run build:web` and `npm run test:e2e`; CI runs all of them
-on every pull request. A change to the agent surface still runs `npm run mcp:smoke` against
+on every push to `main` and every pull request, beside Vercel's build of the same commit, not
+before it (section 9). A change to the agent surface still runs `npm run mcp:smoke` against
 the dev server.
 
 ## 9. The pipeline
 
-The site changes in two ways, every action pinned to a commit SHA in both:
+Two things ship, each its own way:
 
-- **A release** (`release.yml`, on `release: published`): a new version, the desktop
-  installers, a Zenodo DOI, and the site. Use it when the desktop app or the agent side (the
-  MCP server, the bundle, the Agent Skill) should change, or for a citable version.
-- **A site update** (`site-update.yml`, started by hand from `main`): the website alone, at
-  the version it already carries, with no new version, installers or DOI. Use it for what only
-  the website shows: wording, layout, the manual, the text pages.
+- **The website** ships from `main` through Vercel's Git integration. Vercel builds every push
+  itself from `vercel.json`; a push to `main` becomes the production deployment at
+  cbctscope.com within minutes, and a push to any other branch becomes a private preview.
+  GitHub does not deploy the site.
+- **The desktop app** ships from a published GitHub release (`release.yml`): the tests, the
+  signed installers attached to the release, and Zenodo's DOI. A release does not deploy the
+  site; the site already carries what `main` carries.
 
-So between releases the site may be ahead of the installed apps: its pages, manual and
-viewer can carry changes no installer has. The version does not move: a site update deploys
-only when GitHub's latest release is the version in `package.json` (below), so the site's
-update page still names the latest release's version, and an installed app's **Check for
-Updates…** still compares against it. A change the desktop app should carry waits for a
-release.
+GitHub's test suite (`ci.yml`) still runs on every push to `main` and every pull request, but
+after the site has changed, not before: it is an alarm, not a gate. So is the check of the
+public site after each production deployment (`site-check.yml`, below). A bad deploy is undone
+with Vercel's Instant Rollback.
 
-`release.yml` runs in this order:
+### What a push does
 
-1. `test`: typecheck, lint, unit, the web build, the end-to-end suite.
-2. In parallel after it: `build` (the web target for the root of the domain, uploaded as the
-   `site` artifact), `desktop-win`, and
-   `desktop-gate` then `desktop-mac` (signs, notarises and staples the app and the dmg,
-   section 12; skipped without the signing secrets).
+To `main`: Vercel installs with `npm ci`, runs `npm run build:vercel`, and serves the result as
+the production deployment on cbctscope.com. If Vercel is still building an earlier commit on the
+branch, the new push waits, and of several waiting pushes only the newest is built
+([vercel.com/docs/git/vercel-for-github](https://vercel.com/docs/git/vercel-for-github), "A
+Deployment for Each Push"). At the same time GitHub runs `ci.yml` and CodeQL, and once the
+deployment is live, `site-check.yml`.
+
+To any other branch: a preview deployment of that branch at its own `vercel.app` address,
+behind Deployment Protection, so only members of the Vercel team can open it. Nothing on
+cbctscope.com changes. Branches Dependabot opens (`dependabot/**`) get no deployment
+(`vercel.json`, below); their pull requests still run `ci.yml`.
+
+A preview and the production deployment of one commit serve the same files: the build sees no
+variable Vercel sets, the page carries no base path and no text that depends on where it is
+served, and the layout's headers are the same for both. The only difference is the address.
+
+**Consequences.**
+
+- The tests come after. A commit that breaks the site is live until a human acts on the red
+  run: roll back in Vercel, then fix forward on `main`.
+- `main` must always be fit to publish. Unfinished work stays on a branch, where its preview
+  shows it; it reaches `main` when it is ready for every visitor.
+- On a version bump, the site names the new version (on its update page, in its citation line
+  and its structured data) from the moment the bump reaches `main`, before the release run
+  has built and attached that version's installers. Until then the download menu, which links
+  through `/releases/latest/download/<name>`, still gives the previous release's installers,
+  and the update page tells an installed app of the previous version that a newer one exists
+  that it cannot download yet. Keep that window short: bump the version, then publish its
+  release at once. An installed app's **Check for Updates…** compares against what the site
+  names.
+- The site may be ahead of the installed apps at any time: its pages, manual and viewer carry
+  whatever `main` carries. A change the desktop app should carry waits for a release.
+- Vercel, not GitHub, now holds the record of what was live when: its Deployments page lists
+  every production deployment with its commit.
+
+### Rollback
+
+On the project's overview page in Vercel, the Production Deployment tile has an **Instant
+Rollback** button; it lists the deployment that is live and those it can return to (on the Pro
+plan, **Choose another deployment** lists every deployment that was ever production), then
+**Continue** and **Confirm Rollback**. The same is in the Deployments tab, from the menu (⋮) of
+a deployment row. The domain points at the chosen deployment at once
+([vercel.com/docs/instant-rollback](https://vercel.com/docs/instant-rollback)).
+
+After a rollback Vercel stops assigning the production domain to new deployments: a push to
+`main` builds but does not go live until the rollback is undone. To undo it, press **Manage**
+on the Production Deployment tile, choose the deployment to promote (normally the one with the
+fix), and **Confirm**; from then on a push to `main` goes live again (same page, "Undo a
+rollback").
+
+### The build on Vercel
+
+`vercel.json` holds four settings and nothing else:
+
+| key | value | what it does (Vercel's documentation) |
+|---|---|---|
+| `framework` | `null` | selects the framework preset "Other", so Vercel applies no Next.js preset ([vercel.json, framework](https://vercel.com/docs/project-configuration/vercel-json#framework)) |
+| `installCommand` | `npm ci` | the install, from the committed lockfile ([vercel.json, installCommand](https://vercel.com/docs/project-configuration/vercel-json#installcommand)) |
+| `buildCommand` | `npm run build:vercel` | the build ([vercel.json, buildCommand](https://vercel.com/docs/project-configuration/vercel-json#buildcommand)) |
+| `git.deploymentEnabled` | `{"dependabot/**": false}` | no deployment for a branch matching the pattern, in minimatch syntax; every other branch deploys ([Git configuration](https://vercel.com/docs/project-configuration/git-configuration#git.deploymentenabled)) |
+
+`npm run build:vercel` is `node scripts/build-web.mjs --site && node scripts/vercel-output.mjs`,
+and runs the same on any machine:
+
+1. `build-web --site` prints the Node.js version, then builds `out/` for the root of the domain
+   with the environment of `scripts/site-env.mjs`: `NEXT_PUBLIC_BASE_PATH` empty, Next's
+   telemetry off, the low-threshold build's variables dropped, and every variable whose name
+   starts with `VERCEL`, `NEXT_PUBLIC_VERCEL` or `NOW_` removed. Next 15 reads `VERCEL_ENV`,
+   `VERCEL_URL`, `VERCEL_BRANCH_URL` and `VERCEL_PROJECT_PRODUCTION_URL` while it renders
+   metadata (a preview's address as the social-image base, a `crossorigin` on the manifest link
+   in a preview), so without this a preview's pages could differ from production's;
+   `tests/siteDeploy.test.ts` scans Next's metadata code for every such variable.
+2. `vercel-output.mjs` lays `out/` out in the Build Output API v3 form at the project root:
+   `.vercel/output/static/` is a byte copy of `out/`, and `.vercel/output/config.json` holds the
+   routes, the overrides and the 404 route below. A build command that writes this folder
+   defines the deployment itself ([Build Output API](https://vercel.com/docs/build-output-api):
+   it is written "as the output of their build command"); no output directory is set.
+
+The install brings in the whole dependency tree, desktop tooling included, because the web
+build needs dev dependencies (TypeScript, `marked`, `rolldown`). Nothing in it downloads a
+large binary: Electron 45 fetches its binary on first use, not on install, and Playwright
+downloads browsers only when told to (`npx playwright install`); `tests/siteDeploy.test.ts`
+fails if either package gains an install step. `sharp` installs its prebuilt Linux binary, as
+on GitHub's runners.
+
+**Node.js.** Vercel's available versions are 26.x (the default), 24.x and 22.x. The project
+setting (Settings, Build and Deployment, Node.js Version) is overridden by `engines` in
+`package.json`, and a range maps to the newest major it allows: `>=22.0.0` deploys the latest
+26.x ([Supported Node.js versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions)).
+So with `engines` at `>=22`, the site builds on Node.js 26.x whatever the setting says, while
+GitHub tests and the desktop builds use 22. Pinning 22.x would need `engines` at `22.x`, which
+makes `npm` warn (`EBADENGINE`) for everyone running the repository on a newer Node. `engines`
+stays `>=22`: a build of the web target on Node.js 26.8.2 wrote the same JavaScript chunks,
+byte for byte, as one on 22.22.3, and the build log's first line names the version used.
+
+### What `config.json` sets
+
+- Response headers on every address, on top of the page's own CSP meta tag, which stays
+  exactly as `build-web` writes it, because it also protects the desktop app:
+  `Content-Security-Policy: frame-ancestors 'none'` (a second policy that only adds the one
+  directive a meta tag cannot carry), `X-Frame-Options: DENY` (the same for browsers without
+  CSP level 2) and `X-Content-Type-Options: nosniff` (each file is used only as the type it is
+  served with). The agent frame is the one page the site frames itself, so it gets
+  `frame-ancestors 'self'` and `SAMEORIGIN`. No Referrer-Policy is set: outbound links keep
+  the browser's default and carry the origin. When the build has a commit in
+  `VERCEL_GIT_COMMIT_SHA` (Vercel sets it in every build from Git,
+  [System environment variables](https://vercel.com/docs/environment-variables/system-environment-variables)),
+  every address also answers with `X-CBCTScope-Commit: <sha>`, the public trace of which
+  deployment is live, which the check after a deploy waits for. The pages never carry it.
+  These headers are defined in `scripts/vercel-output.mjs` and nowhere else.
+- Addresses: Next writes `about.html`, `legal.html` and `update.html`; `overrides` serves them
+  at `/about`, `/legal` and `/update`, their canonical addresses, without a redirect. The manual keeps its `.html`
+  addresses as the sitemap lists them, so a blanket `cleanUrls`, which would redirect them,
+  is not used. `/` and `/manual/` are their folders' `index.html`.
+- A miss answers 404 with the export's `404.html` (an error-phase route).
+
+The host's own request statistics are the only visitor numbers; no script runs in the page
+to count anyone.
+
+### The check after a deploy
+
+`site-check.yml`, named **Site check**, runs on the `deployment_status` event that Vercel's
+GitHub integration sends as a deployment changes state
+([vercel.com/docs/git/vercel-for-github](https://vercel.com/docs/git/vercel-for-github),
+"Silence deployment notifications on pull requests"). Its one job runs when the status is
+`success` and the deployment's GitHub environment starts with `Production` (GitHub's
+`startsWith` ignores case); a preview, or any other state, skips it. It can also be started by
+hand from the Actions tab. It has read-only permissions, names no secret and installs nothing:
+`node scripts/site-check.mjs --live --commit <sha>`, with the commit of the event
+(`github.event.deployment.sha`; GitHub checks out that commit for a `deployment_status` run, so
+the script and `package.json` are the deployed commit's), against the public
+`https://cbctscope.com`:
+
+1. It asks the home page every 15 s, up to 20 times, until `X-CBCTScope-Commit` names that
+   commit, so it never checks the deployment before; then every address it reads must carry
+   that commit.
+2. Every address in the live `sitemap.xml`, and the fixed files `LIVE_FILES` (robots.txt, the
+   sitemap, both icons, the share image `og.png`, `/update`, the agent frame, the manual's
+   index), answers 200 with no redirect, the Content-Type its extension needs (an extensionless
+   page or a folder is HTML) and the layout's headers above; `/this-address-does-not-exist`
+   answers 404 with the body of `/404.html`.
+3. Every script and stylesheet a page references (`<script src>`, `<link rel="stylesheet">`, a
+   preload of a script or style) is on the site's own origin and answers 200 with its type and
+   headers.
+4. No page carries a marker of Vercel's Web Analytics, Speed Insights or toolbar
+   (`FORBIDDEN_MARKERS`, each taken from Vercel's documentation: `/_vercel/insights/`,
+   `/_vercel/speed-insights/`, the `window.vaq` and `window.siq` queues of their snippets, the
+   `@vercel/analytics` and `@vercel/speed-insights` packages, and `https://vercel.live`, the
+   toolbar's host).
+5. The update page says "The newest version of CBCTScope is <version>." for the version in
+   `package.json`.
+
+A run that finds problems is repeated twice, 15 s apart; the last run decides, and its problems
+are listed one per line. It cannot compare bytes with a build of its own: Vercel builds each
+commit itself, and no two builds of the web target are byte-identical (Next names each build
+with a fresh id), so it checks what any visitor gets instead. `tests/siteExport.test.ts` runs
+items 2 to 5 against the local export in every CI run, so a change that would fail the live
+check fails a test first.
+
+The byte mode of the same script, `node scripts/site-check.mjs --base <url> --out out`, stays
+for an export on disk served with the layout's headers (for instance a prebuilt deployment
+made by hand from it): every file and sitemap address served byte for byte, with its type and
+headers, and the 404. The secret of Protection Bypass for Automation, in
+`VERCEL_AUTOMATION_BYPASS_SECRET`, reaches a protected deployment address.
+
+### The release
+
+`release.yml` runs on `release: published`, every action pinned to a commit SHA:
+
+1. `test`: typecheck, lint, unit, the web build, the tests that read the export, the
+   end-to-end suite.
+2. In parallel after it: `desktop-win`, and `desktop-gate` then `desktop-mac` (signs,
+   notarises and staples the app and the dmg, section 12; skipped without the signing
+   secrets).
 3. `publish` attaches the installers to the release, once `desktop-win` succeeded and
    `desktop-mac` succeeded or was skipped. Each installer goes up twice: under its versioned
    name (`CBCTScope-<version>-arm64.dmg`, `-x64.dmg`, `-setup.exe`; the manual cites these),
@@ -299,253 +468,102 @@ release.
    the dmg itself, so a byte copy carries it); the Windows job copies the setup exe after
    packaging and runs `cmp`. A release without the mac secrets carries no mac files, fixed
    names included.
-4. `deploy` puts the site on Vercel only after `build` and `publish` succeeded, and only when
-   the release is GitHub's latest release and carries all three fixed names, and checks it
-   (below). The site and the installers go public together: a failed desktop build, a
-   prerelease, or a release without the macOS installers leaves the site as it was, never
-   linking to a release without installers.
+4. `installers`, after `publish`: `node scripts/release-assets.mjs` reads, once, GitHub's
+   latest release (the job's read-only token, the REST API) and fails unless it is this
+   release, then reads this release's asset list and fails, naming each missing file, unless
+   the three fixed names are attached as finished uploads. The list is what counts, so files
+   attached by `publish` and files attached by hand pass alike. A prerelease, a release
+   published with "Set as latest release" unticked, or one without its macOS installers turns
+   the run red, because the menu's links would lead to another release or to missing files.
+   It gates nothing: the site is not deployed by this workflow. To recover from missing files,
+   attach them to the release, then use **Re-run failed jobs** on that run. The names are
+   `REQUIRED_ASSETS` in the script; `tests/downloads.test.ts` fails if they differ from
+   `components/downloads.ts`.
 
 On release day a human checks, in a browser, that the release carries the six installer files
 (three versioned, three fixed) and that each of the menu's three direct links starts the
-download of the file it names. The direct links cannot be exercised before the first release
-that carries the fixed names; until then they answer 404, and "All downloads and release
-notes" still reaches every file.
+download of the file it names.
 
-**The site update.** `site-update.yml`, named **Site update**, runs on `workflow_dispatch`
-only, from the Actions tab with `main` selected under **Use workflow from**:
-
-1. `ref`, one cheap step that every other job needs: it fails the run at once unless it is
-   on `refs/heads/main`, saying to start it again with `main` selected, so a wrong ref never
-   starts the suites.
-2. `test`: the release's `test` job, step for step (typecheck, lint, unit, the web build, the
-   tests that read the export, the end-to-end suite); `tests/siteDeploy.test.ts` fails when
-   the two step lists differ.
-3. `build`, beside it: the release's `build` job, step for step, the `site` artifact for the
-   root of the domain, kept 30 days.
-4. `deploy`, once all three succeeded, in the environment `production`, with the release's
-   least privilege (reading the repository) and its 30-minute limit. Its first step checks the
-   ref again, since this is the job that touches production. Then, before the Vercel CLI is
-   installed or anything is uploaded,
-   `node scripts/release-assets.mjs --site-update` is the version guard (below). After it come
-   exactly the release's deploy steps 2 to 5 below: the artifact, the layout, `vercel deploy
-   --prebuilt --prod`, and the check of the deployment's own address with three attempts.
-
-Only the two deploy jobs take turns: the release's `deploy` and the site update's `deploy`
-each carry the concurrency group `site` (`cancel-in-progress: false`), at the job and not the
-workflow, so tests and builds never queue and never hold up the other workflow. GitHub keeps
-one job of a group running and at most one waiting; a newer one replaces the waiting one, which
-is then cancelled. So a deploy waiting behind another can be cancelled by a third that starts
-waiting. When that happens, run the cancelled one again: for a release, **Re-run failed jobs**
-on its run (then a site update if `main` has moved, below); for a site update, start a new
-site update from `main`.
-
-**After a site update has gone out, start a new site update from `main` instead of re-running
-an older run.** A re-run builds and deploys its run's original commit, and the version guard
-passes because the version is the same, so re-running an older site update, or a release run
-after a later site update, puts older files back over newer ones.
-
-The version guard exists because the site carries a version: the update page names the one in
-`package.json`, and the download menu leads to the latest release's installers. It reads
-GitHub's latest release once (the job's read-only token, the REST API) and fails the job
-unless that release's tag is `v<package.json version>` and its asset list holds the three
-fixed names (`REQUIRED_ASSETS`) as finished uploads. So a bumped but unreleased version, or a
-release without its installers, never reaches the site. Each failure line says what to do:
-
-- no latest release (only prereleases or drafts): publish `v<version>` as the latest release
-  with the release workflow, which deploys the site itself;
-- the latest release has another tag: publish `v<version>` as a release instead, or run the
-  site update from a commit whose version is the latest release's;
-- installers missing, each named: attach them to the release, then run the site update again;
-- any answer but 200, a network error, an answer without a release id: run the site update
-  again once GitHub answers;
-- a `package.json` version that is not major.minor.patch: set a release version there.
-
-The site's citation does not depend on which way it was deployed: its version line names the
-latest release, and its DOI is always the concept DOI, which resolves to the newest archived
-version (section 14, Cite this software). A site update builds from `main`, whose
+The site's citation does not depend on the release: its version line names the version in
+`CITATION.cff`, bumped with `package.json`, and its DOI is always the concept DOI, which resolves to the newest archived
+version (section 14, Cite this software). The site is built from `main`, whose
 `CITATION.cff` names that version's DOI after the DOI-pin commit, and can serve newer pages
 and viewer code than that archive holds, so the site never cites a version DOI.
 
-### The site on Vercel
+### The owner's one-time setup
 
-The release and the site update are the site's only two triggers. The Vercel project is not
-connected to the repository: **do not connect it through Vercel's Git integration**, or every
-push would deploy. Installers stay GitHub release assets; only the pages are on Vercel.
+The order matters: the repository is connected first, this arrangement is checked on a
+preview, and only its merge to `main` makes the first production deployment from Git. Until the
+merge, push nothing else to `main`: a push to `main` without `vercel.json` would be built with
+the project's own settings.
 
-How `deploy` ships the site (`release.yml`; the site update's `deploy` runs steps 2 to 5 the
-same, after its own two guards):
+1. Vercel, the existing project `cbctscope`: open **Settings** in the sidebar, select **Git**,
+   and under **Connected Git Repository** connect the GitHub repository `rezamotaghi/cbctscope`
+   (the Git section of the Project Settings connects or disconnects a repository,
+   [vercel.com/docs/git/vercel-for-github](https://vercel.com/docs/git/vercel-for-github)). If
+   the repository is not offered, give the Vercel GitHub App access to it: on GitHub,
+   **Settings**, **Applications**, **Installed GitHub Apps**, **Configure** next to Vercel, then
+   under **Repository access** add the repository and **Save** (same page, "Missing Git
+   repository").
+2. **Settings**, **Environments**: click the **Production** environment and go to **Branch
+   Tracking**; the branch must be `main` (change it and **Save** if not;
+   [vercel.com/docs/git](https://vercel.com/docs/git), "Customizing the production branch").
+3. **Settings**, **Build and Deployment**: under Framework Settings nothing needs an override,
+   because `vercel.json` sets the preset, the install and the build for every deployment. The
+   **Node.js Version** setting has no effect while `engines` is `>=22` (above); leave it.
+4. **Settings**, **Git**: under **Connected Git Repository**, switch the bot's comments off
+   ([Silence GitHub comments](https://vercel.com/docs/git/vercel-for-github#silence-github-comments);
+   its `vercel.json` key `github.silent` is deprecated, so the setting lives here). Leave the
+   **deployment_status Events** control on: the check after a deploy runs on those events.
+5. **Settings**, **General**, **Vercel Toolbar**: set **Pre-Production Deployments** and
+   **Production Deployments** to **Off**, and the same in the team's **Settings**, **General**,
+   **Vercel Toolbar** if the team default is on
+   ([Managing the toolbar](https://vercel.com/docs/vercel-toolbar/managing-toolbar)). Leave
+   **Analytics** and **Speed Insights** off: both need a script in the page, which the site does
+   not carry, and enabling Web Analytics adds routes under `/_vercel/insights/`
+   ([Web Analytics](https://vercel.com/docs/analytics/quickstart)).
+6. **Settings**, **Deployment Protection**: keep **Standard Protection** (every deployment
+   protected except the production domains) with **Vercel Authentication**, so a preview opens
+   only for members of the team
+   ([Deployment Protection](https://vercel.com/docs/deployment-protection)).
+7. **Settings**, **Environment Variables**: keep **Enable access to System Environment
+   Variables** ticked; without it the build has no `VERCEL_GIT_COMMIT_SHA`, the site answers
+   without `X-CBCTScope-Commit`, and the check after a deploy fails waiting for it.
+8. Push the branch that carries this arrangement and open its preview from the pull request or
+   the project's Deployments page. Check it in a browser: the viewer, the manual, `/update`,
+   and a missing address showing the site's 404 page. Its build log starts with the Node.js
+   version.
+9. Merge it to `main`. Vercel builds the production deployment; once it is ready, the **Site
+   check** run for it must pass. Its first run also confirms the name of the GitHub
+   environment Vercel reports production deployments under: if the run is skipped although
+   the deployment succeeded, the name does not start with `Production`; read it on the
+   repository's **Deployments** page and correct the job's condition.
+10. Then delete the two GitHub environments no workflow uses, `production` and `rehearsal`:
+    on the repository's **Settings**, **Environments**, the trash icon next to each
+    (**Delete environment**), then **I understand, delete this environment**. Deleting an
+    environment deletes its secrets, which are the four Vercel secrets (`VERCEL_TOKEN`,
+    `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `VERCEL_AUTOMATION_BYPASS_SECRET`); check under
+    **Secrets and variables**, **Actions** that none of the four is left as a repository
+    secret. Revoke the access token in the Vercel account's Tokens page. The five Apple
+    repository secrets (`CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_API_KEY`, `APPLE_API_KEY_ID`,
+    `APPLE_API_ISSUER`) stay: the release signs and notarises with them.
 
-1. `node scripts/release-assets.mjs` checks, once, the release that started the run (its id
-   from the event, through GitHub's REST API with the job's read-only token). The menu's
-   links go through `/releases/latest/download/<name>`, so it first reads GitHub's latest
-   release and fails the job unless that is this release: a prerelease, or a release
-   published with "Set as latest release" unticked, would leave the links on another release,
-   and when no latest release exists at all (only prereleases) the links lead nowhere. Each
-   of these failures says to publish the release as the latest release, not as a prerelease.
-   It then reads the release's asset list and fails the job, naming each missing file, unless
-   the three fixed names are attached as finished uploads. The list is what counts, not job
-   results, so installers attached by `publish` and installers the owner attached by hand
-   pass alike. A network error or any answer but 200 fails the job too. Nothing waits: a
-   failure leaves the site as it was. To recover from missing files, attach them to the
-   release, then use **Re-run failed jobs** on that workflow run; the re-run reads the same
-   release again, and the `site` artifact it deploys is kept 30 days. That re-run puts the
-   release's own files back on the site, so when `main` has moved since the release, start a
-   site update from `main` after it. The names are `REQUIRED_ASSETS` in the script; `tests/downloads.test.ts` fails if they differ from
-   `components/downloads.ts`. The rehearsal has no release and does not run it; the site
-   update runs its `--site-update` mode instead (above).
-2. It downloads the `site` artifact into `out/`, the files `build` made.
-3. `node scripts/vercel-output.mjs out "$RUNNER_TEMP/site"` lays them out as a prebuilt
-   deployment in the Build Output API v3 form: `.vercel/output/static/` is a byte copy of
-   `out/`, and `.vercel/output/config.json` holds the routes, the overrides and the 404 route
-   below. The folder is outside the checkout, so nothing else leaves the runner.
-4. `deploy/node_modules/.bin/vercel deploy --prebuilt --prod --cwd "$RUNNER_TEMP/site"`
-   uploads it. The Vercel CLI lives in `deploy/`, a folder of its own: a private
-   `package.json` that pins the one exact `vercel` version and nothing else, and its own
-   committed lockfile, installed by `npm ci` in that folder only. It is not in the app's
-   dependency tree, so contributors and the other jobs never install it, and its transitive
-   tree stays off the app's audit surface; Dependabot watches the folder on its own. The
-   folder sits at the root beside `mcp/`, the other npm package with its own lockfile, so it
-   follows the same pattern; electron-builder's `files` allowlist leaves it out, and
-   `tsconfig.json` excludes it. Nothing is built on Vercel. The job runs in the GitHub
-   environment `production`, whose secrets (`VERCEL_TOKEN`, `VERCEL_ORG_ID`,
-   `VERCEL_PROJECT_ID`, `VERCEL_AUTOMATION_BYPASS_SECRET`) are written to be read by this job
-   and the site update's `deploy` only, and the first three by this step only; who could read
-   them is set by the environment's rules (step 11 of the setup below), and
-   `tests/siteDeploy.test.ts` fails when any other file under `.github/` names the environment,
-   a production flag or one of the secrets. `VERCEL_TELEMETRY_DISABLED=1` keeps the CLI from
-   reporting its use. Only the CLI's stdout is captured, and it must be exactly one https address, the new
-   deployment's own; anything else fails the job and prints what was captured. No documented
-   flag forces plain output (`--json` and `--non-interactive` switch to JSON whose shape the
-   docs do not give), so the default mode is used and the strict parse is the guard. The job
-   needs no permission beyond reading the repository and stops after 30 minutes.
-5. `node scripts/site-check.mjs --base-from "$RUNNER_TEMP/deploy.txt" --out out` checks that
-   deployment at its own address (Deployment Protection covers it, so the bypass secret goes
-   along), which works before and after the domain's address records point at Vercel. It
-   fails the job unless every file in `out/` and every address in `out/sitemap.xml` answers
-   200 with no redirect, serves its file byte for byte with the Content-Type its extension
-   needs (`text/html`, `application/javascript` or `text/javascript`, `text/css`,
-   `application/wasm`, and so on; an extension the check has no type for fails its unit test),
-   and carries the three headers below; and a missing address answers 404 with `404.html`.
-   Byte identity is the proof that nothing was injected: no analytics, no speed-insights
-   script, no toolbar. The check runs up to three times, 15 s apart, because a new
-   deployment's own address can answer 404 for a moment after the CLI reports it ready; the
-   last run decides. Each request gives up after 20 s; a 401 or 403 is reported once, as a
-   missing or wrong bypass secret.
+The Apple secrets, for a new machine or a renewed certificate, are repository secrets
+(Settings, Secrets and variables, Actions), because the macOS job runs in no environment:
 
-What `config.json` sets:
+- `CSC_LINK`: the Developer ID Application certificate, exported from Keychain Access, My
+  Certificates, as a .p12, then base64 on one line: `base64 -i devid.p12 | tr -d '\n'`.
+- `CSC_KEY_PASSWORD`: the password chosen for that export.
+- `APPLE_API_KEY`: an App Store Connect API team key with Developer access, the .p8 file
+  Apple lets you download once, base64 on one line the same way.
+- `APPLE_API_KEY_ID`: that key's Key ID.
+- `APPLE_API_ISSUER`: the team's Issuer ID.
 
-- Response headers on every address, on top of the page's own CSP meta tag, which stays
-  exactly as `build-web` writes it, because it also protects the desktop app:
-  `Content-Security-Policy: frame-ancestors 'none'` (a second policy that only adds the one
-  directive a meta tag cannot carry), `X-Frame-Options: DENY` (the same for browsers without
-  CSP level 2) and `X-Content-Type-Options: nosniff` (each file is used only as the type it is
-  served with). The agent frame is the one page the site frames itself, so it gets
-  `frame-ancestors 'self'` and `SAMEORIGIN`. No Referrer-Policy is set: outbound links keep
-  the browser's default and carry the origin.
-- Addresses: Next writes `about.html`, `legal.html` and `update.html`; `overrides` serves them
-  at `/about`, `/legal` and `/update`, their canonical addresses, without a redirect. The manual keeps its `.html`
-  addresses as the sitemap lists them, so a blanket `cleanUrls`, which would redirect them,
-  is not used. `/` and `/manual/` are their folders' `index.html`.
-- A miss answers 404 with the export's `404.html` (an error-phase route).
-
-The host's own request statistics are the only visitor numbers; no script runs in the page
-to count anyone.
-
-**The rehearsal.** `.github/workflows/site-rehearsal.yml`, started by hand from the Actions
-tab, runs the same build, layout and check against a **preview** deployment (`vercel deploy
---prebuilt` without `--prod`) and its own address, in the GitHub environment `rehearsal`,
-stopping after 45 minutes. The check refuses `cbctscope.com` and `www.cbctscope.com` as its
-address, so a rehearsal never checks production. Previews sit behind Vercel's Deployment
-Protection, so the check sends the Protection Bypass for Automation secret in the
-`x-vercel-protection-bypass` header, and no other header: if Vercel injects its toolbar into
-the preview, the byte check fails and names it.
-
-**The owner's one-time setup.** The order matters: the site first becomes public through a
-release, after its check passed, and only when the address records change at the end.
-
-1. In the Vercel Pro team, create the project **without importing a Git repository**:
-   `vercel project create cbctscope --scope <team>` (an older CLI, such as 48.2.0, spells it
-   `vercel project add cbctscope --scope <team>`, with the same effect), then, in an empty
-   folder outside the repository, `vercel link --yes --project cbctscope --scope <team>`,
-   which writes `.vercel/project.json` with the `orgId` and `projectId` needed below. The
-   framework preset and build settings do not matter: a prebuilt deployment skips them.
-2. Project settings: leave **Analytics** (Web Analytics) and **Speed Insights** off (both
-   work only when the site carries their script, which it does not; enabling Web Analytics
-   also adds routes under `/_vercel/insights/`). Under General, **Vercel Toolbar**, set
-   Pre-Production Deployments and Production Deployments to **Off** (and the same in the
-   team's settings if the team default is on). Under Deployment Protection keep **Standard
-   Protection** (every deployment's own address protected, the production domain public) and
-   create a secret under **Protection Bypass for Automation**.
-3. GitHub, the repository's Settings, Environments: create `production` and `rehearsal`.
-   For each, under **Deployment branches and tags**, choose **Selected branches and tags**
-   (of No restriction, Protected branches only and Selected branches and tags). The page then
-   shows "No branch or tag rules applied yet: all branches and tags are still allowed to
-   deploy"; press **Add deployment branch or tag rule**, which asks for the Ref type (Branch
-   or Tag) and the name pattern, then **Add rule**:
-   `production` gets one rule of Ref type **Tag** with the name pattern `v*` (the release
-   tags; the rule is matched against the run's `GITHUB_REF`, and patterns use Ruby's
-   `File.fnmatch`, where a wildcard does not match `/`); `rehearsal` gets one rule of Ref
-   type **Branch** with the name pattern `main`. It worked when the page lists the one rule
-   and no longer says that all branches and tags are allowed to deploy.
-4. Store the Vercel secrets as **environment secrets**, never as repository secrets: in both
-   environments `VERCEL_TOKEN` (an access token, made in the Vercel account's Tokens page,
-   scoped to the team), `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` (the `orgId` and `projectId`
-   from step 1), and `VERCEL_AUTOMATION_BYPASS_SECRET` (the secret from step 2; the release's
-   check reads it too, because a deployment's own address is protected).
-5. Store the five Apple secrets as **repository secrets** (Settings, Secrets and variables,
-   Actions), because the macOS job runs in no environment:
-   - `CSC_LINK`: the Developer ID Application certificate, exported from Keychain Access, My
-     Certificates, as a .p12, then base64 on one line: `base64 -i devid.p12 | tr -d '\n'`.
-   - `CSC_KEY_PASSWORD`: the password chosen for that export.
-   - `APPLE_API_KEY`: an App Store Connect API team key with Developer access, the .p8 file
-     Apple lets you download once, base64 on one line the same way.
-   - `APPLE_API_KEY_ID`: that key's Key ID.
-   - `APPLE_API_ISSUER`: the team's Issuer ID.
-
-   The key can be checked before it is stored: `xcrun notarytool history --key <file.p8>
-   --key-id <id> --issuer <issuer>` lists past submissions when the key works. Without
-   `CSC_LINK` the macOS job is skipped and the pipeline attaches no macOS installers; the
-   site is then deployed only if the macOS installers were attached to the release by hand,
-   and otherwise the deploy job fails before the upload, naming the missing files, and the
-   site stays as it was. A wrong or missing API key fails the macOS job, so `publish` and
-   `deploy` do not run and the site stays as it was.
-6. Run **Site rehearsal** from the Actions tab, twice; both must pass. A workflow started by
-   hand can be run only once its file is on the default branch, so the rehearsal can run only
-   after the branch carrying it is merged to `main`. Vercel makes a new project's first
-   deployment a production one whatever the flag, so the first run becomes the project's
-   production deployment on its `vercel.app` address. That is harmless while no domain points
-   at the project; the second run rehearses a true preview.
-7. Settings, Domains: add `cbctscope.com` (and `www.cbctscope.com`, redirecting to it) while
-   Porkbun's address records still point elsewhere, so nothing answers there from Vercel yet.
-8. Publish the release as the **latest release, not a prerelease** ("Set as latest release"
-   ticked). Its job attaches the installers, confirms that the release is the latest and
-   carries all three the download menu links to, deploys production and checks the
-   deployment; it must pass. If the deploy job fails naming missing installers, attach them
-   to the release, then use **Re-run failed jobs** on that workflow run; the re-run reads the
-   same release again, and the `site` artifact is kept 30 days. Once site updates have gone
-   out, such a re-run puts the release's older files back: follow it with a site update.
-9. Only then, at Porkbun, change the site's address records: for `cbctscope.com` an **A**
-   record with the value shown in the Vercel dashboard, for `www` a **CNAME** with the value
-   shown there, removing any older A, AAAA or CNAME records for those two names. The mail
-   records (the two MX records and the SPF TXT record) stay as they are.
-10. Once the domain shows as configured in Vercel, check the public address against the
-    files the release deployed: download the `site` artifact from the release's workflow run
-    (kept 30 days), unzip it into a folder, say `site-release/`, and run, from the
-    repository, `node scripts/site-check.mjs --base https://cbctscope.com --out
-    site-release`. It retries twice, 15 s apart, while the records settle; it must end with
-    "serves all". The same check works after a site update, with the `site` artifact of that
-    run.
-11. Before the first site update, allow it into `production`: Settings, Environments,
-    `production`, under **Deployment branches and tags**, **Add deployment branch or tag
-    rule**, Ref type **Branch**, name pattern `main`, **Add rule**. The page then lists two
-    rules, the tag `v*` and the branch `main`. This widens the environment: any job in a run
-    on `main` or a `v*` tag that names `production` can read the Vercel secrets, not only the
-    two deploy jobs, so a change to a workflow on `main` is a change to who can deploy. Without the rule, GitHub refuses the
-    site update's `deploy` job before it starts: the run fails after `test` and `build` with
-    the job marked failed and none of its steps run (`ref` has already passed), and the run's
-    page carries an
-    annotation in words like `Branch "main" is not allowed to deploy to production due to
-    environment protection rules.` Add the rule and run the site update again.
+The key can be checked before it is stored: `xcrun notarytool history --key <file.p8>
+--key-id <id> --issuer <issuer>` lists past submissions when the key works. Without
+`CSC_LINK` the macOS job is skipped and the release carries no macOS installers, so its
+`installers` job fails until they are attached by hand. A wrong or missing API key fails the
+macOS job, so `publish` does not run.
 
 ## 10. Milestones
 
@@ -573,8 +591,8 @@ gains one layout line for `lib/browser/` and `lib/shared/` inside its byte cap.
 
 - Host: Vercel (the owner's decision of 12/11/26, before the first public launch), in place of
   GitHub Pages: real response headers, and the host's own request statistics with no script
-  in the page. Deployed by the CLI from the release job, and between releases from the site
-  update (section 9); never from a push.
+  in the page. Vercel builds and publishes the site from `main` through its Git integration
+  (section 9).
 - Sidecars in IndexedDB plus a marks file, not downloads only.
 - Size notice threshold 512 MiB of voxels, unmeasured; the builder measures Chromium's limit
   with a synthetic volume and records the number here.
@@ -631,8 +649,8 @@ How it is built:
   (`shell.openExternal`, `updateUrl` in `native.mjs`; the bare page for anything but a strict
   major.minor.patch). The page (`app/update/page.tsx`, `components/UpdateStatus.tsx`, the pure
   `components/updateCheck.ts`) compares that version with the one in `package.json` at build
-  time, which is the newest because the release job deploys the site with every release, and a
-  site update deploys only while the latest release is that version (section 9), and
+  time, the version `main` carries, which is the latest release's except between a version bump
+  and its release (section 9), and
   says older, same or newer, with the direct downloads of `components/downloads.ts`. The
   version travels in the fragment, which browsers do not send to a server, so the request is
   the same for every visitor. The exported HTML is the state with no version, so the page works
@@ -713,18 +731,13 @@ How it is built:
   fixed name and checks each copy the same way (section 9); the Windows job copies its setup exe
   to its fixed name. One `publish` job, the only one with `contents: write`, downloads the
   artifacts and runs `gh release upload`. Signing and notarisation secrets reach the
-  packaging step only. The `deploy` job needs `publish`, and its first step
-  (`scripts/release-assets.mjs`) checks once that the release is GitHub's latest and that
-  the three fixed installer names are attached, and fails otherwise, so the site goes live
-  only once the installers are on the release the menu's links reach. `site-update.yml`
-  (section 9) deploys the website alone from `main` between releases, with the same test and
-  build jobs and the same deploy steps, after a first job that refuses any ref but `main` and
-  a guard that GitHub's latest release is the version in `package.json` and carries the three
-  installers. Only the two deploy jobs share the concurrency group `site`. A release without the
-  mac secrets skips the mac job; the Windows job and `publish` still run and attach the
-  Windows packages only, and `deploy` ships the site only if the macOS installers were
-  attached to the release by hand; otherwise it fails before the upload and the site stays
-  as it was.
+  packaging step only. The `installers` job needs `publish` and runs
+  `scripts/release-assets.mjs`, which checks once that the release is GitHub's latest and that
+  the three fixed installer names are attached, and turns the run red otherwise, because the
+  menu's links reach that release. The release deploys nothing; the site ships from `main`
+  (section 9). A release without the mac secrets skips the mac job; the Windows job and
+  `publish` still run and attach the Windows packages only, and `installers` fails unless the
+  macOS installers were attached to the release by hand.
 
 Measured on the author's Mac (Apple silicon, macOS 27.2), 4 November 2026, unsigned build:
 
@@ -889,10 +902,11 @@ one site address (`components/siteAddress.mjs`: `SITE_URL`, `https://cbctscope.c
   line (authors, year, title and version from the file, the concept DOI as a link) and a
   BibTeX entry. The Help menu's dialogue
   (`components/cbct/CiteDialog.tsx`) and the About page show both, each with a copy button
-  that writes the clipboard on a click. The version line names the latest release, the version
-  the site carries (in the desktop app, the app's own), and the DOI is always the concept DOI (`CONCEPT_DOI` in
+  that writes the clipboard on a click. The version line names the version the site carries,
+  the one `main` carries (in the desktop app, the app's own), and the DOI is always the concept DOI (`CONCEPT_DOI` in
   `components/links.ts`), which resolves to the newest archived version, whatever the file's
-  `doi:` holds: a site update can serve newer code than one version's archive (section 9).
+  `doi:` holds: the site, built from `main`, can serve newer code than one version's archive
+  (section 9).
   `CITATION.cff` keeps its own ritual for GitHub and Zenodo (the concept DOI at the version
   bump, the version DOI pinned after the release).
 - **Structured data.** The home and About pages carry one JSON-LD `WebApplication`

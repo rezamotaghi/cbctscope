@@ -7,7 +7,7 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT = 4173;
 const SMALL_PORT = 4174;
 const BASE_PORT = 4175;
-/** the base path of the sub-path build (the release builds the site for the root) */
+/** the base path of the sub-path build (the site itself is built for the root) */
 const BASE_PATH = '/cbctscope';
 
 export default defineConfig({

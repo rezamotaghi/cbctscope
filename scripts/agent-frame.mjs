@@ -12,7 +12,6 @@ import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { rolldown } from 'rolldown';
 import { agentFrameCsp } from '../components/webCsp.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -23,6 +22,9 @@ const encode = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/
 
 /** the frame's script, one IIFE; `</` is escaped so the HTML parser never ends the element early */
 export async function bundleAgentFrame() {
+  // loaded here, not at the top: scripts/site-check.mjs --live reads AGENT_FRAME_FILE through
+  // scripts/vercel-output.mjs on a runner with no node_modules
+  const { rolldown } = await import('rolldown');
   const bundle = await rolldown({
     input: ENTRY,
     resolve: { alias: { '@': root } },
