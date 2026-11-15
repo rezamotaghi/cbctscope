@@ -219,8 +219,13 @@ the manual's MPR still resized to 1200 px (`public/phone-mpr.webp`, the command 
 `PHONE_STILL` in `components/sitePages.ts`), "CBCTScope reads scans on a computer. Open
 cbctscope.com there.", three full-width controls (the user manual; the release page, since a
 phone cannot run the installers; "Send this link to myself", a `mailto:` with no recipient whose
-subject and body carry the site's address, so the phone's own mail app opens a new message and
-the page sends nothing), and a row of links to the About and legal pages and the source; on a
+subject and body carry the site's address, enhanced by `components/ShareLink.tsx`: where
+`navigator.share` exists, a tap opens the phone's share sheet with `PHONE_SHARE`, the site's name
+and canonical address, and the mail link is not followed; a cancelled sheet does nothing more,
+any other failure follows the mail link, and without JavaScript or the API the link is a plain
+`mailto:`. The handler is attached by React's hydration of the intro, which runs on a phone as
+well, and lives in the bundled code, so the CSP needs nothing new. The page sends, stores and
+copies nothing), and a row of links to the About and legal pages and the source; on a
 phone the loading line and the long list of links are hidden. `app/globals.css` switches on the
 same expression, character for character (`tests/phone.test.ts`), so the first paint and the
 script agree. The repository's local app has no phone page.

@@ -149,3 +149,81 @@ test('a touch tablet of 1024 x 768 gets the viewer, without the narrow-window no
   expect(problems).toEqual([]);
   await ctx.close();
 });
+
+// "Send this link to myself" (components/ShareLink.tsx): the share sheet where navigator.share
+// exists, the mail link where it does not. The page's navigator.share is a stub that records its
+// calls; a window listener in the bubble phase, after React's own, records whether the tap's
+// default (following the mailto:) was prevented, then prevents it so no mail client is asked for.
+type ShareMode = 'resolve' | 'abort' | 'absent';
+async function shareTap(browser: Browser, baseURL: string, mode: ShareMode) {
+  const t = await touch(browser, baseURL, 375, 812);
+  await t.page.addInitScript((m: ShareMode) => {
+    const w = window as unknown as { __shares: unknown[]; __defaults: boolean[] };
+    w.__shares = [];
+    w.__defaults = [];
+    if (m === 'absent') {
+      delete (Navigator.prototype as { share?: unknown }).share;
+      delete (navigator as { share?: unknown }).share;
+    } else {
+      Object.defineProperty(Navigator.prototype, 'share', {
+        configurable: true,
+        value: (data: unknown) => {
+          w.__shares.push(data);
+          return m === 'abort' ? Promise.reject(new DOMException('Share canceled', 'AbortError')) : Promise.resolve();
+        },
+      });
+    }
+    window.addEventListener('click', (e) => {
+      if (!(e.target as Element).closest('[data-testid="phone-mail"]')) return;
+      w.__defaults.push(e.defaultPrevented);
+      e.preventDefault();
+    });
+  }, mode);
+  await t.page.goto('/');
+  const link = t.page.getByTestId('phone-mail');
+  await expect(link).toBeVisible();
+  // hydrated: React has attached its props, and with them the click handler
+  await expect.poll(() => link.evaluate((el) => Object.keys(el).some((k) => k.startsWith('__reactProps')))).toBe(true);
+  const before = t.page.url();
+  await link.tap();
+  const record = () =>
+    t.page.evaluate(() => {
+      const w = window as unknown as { __shares: unknown[]; __defaults: boolean[] };
+      return { __shares: w.__shares, __defaults: w.__defaults };
+    });
+  await expect.poll(async () => (await record()).__defaults.length).toBe(1);
+  return { ...t, link, before, record };
+}
+
+test('with a share sheet, a tap shares the site address and title once and does not navigate', async ({ browser, baseURL }) => {
+  const { ctx, page, problems, link, before, record } = await shareTap(browser, baseURL as string, 'resolve');
+  const r = await record();
+  expect(r.__shares).toEqual([{ title: 'CBCTScope', url: 'https://cbctscope.com' }]);
+  expect(r.__defaults).toEqual([true]);
+  expect(page.url()).toBe(before);
+  await expect(link).toHaveAttribute('href', CONTROLS[2][1]);
+  expect(problems).toEqual([]);
+  await ctx.close();
+});
+
+test('a cancelled share sheet leaves the page where it is, with no mail link followed', async ({ browser, baseURL }) => {
+  const { ctx, page, problems, before, record } = await shareTap(browser, baseURL as string, 'abort');
+  const r = await record();
+  expect(r.__shares).toHaveLength(1);
+  expect(r.__defaults).toEqual([true]);
+  await page.evaluate(() => new Promise((res) => setTimeout(res, 50)));
+  expect(page.url()).toBe(before);
+  await expect(page.getByTestId('phone-landing')).toBeVisible();
+  expect(problems).toEqual([]);
+  await ctx.close();
+});
+
+test('without navigator.share the control stays a plain mailto: link and the tap keeps its default', async ({ browser, baseURL }) => {
+  const { ctx, problems, link, record } = await shareTap(browser, baseURL as string, 'absent');
+  const r = await record();
+  expect(r.__shares).toEqual([]);
+  expect(r.__defaults, 'the link default was not prevented').toEqual([false]);
+  await expect(link).toHaveAttribute('href', CONTROLS[2][1]);
+  expect(problems).toEqual([]);
+  await ctx.close();
+});
