@@ -19,14 +19,18 @@
   recent computer with a working graphics driver is assumed; large volumes
   read more comfortably with more memory.
 - **A screen at least 1024 px wide.** The header holds every control on one
-  row from about 1410 px and wraps onto a second row below that. Below 768 px
-  (a phone) cbctscope.com shows a short page instead of the viewer: what
-  CBCTScope is, a picture of it, the line that it reads scans on a computer,
-  and buttons for the user manual, the desktop app downloads, and "Send this
-  link to myself", which opens your phone's mail app with the address filled
-  in. A desktop window narrowed below 768 px shows the same page, and the
-  viewer returns when it is widened again; a scan you had open is opened
-  again from the Open menu.
+  row from about 1410 px and wraps onto a second row below that. On a
+  computer the viewer stays open at any window size: in a window narrower
+  than 768 px (narrowed, split beside another window, or zoomed in) a notice
+  above the viewer says it is too narrow to read in and to widen the window
+  or zoom out, and nothing you have open is lost.
+- **Not a phone.** On a phone, in either orientation, cbctscope.com shows a
+  short page instead of the viewer: what CBCTScope is, a picture of it, the
+  line that it reads scans on a computer, and buttons for the user manual,
+  the desktop app downloads, and "Send this link to myself", which opens a
+  new message in your phone's mail app that carries the site's address; you
+  choose the recipient. A tablet at least 768 px on both sides gets the
+  viewer.
 - **macOS, Windows, or Linux.** The file-open dialog is native on macOS and
   Windows; on Linux it uses the desktop's dialog helper (zenity or kdialog,
   one of which most distributions ship). Section 4.4 gives a one-line

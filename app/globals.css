@@ -279,6 +279,17 @@ textarea:focus-visible,
 .tab:focus-visible {
   z-index: 1;
 }
+@media (max-width: 767px) {
+  /* a narrow window: the group may take two lines rather than run off the screen */
+  .tabs {
+    flex-wrap: wrap;
+    height: auto;
+    max-width: 100%;
+  }
+  .tab {
+    height: calc(var(--ctl-h) - 2px);
+  }
+}
 
 /* the header: one 44 px row where the width holds it; it wraps whole groups, never a group apart */
 .app-header {
@@ -350,7 +361,9 @@ textarea:focus-visible,
   line-height: 1.5;
   white-space: normal;
 }
-.menu-panel .note {
+/* in a menu (Open, Help, the download menu) a note lines up with the entries' text; a popover or
+   panel with its own padding (the About popover, Export) adds none */
+.menu-panel[role='menu'] .note {
   max-width: 300px;
   padding: var(--sp-1) 10px var(--sp-2);
 }
@@ -406,6 +419,32 @@ textarea:focus-visible,
   margin-top: var(--sp-1);
   font-weight: var(--fw-strong);
   color: var(--text);
+}
+
+@media (max-width: 767px) {
+  .status-line > * {
+    white-space: normal;
+  }
+  .status-line > .status-legend {
+    text-align: left;
+  }
+}
+
+/* below 768 CSS px on a computer (a narrow, split or zoomed window): the viewer stays mounted,
+   and a full-contrast notice above it says the window is too narrow to read in and what to do */
+.narrow-notice {
+  display: none;
+  order: 1; /* first in the document, shown under the header */
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--ctl-border);
+  color: var(--text);
+  font-size: var(--fs-body);
+}
+@media (max-width: 767px) {
+  .narrow-notice {
+    display: block;
+  }
 }
 
 /* the side rail: every changing number in tabular figures, nothing wider than the rail */
@@ -521,41 +560,34 @@ body > div.site-intro {
   color: var(--warn);
 }
 
-/* The home page below 768 px of width (components/PhoneLanding.tsx): it takes the place of the
-   intro and the viewer. The query is the exact negation of components/HomeViewer.tsx's, so
-   every width shows one of the two, from the first paint. Controls are full width, 48 px
-   high, at full contrast. */
-.landing {
+/* The phone page (components/SiteIntro.tsx): on a phone the intro's own heading and sentences,
+   then a picture, the line about reading on a computer, three full-width controls 48 px high at
+   full contrast, and a short row of links. The media query is components/phone.ts PHONE_MEDIA,
+   character for character (tests/phone.test.ts), so the first paint and the script agree. */
+.phone-page {
   display: none;
 }
-@media not all and (min-width: 768px) {
-  body > div.site-intro {
+@media (pointer: coarse) and (hover: none) and (max-width: 767px), (pointer: coarse) and (hover: none) and (max-height: 767px) {
+  .site-intro .intro-links,
+  .site-intro .site-loading,
+  .site-intro .site-nojs {
     display: none;
   }
-  .landing {
-    display: flex;
+  .phone-page {
+    display: block;
+  }
+  .site-intro {
+    padding-top: 28px;
+    font-size: 16px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+  .site-intro h1 {
+    font-size: 28px;
+    line-height: 1.2;
   }
 }
-.landing {
-  padding: 28px 16px 32px;
-  font-size: 16px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-.landing h1 {
-  font-size: 28px;
-  line-height: 1.2;
-  margin: 0 0 4px;
-}
-.landing p {
-  margin: 0 0 12px;
-}
-.landing .landing-posture {
-  color: var(--warn);
-  font-size: 14px;
-  margin-bottom: 20px;
-}
-.landing-still {
+.phone-still {
   display: block;
   width: 100%;
   height: auto;
@@ -563,16 +595,16 @@ body > div.site-intro {
   border: 1px solid var(--border);
   border-radius: var(--ctl-radius);
 }
-.landing .landing-computer {
+.site .phone-computer {
   font-weight: var(--fw-strong);
 }
-.landing-actions {
+.phone-actions {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin: 16px 0 28px;
+  margin: 16px 0 24px;
 }
-.landing-action {
+.phone-action {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -587,16 +619,13 @@ body > div.site-intro {
   text-align: center;
   text-decoration: none;
 }
-.landing-action:hover {
+.phone-action:hover {
   background: var(--lift);
 }
-.landing-foot {
+.site .phone-links {
   border-top: 1px solid var(--border);
   padding-top: 16px;
   font-size: 14px;
-}
-.landing .landing-foot p {
-  margin: 0 0 8px;
 }
 .site pre,
 .cite-pre {
