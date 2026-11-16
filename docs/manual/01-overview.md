@@ -51,6 +51,6 @@ viewer starts, so every part of this manual can be tried with zero patient
 data. The volume list names it **Geometric test phantom**.
 Until you open an export of your own, the status line at the bottom says that
 your scan is read on your machine and never uploaded, and links to stills of a
-real, consented scan.
+real scan.
 When the program is started in demo mode it additionally never remembers a
 previously opened scan (section 2.4).

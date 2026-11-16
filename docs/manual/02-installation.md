@@ -163,7 +163,7 @@ bridge built in: no Node.js, no terminal, no browser tab to keep open. It runs
 the same browser engine the web build is tested on (Chromium, through
 Electron), so every reading mode behaves the same.
 
-![The desktop app's window on macOS with the consented real CBCT open in MPR: the axial, sagittal and coronal panes, the bone-only 3D render, the tool, window and 3D controls in the sidebar, and the case label CBCT-001 in the status line](../media/manual/desktop-app.webp)
+![The desktop app's window on macOS with a real CBCT open in MPR: the axial, sagittal and coronal panes, the bone-only 3D render, the tool, window and 3D controls in the sidebar, and the case label CBCT-001 in the status line](../media/manual/desktop-app.webp)
 
 **Download.** The website's **Download the desktop app** menu (section 2.5)
 links each installer directly. Every release that carries the app lists its

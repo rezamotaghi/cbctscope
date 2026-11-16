@@ -16,8 +16,7 @@ the camera and never produces findings; the human reads.
 
 *Above: a real CBCT in MPR. Axial, sagittal and coronal sections cross at the
 skull base and the sphenoid sinus in the bone window, beside a bone 3D render
-of the facial skeleton. Shown with the written consent of the patient,
-de-identified before it was ever opened, and rendered in bone only.*
+of the facial skeleton.*
 
 - **Clinicians and students:** read the CBCT exports already on your computer
   in eight purpose-built modes, free, with no account, no upload, and nothing
@@ -60,8 +59,7 @@ control; the neighboring projects, and how they differ, are under
 | [![MPR: axial, sagittal, coronal and a bone 3D render, crosshairs at the skull base, the bone window, slab and MIP controls](docs/media/thumb-mpr.png)](docs/media/thumb-mpr.png) | [![Grid: nine parallel axial slices through the dentition with a sagittal scout, spacing and thickness controls](docs/media/thumb-grid.png)](docs/media/thumb-grid.png) | [![Pano: arch spline on the axial, curved panoramic of the arch, perpendicular cross-sections](docs/media/thumb-pano.png)](docs/media/thumb-pano.png) | [![TMJ: both condyles in axis-corrected sagittal sections, five per side, with the axis line drawn per condyle on the axial scout](docs/media/thumb-tmj.png)](docs/media/thumb-tmj.png) |
 
 *The four stills above are a real CBCT: a 16×16cm, 200 µm Planmeca ProMax
-volume, shown with the written consent of the patient and de-identified before
-it was ever opened.*
+volume.*
 
 Click any thumbnail for full resolution. Each reading mode has its own guide,
 written the way a reader actually moves through a volume:
@@ -273,8 +271,7 @@ The safe behavior is the only behavior the software has:
 every mode switch, and the closing view reset are MCP verbs sent by the agent;
 the 3D orbit, the arch, the focal trough and the cephalogram contrast are the
 viewer's own one-click tools. The volume is the same real CBCT as the stills
-above: shown with written patient consent, de-identified before it was ever
-opened, and rendered in bone only, never as a soft-tissue surface.*
+above.*
 
 If you use an AI assistant that speaks MCP (Claude Code, Claude Desktop, and
 others), it can drive the viewer for you: open a scan (or let you pick one in

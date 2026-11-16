@@ -104,8 +104,8 @@ what teaches the mouse, so the header keeps to controls:
 - **First-run line**: while the phantom is on screen and nothing of yours is
   open, it says "Built in, no patient data. Your scan is read in this tab and
   never uploaded." (the desktop app and the local app say "on this computer")
-  and links **See CBCTScope on a real scan** to stills of a real,
-  consented CBCT (bone only) on the project page. It leaves by itself once you
+  and links **See CBCTScope on a real scan** to stills of a real CBCT on
+  the project page. It leaves by itself once you
   open an export.
 - **Gesture legend** (right): at most three of the current mode's mouse
   gestures, each as "gesture: effect", then "All gestures: Keys." In MPR the
