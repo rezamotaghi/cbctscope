@@ -24,8 +24,12 @@
 //   scripts/vercel-output.mjs, and a missing address answers 404 with the body of /404.html;
 // - every script and stylesheet a page references is on the site's own origin and answers 200
 //   with its type and headers;
-// - no page, as an anonymous visitor gets it, carries a marker of Vercel's analytics, speed
-//   insights or toolbar (FORBIDDEN_MARKERS);
+// - every page the sitemap lists carries the page-view counter's tag (scripts/site-counter.mjs)
+//   exactly once and no other reference to Web Analytics' routes, and no other page (the update
+//   page, the agent frame, the 404 page) carries any; the counter's script answers 200 with a
+//   JavaScript type, which it does only when Web Analytics is enabled in the Vercel project;
+// - no page, as an anonymous visitor gets it, carries a marker of Web Analytics' custom-event
+//   stub or package, of Speed Insights or of the toolbar (FORBIDDEN_MARKERS);
 // - the update page names the version in package.json of this checkout, the deployed commit's.
 //
 // The byte mode checks a server against an export on disk, for an export built here and served
@@ -49,6 +53,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SITE_URL } from '../components/siteAddress.mjs';
 import { sitePages, sitePath } from './sitemap.mjs';
+import { COUNTER_SCRIPT, counterProblem } from './site-counter.mjs';
 import { COMMIT_HEADER, NOT_FOUND_FILE, headersFor, vercelConfig } from './vercel-output.mjs';
 
 /** the media types each extension in the export may be served with */
@@ -68,8 +73,9 @@ export const CONTENT_TYPES = Object.freeze({
 
 /**
  * What a page must never carry: the strings Vercel's documentation gives for what its products
- * put in a page. Web Analytics: the routes under /_vercel/insights/, the `window.vaq` queue of its
- * HTML snippet and the @vercel/analytics package (vercel.com/docs/analytics/quickstart). Speed
+ * put in a page, beyond the counter's one tag (scripts/site-counter.mjs, checked on its own).
+ * Web Analytics: the `window.vaq` queue of the inline stub its HTML snippet adds for custom
+ * events, and the @vercel/analytics package (vercel.com/docs/analytics/quickstart). Speed
  * Insights: /_vercel/speed-insights/, `window.siq` and @vercel/speed-insights
  * (vercel.com/docs/speed-insights/quickstart). The toolbar: its host, https://vercel.live, which
  * its CSP advice adds to script-src (vercel.com/docs/vercel-toolbar/managing-toolbar). Both
@@ -77,7 +83,6 @@ export const CONTENT_TYPES = Object.freeze({
  * queues of their snippets cover that form.
  */
 export const FORBIDDEN_MARKERS = Object.freeze([
-  '/_vercel/insights/',
   '/_vercel/speed-insights/',
   'window.vaq',
   'window.siq',
@@ -213,6 +218,33 @@ export function headerProblems(headers, expected) {
  */
 export function forbiddenMarkers(html) {
   return FORBIDDEN_MARKERS.filter((m) => html.includes(m));
+}
+
+/**
+ * The counter rule over the pages the live mode read: each problem, one line.
+ * @param {Map<string, string>} pages site path to the served page
+ * @param {Set<string>} counted the site paths of the counted pages (the sitemap's)
+ */
+export function counterProblems(pages, counted) {
+  const problems = [];
+  for (const [p, html] of pages) {
+    const why = counterProblem(html, counted.has(p));
+    if (why) problems.push(`${p}: ${why}`);
+  }
+  for (const p of counted) if (!pages.has(p)) problems.push(`${p}: not read, so the counter tag is unchecked`);
+  return problems;
+}
+
+/**
+ * Why the counter's script answer shows Web Analytics is not serving, or null when it is.
+ * @param {number} status
+ * @param {string | null} contentType
+ */
+export function counterScriptProblem(status, contentType) {
+  const enable = 'enable Web Analytics in the Vercel project, then deploy again';
+  if (status !== 200) return `${COUNTER_SCRIPT}: status ${status}, expected 200: ${enable}`;
+  const type = contentTypeProblem('script.js', contentType);
+  return type ? `${COUNTER_SCRIPT}: ${type}: ${enable}` : null;
 }
 
 /**
@@ -380,7 +412,8 @@ async function liveRun(base, commit, version, headers) {
   const sitemap = await get(urlOf(base, '/sitemap.xml'), headers);
   if ('error' in sitemap) return { problems: [sitemap.error], count: 0 };
   if (sitemap.res.status !== 200) return { problems: [statusLine('/sitemap.xml', sitemap.res, 200)], count: 0 };
-  const list = liveList(Buffer.from(sitemap.body).toString('utf8'));
+  const sitemapXml = Buffer.from(sitemap.body).toString('utf8');
+  const list = liveList(sitemapXml);
   /** @type {Map<string, string>} */
   const pages = new Map();
   const problems = await pool([...list.map((p) => ({ p, status: 200 })), { p: MISSING_PATH, status: 404 }, { p: `/${NOT_FOUND_FILE}`, status: 200 }], async ({ p, status }) => {
@@ -390,12 +423,19 @@ async function liveRun(base, commit, version, headers) {
   });
   const notFound = pages.get(MISSING_PATH);
   if (notFound !== undefined && notFound !== pages.get(`/${NOT_FOUND_FILE}`)) problems.push(`${MISSING_PATH}: the 404 answer is not the body of /${NOT_FOUND_FILE}`);
+  problems.push(...counterProblems(pages, new Set(sitemapPaths(sitemapXml))));
+  const script = await get(urlOf(base, COUNTER_SCRIPT), headers);
+  if ('error' in script) problems.push(script.error);
+  else {
+    const why = counterScriptProblem(script.res.status, script.res.headers.get('content-type'));
+    if (why) problems.push(why);
+  }
   const assets = new Set();
   for (const [p, html] of pages) {
     for (const m of forbiddenMarkers(html)) problems.push(`${p}: carries ${m}`);
     const refs = pageAssets(html, urlOf(base, p));
     for (const line of offOriginAssets(refs, base)) problems.push(`${p}: ${line}`);
-    for (const a of refs) if (new URL(a).origin === new URL(base).origin) assets.add(new URL(a).pathname);
+    for (const a of refs) if (new URL(a).origin === new URL(base).origin && new URL(a).pathname !== COUNTER_SCRIPT) assets.add(new URL(a).pathname);
   }
   problems.push(...(await pool([...assets], async (p) => (await liveOne(base, p, 200, commit, headers)).problems)));
   const update = pages.get(sitePath('update.html'));
@@ -403,7 +443,7 @@ async function liveRun(base, commit, version, headers) {
     const v = versionProblem(update, version);
     if (v) problems.push(`${sitePath('update.html')}: ${v}`);
   }
-  return { problems, count: list.length + 2 + assets.size };
+  return { problems, count: list.length + 3 + assets.size };
 }
 
 /** ask the front page until it names the commit; returns null once it does, or the last problem */
@@ -514,7 +554,7 @@ async function main() {
         count = r.count;
         return { problems: r.problems };
       },
-      () => `site-check: ${base} answers all ${count} addresses with the site's headers and types${commit ? ` from commit ${commit}` : ''}, every script and stylesheet on its own origin, no analytics, speed-insights or toolbar marker in what an anonymous visitor gets, and the update page names ${version}`,
+      () => `site-check: ${base} answers all ${count} addresses with the site's headers and types${commit ? ` from commit ${commit}` : ''}, every script and stylesheet on its own origin, the counter tag once in each page the sitemap lists and in no other page, the counter's script served, no other analytics, speed-insights or toolbar marker in what an anonymous visitor gets, and the update page names ${version}`,
     );
     return;
   }

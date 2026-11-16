@@ -1,6 +1,6 @@
 // The manual's search box (scripts/manual-html.mjs): filters search-index.json, a file next
-// to this one, in the page. Same origin, fetched once on the first keystroke; nothing else
-// leaves the page and nothing is sent anywhere.
+// to this one, in the page. Same origin, fetched once on the first keystroke; this script
+// fetches nothing else and sends nothing anywhere.
 // It also carries the drawer's theme: ?theme=dark marks the page dark before it paints (this
 // script loads in <head>, without defer) and keeps the flag on every link to another page of
 // the manual, so the drawer stays dark as the reader moves on; there it also drops the bar's

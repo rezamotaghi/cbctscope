@@ -82,7 +82,7 @@ export function ResearchUseDialog({ onAcknowledge }: { onAcknowledge: () => void
         <p style={{ margin: '0 0 16px' }}>
           {IS_DESKTOP
             ? "Nothing leaves this computer, except the agent's snapshots of the view, which go to the model you chose once you switch the agent on. The scan is read from your disk into this app."
-            : "Nothing leaves this tab, except the agent's snapshots of the view, which go to the model you chose once you switch the agent on. The scan is read from your disk into this tab and is not uploaded anywhere."}
+            : "Nothing of your scan leaves this tab, except the agent's snapshots of the view, which go to the model you chose once you switch the agent on. The scan is read from your disk into this tab and is not uploaded anywhere."}
         </p>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <button className="ctl" style={dialogButton(true)} onClick={onAcknowledge} autoFocus>

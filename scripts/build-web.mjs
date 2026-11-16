@@ -20,6 +20,10 @@
 //    script of that page. No 'unsafe-inline' for scripts. A JSON-LD data block
 //    (type="application/ld+json", the structured data of the home and About pages) is never
 //    executed, so it gets no hash: the policy allows exactly the scripts that run.
+// 3a. With --site only, writes the page-view counter's tag (scripts/site-counter.mjs) into each
+//    page sitemap.xml lists, right after the CSP meta tag. The update page, the agent frame,
+//    the 404 page and every page of a build without --site (the desktop app's, the local
+//    app's, the end-to-end suite's) never carry it.
 // 4. Writes agent-frame.html (scripts/agent-frame.mjs), the sandboxed page the in-page agent's
 //    provider calls run in, with its own policy.
 // 5. Writes sitemap.xml and robots.txt (scripts/sitemap.mjs) from the pages the export holds,
@@ -29,6 +33,7 @@ import { webCsp } from '../components/webCsp.mjs';
 import { writeManual } from './manual-html.mjs';
 import { AGENT_FRAME_FILE, writeAgentFrame } from './agent-frame.mjs';
 import { writeSitemap } from './sitemap.mjs';
+import { COUNTER_ROUTES, addCounter, isCounted } from './site-counter.mjs';
 import { siteBuildEnv } from './site-env.mjs';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
@@ -116,13 +121,19 @@ if (existsSync(manifest)) {
 const outPath = path.join(root, outDir);
 let pages = 0;
 let total = 0;
+let counted = 0;
 for (const file of htmlFiles(outPath)) {
-  if (path.relative(outPath, file) === AGENT_FRAME_FILE) continue; // written below, with its own policy
+  const rel = path.relative(outPath, file).split(path.sep).join('/');
+  if (rel === AGENT_FRAME_FILE) continue; // written below, with its own policy
   const { html, count } = addCsp(readFileSync(file, 'utf8'));
-  writeFileSync(file, html);
+  const counts = site && isCounted(rel);
+  if (!counts && html.includes(COUNTER_ROUTES)) throw new Error(`build:web: ${rel} refers to ${COUNTER_ROUTES} and is not a counted page of the site's build`);
+  writeFileSync(file, counts ? addCounter(html) : html);
+  if (counts) counted += 1;
   pages += 1;
   total += count;
 }
+if (site) console.log(`build:web: the page-view counter written into ${counted} pages`);
 const frameBytes = await writeAgentFrame(outPath);
 console.log(`build:web: ${outDir}/${AGENT_FRAME_FILE} written (${frameBytes} bytes)`);
 const listed = writeSitemap(outPath);

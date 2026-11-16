@@ -6,7 +6,7 @@
 // fails to open, the address is copied instead and the entry says so in place: the menu stays
 // open, so the confirmation is read where the click was. The share call is made in the click
 // handler itself, since browsers require a user gesture for it. The clipboard is written on a
-// click only, never read, and the page sends nothing anywhere.
+// click only, never read, and the page sends the address nowhere.
 import { useState } from 'react';
 import { SITE_NAME, SITE_URL } from '@/components/site';
 import { IS_DESKTOP } from './shell';

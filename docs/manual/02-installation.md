@@ -36,7 +36,7 @@
   note, or copy it; where the
   browser has no share sheet, it opens a new message in your phone's mail
   app that carries the address, and you choose the recipient. The page
-  sends nothing itself. A tablet, at least 600 px on its shorter side, gets
+  itself sends the address nowhere. A tablet, at least 600 px on its shorter side, gets
   the viewer.
 - **macOS, Windows, or Linux.** The file-open dialog is native on macOS and
   Windows; on Linux it uses the desktop's dialog helper (zenity or kdialog,

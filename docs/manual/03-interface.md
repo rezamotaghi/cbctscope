@@ -74,7 +74,7 @@ left to right:
    elsewhere, and in the desktop app, it copies the address and the entry
    reads "Link copied: cbctscope.com". The links inside the
    manual to other pages of the project open only when you click them; the
-   viewer itself never contacts the network (chapter 10).
+   viewer itself contacts no other site (chapter 10).
 10. **Agent** (the website and the desktop app): opens the strip of the
     opt-in navigation agent under the viewer (section 9.6). It reads **Agent
     on** while the agent is on and carries no status otherwise; the strip names

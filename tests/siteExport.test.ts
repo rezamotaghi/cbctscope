@@ -11,6 +11,7 @@ import { NOINDEX_PAGES, NOT_PAGES, sitemapPages, sitePages, sitePath } from '../
 import { vercelConfig } from '../scripts/vercel-output.mjs';
 import { LIVE_FILES, exportFiles, forbiddenMarkers, offOriginAssets, pageAssets, typeFileFor, versionProblem } from '../scripts/site-check.mjs';
 import { SITE_URL } from '../components/siteAddress.mjs';
+import { COUNTER_ROUTES, COUNTER_SCRIPT, COUNTER_TAG, isCounted } from '../scripts/site-counter.mjs';
 import pkg from '../package.json';
 
 const out = path.join(process.cwd(), 'out');
@@ -260,6 +261,25 @@ describe.skipIf(!built)('the exported site', () => {
     expect(read('404.html')).not.toContain('rel="canonical"');
   });
 
+  // out/ holds either flavour: the plain web build (the desktop app's, the local app's, the
+  // end-to-end suite's), where no page refers to the counter, or the site's build (--site), where
+  // exactly the sitemap's pages carry the tag once, right after the CSP meta tag
+  it('carries the page-view counter in no page, or in exactly the sitemap\'s pages once, never in a mix', () => {
+    const files = exportFiles(out).filter((f) => f.endsWith('.html'));
+    const counted = sitemapPages(out).map((p) => p.file).sort();
+    expect(files.filter((f) => isCounted(f)).sort()).toEqual(counted);
+    const carrying = files.filter((f) => read(f).includes(COUNTER_ROUTES)).sort();
+    for (const f of ['update.html', 'agent-frame.html', '404.html']) expect(carrying, f).not.toContain(f);
+    if (carrying.length === 0) return; // the plain web build
+    expect(carrying).toEqual(counted);
+    for (const f of carrying) {
+      const html = read(f);
+      expect(html.split(COUNTER_ROUTES), f).toHaveLength(2);
+      expect(html.split(COUNTER_TAG), f).toHaveLength(2);
+      expect(html.slice(0, html.indexOf(COUNTER_TAG)), f).toMatch(/<meta http-equiv="Content-Security-Policy" content="[^"]*"\/>$/);
+    }
+  });
+
   // the live check after a deploy (scripts/site-check.mjs --live) reads these from the public
   // site; here the export proves it would pass on the files this build made
   it('holds what the live check asks for: its fixed files, same-origin assets, no host marker, the version on the update page', () => {
@@ -272,7 +292,8 @@ describe.skipIf(!built)('the exported site', () => {
       const at = moved[f] ? `/${moved[f].path}` : `/${f}`;
       const assets = pageAssets(html, new URL(at, SITE_URL).toString());
       expect(offOriginAssets(assets, SITE_URL), f).toEqual([]);
-      for (const a of assets) expect(exportFiles(out), `${f}: ${a}`).toContain(new URL(a).pathname.slice(1));
+      // the counter's script is served by Vercel once Web Analytics is enabled, never from the export
+      for (const a of assets) if (new URL(a).pathname !== COUNTER_SCRIPT) expect(exportFiles(out), `${f}: ${a}`).toContain(new URL(a).pathname.slice(1));
     }
     expect(pageAssets(read('index.html'), SITE_URL).length).toBeGreaterThan(0);
     expect(versionProblem(read('update.html'), pkg.version)).toBeNull();

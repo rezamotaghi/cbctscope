@@ -7,8 +7,11 @@ name: Site check
 # - a production deployment that succeeded: `live` checks the public site,
 #   https://cbctscope.com, as any visitor gets it. scripts/site-check.mjs --live waits until the
 #   site answers with the event's commit, then checks every address, header and type, that every
-#   script and stylesheet is on the site's own origin, that no analytics, speed-insights or
-#   toolbar marker is in a page, and that the update page names the version in package.json;
+#   script and stylesheet is on the site's own origin, that each page the sitemap lists carries
+#   the page-view counter's tag once and no other page carries it, that the counter's script is
+#   served (Web Analytics is enabled in the Vercel project), that no other analytics,
+#   speed-insights or toolbar marker is in a page, and that the update page names the version in
+#   package.json;
 # - a production deployment that failed or errored: `failed` turns the run red, naming the
 #   commit, because nothing on the site changed.
 # Every other event (a preview, a production deployment still pending or in progress) skips both

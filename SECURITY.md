@@ -138,8 +138,9 @@ process, and the scans are all on one machine controlled by one person.
 ## Data handling
 
 - Scans are read in place from the folder you pick. Nothing is copied or uploaded.
-- No telemetry, no analytics, no outbound network calls, except the requests of the opt-in
-  in-page agent to the model provider the clinician chose, after they switch it on.
+- The local app and the desktop app: no telemetry, no analytics, no outbound network calls,
+  except the requests of the opt-in in-page agent to the model provider the clinician chose,
+  after they switch it on.
 - Absolute file paths never reach the browser or the agent transcript. The UI shows a display
   label derived from the folder and file names you opened, plus technical geometry.
 - The only disk writes are an app-data folder (`~/.cbctscope`) holding annotation sidecars

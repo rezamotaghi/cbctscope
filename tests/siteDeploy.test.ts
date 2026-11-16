@@ -17,6 +17,8 @@ import {
   checkList,
   commitProblem,
   contentTypeProblem,
+  counterProblems,
+  counterScriptProblem,
   exportFiles,
   forbiddenMarkers,
   headerProblems,
@@ -30,6 +32,7 @@ import {
   typeFileFor,
   versionProblem,
 } from '../scripts/site-check.mjs';
+import { COUNTER_TAG } from '../scripts/site-counter.mjs';
 import { SITE_ENV, STRIPPED, siteBuildEnv } from '../scripts/site-env.mjs';
 import { COMMIT_HEADER, FRAME_HEADERS, SITE_HEADERS, commitFrom, headersFor, vercelConfig, writeVercelOutput } from '../scripts/vercel-output.mjs';
 
@@ -203,6 +206,8 @@ describe('vercel.json: Vercel builds the site from the repository', () => {
     const check = web[build + 1];
     expect(check.name).toBe('Check the Build Output API layout');
     for (const part of ['.vercel/output/config.json', 'c.version !== 3', '.vercel/output/static/index.html', 'throw new Error']) expect(check.run, part).toContain(part);
+    // the export tests again, on the site's build: the counter in exactly the sitemap's pages
+    expect(runs[build + 2]).toBe('npx vitest run tests/siteExport.test.ts');
   });
 });
 
@@ -285,18 +290,56 @@ describe('the live check (scripts/site-check.mjs --live)', () => {
     expect(contentTypeProblem(typeFileFor('/about'), 'text/plain')).toMatch(/expected text\/html/);
   });
 
-  it('lists the markers of Vercel\'s analytics, speed insights and toolbar in one place, and finds each', () => {
-    expect(FORBIDDEN_MARKERS).toEqual(['/_vercel/insights/', '/_vercel/speed-insights/', 'window.vaq', 'window.siq', '@vercel/analytics', '@vercel/speed-insights', 'https://vercel.live']);
+  it('lists the markers of Vercel\'s analytics stub and package, speed insights and toolbar in one place, and finds each', () => {
+    expect(FORBIDDEN_MARKERS).toEqual(['/_vercel/speed-insights/', 'window.vaq', 'window.siq', '@vercel/analytics', '@vercel/speed-insights', 'https://vercel.live']);
     const clean = '<html><head><script src="/_next/static/chunks/main.js"></script></head><body>window.value</body></html>';
     expect(forbiddenMarkers(clean)).toEqual([]);
+    // the counter's own tag is not a forbidden marker: the counter rule checks it (site-counter.mjs)
+    expect(forbiddenMarkers(clean.replace('</head>', `${COUNTER_TAG}</head>`))).toEqual([]);
     const injected = [
-      ['<script defer src="/_vercel/insights/script.js"></script>', '/_vercel/insights/'],
       ['<script defer src="/_vercel/speed-insights/script.js"></script>', '/_vercel/speed-insights/'],
       ['<script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>', 'window.vaq'],
       ['<script>window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };</script>', 'window.siq'],
       ['<script src="https://vercel.live/_next-live/feedback/feedback.js"></script>', 'https://vercel.live'],
     ];
     for (const [tag, marker] of injected) expect(forbiddenMarkers(clean.replace('</body>', `${tag}</body>`)), marker).toEqual([marker]);
+  });
+
+  it('the live mode holds every sitemap page to the counter tag once and every other page to none', () => {
+    const page = (extra = '') => `<html><head><meta charSet="utf-8"/>${extra}</head><body></body></html>`;
+    const counted = new Set(['/', '/about', '/manual/']);
+    const good = new Map([
+      ['/', page(COUNTER_TAG)],
+      ['/about', page(COUNTER_TAG)],
+      ['/manual/', page(COUNTER_TAG)],
+      ['/update', page()],
+      ['/agent-frame.html', page()],
+      [MISSING_PATH, page()],
+      ['/404.html', page()],
+    ]);
+    expect(counterProblems(good, counted)).toEqual([]);
+    const bad = new Map(good);
+    bad.set('/about', page());
+    bad.set('/manual/', page(COUNTER_TAG + COUNTER_TAG));
+    bad.set('/update', page(COUNTER_TAG));
+    bad.set('/404.html', page('<link rel="preload" href="/_vercel/insights/other.js"/>'));
+    bad.delete('/');
+    const lines = counterProblems(bad, counted);
+    expect(lines).toHaveLength(5);
+    expect(lines.join('\n')).toMatch(/^\/about: carries the counter tag 0 times/m);
+    expect(lines.join('\n')).toMatch(/^\/manual\/: carries the counter tag 2 times/m);
+    expect(lines.join('\n')).toMatch(/^\/update: carries 1 references to \/_vercel\/insights\/, expected none/m);
+    expect(lines.join('\n')).toMatch(/^\/404\.html: carries 1 references/m);
+    expect(lines.join('\n')).toMatch(/^\/: not read/m);
+    // a counted page with the tag and a second reference to the routes
+    expect(counterProblems(new Map([['/', page(COUNTER_TAG + '<script src="/_vercel/insights/x.js"></script>')]]), new Set(['/']))[0]).toMatch(/carries 2 references to \/_vercel\/insights\/, expected only the counter tag/);
+  });
+
+  it('the live mode requires the counter script, and says to enable Web Analytics when it is missing', () => {
+    expect(counterScriptProblem(200, 'application/javascript; charset=utf-8')).toBeNull();
+    expect(counterScriptProblem(200, 'text/javascript')).toBeNull();
+    expect(counterScriptProblem(404, 'text/html')).toMatch(/status 404, expected 200: enable Web Analytics in the Vercel project/);
+    expect(counterScriptProblem(200, 'text/html')).toMatch(/expected application\/javascript or text\/javascript: enable Web Analytics in the Vercel project/);
   });
 
   it('collects every script and stylesheet a page references, resolved against the page', () => {

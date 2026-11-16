@@ -5,7 +5,7 @@
 // canonical address, and the mail link is not followed. The share call is made in the click
 // handler itself, since browsers require a user gesture for it. A cancelled sheet (AbortError)
 // does nothing more; any other failure follows the mail link. Without JavaScript or without the
-// API the link behaves as a plain mailto:. The page itself sends, stores and copies nothing.
+// API the link behaves as a plain mailto:. The page itself sends the address nowhere and stores and copies nothing.
 // The handler is attached by React's hydration of the home page, which happens on a phone too
 // (components/HomeViewer.tsx renders SiteIntro there and never loads the viewer).
 import type { MouseEvent } from 'react';

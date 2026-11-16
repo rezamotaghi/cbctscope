@@ -53,11 +53,20 @@ export function sitePages(outDir) {
 const xmlEscape = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 /**
+ * Whether sitemap.xml lists an exported file: an HTML file outside _next/ that is a page of the
+ * site (not in NOT_PAGES) and carries no noindex (not in NOINDEX_PAGES).
+ * @param {string} rel the file relative to the export, with forward slashes
+ */
+export function inSitemap(rel) {
+  return rel.endsWith('.html') && !rel.split('/').includes('_next') && !NOT_PAGES.has(rel) && !NOINDEX_PAGES.has(rel);
+}
+
+/**
  * The pages sitemap.xml lists: the site's pages without the noindex ones.
  * @param {string} outDir
  */
 export function sitemapPages(outDir) {
-  return sitePages(outDir).filter((p) => !NOINDEX_PAGES.has(p.file));
+  return sitePages(outDir).filter((p) => inSitemap(p.file));
 }
 
 /** write sitemap.xml and robots.txt into the export; returns the number of pages listed */

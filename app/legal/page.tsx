@@ -33,7 +33,7 @@ export default function Legal() {
       <h2 id="privacy">Privacy</h2>
       <p>
         Scans you open, and the marks you make on them, never leave your browser: the viewer reads them in the tab and sends
-        them nowhere. The site sets no cookies, runs no analytics and has no accounts.
+        them nowhere. The site sets no cookies and has no accounts.
       </p>
       <p>
         Your settings and marks are kept in your browser&apos;s own storage on your device. Clearing this site&apos;s data in
@@ -46,7 +46,7 @@ export default function Legal() {
         <a href={VERCEL_PRIVACY_URL} target="_blank" rel="noopener noreferrer">
           privacy policy
         </a>{' '}
-        states. The desktop app&apos;s installers are downloaded from GitHub, which handles those requests under its own{' '}
+        states, and keeps aggregate visit counts without cookies or tracking of individuals. The desktop app&apos;s installers are downloaded from GitHub, which handles those requests under its own{' '}
         <a href={GITHUB_PRIVACY_URL} target="_blank" rel="noopener noreferrer">
           privacy statement
         </a>

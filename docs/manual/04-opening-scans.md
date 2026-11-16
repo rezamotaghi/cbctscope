@@ -130,8 +130,8 @@ much else.
 
 The first time a real scan is opened in a browser profile, the
 **Research use only** dialogue explains that this is not a medical device,
-that the agent moves the camera and the human reads, and that nothing leaves
-the tab (on the website) or this computer (in the desktop app), except the
+that the agent moves the camera and the human reads, and that nothing of your
+scan leaves the tab (on the website) or this computer (in the desktop app), except the
 agent's snapshots of the view, which go to the model you chose once you switch
 the agent on. **I understand** dismisses it for good in that profile. The phantom
 never shows it.

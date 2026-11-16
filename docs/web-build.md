@@ -10,8 +10,8 @@ viewer's code is shared by every surface; this file describes only what differs.
 | surface | what runs | how scans are read | agent control |
 |---|---|---|---|
 | the repo (`npm run demo`, the starters) | the Next.js server on loopback plus the viewer | the server reads the opened folder in place | MCP over the loopback bridge (`mcp/server.mjs`) |
-| the web build (cbctscope.com) | static files only, no server anywhere | the browser reads the files the clinician opens; nothing leaves the tab | the opt-in in-page agent on the clinician's own model account (milestone 3, built) |
-| the packaged app (macOS signed and notarised; Windows unsigned) | the same static build in a desktop shell, plus a local bridge host | the browser engine reads the opened folder | MCP over the bridge host, the same contract as the repo, plus the in-page agent |
+| the web build (cbctscope.com) | static files only, no server of its own; the sitemap's pages carry Vercel Web Analytics' page-view counter (section 3) | the browser reads the files the clinician opens; the scan stays in the tab | the opt-in in-page agent on the clinician's own model account (milestone 3, built) |
+| the packaged app (macOS signed and notarised; Windows unsigned) | the same static build (without the counter) in a desktop shell, plus a local bridge host | the browser engine reads the opened folder | MCP over the bridge host, the same contract as the repo, plus the in-page agent |
 
 The website ships from `main`: Vercel builds every push itself, a push to `main` becomes the
 production deployment and any other branch a private preview, and GitHub's tests run alongside
@@ -62,6 +62,20 @@ and `middleware.ts` are not part of the target; static export supports neither. 
 `pageExtensions` does not exclude the middleware file in practice, the build script sidelines
 `app/api` and `middleware.ts` for the duration of the build and restores them. The exported
 HTML gets the CSP meta tag. `npm run build` for the local app is untouched.
+
+**The page-view counter.** The site's build (`build-web --site`, section 9) writes one more tag
+into each page `sitemap.xml` lists (the home page, the About and legal pages, every manual page),
+right after the CSP meta tag: `<script defer src="/_vercel/insights/script.js"></script>`, Vercel
+Web Analytics in its documented plain-HTML form
+([Web Analytics](https://vercel.com/docs/analytics/quickstart)), with no inline stub, so the
+policy gains no hash. The script and its page-view request stay on the site's own origin, which
+`script-src 'self'` and `connect-src 'self'` already allow; Vercel counts visitors by a hash of
+the request that resets daily, with no cookie. The update page (which the desktop app's **Check
+for Updates** opens), the agent frame and the 404 page never carry it. `npm run build:web`
+without `--site` (the desktop app's build, the end-to-end suite's) writes it nowhere, and the
+local app has no export, so neither app counts anything. `scripts/site-counter.mjs` holds the tag
+and the rule (a page is counted exactly when the sitemap lists it); the build refuses a page that
+already refers to `/_vercel/insights/`.
 
 At runtime `NEXT_PUBLIC_CBCTSCOPE_TARGET === 'web'` selects the browser source (section 4),
 shows the browser's picker instead of the native chooser, and hides the controls that need
@@ -153,7 +167,7 @@ can travel. Pixels never enter a sidecar.
 
 - Research use. Opens the first time a real volume is opened in a browser profile. Title
   "Research use only". Body: not a medical device; the agent moves the camera, the human
-  reads; nothing leaves this tab (in the desktop app: this computer, read into this app), except the
+  reads; nothing of your scan leaves this tab (in the desktop app: nothing leaves this computer, read into this app), except the
   agent's snapshots of the view, which go to the chosen model once the reader switches it on. One
   button, "I understand". Remembered in localStorage.
 - Size notice. Before a volume whose voxel bytes exceed `NEXT_PUBLIC_CBCTSCOPE_SIZE_NOTICE_MIB`
@@ -248,7 +262,8 @@ screen. Nothing is unmounted: the open scan, the agent session and unsaved state
 Unit (vitest): the loader against synthetic DICOM written by `tests/fixtures/dicomWriter.ts`
 from the phantom (explicit VR little endian; a multiframe file, a slice-per-file series, a
 single radiograph, a DICOMDIR-style tree with extensionless files); id stability across
-reopen; the size-notice decision; the CSP string; the absolute-URL scan of browser code.
+reopen; the size-notice decision; the CSP string; the absolute-URL scan of browser code; the
+page-view counter's rule and its insertion (`tests/siteCounter.test.ts`).
 
 End-to-end (Playwright, Chromium, against `out/` on a static server): the phantom renders
 (the canvas is not blank); the fixture folder opens through the directory input; every view
@@ -358,8 +373,9 @@ the first merge.
 `npm run build:vercel` is `node scripts/build-web.mjs --site && node scripts/vercel-output.mjs`,
 and runs the same on any machine:
 
-1. `build-web --site` prints the Node.js version, then builds `out/` for the root of the domain
-   with the environment of `scripts/site-env.mjs`: `NEXT_PUBLIC_BASE_PATH` empty, Next's
+1. `build-web --site` prints the Node.js version, then builds `out/` for the root of the domain,
+   with the page-view counter in the sitemap's pages (section 3), and with the environment of
+   `scripts/site-env.mjs`: `NEXT_PUBLIC_BASE_PATH` empty, Next's
    telemetry off, the low-threshold build's variables dropped, and every variable whose name
    starts with `VERCEL`, `NEXT_PUBLIC_VERCEL` or `NOW_` removed. Next 15 reads `VERCEL_ENV`,
    `VERCEL_URL`, `VERCEL_BRANCH_URL` and `VERCEL_PROJECT_PRODUCTION_URL` while it renders
@@ -395,7 +411,7 @@ bound does the same from Node.js 27 on, a warning, not a refusal.
 **On GitHub.** The `web` job of `ci.yml` runs `npm run build:vercel` after the end-to-end suite
 and fails unless `.vercel/output/config.json` exists with version 3 and
 `.vercel/output/static/index.html` exists, so the build command Vercel runs is exercised on
-every push and pull request.
+every push and pull request, and then runs `tests/siteExport.test.ts` again on that site build.
 
 ### What `config.json` sets
 
@@ -460,15 +476,20 @@ the script and `package.json` are the deployed commit's), against the public
 3. Every script and stylesheet a page references (`<script src>`, `<link rel="stylesheet">`, a
    preload of a script or style) is on the site's own origin and answers 200 with its type and
    headers.
-4. No page, as an anonymous visitor gets it, carries a marker of Vercel's Web Analytics, Speed
-   Insights or toolbar (`FORBIDDEN_MARKERS`, each taken from Vercel's documentation:
-   `/_vercel/insights/`, `/_vercel/speed-insights/`, the `window.vaq` and `window.siq` queues of
-   their snippets, the `@vercel/analytics` and `@vercel/speed-insights` packages, and
-   `https://vercel.live`, the toolbar's host). This proves the analytics and speed-insights
-   scripts are not in the served pages. It does not prove the toolbar is off: the toolbar is
-   shown to signed-in members of the team, and the check fetches as nobody; the toolbar setting
-   (setup, step 6) is what keeps it off.
-5. The update page says "The newest version of CBCTScope is <version>." for the version in
+4. Every page the live sitemap lists carries the page-view counter's tag (section 3) exactly
+   once and no other reference to `/_vercel/insights/`; no other page it reads (`/update`, the
+   agent frame, the 404 answer and `/404.html`) carries any. `/_vercel/insights/script.js`
+   answers 200 with a JavaScript type, which proves Web Analytics is enabled in the Vercel
+   project; when it is not, the check fails and says to enable it.
+5. No page, as an anonymous visitor gets it, carries any other marker of Vercel's Web Analytics,
+   or one of Speed Insights or the toolbar (`FORBIDDEN_MARKERS`, each taken from Vercel's
+   documentation: `/_vercel/speed-insights/`, the `window.vaq` and `window.siq` queues of their
+   inline snippets, the `@vercel/analytics` and `@vercel/speed-insights` packages, and
+   `https://vercel.live`, the toolbar's host). This proves the Web Analytics stub and the
+   speed-insights script are not in the served pages. It does not prove the toolbar is off: the
+   toolbar is shown to signed-in members of the team, and the check fetches as nobody; the
+   toolbar setting (setup, step 6) is what keeps it off.
+6. The update page says "The newest version of CBCTScope is <version>." for the version in
    `package.json`.
 
 A run that finds problems is repeated twice, 15 s apart; the last run decides, and its problems
@@ -494,7 +515,9 @@ What the owner sees, case by case:
   by design. It cannot compare bytes with a build of its own: Vercel builds each
 commit itself, and no two builds of the web target are byte-identical (Next names each build
 with a fresh id), so it checks what any visitor gets instead. `tests/siteExport.test.ts` runs
-items 2 to 5 against the local export in every CI run, so a change that would fail the live
+items 2 to 6 against the local export in every CI run (item 4 on either flavour of the export:
+no page with the counter after a plain `npm run build:web`, exactly the sitemap's pages after the
+site build), so a change that would fail the live
 check fails a test first.
 
 The live mode also checks a preview: `--base <url>` names the deployment's own address, the
@@ -597,10 +620,13 @@ its merge to `main` makes the first production deployment from Git.
 6. **Settings**, **General**, **Vercel Toolbar**: set **Pre-Production Deployments** and
    **Production Deployments** to **Off**, and the same in the team's **Settings**, **General**,
    **Vercel Toolbar** if the team default is on
-   ([Managing the toolbar](https://vercel.com/docs/vercel-toolbar/managing-toolbar)). Leave
-   **Analytics** and **Speed Insights** off: both need a script in the page, which the site does
-   not carry, and enabling Web Analytics adds routes under `/_vercel/insights/`
-   ([Web Analytics](https://vercel.com/docs/analytics/quickstart)).
+   ([Managing the toolbar](https://vercel.com/docs/vercel-toolbar/managing-toolbar)). In the
+   project's **Analytics** tab, enable **Web Analytics**, and do it before the deploy that first
+   carries the counter's tag (section 3): Vercel adds the routes under `/_vercel/insights/` with
+   the next deployment after it is enabled, and until then the tag's script answers 404 and the
+   check after a deploy fails
+   ([Web Analytics](https://vercel.com/docs/analytics/quickstart)). Leave **Speed Insights**
+   off: it needs a script in the page, which the site does not carry.
 7. **Settings**, **Deployment Protection**: keep **Standard Protection** (every deployment
    protected except the production domains) with **Vercel Authentication**, so a preview opens
    only for members of the team

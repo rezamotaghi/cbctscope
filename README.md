@@ -249,10 +249,10 @@ Downloads: nothing is uploaded, the same local-first constraint as reading.
 The safe behavior is the only behavior the software has:
 
 - Scans are read **in place** from the folder you pick. Nothing is copied or
-  uploaded anywhere; there is no account and no telemetry, and no instance
-  receives scans: the site is static files. The browser reads the scan into
-  the tab, and nothing leaves it unless you switch on the in-page agent, which
-  sends the snapshots it asks for to the model provider you chose.
+  uploaded anywhere; there is no account, and no instance receives scans: the
+  site is static files. The browser reads the scan into the tab, and the scan
+  stays there unless you switch on the in-page agent, which sends the
+  snapshots it asks for to the model provider you chose.
 - Everything, including the AI-agent connection, stays on this machine. In
   technical terms: the server binds to 127.0.0.1 and rejects any request whose
   Host or Origin is not loopback, so neither another device on your network

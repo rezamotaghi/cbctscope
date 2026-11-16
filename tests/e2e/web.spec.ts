@@ -230,7 +230,7 @@ test.describe('opening files', () => {
     const web = researchDialog(page);
     await expect(web).toBeVisible({ timeout: 30_000 });
     await expect(web).toContainText('The agent moves the camera; the human reads.');
-    await expect(web).toContainText("Nothing leaves this tab, except the agent's snapshots of the view, which go to the model you chose once you switch the agent on.");
+    await expect(web).toContainText("Nothing of your scan leaves this tab, except the agent's snapshots of the view, which go to the model you chose once you switch the agent on.");
     await expect(web).not.toContainText('this computer');
 
     // the desktop app: the same build under the shell's user-agent token
