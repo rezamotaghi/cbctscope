@@ -11,11 +11,13 @@ import { NOINDEX_PAGES, NOT_PAGES, sitemapPages, sitePages, sitePath } from '../
 import { vercelConfig } from '../scripts/vercel-output.mjs';
 import { LIVE_FILES, exportFiles, forbiddenMarkers, offOriginAssets, pageAssets, typeFileFor, versionProblem } from '../scripts/site-check.mjs';
 import { SITE_URL } from '../components/siteAddress.mjs';
-import { COUNTER_ROUTES, COUNTER_SCRIPT, COUNTER_TAG, isCounted } from '../scripts/site-counter.mjs';
+import { COUNTER_SCRIPT, COUNTER_TAG, counterProblem, isCounted, pagesWithCounter } from '../scripts/site-counter.mjs';
 import pkg from '../package.json';
 
 const out = path.join(process.cwd(), 'out');
 const built = existsSync(path.join(out, 'index.html'));
+/** which flavour of out/ this run expects: the site's build when CBCTSCOPE_EXPORT=site, else the plain web build */
+const SITE_EXPORT = process.env.CBCTSCOPE_EXPORT === 'site';
 const read = (rel: string) => readFileSync(path.join(out, rel), 'utf8');
 
 /** entities a static page writes for text: back to the characters */
@@ -261,22 +263,23 @@ describe.skipIf(!built)('the exported site', () => {
     expect(read('404.html')).not.toContain('rel="canonical"');
   });
 
-  // out/ holds either flavour: the plain web build (the desktop app's, the local app's, the
-  // end-to-end suite's), where no page refers to the counter, or the site's build (--site), where
-  // exactly the sitemap's pages carry the tag once, right after the CSP meta tag
-  it('carries the page-view counter in no page, or in exactly the sitemap\'s pages once, never in a mix', () => {
+  // out/ holds one of two flavours, and the run says which it expects: the plain web build (the
+  // desktop app's, the local app's, the end-to-end suite's), where no page refers to the counter,
+  // or, with CBCTSCOPE_EXPORT=site, the site's build (--site), where exactly the sitemap's pages
+  // carry the tag once, right after the CSP meta tag. A site build left in out/ fails the plain
+  // run: `npm run build:web` puts the plain one back.
+  it(`carries the page-view counter in ${SITE_EXPORT ? "exactly the sitemap's pages, once each" : 'no page'}`, () => {
     const files = exportFiles(out).filter((f) => f.endsWith('.html'));
     const counted = sitemapPages(out).map((p) => p.file).sort();
+    expect(counted.length).toBeGreaterThan(0);
     expect(files.filter((f) => isCounted(f)).sort()).toEqual(counted);
-    const carrying = files.filter((f) => read(f).includes(COUNTER_ROUTES)).sort();
-    for (const f of ['update.html', 'agent-frame.html', '404.html']) expect(carrying, f).not.toContain(f);
-    if (carrying.length === 0) return; // the plain web build
-    expect(carrying).toEqual(counted);
-    for (const f of carrying) {
+    expect(pagesWithCounter(out), SITE_EXPORT ? 'the site build' : 'the plain build: out/ holds the site build, run npm run build:web').toEqual(SITE_EXPORT ? counted : []);
+    for (const f of files) {
       const html = read(f);
-      expect(html.split(COUNTER_ROUTES), f).toHaveLength(2);
-      expect(html.split(COUNTER_TAG), f).toHaveLength(2);
-      expect(html.slice(0, html.indexOf(COUNTER_TAG)), f).toMatch(/<meta http-equiv="Content-Security-Policy" content="[^"]*"\/>$/);
+      expect(counterProblem(html, SITE_EXPORT && counted.includes(f)), f).toBeNull();
+      if (SITE_EXPORT && counted.includes(f)) {
+        expect(html.slice(0, html.indexOf(COUNTER_TAG)), f).toMatch(/<meta http-equiv="Content-Security-Policy" content="[^"]*"\/>$/);
+      }
     }
   });
 

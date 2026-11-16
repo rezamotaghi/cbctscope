@@ -5,6 +5,8 @@
 // page, the About and legal pages and every manual page. The update page (which the desktop
 // app's Check for Updates opens), the agent frame and the 404 page never carry it, and neither
 // does any page of the plain web build, which the desktop app and the local app serve.
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import path from 'node:path';
 import { inSitemap } from './sitemap.mjs';
 
 /** the address of Web Analytics' script, under the routes Vercel adds when Web Analytics is enabled */
@@ -52,4 +54,21 @@ export function counterProblem(html, counted) {
   if (tags !== 1) return `carries the counter tag ${tags} times, expected once`;
   if (refs !== 1) return `carries ${refs} references to ${COUNTER_ROUTES}, expected only the counter tag`;
   return null;
+}
+
+/**
+ * The HTML pages under a folder that refer to the Web Analytics routes, relative to it with
+ * forward slashes: empty for a plain web build, the sitemap's pages for the site's build. The
+ * desktop scripts refuse a folder where this is not empty (scripts/desktop.mjs).
+ * @param {string} dir
+ */
+export function pagesWithCounter(dir, base = dir) {
+  if (!existsSync(dir)) return [];
+  const out = [];
+  for (const name of readdirSync(dir).sort()) {
+    const p = path.join(dir, name);
+    if (statSync(p).isDirectory()) out.push(...pagesWithCounter(p, base));
+    else if (name.endsWith('.html') && readFileSync(p, 'utf8').includes(COUNTER_ROUTES)) out.push(path.relative(base, p).split(path.sep).join('/'));
+  }
+  return out;
 }

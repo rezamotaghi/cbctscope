@@ -74,7 +74,7 @@ other routes. Three habits close the loop:
 ## 10.5 The web build
 
 The web build (section 2.5) is static files: the site sends the viewer's code
-to your browser and has no server that could receive anything back.
+to your browser, and the page sends your scan nowhere.
 
 - **What stays in the tab.** The files you open are read from your disk into
   the browser tab's memory. Volumes, stitched volumes, and the phantom live

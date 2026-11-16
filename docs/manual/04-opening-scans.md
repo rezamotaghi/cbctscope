@@ -87,7 +87,7 @@ In the web build (section 2.5) the **Open** menu offers:
   word for letting the page read the files, and that they stay in the tab.
   Safari asks nothing. In both plain-browser cases a second line reads **Or
   drop the folder on the viewer: the browser asks nothing.** In every case the
-  files are read into the tab's memory and nothing is sent anywhere. In the desktop app the entry opens its Open sheet, and
+  files are read into the tab's memory and are sent nowhere. In the desktop app the entry opens its Open sheet, and
   the line says the same of that sheet, and that the files stay on the
   computer.
 - **Open a single DICOM file** for one multiframe volume or one 2D

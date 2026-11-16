@@ -58,8 +58,11 @@ jobs:
             if (!fs.existsSync('.vercel/output/static/index.html')) throw new Error('static/index.html is missing');
             console.log('.vercel/output: config.json version 3, static/index.html present');
           "
-      # the export tests again, on the site's build: the counter tag in exactly the sitemap's pages
+      # the export tests again, told to expect the site's build: the counter tag in exactly the
+      # sitemap's pages (the first run above expects the plain build: the counter in no page)
       - run: npx vitest run tests/siteExport.test.ts
+        env:
+          CBCTSCOPE_EXPORT: site
 
   # The Windows desktop package, unsigned, exactly as the release builds it (release.yml,
   # desktop-win): a fault that shows only on Windows is found here, on a push or a pull request,

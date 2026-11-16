@@ -157,8 +157,7 @@ folder** or **Open a single DICOM file**, or a drop on the viewer, reads your
 own export, with a progress panel until the volume is on screen.
 
 **The scan never leaves your computer: the browser reads the files you choose
-into the tab, and the page sends them nowhere.** The site is static files with
-no server behind it, and its Content Security Policy forbids the page to
+into the tab, and the page sends them nowhere.** The site is static files, and its Content Security Policy forbids the page to
 contact any host but its own and the model providers of the in-page agent
 below, which receive nothing unless you switch the agent on. Marks are kept in the browser's own
 storage and travel as a marks file (**Save marks to file** / **Load marks from

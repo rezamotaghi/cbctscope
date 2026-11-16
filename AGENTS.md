@@ -9,7 +9,7 @@ CBCTScope: a complete, local-first CBCT and 2D radiograph viewer (Next.js + Corn
 ## Hard rules
 
 1. **The MDR fence is structural.** No tool, endpoint, or UI feature may return findings, interpretations, or diagnoses, and the MCP verb surface stays navigation/visualization only, with no code execution. A change that crosses this line is rejected regardless of usefulness; it would turn the software into a diagnostic device.
-2. **Local-first, forever.** No instance receives scans, no telemetry, no uploads; the site is static files. Scans are read in the tab or on this machine; paths never leave the server; the only disk writes are annotation sidecars (labels, mm coordinates, HU stats; never pixels).
+2. **Local-first, forever.** No instance receives scans, no uploads, no telemetry in the apps; the website counts page views only (Vercel Web Analytics, cookieless); the site is static files. Scans are read in the tab or on this machine; paths never leave the server; the only disk writes are annotation sidecars (labels, mm coordinates, HU stats; never pixels).
 3. **Never commit imaging.** No DICOM files, no scan data, anywhere in history: scans are read in place and stay on the operator's own disk. `.gitignore` blocks `*.dcm` as a backstop. The repo's image content is the synthetic phantom (`lib/server/phantom.ts`) plus the interface stills in `docs/media/`. A still may show a real scan only when all of these hold: the patient gave written consent; the volume was de-identified before it was first opened (identifying tags removed, every date blanked, UIDs regenerated, no burned-in text, verified by re-reading the written files); and the folder name carries no identity, because the viewer shows it as the case label. Never publish a soft-tissue 3D render of a real head: that surface is a recognizable face. Bone renders are fine, and are what the stills use.
 4. **UI clarity beats minimalism.** Controls stay fully visible at full contrast at all times: never dim, hide, or hover-reveal a control. One exception: a scrim may dim the page behind an open dialogue. This is a reading environment.
 5. **No em dashes in README, docs, or interface strings.** Restructure with a colon, comma, or period.
@@ -22,7 +22,7 @@ CBCTScope: a complete, local-first CBCT and 2D radiograph viewer (Next.js + Corn
 - `lib/browser/` the web build's `browserSource` behind the `VolumeSource` seam (client code imports `components/cbct/source.ts`); `lib/shared/` DICOM helpers, the phantom, the verbs (`verbs.mjs`) for both sides. Contract: `docs/web-build.md`.
 - `mcp/` the stdio MCP server (`server.mjs`, a proxy onto the bridge) plus the MCPB bundle (`npm run mcpb`); `skills/cbctscope-reading/` the Agent Skill that teaches a host the verbs.
 - `desktop/` the Electron app (`npm run desktop`): `main.mjs` the window; `bridge.mjs` serves `out/` and `/api/agent/*` on port 3810.
-- `scripts/demo.mjs` the cross-platform `npm run demo` launcher; `scripts/mcp-smoke.mjs` the live MCP check; `scripts/manual-shots.mjs` recaptures the manual's stills; the root `Start CBCTScope.*` files are the double-click starters.
+- `scripts/demo.mjs` the `npm run demo` launcher; `scripts/mcp-smoke.mjs` the live MCP check; `scripts/manual-shots.mjs` recaptures the manual's stills; the root `Start CBCTScope.*` files are the double-click starters.
 - `tests/` vitest (pure math, manual drift), `tests/e2e/` Playwright on `out/`; `docs/` MCP contract, reading guides, the manual (below).
 
 ## The user manual
@@ -49,7 +49,7 @@ commit itself:
    The drift test fails a bump that keeps it.
 5. the GitHub release then mints the new version DOI on Zenodo, and a follow-up commit pins
    it in `doi:`. If Zenodo's GitHub page shows the release as Received with no progress after
-   ten minutes, delete the GitHub release, keep the tag, publish it again; the new release id gets a fresh event and minted within a minute;
+   ten minutes, delete the GitHub release, keep the tag, publish it again;
 6. update downstream surfaces per the Vault page's release ritual, in the same sitting. A
    release is not done when the release and the DOI exist; it is done when the surfaces
    that cite the version read it.

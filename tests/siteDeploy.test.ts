@@ -206,8 +206,14 @@ describe('vercel.json: Vercel builds the site from the repository', () => {
     const check = web[build + 1];
     expect(check.name).toBe('Check the Build Output API layout');
     for (const part of ['.vercel/output/config.json', 'c.version !== 3', '.vercel/output/static/index.html', 'throw new Error']) expect(check.run, part).toContain(part);
-    // the export tests again, on the site's build: the counter in exactly the sitemap's pages
+    // the export tests again, told to expect the site's build: the counter in exactly the
+    // sitemap's pages. The first run, after the plain build, sets no flavour and expects none.
     expect(runs[build + 2]).toBe('npx vitest run tests/siteExport.test.ts');
+    expect(web[build + 2].env).toEqual({ CBCTSCOPE_EXPORT: 'site' });
+    const plain = web.find((s) => (s.run ?? '').includes('tests/siteExport.test.ts'));
+    expect(plain).not.toBe(web[build + 2]);
+    expect(plain?.env).toBeUndefined();
+    expect(read('tests/siteExport.test.ts')).toContain("const SITE_EXPORT = process.env.CBCTSCOPE_EXPORT === 'site';");
   });
 });
 

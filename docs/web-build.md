@@ -69,11 +69,11 @@ right after the CSP meta tag: `<script defer src="/_vercel/insights/script.js"><
 Web Analytics in its documented plain-HTML form
 ([Web Analytics](https://vercel.com/docs/analytics/quickstart)), with no inline stub, so the
 policy gains no hash. The script and its page-view request stay on the site's own origin, which
-`script-src 'self'` and `connect-src 'self'` already allow; Vercel counts visitors by a hash of
-the request that resets daily, with no cookie. The update page (which the desktop app's **Check
+`script-src 'self'` and `connect-src 'self'` already allow. The update page (which the desktop app's **Check
 for Updates** opens), the agent frame and the 404 page never carry it. `npm run build:web`
 without `--site` (the desktop app's build, the end-to-end suite's) writes it nowhere, and the
-local app has no export, so neither app counts anything. `scripts/site-counter.mjs` holds the tag
+local app has no export, so neither app counts anything; `npm run desktop` and
+`npm run desktop:build` refuse an `out/` that holds the site's build. `scripts/site-counter.mjs` holds the tag
 and the rule (a page is counted exactly when the sitemap lists it); the build refuses a page that
 already refers to `/_vercel/insights/`.
 
@@ -515,9 +515,9 @@ What the owner sees, case by case:
   by design. It cannot compare bytes with a build of its own: Vercel builds each
 commit itself, and no two builds of the web target are byte-identical (Next names each build
 with a fresh id), so it checks what any visitor gets instead. `tests/siteExport.test.ts` runs
-items 2 to 6 against the local export in every CI run (item 4 on either flavour of the export:
-no page with the counter after a plain `npm run build:web`, exactly the sitemap's pages after the
-site build), so a change that would fail the live
+items 2 to 6 against the local export in every CI run (item 4 on each flavour of the export, and
+the run states which it expects: no page with the counter after a plain `npm run build:web`,
+exactly the sitemap's pages after the site build, with `CBCTSCOPE_EXPORT=site`), so a change that would fail the live
 check fails a test first.
 
 The live mode also checks a preview: `--base <url>` names the deployment's own address, the

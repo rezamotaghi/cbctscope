@@ -112,8 +112,7 @@ On first launch both modes show the built-in phantom.
 
 The viewer also runs in a browser with nothing installed: the **web build**,
 served at cbctscope.com and published from the project's main branch, so it
-carries every change as soon as it is made. It is static files only,
-with no server behind it. It needs only a current desktop
+carries every change as soon as it is made. It is static files only. It needs only a current desktop
 browser with WebGL2; Chrome or Edge read folders most reliably (chapter 11).
 
 ![The website as a first-time visitor sees it once the viewer has loaded: the header with the research-use line and, at its right end, Agent and Download the desktop app; the built-in phantom in MPR; and along the bottom the first-run line saying that the phantom holds no patient data and that a scan is read in the tab and never uploaded](../media/manual/site.webp)

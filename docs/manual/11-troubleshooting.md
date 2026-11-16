@@ -110,7 +110,7 @@
   classic input, ask **Upload N files to this site?** with an **Upload**
   button where they are Chromium-based. Dropping the folder on the viewer
   shows no confirmation, and neither does Safari (section 4.6). In every case
-  the files are read into the tab's memory and nothing is sent anywhere
+  the files are read into the tab's memory and are sent nowhere
   (section 10.5).
 - **Marks are missing in another browser**: marks live in each browser's own
   storage. Carry them with **Save marks to file** and **Load marks from file**

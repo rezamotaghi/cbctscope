@@ -5,7 +5,9 @@
 //   node scripts/desktop.mjs build   package with electron-builder (electron-builder.yml)
 //
 // Both build the web target first when out/ is missing (a stale out/ is used as is: run
-// `npm run build:web` after a viewer change).
+// `npm run build:web` after a viewer change). Both refuse an out/ that holds the site's build
+// (`npm run build:vercel` writes it there): its pages carry the page-view counter, which the app
+// never does (scripts/site-counter.mjs).
 //
 // Signing and notarisation, driven by the environment only (electron-builder 26.18.0):
 //   - signing: a Developer ID Application identity in the keychain, or CSC_LINK (the .p12,
@@ -23,6 +25,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { notariseDmgs } from './desktop-notarize.mjs';
+import { pagesWithCounter } from './site-counter.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const mode = process.argv[2];
@@ -41,6 +44,11 @@ if (!existsSync(path.join(root, 'out', 'index.html'))) {
   console.log('desktop: out/ is missing, building the web target first');
   // the app serves from the root of its own origin: no base path
   run([path.join(root, 'scripts', 'build-web.mjs')], { ...process.env, NEXT_PUBLIC_BASE_PATH: '' });
+}
+const counted = pagesWithCounter(path.join(root, 'out'));
+if (counted.length) {
+  console.error(`desktop: out/ holds the site's build (${counted.length} pages carry the page-view counter, the first ${counted[0]}); run \`npm run build:web\` and start again`);
+  process.exit(1);
 }
 
 if (mode === 'dev') {
