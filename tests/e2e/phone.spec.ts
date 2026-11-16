@@ -13,7 +13,7 @@ const COMPUTER = 'CBCTScope reads scans on a computer. Open cbctscope.com there.
 const CONTROLS: [string, string][] = [
   ['User manual', 'manual/index.html'],
   ['Desktop app downloads', 'https://github.com/rezamotaghi/cbctscope/releases/latest'],
-  ['Send this link to myself', 'mailto:?subject=CBCTScope&body=https%3A%2F%2Fcbctscope.com'],
+  ['Send this link to a computer or a colleague', 'mailto:?subject=CBCTScope&body=https%3A%2F%2Fcbctscope.com'],
 ];
 
 /** a touch context at a size, with the off-origin guard and every request the page makes */
@@ -250,7 +250,7 @@ for (const [w, h] of [
   }
 }
 
-// "Send this link to myself" (components/ShareLink.tsx): the share sheet where navigator.share
+// "Send this link to a computer or a colleague" (components/ShareLink.tsx): the share sheet where navigator.share
 // exists, the mail link where it does not. The page's navigator.share is a stub that records its
 // calls; a window listener in the bubble phase, after React's own, records whether the tap's
 // default (following the mailto:) was prevented, then prevents it so no mail client is asked for.

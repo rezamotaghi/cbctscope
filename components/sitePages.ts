@@ -52,7 +52,8 @@ export const PHONE_STILL = {
 export const PHONE_SHARE = { title: SITE_NAME, url: SITE_URL } as const;
 /**
  * The three controls: the manual, the release page (a phone cannot run the installers), and the
- * site's address sent to oneself: the phone's share sheet where the browser has one, else a mail.
+ * site's address sent on, to a computer or to someone else: the phone's share sheet where the
+ * browser has one, else a mail.
  */
 export const PHONE_ACTIONS: readonly (SiteLink & { testId: string; share?: typeof PHONE_SHARE })[] = [
   { href: 'manual/index.html', label: 'User manual', testId: 'phone-manual' },
@@ -62,7 +63,7 @@ export const PHONE_ACTIONS: readonly (SiteLink & { testId: string; share?: typeo
     // nothing. Where navigator.share exists a tap opens the share sheet instead, and this href is
     // what remains without JavaScript, without the API, or when the sheet fails to open.
     href: `mailto:?subject=${encodeURIComponent(SITE_NAME)}&body=${encodeURIComponent(SITE_URL)}`,
-    label: 'Send this link to myself',
+    label: 'Send this link to a computer or a colleague',
     testId: 'phone-mail',
     share: PHONE_SHARE,
   },

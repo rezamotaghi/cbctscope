@@ -54,8 +54,8 @@ left to right:
    its pane buttons (MPR), and under **Mouse** every mouse gesture of the mode,
    pane by pane (chapter 12).
 9. **Help**: the reading guide for the current mode (chapter 8), this manual,
-   **About CBCTScope**, **Cite this software**, **Legal notice**, and the
-   **Source code repository**. The viewer serves the manual itself, so
+   **About CBCTScope**, **Cite this software**, **Share CBCTScope**,
+   **Legal notice**, and the **Source code repository**. The viewer serves the manual itself, so
    it needs no network. In the local app and the desktop app it opens in a
    drawer at the right edge that narrows the viewer and covers no control,
    with the manual's contents and search; **Close manual** gives the width
@@ -68,7 +68,11 @@ left to right:
    version and year from the repository's citation file,
    and the project's DOI, which always leads to the newest archived version;
    each has a copy button that copies it to the
-   clipboard when clicked; **Close** or Escape closes it. The links inside the
+   clipboard when clicked; **Close** or Escape closes it. **Share CBCTScope**
+   passes on the website's address, cbctscope.com, and never anything of the
+   scan on screen: where the browser has a share sheet it opens it;
+   elsewhere, and in the desktop app, it copies the address and the entry
+   reads "Link copied: cbctscope.com". The links inside the
    manual to other pages of the project open only when you click them; the
    viewer itself never contacts the network (chapter 10).
 10. **Agent** (the website and the desktop app): opens the strip of the

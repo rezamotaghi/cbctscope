@@ -47,6 +47,7 @@ import {
 import AboutBadge from '@/components/AboutBadge';
 import type { Citation } from '@/components/citation';
 import CiteDialog from './CiteDialog';
+import ShareMenuItem from './ShareMenuItem';
 import SnapshotButton, { type SnapRef } from './SnapshotButton';
 import { pageStorage, rememberPreset, windowOnOpen } from './windowPreset';
 import { EVERY_MODE_GESTURES, MODE_GESTURES, statusLegend, type GestureMode } from './gestures';
@@ -1162,7 +1163,9 @@ export default function CbctApp({ citation }: { citation?: Citation }) {
           </div>
           {/* Help: this mode's reading guide (manual chapter 8), the user manual, as pages this
               viewer's own origin serves (manual/, rendered from docs/ at build time), then the
-              About page, the Cite dialogue, the legal page, and the repository. The website opens
+              About page, the Cite dialogue, Share CBCTScope (the site's address to the share
+              sheet or the clipboard, components/cbct/ShareMenuItem.tsx), the legal page, and the
+              repository. The website opens
               the pages in a new tab; the repo build and the desktop app in the drawer beside the
               viewer. Nothing is fetched from anywhere else. */}
           <div ref={helpMenuRef} style={{ position: 'relative' }}>
@@ -1232,6 +1235,7 @@ export default function CbctApp({ citation }: { citation?: Citation }) {
                     Cite this software
                   </button>
                 )}
+                <ShareMenuItem onShared={closeHelp} />
                 {siteLink('legal', 'Legal notice', 'who publishes this site, privacy, research use, licence and warranty')}
                 <a
                   className="menu-item"

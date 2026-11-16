@@ -90,6 +90,25 @@ describe.skipIf(!built)('the exported site', () => {
     for (const a of [...PHONE_ACTIONS, ...PHONE_LINKS]) expect(links, a.label).toContain(a.href);
   });
 
+  it('favicon.ico is the committed file, an icon holding 16, 32 and 48 px, and no page links it', () => {
+    const ico = readFileSync(path.join(out, 'favicon.ico'));
+    expect(ico.equals(readFileSync(path.join(process.cwd(), 'public', 'favicon.ico')))).toBe(true);
+    expect([ico.readUInt16LE(0), ico.readUInt16LE(2)], 'the ICONDIR header').toEqual([0, 1]);
+    const sizes = Array.from({ length: ico.readUInt16LE(4) }, (_, i) => [ico.readUInt8(6 + 16 * i), ico.readUInt8(7 + 16 * i)]);
+    expect(sizes).toEqual([[16, 16], [32, 32], [48, 48]]);
+    // each entry's payload is a PNG that lies inside the file
+    for (let i = 0; i < sizes.length; i++) {
+      const [size, offset] = [ico.readUInt32LE(14 + 16 * i), ico.readUInt32LE(18 + 16 * i)];
+      expect(offset + size).toBeLessThanOrEqual(ico.length);
+      expect(ico.subarray(offset, offset + 8).toString('latin1')).toBe('\x89PNG\r\n\x1a\n');
+    }
+    // the pages keep linking the SVG and the touch icon; the .ico answers by its address alone
+    for (const file of ['index.html', 'about.html', 'legal.html']) {
+      expect(read(file), file).toMatch(/<link rel="icon" href="\/icon\.svg[^"]*" type="image\/svg\+xml"/);
+      expect(read(file), file).not.toContain('favicon.ico');
+    }
+  });
+
   it('the home page and the About page carry the structured data, and the policy gives the data block no hash', () => {
     for (const file of ['index.html', 'about.html']) {
       const html = read(file);

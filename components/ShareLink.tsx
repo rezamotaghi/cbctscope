@@ -1,5 +1,5 @@
 'use client';
-// The phone page's "Send this link to myself" (components/sitePages.ts PHONE_ACTIONS): a real
+// The phone page's "Send this link to a computer or a colleague" (components/sitePages.ts PHONE_ACTIONS): a real
 // mailto: link, progressively enhanced. Where the browser has the Web Share API, a tap opens the
 // phone's own share sheet (AirDrop, Messages, Notes, Mail, Copy) with the site's name and
 // canonical address, and the mail link is not followed. The share call is made in the click

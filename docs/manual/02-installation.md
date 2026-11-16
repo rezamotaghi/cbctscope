@@ -30,9 +30,10 @@
 - **Not a phone.** On a phone, in either orientation, cbctscope.com shows a
   short page instead of the viewer: what CBCTScope is, a picture of it, the
   line that it reads scans on a computer, and buttons for the user manual,
-  the desktop app downloads, and "Send this link to myself", which opens
-  your phone's share sheet with the site's address, so you can send it to
-  your computer, message it, save it to a note, or copy it; where the
+  the desktop app downloads, and "Send this link to a computer or a
+  colleague", which opens your phone's share sheet with the site's address,
+  so you can send it to your computer, message it to someone, save it to a
+  note, or copy it; where the
   browser has no share sheet, it opens a new message in your phone's mail
   app that carries the address, and you choose the recipient. The page
   sends nothing itself. A tablet, at least 600 px on its shorter side, gets

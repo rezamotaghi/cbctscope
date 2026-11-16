@@ -631,6 +631,8 @@ body > div.site-intro {
   font-size: 16px;
   font-weight: var(--fw-strong);
   text-align: center;
+  /* a label that wraps breaks into lines of like length, never one word alone */
+  text-wrap: balance;
   text-decoration: none;
 }
 .phone-action:hover {

@@ -11,6 +11,8 @@
 //   desktop/icon/icon.ico    Windows, PNG-compressed entries at 16, 32, 48 and 256 px
 //   app/icon.svg             the web favicon (Next file convention), the tile cropped full bleed
 //   app/apple-icon.png       180 px touch icon (Next file convention), opaque, full bleed
+//   public/favicon.ico       the same tile at 16, 32 and 48 px, for whatever asks for that address
+//                            by name; the pages themselves link the SVG and the touch icon only
 //   public/og-card.png            the 1200 x 630 share card (scripts/og.mjs)
 //   desktop/icon/dmg-background.png, @2x   the macOS disk image window (scripts/dmg-background.mjs)
 //
@@ -79,34 +81,39 @@ if (process.platform === 'darwin') {
 }
 
 // 3. ico: ICONDIR, one 16-byte ICONDIRENTRY per image, then the PNG payloads
-const icoSizes = [16, 32, 48, 256];
-const pngs = [];
-for (const s of icoSizes) pngs.push(await render(tile, s));
-const head = Buffer.alloc(6 + 16 * pngs.length);
-head.writeUInt16LE(0, 0); // reserved
-head.writeUInt16LE(1, 2); // type: icon
-head.writeUInt16LE(pngs.length, 4);
-let offset = head.length;
-pngs.forEach((png, i) => {
-  const e = 6 + 16 * i;
-  const s = icoSizes[i];
-  head.writeUInt8(s >= 256 ? 0 : s, e); // width, 0 means 256
-  head.writeUInt8(s >= 256 ? 0 : s, e + 1); // height
-  head.writeUInt8(0, e + 2); // palette size
-  head.writeUInt8(0, e + 3); // reserved
-  head.writeUInt16LE(1, e + 4); // colour planes
-  head.writeUInt16LE(32, e + 6); // bits per pixel
-  head.writeUInt32LE(png.length, e + 8);
-  head.writeUInt32LE(offset, e + 12);
-  offset += png.length;
-});
-write(path.join(iconDir, 'icon.ico'), Buffer.concat([head, ...pngs]));
+/** the tile as an .ico holding one PNG-compressed entry per size */
+async function ico(sizes) {
+  const pngs = [];
+  for (const s of sizes) pngs.push(await render(tile, s));
+  const head = Buffer.alloc(6 + 16 * pngs.length);
+  head.writeUInt16LE(0, 0); // reserved
+  head.writeUInt16LE(1, 2); // type: icon
+  head.writeUInt16LE(pngs.length, 4);
+  let offset = head.length;
+  pngs.forEach((png, i) => {
+    const e = 6 + 16 * i;
+    const s = sizes[i];
+    head.writeUInt8(s >= 256 ? 0 : s, e); // width, 0 means 256
+    head.writeUInt8(s >= 256 ? 0 : s, e + 1); // height
+    head.writeUInt8(0, e + 2); // palette size
+    head.writeUInt8(0, e + 3); // reserved
+    head.writeUInt16LE(1, e + 4); // colour planes
+    head.writeUInt16LE(32, e + 6); // bits per pixel
+    head.writeUInt32LE(png.length, e + 8);
+    head.writeUInt32LE(offset, e + 12);
+    offset += png.length;
+  });
+  return Buffer.concat([head, ...pngs]);
+}
+write(path.join(iconDir, 'icon.ico'), await ico([16, 32, 48, 256]));
 
 // 4. the web build's icons, by Next's file conventions (the exported HTML links both)
 write(path.join(root, 'app', 'icon.svg'), tile);
 // the touch icon is opaque: the tile's corners take the first solid fill in the source (its ground)
 const ground = source.match(/fill="(#[0-9a-fA-F]{3,8})"/)?.[1] ?? '#000000';
 write(path.join(root, 'app', 'apple-icon.png'), await render(tile, 180, ground));
+// 5. favicon.ico, served from the site's root and linked by no page (tests/siteExport.test.ts)
+write(path.join(root, 'public', 'favicon.ico'), await ico([16, 32, 48]));
 
 // 6. the share card (scripts/og.mjs), from the same SVG
 const og = await renderOg(browser);

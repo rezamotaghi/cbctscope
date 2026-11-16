@@ -202,7 +202,10 @@ system comes first, read from the user agent when the menu opens; no entry is hi
 Mac's chip is never guessed. Every entry is a link the reader clicks; opening the menu
 requests nothing. The Help menu and the About popover link the
 repository; the Help menu also opens **About CBCTScope**, **Cite this software** and
-**Legal notice**, and the About popover links the About page (section 14). While the phantom is on screen and nothing is open, the status line at the bottom
+**Legal notice**, and its **Share CBCTScope** entry (`components/cbct/ShareMenuItem.tsx`) hands the
+site's name and address, never anything of the scan, to the system's share sheet where
+`navigator.share` exists, and copies the address elsewhere, in the desktop app, and when the sheet
+fails, saying so in the entry itself; and the About popover links the About page (section 14). While the phantom is on screen and nothing is open, the status line at the bottom
 says "Your scan is read in this tab and never uploaded." and links "See CBCTScope on a real
 scan" to the README's stills of a consented, bone-only real CBCT. The manual (section 13) opens from the Help menu,
 the one door to it on every surface.
@@ -218,7 +221,7 @@ one heading, the lead, the privacy and research sentences, then a part shown on 
 the manual's MPR still resized to 1200 px (`public/phone-mpr.webp`, the command beside
 `PHONE_STILL` in `components/sitePages.ts`), "CBCTScope reads scans on a computer. Open
 cbctscope.com there.", three full-width controls (the user manual; the release page, since a
-phone cannot run the installers; "Send this link to myself", a `mailto:` with no recipient whose
+phone cannot run the installers; "Send this link to a computer or a colleague", a `mailto:` with no recipient whose
 subject and body carry the site's address, enhanced by `components/ShareLink.tsx`: where
 `navigator.share` exists, a tap opens the phone's share sheet with `PHONE_SHARE`, the site's name
 and canonical address, and the mail link is not followed; a cancelled sheet does nothing more,
@@ -450,7 +453,7 @@ the script and `package.json` are the deployed commit's), against the public
    commit, so it never checks the deployment before; then every address it reads must carry
    that commit.
 2. Every address in the live `sitemap.xml`, and the fixed files `LIVE_FILES` (robots.txt, the
-   sitemap, both icons, the share image `og-card.png`, `/update`, the agent frame, the manual's
+   sitemap, both icons, `favicon.ico`, the share image `og-card.png`, `/update`, the agent frame, the manual's
    index), answers 200 with no redirect, the Content-Type its extension needs (an extensionless
    page or a folder is HTML) and the layout's headers above; `/this-address-does-not-exist`
    answers 404 with the body of `/404.html`.
@@ -780,7 +783,8 @@ How it is built:
   fuse patch breaks the ad-hoc signature otherwise); a signed build is signed after the fuses.
   The app icon has one source, `desktop/icon/cbctscope.svg`; `npm run icon` (`scripts/icon.mjs`)
   renders the committed `icon.icns` and `icon.ico` (`mac.icon`, `win.icon`) and the web build's
-  `app/icon.svg` and `app/apple-icon.png`.
+  `app/icon.svg` and `app/apple-icon.png`, and `public/favicon.ico` (the tile at 16, 32 and 48 px), which
+  no page links: it answers whatever asks for that address by name.
   The disk image: its volume reads "CBCTScope <version>" (`dmg.title`), the architecture stays in
   the file name, and it opens on a dark window (the icon's ground `#141518`, its amber
   `#f0b43a`, the interface's light grey) saying "Drag CBCTScope to Applications" over a plain

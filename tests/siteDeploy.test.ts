@@ -268,8 +268,8 @@ describe('the live check (scripts/site-check.mjs --live)', () => {
   const sitemap = files['sitemap.xml'];
 
   it('checks the live sitemap\'s addresses, then the fixed files of the layout, each once', () => {
-    expect(LIVE_FILES).toEqual(['/robots.txt', '/sitemap.xml', '/icon.svg', '/apple-icon.png', '/og-card.png', '/update', '/agent-frame.html', '/manual/']);
-    expect(liveList(sitemap)).toEqual(['/', '/about', '/legal', '/manual/', '/manual/mpr.html', '/robots.txt', '/sitemap.xml', '/icon.svg', '/apple-icon.png', '/og-card.png', '/update', '/agent-frame.html']);
+    expect(LIVE_FILES).toEqual(['/robots.txt', '/sitemap.xml', '/icon.svg', '/apple-icon.png', '/favicon.ico', '/og-card.png', '/update', '/agent-frame.html', '/manual/']);
+    expect(liveList(sitemap)).toEqual(['/', '/about', '/legal', '/manual/', '/manual/mpr.html', '/robots.txt', '/sitemap.xml', '/icon.svg', '/apple-icon.png', '/favicon.ico', '/og-card.png', '/update', '/agent-frame.html']);
     // the sitemap parser is the byte mode's: an address off the site or an empty sitemap fails
     expect(() => liveList('<loc>https://example.com/x</loc>')).toThrow(/not on https:\/\/cbctscope.com/);
     expect(() => liveList('<urlset></urlset>')).toThrow(/no address/);

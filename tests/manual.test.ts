@@ -257,6 +257,13 @@ describe('user manual tracks the app (docs/manual/)', () => {
       expect(src, `the Help menu label "${label}" was removed or renamed`).toContain(label);
       expect(chapter, `03-interface.md must name "${label}"`).toContain(`**${label}**`);
     }
+    // Share CBCTScope: the entry is in the menu, its label and its confirmation are the manual's
+    const share = read('components/cbct/ShareMenuItem.tsx');
+    expect(appSrc).toContain('<ShareMenuItem onShared={closeHelp} />');
+    expect(share).toContain('export const SHARE_LABEL = `Share ${SITE_NAME}`;');
+    expect(share).toContain('`Link copied: ${SITE_HOST}`');
+    expect(chapter).toContain('**Share CBCTScope**');
+    expect(chapter).toContain('"Link copied: cbctscope.com"');
   });
 
   it('the front page and the citation file state the current version', () => {
