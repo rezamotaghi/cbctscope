@@ -58,6 +58,7 @@ const files: Record<string, string> = {
   'index.html': '<!doctype html><title>home</title>',
   'about.html': '<!doctype html><title>about</title>',
   'legal.html': '<!doctype html><title>legal</title>',
+  'online-cbct-viewer.html': '<!doctype html><title>questions and answers</title>',
   // noindex: served at /update, never in the sitemap
   'update.html': '<!doctype html><title>update</title>',
   '404.html': '<!doctype html><title>not found</title>',
@@ -67,7 +68,7 @@ const files: Record<string, string> = {
   'manual/mpr.html': '<!doctype html><title>mpr</title>',
   '_next/static/chunks/main.js': 'console.log(1)',
   'robots.txt': 'User-agent: *\n',
-  'sitemap.xml': ['', '/about', '/legal', '/manual/', '/manual/mpr.html'].map((p) => `<url><loc>https://cbctscope.com${p}</loc></url>`).join('\n'),
+  'sitemap.xml': ['', '/about', '/legal', '/manual/', '/manual/mpr.html', '/online-cbct-viewer'].map((p) => `<url><loc>https://cbctscope.com${p}</loc></url>`).join('\n'),
 };
 for (const [rel, body] of Object.entries(files)) {
   mkdirSync(path.dirname(path.join(out, rel)), { recursive: true });
@@ -244,10 +245,11 @@ describe('the layout (scripts/vercel-output.mjs)', () => {
   });
 
   it('serves Next\'s top-level pages at their extensionless addresses and leaves the manual\'s .html addresses alone', () => {
-    const { overrides } = vercelConfig([{ file: 'index.html' }, { file: 'about.html' }, { file: 'legal.html' }, { file: 'update.html' }, { file: 'manual/index.html' }, { file: 'manual/mpr.html' }]);
+    const { overrides } = vercelConfig([{ file: 'index.html' }, { file: 'about.html' }, { file: 'legal.html' }, { file: 'online-cbct-viewer.html' }, { file: 'update.html' }, { file: 'manual/index.html' }, { file: 'manual/mpr.html' }]);
     expect(overrides).toEqual({
       'about.html': { path: 'about', contentType: 'text/html; charset=utf-8' },
       'legal.html': { path: 'legal', contentType: 'text/html; charset=utf-8' },
+      'online-cbct-viewer.html': { path: 'online-cbct-viewer', contentType: 'text/html; charset=utf-8' },
       'update.html': { path: 'update', contentType: 'text/html; charset=utf-8' },
     });
   });
@@ -276,11 +278,30 @@ describe('the layout (scripts/vercel-output.mjs)', () => {
 });
 
 describe('the live check (scripts/site-check.mjs --live)', () => {
+  it('loads with no installed package: every module it imports, directly or not, is a node: module or a file of the repository', () => {
+    // the workflow's live job installs nothing (site-check.yml), so one bare package name anywhere in the graph stops the check
+    const seen = new Set<string>();
+    const bare: string[] = [];
+    const walk = (file: string) => {
+      if (seen.has(file)) return;
+      seen.add(file);
+      const specs = [...readFileSync(file, 'utf8').matchAll(/^\s*(?:import|export)\b[^'"]*?from\s*['"]([^'"]+)['"]|^\s*import\s*['"]([^'"]+)['"]/gm)].map((m) => m[1] ?? m[2]);
+      for (const spec of specs) {
+        if (spec.startsWith('node:')) continue;
+        if (spec.startsWith('.')) walk(path.resolve(path.dirname(file), spec));
+        else bare.push(`${path.relative(root, file)}: ${spec}`);
+      }
+    };
+    walk(path.join(root, 'scripts/site-check.mjs'));
+    expect(seen.size).toBeGreaterThan(3);
+    expect(bare).toEqual([]);
+  });
+
   const sitemap = files['sitemap.xml'];
 
   it('checks the live sitemap\'s addresses, then the fixed files of the layout, each once', () => {
-    expect(LIVE_FILES).toEqual(['/robots.txt', '/sitemap.xml', '/icon.svg', '/apple-icon.png', '/favicon.ico', '/og-card.png', '/update', '/agent-frame.html', '/manual/']);
-    expect(liveList(sitemap)).toEqual(['/', '/about', '/legal', '/manual/', '/manual/mpr.html', '/robots.txt', '/sitemap.xml', '/icon.svg', '/apple-icon.png', '/favicon.ico', '/og-card.png', '/update', '/agent-frame.html']);
+    expect(LIVE_FILES).toEqual(['/robots.txt', '/sitemap.xml', '/llms.txt', '/icon.svg', '/apple-icon.png', '/favicon.ico', '/og-card.png', '/update', '/agent-frame.html', '/manual/']);
+    expect(liveList(sitemap)).toEqual(['/', '/about', '/legal', '/manual/', '/manual/mpr.html', '/online-cbct-viewer', '/robots.txt', '/sitemap.xml', '/llms.txt', '/icon.svg', '/apple-icon.png', '/favicon.ico', '/og-card.png', '/update', '/agent-frame.html']);
     // the sitemap parser is the byte mode's: an address off the site or an empty sitemap fails
     expect(() => liveList('<loc>https://example.com/x</loc>')).toThrow(/not on https:\/\/cbctscope.com/);
     expect(() => liveList('<urlset></urlset>')).toThrow(/no address/);
@@ -454,7 +475,7 @@ describe('the byte check of an export on disk (scripts/site-check.mjs --base)', 
   });
 
   it('turns the sitemap into site paths and refuses an address on another host', () => {
-    expect(sitemapPaths(files['sitemap.xml'])).toEqual(['/', '/about', '/legal', '/manual/', '/manual/mpr.html']);
+    expect(sitemapPaths(files['sitemap.xml'])).toEqual(['/', '/about', '/legal', '/manual/', '/manual/mpr.html', '/online-cbct-viewer']);
     expect(() => sitemapPaths('<loc>https://example.com/x</loc>')).toThrow(/not on https:\/\/cbctscope.com/);
     expect(() => sitemapPaths('<urlset></urlset>')).toThrow(/no address/);
   });
@@ -466,6 +487,7 @@ describe('the byte check of an export on disk (scripts/site-check.mjs --base)', 
       { path: '/legal', file: 'legal.html', status: 200 },
       { path: '/manual/', file: 'manual/index.html', status: 200 },
       { path: '/manual/mpr.html', file: 'manual/mpr.html', status: 200 },
+      { path: '/online-cbct-viewer', file: 'online-cbct-viewer.html', status: 200 },
       { path: '/404.html', file: '404.html', status: 200 },
       { path: '/_next/static/chunks/main.js', file: '_next/static/chunks/main.js', status: 200 },
       { path: '/_not-found.html', file: '_not-found.html', status: 200 },

@@ -5,8 +5,15 @@ import './globals.css';
 
 const ogImage = { url: OG_IMAGE.path, width: OG_IMAGE.width, height: OG_IMAGE.height, alt: SITE_NAME };
 
-/** the page title, the share card's title and the Twitter title: what this is, in one line */
-const TITLE = 'CBCTScope: CBCT and radiograph viewer in your browser';
+/**
+ * The page title, the share card's title and the Twitter title: what this is, in one line. The
+ * web build's (the website, and the desktop app, whose window keeps its own title) or the
+ * repository's local app's.
+ */
+const TITLE =
+  process.env.NEXT_PUBLIC_CBCTSCOPE_TARGET === 'web'
+    ? 'CBCTScope: free online CBCT and radiograph viewer'
+    : 'CBCTScope: CBCT and radiograph viewer in your browser';
 
 /** the text beside the share card: the claim, then the agent line */
 const CARD_TEXT = `${SITE_CLAIM} ${CARD_AGENT}`;
@@ -20,7 +27,7 @@ export const metadata: Metadata = {
   twitter: { card: 'summary_large_image', title: TITLE, description: CARD_TEXT, images: [ogImage] },
   description:
     process.env.NEXT_PUBLIC_CBCTSCOPE_TARGET === 'web'
-      ? 'CBCT viewer in the browser: the scan is read into this tab and never uploaded. Research use only; not a medical device.'
+      ? 'Free online CBCT viewer: open a DICOM cone-beam CT scan or a dental radiograph in your browser, nothing uploaded. Research use only; not a medical device.'
       : 'Local-first CBCT and 2D radiograph viewer. Research use only; not a medical device.',
 };
 

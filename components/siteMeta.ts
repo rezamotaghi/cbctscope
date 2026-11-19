@@ -1,4 +1,4 @@
-// The metadata of the site's text pages (/about, /legal): their own title, description and
+// The metadata of the site's text pages (/about, /legal, /online-cbct-viewer): their own title, description and
 // canonical address, and the share card with the same picture as the home page.
 import type { Metadata } from 'next';
 import { OG_IMAGE, SITE_NAME, canonicalUrl } from './site';

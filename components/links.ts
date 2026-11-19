@@ -1,9 +1,9 @@
 // The viewer's links to the project (docs/web-build.md, section 7): links the reader clicks,
 // never requests the page makes. tests/noAbsoluteUrls.test.ts lists these constants.
-import { SITE_URL } from './siteAddress.mjs';
+import { REPO_URL, SITE_URL } from './siteAddress.mjs';
 
-/** the source code: the Help menu and the About popover */
-export const REPO_URL = 'https://github.com/rezamotaghi/cbctscope';
+/** the source code: the Help menu and the About popover (components/siteAddress.mjs, which llms.txt also reads) */
+export { REPO_URL };
 
 /** the latest release, every file and its notes: the header's download menu (components/downloads.ts), plain browser only */
 export const RELEASES_URL = 'https://github.com/rezamotaghi/cbctscope/releases/latest';
@@ -18,22 +18,14 @@ export const STILLS_URL = `${REPO_URL}#the-interface-at-a-glance`;
 export const LICENSE_URL = `${REPO_URL}/blob/main/LICENSE`;
 
 /** the author's own site, and his page on this project (CITATION.cff names the site) */
-export { AUTHOR_URL, RADIGRADE_URL } from './siteAddress.mjs';
-export const AUTHOR_PROJECT_URL = 'https://rezamotaghi.com/cbctscope';
+export { AUTHOR_PROJECT_URL, AUTHOR_URL, RADIGRADE_URL } from './siteAddress.mjs';
 
 /** the author's ORCID record, as CITATION.cff states it, and his GitHub profile, as REPO_URL shows it */
 export const AUTHOR_ORCID = 'https://orcid.org/0009-0005-3194-1879';
 export const AUTHOR_GITHUB = 'https://github.com/rezamotaghi';
 
-/** the DOI resolver: a citation's DOI as a link the reader clicks (components/citation.ts) */
-export const DOI_RESOLVER = 'https://doi.org/';
-
-/**
- * The project's concept DOI on Zenodo, which always resolves to the newest archived version.
- * The site and the app cite it whatever CITATION.cff's doi: holds (components/citation.ts);
- * tests/manual.test.ts checks that a version bump resets CITATION.cff to it.
- */
-export const CONCEPT_DOI = '10.5281/zenodo.21431452';
+/** the DOI resolver and the project's concept DOI (components/siteAddress.mjs) */
+export { CONCEPT_DOI, DOI_RESOLVER } from './siteAddress.mjs';
 
 /** the legal page's links: the site host's and the installers' host's own privacy statements, and the Austrian data protection authority */
 export const VERCEL_PRIVACY_URL = 'https://vercel.com/legal/privacy-policy';

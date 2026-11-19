@@ -74,6 +74,7 @@ test('under the base path the site pages load and every canonical names the prod
     [`${BASE_PATH}/`, 'https://cbctscope.com'],
     [`${BASE_PATH}/about`, 'https://cbctscope.com/about'],
     [`${BASE_PATH}/legal`, 'https://cbctscope.com/legal'],
+    [`${BASE_PATH}/online-cbct-viewer`, 'https://cbctscope.com/online-cbct-viewer'],
     [`${BASE_PATH}/manual/mpr.html`, 'https://cbctscope.com/manual/mpr.html'],
   ]) {
     const res = await request.get(served);

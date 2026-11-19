@@ -84,11 +84,13 @@ describe('the manual as pages', () => {
     }
   });
 
-  it('pages are CSP-ready: a charset to anchor the policy, no inline script, nothing off-origin loaded', () => {
+  it('pages are CSP-ready: a charset to anchor the policy, no executed inline script, nothing off-origin loaded', () => {
     for (const p of pages) {
       const page = html(p);
       expect(page, p).toMatch(/<meta charset="utf-8">/i);
-      expect(page, `${p} has an inline script`).not.toMatch(/<script(?![^>]*\bsrc=)[^>]*>/i);
+      // the one inline script is the JSON-LD data block, which the browser never executes
+      expect(page, `${p} has an inline script`).not.toMatch(/<script(?![^>]*\bsrc=)(?![^>]*type="application\/ld\+json")[^>]*>/i);
+      expect(page.match(/<script type="application\/ld\+json">/g), `${p}: one data block`).toHaveLength(1);
       // every loaded asset is relative; the canonical link names the production address on purpose and loads nothing
       for (const m of page.matchAll(/<(?:script|link(?! rel="canonical")|img)[^>]*(?:src|href)="([^"]+)"/g)) expect(m[1], p).not.toMatch(/^[a-z]+:|^\/\//i);
     }
@@ -116,6 +118,62 @@ describe('the manual as pages', () => {
       expect(page).toContain(`<meta name="description" content="${c.description.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}">`);
     }
     expect(html('mpr.html')).toContain('<h1 id="mpr">MPR</h1>');
+  });
+
+  it('every page carries the share card and one JSON-LD block: the article of the manual about the viewer, by its author, and its breadcrumb trail, with no date', () => {
+    const entries = JSON.parse(readFileSync(path.join(root, 'docs/manual/manifest.json'), 'utf8')) as {
+      title: string;
+      description: string;
+      chapters: { file: string; title: string; pageTitle: string; description: string }[];
+    };
+    const author = { '@id': 'https://rezamotaghi.com/#person', '@type': 'Person', name: 'Reza Motaghi' };
+    const about = { '@id': 'https://cbctscope.com/#software' };
+    const index = 'https://cbctscope.com/manual/';
+    const meta = (page: string, attr: string, key: string) =>
+      [...page.matchAll(new RegExp(`<meta ${attr}="${key}" content="([^"]*)">`, 'g'))].map((m) => m[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&'));
+    const pagesOf: [string, string, string, string | null][] = [
+      ['index.html', entries.title, entries.description, null],
+      ...entries.chapters.map((c): [string, string, string, string] => [pageName(c.file), `${c.pageTitle} · CBCTScope manual`, c.description, c.title]),
+    ];
+    for (const [p, title, description, crumb] of pagesOf) {
+      const page = html(p);
+      const url = p === 'index.html' ? index : `https://cbctscope.com/manual/${p}`;
+      const head = page.slice(0, page.indexOf('</head>'));
+      expect(meta(head, 'property', 'og:type'), p).toEqual(['article']);
+      expect(meta(head, 'property', 'og:site_name'), p).toEqual(['CBCTScope']);
+      expect(meta(head, 'property', 'og:title'), p).toEqual([title]);
+      expect(meta(head, 'property', 'og:description'), p).toEqual([description]);
+      expect(meta(head, 'property', 'og:url'), p).toEqual([url]);
+      expect(meta(head, 'property', 'og:image'), p).toEqual(['https://cbctscope.com/og-card.png']);
+      expect([meta(head, 'property', 'og:image:width'), meta(head, 'property', 'og:image:height')], p).toEqual([['1200'], ['630']]);
+      expect(meta(head, 'name', 'twitter:card'), p).toEqual(['summary_large_image']);
+      expect(meta(head, 'name', 'twitter:title'), p).toEqual([title]);
+      expect(meta(head, 'name', 'twitter:description'), p).toEqual([description]);
+      expect(meta(head, 'name', 'twitter:image'), p).toEqual(['https://cbctscope.com/og-card.png']);
+      const block = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(head)?.[1] ?? '';
+      expect(block, p).not.toMatch(/"date\w*"\s*:/i);
+      const [item, trail] = (JSON.parse(block) as { '@graph': Record<string, unknown>[] })['@graph'];
+      const crumbs = [
+        { '@type': 'ListItem', position: 1, name: 'CBCTScope', item: 'https://cbctscope.com' },
+        { '@type': 'ListItem', position: 2, name: 'User manual', item: index },
+      ];
+      if (crumb === null) {
+        expect(item, p).toEqual({ '@type': 'CollectionPage', '@id': index, name: entries.title, description, url: index, inLanguage: 'en', author, about });
+        expect(trail).toEqual({ '@type': 'BreadcrumbList', itemListElement: crumbs });
+      } else {
+        expect(item, p).toEqual({
+          '@type': 'TechArticle',
+          headline: title.replace(/ · CBCTScope manual$/, ''),
+          description,
+          url,
+          inLanguage: 'en',
+          author,
+          isPartOf: { '@type': 'CollectionPage', '@id': index, name: entries.title, url: index },
+          about,
+        });
+        expect(trail).toEqual({ '@type': 'BreadcrumbList', itemListElement: [...crumbs, { '@type': 'ListItem', position: 3, name: crumb, item: url }] });
+      }
+    }
   });
 
   it('the index page states the version and the manual revision', () => {

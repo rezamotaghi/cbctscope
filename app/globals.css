@@ -501,7 +501,8 @@ textarea:focus-visible,
   text-align: left;
 }
 
-/* The site's reading pages (components/SitePage.tsx: /about and /legal) and the home page's
+/* The site's reading pages (components/SitePage.tsx: /about, /legal and
+   /online-cbct-viewer) and the home page's
    text before the viewer mounts (components/SiteIntro.tsx): the viewer's ground, type and
    accent, full contrast, plain links. They scroll like documents. */
 body > div.site {

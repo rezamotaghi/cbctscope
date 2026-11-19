@@ -18,7 +18,8 @@
 // 3. Writes the CSP meta tag (components/webCsp.mjs) into every exported HTML page, right
 //    after the charset so it precedes every script, with one 'sha256-...' source per inline
 //    script of that page. No 'unsafe-inline' for scripts. A JSON-LD data block
-//    (type="application/ld+json", the structured data of the home and About pages) is never
+//    (type="application/ld+json", the structured data of the home, About and questions and
+//    answers pages and of every manual page) is never
 //    executed, so it gets no hash: the policy allows exactly the scripts that run.
 // 3a. With --site only, writes the page-view counter's tag (scripts/site-counter.mjs) into each
 //    page sitemap.xml lists, right after the CSP meta tag. The update page, the agent frame,
@@ -27,12 +28,14 @@
 // 4. Writes agent-frame.html (scripts/agent-frame.mjs), the sandboxed page the in-page agent's
 //    provider calls run in, with its own policy.
 // 5. Writes sitemap.xml and robots.txt (scripts/sitemap.mjs) from the pages the export holds,
-//    every address the production one whatever the base path.
+//    every address the production one whatever the base path, and llms.txt
+//    (scripts/llms-txt.mjs) from the same pages and the manual's manifest.
 import { spawn } from 'node:child_process';
 import { webCsp } from '../components/webCsp.mjs';
 import { writeManual } from './manual-html.mjs';
 import { AGENT_FRAME_FILE, writeAgentFrame } from './agent-frame.mjs';
 import { writeSitemap } from './sitemap.mjs';
+import { LLMS_FILE, writeLlmsTxt } from './llms-txt.mjs';
 import { COUNTER_ROUTES, addCounter, isCounted } from './site-counter.mjs';
 import { siteBuildEnv } from './site-env.mjs';
 import { createHash } from 'node:crypto';
@@ -138,4 +141,6 @@ const frameBytes = await writeAgentFrame(outPath);
 console.log(`build:web: ${outDir}/${AGENT_FRAME_FILE} written (${frameBytes} bytes)`);
 const listed = writeSitemap(outPath);
 console.log(`build:web: ${outDir}/sitemap.xml lists ${listed} pages; robots.txt written`);
+writeLlmsTxt(outPath);
+console.log(`build:web: ${outDir}/${LLMS_FILE} written`);
 console.log(`build:web: ${outDir}/ ready, CSP hashes for ${total} inline scripts across ${pages} pages`);

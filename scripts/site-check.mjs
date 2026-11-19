@@ -91,10 +91,11 @@ export const FORBIDDEN_MARKERS = Object.freeze([
   'https://vercel.live',
 ]);
 
-/** the files the live mode checks besides the sitemap's addresses: crawlers, icons, the share image, the update page, the agent frame, the manual */
+/** the files the live mode checks besides the sitemap's addresses: crawlers, llms.txt, icons, the share image, the update page, the agent frame, the manual */
 export const LIVE_FILES = Object.freeze([
   '/robots.txt',
   '/sitemap.xml',
+  '/llms.txt',
   '/icon.svg',
   '/apple-icon.png',
   '/favicon.ico',

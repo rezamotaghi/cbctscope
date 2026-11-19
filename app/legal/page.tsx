@@ -54,7 +54,8 @@ export default function Legal() {
       </p>
       <p>
         The optional agent is off until you switch it on. When you do, your prompts and snapshots of the view go directly from
-        your browser to the model provider you chose, under your own account with that provider; this site receives nothing.
+        your browser to the model provider you chose, under your own account with that provider, or to a model server on your
+        own computer; this site receives nothing.
       </p>
       <p>
         Under the GDPR you have the right of access, rectification, erasure, restriction of processing, data portability and

@@ -1,6 +1,6 @@
 // /about: what CBCTScope is, who made it, how to cite it, the licence, the privacy summary,
-// and links to the manual and the source. Static; the citation is read from CITATION.cff at
-// build time. Plain prose (docs/posture.md: the first sentence names the viewer and its author).
+// and links to the manual, the questions and answers page and the source. Static; the citation
+// is read from CITATION.cff at build time. Plain prose (docs/posture.md: the first sentence names the viewer and its author).
 import CitationBlock from '@/components/CitationBlock';
 import SitePage from '@/components/SitePage';
 import { jsonLdText, softwareJsonLd } from '@/components/jsonLd';
@@ -23,10 +23,11 @@ export default function About() {
       <h1>About CBCTScope</h1>
       <p>{ABOUT_LEAD}</p>
       <p>
-        It reads cone-beam CT volumes in eight reading modes: MPR with 3D rendering, multi-slice grid, curved panoramic with
-        nerve tracing, TMJ, freehand reslice, virtual cephalogram, region growing with airway analysis, and two-volume
-        stitching. It reads 2D radiographs (panoramic, intraoral, CR and DX) in the same instrument, under the same display
-        settings. It is free and open source, with no account and no upload.
+        It reads cone-beam CT volumes from uncompressed DICOM exports in eight reading modes: MPR with 3D rendering,
+        multi-slice grid, curved panoramic with nerve tracing, TMJ, freehand reslice, virtual cephalogram, region growing
+        with airway analysis, and two-volume stitching. It reads 2D dental radiographs (panoramic, intraoral, CR and DX) in
+        the same instrument, under the same display settings. It is free and open source, with no account and no upload,
+        and runs in your browser with nothing installed or as a desktop app for macOS and Windows.
       </p>
       <p>
         CBCTScope visualizes and navigates images and produces no findings or diagnoses. It is research software, not a
@@ -76,6 +77,9 @@ export default function About() {
       <ul>
         <li>
           <a href="manual/index.html">The user manual</a>, with a reading guide for each mode
+        </li>
+        <li>
+          <a href="online-cbct-viewer">Questions and answers about opening and reading a scan</a>
         </li>
         <li>
           <a href={REPO_URL} target="_blank" rel="noopener noreferrer">

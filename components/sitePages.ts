@@ -1,6 +1,7 @@
 // The words and links of the site's text pages, in one place: the home page's text before the
-// viewer mounts (components/SiteIntro.tsx), the About page and the legal page (app/about,
-// app/legal). tests/posture.test.ts reads the first sentences from here; tests/siteExport.test.ts
+// viewer mounts (components/SiteIntro.tsx), the About page, the legal page and the questions and
+// answers page (app/about, app/legal, app/online-cbct-viewer; its questions are in
+// components/siteQuestions.ts). tests/posture.test.ts reads the first sentences from here; tests/siteExport.test.ts
 // finds them, and every link, in the exported HTML. docs/posture.md, rule 2: a first sentence
 // names the viewer and its author and no AI word.
 import { AUTHOR_PROJECT_URL, RELEASES_URL, REPO_URL } from './links';
@@ -16,13 +17,14 @@ export const HOME_AUTHOR_NAME = 'Reza Motaghi';
 
 /** the home page before the viewer mounts: what it is and who made it */
 export const HOME_LEAD =
-  'CBCTScope is a CBCT and 2D radiograph viewer made by Reza Motaghi, a board-certified oral and maxillofacial radiologist.';
+  'CBCTScope is a free, open source viewer for cone-beam CT (CBCT) scans and 2D dental radiographs, made by Reza Motaghi, a board-certified oral and maxillofacial radiologist.';
 
 /** the privacy sentence, per surface: the web build (and the desktop app, which serves it) or the repository's local app */
-export const HOME_PRIVACY_WEB = 'Scans you open are read in this browser tab and never uploaded.';
-export const HOME_PRIVACY_LOCAL = 'Scans you open are read on this computer and never uploaded.';
+export const HOME_PRIVACY_WEB = 'It opens DICOM exports in your browser: scans you open are read in this tab and never uploaded.';
+export const HOME_PRIVACY_LOCAL = 'It opens DICOM exports on this computer: scans you open are read here and never uploaded.';
 
-export const HOME_RESEARCH = 'CBCTScope is research software and not a medical device: it displays images and produces no findings or diagnoses.';
+/** the research-use sentence (components/siteWords.mjs) */
+export { HOME_RESEARCH } from './siteWords.mjs';
 
 /** the noscript line */
 export const HOME_NOSCRIPT = 'The viewer needs JavaScript. The manual and the pages below do not.';
@@ -72,12 +74,19 @@ export const PHONE_ACTIONS: readonly (SiteLink & { testId: string; share?: typeo
 /** the About page's title and description */
 export const ABOUT_TITLE = 'About CBCTScope, the CBCT and radiograph viewer by Dr. Reza Motaghi';
 export const ABOUT_DESCRIPTION =
-  'What CBCTScope is, who made it, how to cite it, its licence and how it treats your data. A free, local-first CBCT and 2D radiograph viewer; research software, not a medical device.';
+  'What CBCTScope is, who made it, how to cite it, its licence and how it treats your data. A free, open source CBCT and dental radiograph viewer that reads DICOM in your browser; research software, not a medical device.';
 
 /** the legal page's title and description */
 export const LEGAL_TITLE = 'Legal notice and privacy: CBCTScope';
 export const LEGAL_DESCRIPTION =
   'Who publishes cbctscope.com, how the site treats your data, the research-use status of the CBCTScope viewer, and its licence.';
+
+/** the questions and answers page's title (also its h1), description and first sentence (app/online-cbct-viewer) */
+export const QA_TITLE = 'CBCTScope, the free online CBCT viewer: questions and answers';
+export const QA_DESCRIPTION =
+  'How to open, read, measure and export a CBCT scan in CBCTScope, the viewer by Dr. Reza Motaghi, and how it treats your data.';
+export const QA_LEAD =
+  'CBCTScope is a free online CBCT viewer made by Reza Motaghi, a board-certified oral and maxillofacial radiologist: on cbctscope.com it opens a DICOM cone-beam CT scan or a dental radiograph in the browser tab, with nothing installed and nothing uploaded.';
 
 /** the update page's title and description (app/update; not indexed, not in the sitemap) */
 export const UPDATE_TITLE = 'Check for updates: CBCTScope';
@@ -117,6 +126,7 @@ export interface SiteLink {
 export const HOME_LINKS: readonly SiteLink[] = [
   { href: 'manual/index.html', label: 'User manual' },
   ...READING_GUIDES.map(([page, name]) => ({ href: `manual/${page}`, label: `${name} reading guide` })),
+  { href: 'online-cbct-viewer', label: 'Questions and answers' },
   { href: 'about', label: 'About CBCTScope' },
   { href: 'legal', label: 'Legal notice and privacy' },
   { href: REPO_URL, label: 'Source code', external: true },

@@ -1,6 +1,6 @@
 // sitemap.xml and robots.txt for the web build (docs/web-build.md, section 14), written by
 // scripts/build-web.mjs after the export from the pages it actually holds: the home page, the
-// About and legal pages, and every manual page. The update page is a page of the site (it is
+// About, legal and questions and answers pages, and every manual page. The update page is a page of the site (it is
 // served at /update, scripts/vercel-output.mjs) but carries noindex, so the sitemap leaves it out. Every address is the production one
 // (components/siteAddress.mjs), whatever base path the build was made under.
 import { readdirSync, statSync, writeFileSync } from 'node:fs';

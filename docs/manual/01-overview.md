@@ -5,7 +5,7 @@
 CBCTScope opens the CBCT exports already on your computer and reads them in
 eight purpose-built modes. It is not an installed application with an icon: it
 is a small local program you start once per reading session, and your web
-browser is the screen. Nothing about it is online. There is no account, no
+browser is the screen. Your scan never goes online. There is no account, no
 cloud, and no upload; the scan is read in place from the folder it is already
 in, and it never leaves your machine.
 

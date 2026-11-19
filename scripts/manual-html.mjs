@@ -18,14 +18,19 @@
 // beside the page, so manual.js drops that link there. Every page carries a meta description and
 // a title from its manifest entry (pageTitle, description: the question the page answers; the
 // headings in the markdown stay as they are), the canonical production address, and a footer
-// with the author line (to the About page), the viewer and the legal page. No inline script and no remote asset: manual.js and manual.css sit next to the
-// pages, so the web build's CSP (written into every exported page by build-web.mjs) holds.
+// with the author line (to the About page), the viewer and the legal page. The head also carries
+// the share card's Open Graph and Twitter tags (the site's share image) and one JSON-LD data
+// block: the page as a TechArticle of the manual (the index as the manual's CollectionPage)
+// about the viewer, by its author, and its breadcrumb trail. No dates. No executed inline script
+// and no remote asset: manual.js and manual.css sit next to the pages, and the data block is
+// never executed, so the web build's CSP (written into every exported page by build-web.mjs,
+// with no hash for a data block) holds.
 // Markdown rendering: marked (devDependency, exact version, no dependencies of its own).
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Marked } from 'marked';
-import { AUTHOR_URL, canonicalUrl } from '../components/siteAddress.mjs';
+import { AUTHOR_PERSON_ID, AUTHOR_URL, OG_IMAGE, SITE_NAME, SITE_URL, SOFTWARE_ID, canonicalUrl } from '../components/siteAddress.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(here, '..');
@@ -170,10 +175,68 @@ function tocList(manual, currentPage) {
   return `<ol class="toc-list">\n${items}\n</ol>`;
 }
 
-function shell(manual, { page, title, description, body }) {
+/** the manual index's production address, as the sitemap lists it */
+const MANUAL_URL = canonicalUrl('/manual/');
+
+/**
+ * The page's structured data: a TechArticle of the manual (the index: the manual's
+ * CollectionPage), about the viewer, by its author, and a BreadcrumbList from the site to the
+ * page. The JSON is written so no "<" can close the element.
+ */
+export function manualJsonLd(manual, { page, headline, description, canonical, crumb }) {
+  const author = { '@id': AUTHOR_PERSON_ID, '@type': 'Person', name: 'Reza Motaghi' };
+  const about = { '@id': SOFTWARE_ID };
+  const index = page === 'index.html';
+  const item = index
+    ? { '@type': 'CollectionPage', '@id': MANUAL_URL, name: manual.title, description, url: MANUAL_URL, inLanguage: 'en', author, about }
+    : {
+        '@type': 'TechArticle',
+        headline,
+        description,
+        url: canonical,
+        inLanguage: 'en',
+        author,
+        isPartOf: { '@type': 'CollectionPage', '@id': MANUAL_URL, name: manual.title, url: MANUAL_URL },
+        about,
+      };
+  const trail = [
+    [SITE_NAME, canonicalUrl('/')],
+    ['User manual', MANUAL_URL],
+    ...(index ? [] : [[crumb, canonical]]),
+  ];
+  const breadcrumb = {
+    '@type': 'BreadcrumbList',
+    itemListElement: trail.map(([name, url], i) => ({ '@type': 'ListItem', position: i + 1, name, item: url })),
+  };
+  return JSON.stringify({ '@context': 'https://schema.org', '@graph': [item, breadcrumb] }).replace(/</g, '\\u003c');
+}
+
+/** the share card's tags: the page's title, description and address, and the site's share image */
+function shareTags({ title, description, canonical }) {
+  const image = `${SITE_URL}${OG_IMAGE.path}`;
+  return [
+    ['property', 'og:type', 'article'],
+    ['property', 'og:site_name', SITE_NAME],
+    ['property', 'og:title', title],
+    ['property', 'og:description', description],
+    ['property', 'og:url', canonical],
+    ['property', 'og:image', image],
+    ['property', 'og:image:width', String(OG_IMAGE.width)],
+    ['property', 'og:image:height', String(OG_IMAGE.height)],
+    ['property', 'og:image:alt', SITE_NAME],
+    ['name', 'twitter:card', 'summary_large_image'],
+    ['name', 'twitter:title', title],
+    ['name', 'twitter:description', description],
+    ['name', 'twitter:image', image],
+  ]
+    .map(([attr, key, value]) => `<meta ${attr}="${key}" content="${esc(value)}">`)
+    .join('\n');
+}
+
+function shell(manual, { page, title, description, body, headline = title, crumb = title }) {
   // the canonical address: always the production one (components/siteAddress.mjs); the index
   // is the folder, as the sitemap lists it
-  const canonical = canonicalUrl(page === 'index.html' ? '/manual/' : `/manual/${page}`);
+  const canonical = page === 'index.html' ? MANUAL_URL : canonicalUrl(`/manual/${page}`);
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -183,6 +246,8 @@ function shell(manual, { page, title, description, body }) {
 <meta name="description" content="${esc(description)}">
 <meta name="author" content="Reza Motaghi">
 <link rel="canonical" href="${esc(canonical)}">
+${shareTags({ title, description, canonical })}
+<script type="application/ld+json">${manualJsonLd(manual, { page, headline, description, canonical, crumb })}</script>
 <link rel="stylesheet" href="manual.css">
 <script src="manual.js"></script>
 </head>
@@ -229,6 +294,8 @@ ${next ? `<a class="next" href="${esc(next.page)}" rel="next"><span>Next</span>$
     page: c.page,
     title: `${c.pageTitle} · CBCTScope manual`,
     description: c.description,
+    headline: c.pageTitle,
+    crumb: c.title,
     body: `<article class="doc">\n${c.html}</article>\n${pager}`,
   });
 }

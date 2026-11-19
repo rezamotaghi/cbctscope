@@ -22,8 +22,9 @@
 //   (scripts/site-check.mjs --live) waits for it. The pages themselves never carry it: a
 //   preview and the production deployment are two builds, and no Vercel variable changes a page
 //   in either (scripts/site-env.mjs).
-// - overrides: Next's top-level pages (about.html, legal.html, update.html) answer at /about,
-//   /legal and /update, their canonical addresses, without a redirect. The manual's pages keep their .html
+// - overrides: Next's top-level pages (about.html, legal.html, online-cbct-viewer.html,
+//   update.html) answer at /about, /legal, /online-cbct-viewer and /update, their canonical
+//   addresses, without a redirect. The manual's pages keep their .html
 //   addresses, as the sitemap lists them, so a blanket cleanUrls (which would redirect them)
 //   is not used.
 // - an error route: a miss answers 404 with the export's 404.html.

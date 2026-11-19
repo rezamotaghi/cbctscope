@@ -8,7 +8,7 @@ import { expect, test, type Browser, type Page } from '@playwright/test';
 import { guardPage, waitForVolume } from './helpers';
 
 const HOME_LEAD =
-  'CBCTScope is a CBCT and 2D radiograph viewer made by Reza Motaghi, a board-certified oral and maxillofacial radiologist.';
+  'CBCTScope is a free, open source viewer for cone-beam CT (CBCT) scans and 2D dental radiographs, made by Reza Motaghi, a board-certified oral and maxillofacial radiologist.';
 const COMPUTER = 'CBCTScope reads scans on a computer. Open cbctscope.com there.';
 const CONTROLS: [string, string][] = [
   ['User manual', 'manual/index.html'],

@@ -121,8 +121,9 @@ What differs from the local app:
 
 - Until the viewer has loaded, the page shows what CBCTScope is, who made it,
   that scans are read in the tab and never uploaded, and that it is research
-  software, with links to this manual, the eight reading guides, the About
-  and legal pages, the source code and the author's page. A browser without
+  software, with links to this manual, the eight reading guides, a page of
+  questions and answers about opening and reading a scan, the About and
+  legal pages, the source code and the author's page. A browser without
   JavaScript keeps that page and says that the viewer needs JavaScript and
   the manual does not.
 - Scans are opened with the browser's own picker or by a drop on the viewer

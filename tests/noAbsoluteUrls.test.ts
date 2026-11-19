@@ -12,11 +12,11 @@ import { describe, expect, it } from 'vitest';
 const root = process.cwd();
 
 const ALLOWED = new Set([
-  'https://github.com/rezamotaghi/cbctscope', // REPO_URL in components/links.ts (Help menu, About)
+  'https://github.com/rezamotaghi/cbctscope', // REPO_URL in components/siteAddress.mjs, re-exported by components/links.ts (Help menu, About)
   'https://github.com/rezamotaghi/cbctscope/releases/latest', // RELEASES_URL in components/links.ts (the desktop app)
   'http://www.w3.org/2000/svg', // the SVG namespace of a snapshot's annotation layer, not a request
   'https://cbctscope.com', // SITE_URL in components/siteAddress.mjs: the share card's and the canonical address, never requested
-  // links the reader clicks on the home page's text, the About and legal pages (components/links.ts)
+  // links the reader clicks on the home page's text, the About and legal pages (components/links.ts and components/siteAddress.mjs)
   'https://rezamotaghi.com', // AUTHOR_URL
   'https://rezamotaghi.com/cbctscope', // AUTHOR_PROJECT_URL
   'https://orcid.org/0009-0005-3194-1879', // AUTHOR_ORCID (CITATION.cff)

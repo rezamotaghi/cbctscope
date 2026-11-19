@@ -18,6 +18,9 @@ import {
   LEGAL_DESCRIPTION,
   LEGAL_PURPOSE,
   LEGAL_TITLE,
+  QA_DESCRIPTION,
+  QA_LEAD,
+  QA_TITLE,
 } from '../components/sitePages';
 
 const root = process.cwd();
@@ -84,11 +87,14 @@ function readLiteral(src: string, i: number): { value: string; end: number } {
   return { value, end: j + 1 };
 }
 
-/** the string a constant declared in layout.tsx or components/site.ts holds */
+/** the string a constant declared in layout.tsx or components/site.ts holds: a literal, or the web branch of a target ternary */
 function resolveConst(name: string): string | undefined {
   for (const src of [layout, site]) {
     const m = new RegExp(`const\\s+${name}\\b[^=]*=\\s*`).exec(src);
-    if (m && /['"`]/.test(src[m.index + m[0].length])) return readLiteral(src, m.index + m[0].length).value;
+    if (!m) continue;
+    const at = m.index + m[0].length;
+    if (/['"`]/.test(src[at])) return readLiteral(src, at).value;
+    if (src.startsWith('process.env.', at)) return readValue(src, at).strings[0];
   }
   return undefined;
 }
@@ -155,7 +161,7 @@ function surfaces(): [string, string][] {
     ['CITATION.cff title', cff],
     ['package.json description', pkg],
     ['mcp/manifest.json description', bundle],
-    // the site's text pages (components/sitePages.ts): the home page before the viewer, /about, /legal
+    // the site's text pages (components/sitePages.ts): the home page before the viewer, /about, /legal, /online-cbct-viewer
     // the home page's first sentence, before the viewer mounts and on the phone page alike
     ['home page lead (before the viewer mounts, and the phone page)', HOME_LEAD],
     ['/about title', ABOUT_TITLE],
@@ -164,6 +170,9 @@ function surfaces(): [string, string][] {
     ['/legal title', LEGAL_TITLE],
     ['/legal description', LEGAL_DESCRIPTION],
     ['/legal first sentence', LEGAL_PURPOSE],
+    ['/online-cbct-viewer title', QA_TITLE],
+    ['/online-cbct-viewer description', QA_DESCRIPTION],
+    ['/online-cbct-viewer first sentence', QA_LEAD],
     // the manual pages' HTML titles and meta descriptions (docs/manual/manifest.json)
     ...manualPageSurfaces(),
   ];

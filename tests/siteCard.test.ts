@@ -8,9 +8,11 @@ import { CARD_AGENT, CARD_CLAIM, CARD_PRIVACY } from '@/components/siteCard.mjs'
 const read = (p: string) => readFileSync(path.join(process.cwd(), p), 'utf8');
 
 describe('the title and the share card', () => {
-  it('the page, Open Graph and Twitter titles are one line naming the viewer', () => {
+  it('the page, Open Graph and Twitter titles are one line naming the viewer, the web build\'s and the local app\'s', () => {
     const layout = read('app/layout.tsx');
-    expect(layout).toContain("const TITLE = 'CBCTScope: CBCT and radiograph viewer in your browser';");
+    expect(layout).toContain(
+      "const TITLE =\n  process.env.NEXT_PUBLIC_CBCTSCOPE_TARGET === 'web'\n    ? 'CBCTScope: free online CBCT and radiograph viewer'\n    : 'CBCTScope: CBCT and radiograph viewer in your browser';",
+    );
     expect(layout).toMatch(/title: TITLE,/);
     expect(layout).toMatch(/openGraph: \{[^}]*title: TITLE,/);
     expect(layout).toMatch(/twitter: \{[^}]*title: TITLE,/);
@@ -35,6 +37,6 @@ describe('the title and the share card', () => {
     expect(layout).toContain('const CARD_TEXT = `${SITE_CLAIM} ${CARD_AGENT}`;');
     expect(layout).toMatch(/openGraph: \{[^}]*description: CARD_TEXT,/);
     expect(layout).toMatch(/twitter: \{[^}]*description: CARD_TEXT,/);
-    expect(read('components/site.ts')).toContain("path: '/og-card.png'");
+    expect(read('components/siteAddress.mjs')).toContain("path: '/og-card.png'");
   });
 });

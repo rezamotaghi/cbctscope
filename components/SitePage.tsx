@@ -1,4 +1,4 @@
-// The frame of the site's text pages (/about, /legal): a bar of plain links (the viewer, the
+// The frame of the site's text pages (/about, /legal, /online-cbct-viewer): a bar of plain links (the viewer, the
 // manual, About, the legal page), the page, and a footer with the research-use line and the
 // author. Every address is relative to the page, so a base path holds; the viewer
 // is "./", the page beside these. Static: no script of its own.

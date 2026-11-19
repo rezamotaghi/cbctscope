@@ -64,7 +64,8 @@ and `middleware.ts` are not part of the target; static export supports neither. 
 HTML gets the CSP meta tag. `npm run build` for the local app is untouched.
 
 **The page-view counter.** The site's build (`build-web --site`, section 9) writes one more tag
-into each page `sitemap.xml` lists (the home page, the About and legal pages, every manual page),
+into each page `sitemap.xml` lists (the home page, the About, legal and questions and answers pages,
+every manual page),
 right after the CSP meta tag: `<script defer src="/_vercel/insights/script.js"></script>`, Vercel
 Web Analytics in its documented plain-HTML form
 ([Web Analytics](https://vercel.com/docs/analytics/quickstart)), with no inline stub, so the
@@ -199,7 +200,8 @@ full contrast for controls does not bind it; `--text-dim` on the menus' `--panel
 Before any script runs, the exported home page already holds text (section 14): a heading,
 what CBCTScope is and who made it, that scans are read in the tab and never uploaded, that it
 is research software and not a medical device, and plain links to the manual, the eight
-reading guides, the About and legal pages, the source and the author's project page. From
+reading guides, the questions and answers page, the About and legal pages, the source and the
+author's project page. From
 768 px of width up it is
 the loading state of the client-only viewer, so the viewer takes its place once its code has
 loaded, and nothing on the reading screen changes. The page opens on the phantom, as the
@@ -428,8 +430,9 @@ every push and pull request, and then runs `tests/siteExport.test.ts` again on t
   every address also answers with `X-CBCTScope-Commit: <sha>`, the public trace of which
   deployment is live, which the check after a deploy waits for. The pages never carry it.
   These headers are defined in `scripts/vercel-output.mjs` and nowhere else.
-- Addresses: Next writes `about.html`, `legal.html` and `update.html`; `overrides` serves them
-  at `/about`, `/legal` and `/update`, their canonical addresses, without a redirect. The manual keeps its `.html`
+- Addresses: Next writes `about.html`, `legal.html`, `online-cbct-viewer.html` and `update.html`;
+  `overrides` serves them at `/about`, `/legal`, `/online-cbct-viewer` and `/update`, their
+  canonical addresses, without a redirect. The manual keeps its `.html`
   addresses as the sitemap lists them, so a blanket `cleanUrls`, which would redirect them,
   is not used. `/` and `/manual/` are their folders' `index.html`.
 - A miss answers 404 with the export's `404.html` (an error-phase route).
@@ -469,7 +472,7 @@ the script and `package.json` are the deployed commit's), against the public
    commit, so it never checks the deployment before; then every address it reads must carry
    that commit.
 2. Every address in the live `sitemap.xml`, and the fixed files `LIVE_FILES` (robots.txt, the
-   sitemap, both icons, `favicon.ico`, the share image `og-card.png`, `/update`, the agent frame, the manual's
+   sitemap, `llms.txt`, both icons, `favicon.ico`, the share image `og-card.png`, `/update`, the agent frame, the manual's
    index), answers 200 with no redirect, the Content-Type its extension needs (an extensionless
    page or a folder is HTML) and the layout's headers above; `/this-address-does-not-exist`
    answers 404 with the body of `/404.html`.
@@ -1020,9 +1023,13 @@ one site address (`components/siteAddress.mjs`: `SITE_URL`, `https://cbctscope.c
   licence, the privacy summary, links to the manual and the source. **`/legal`**
   (`app/legal/page.tsx`): the legal notice (the Impressum and the disclosure under section 25
   of the Mediengesetz: name, Vienna, Austria, the site's purpose, the contact address; no
-  street address), privacy, research use, licence and warranty. Both share
+  street address), privacy, research use, licence and warranty. **`/online-cbct-viewer`**
+  (`app/online-cbct-viewer/page.tsx`): the questions and answers page, twelve questions about
+  opening and reading a scan, each an `h2` with a short answer taken from the manual and a link
+  to the manual page that covers it, from one array (`components/siteQuestions.ts`) that also
+  gives the page's FAQPage JSON-LD; the home page's list and the About page link it. All three share
   `components/SitePage.tsx`; every address in them is relative, so the base path holds. In the
-  local app and the desktop app the Help menu shows them in the drawer beside the viewer
+  local app and the desktop app the Help menu shows About and the legal page in the drawer beside the viewer
   (`SITE_PAGES` in `ManualDrawer.tsx`); on the website it opens them in a new tab.
 - **Cite this software.** From `CITATION.cff` and the concept DOI: `lib/server/citation.ts`
   reads the file while the pages render and `components/citation.ts` derives the reference
@@ -1037,22 +1044,42 @@ one site address (`components/siteAddress.mjs`: `SITE_URL`, `https://cbctscope.c
   `CITATION.cff` keeps its own ritual for GitHub and Zenodo (the concept DOI at the version
   bump, the version DOI pinned after the release).
 - **Structured data.** The home and About pages carry one JSON-LD `WebApplication`
-  (`components/jsonLd.ts`): name, the site claim, category, systems, free, licence, the version
-  from `package.json`, the address, the repository, the concept DOI, and the author as a `Person` with
-  his site, ORCID and GitHub profile. No ratings, reviews or medical types. The block is a data
-  block the browser never executes, so `scripts/build-web.mjs` gives it no `script-src` hash.
+  (`components/jsonLd.ts`): its `@id` (`https://cbctscope.com/#software`), name, the site claim,
+  category, systems, free (and a zero-price offer), licence, the version from `package.json`,
+  the address, the installers' fixed addresses, the manual as its help, the manual's MPR still
+  (`phone-mpr.webp`) as its screenshot, the eight reading modes by the manual's names as its
+  features, the repository, the author's project page and the DOI address as `sameAs`, the
+  concept DOI, and the author as a `Person` with the `@id` of his own site's record
+  (`https://rezamotaghi.com/#person`), his name with its prefix, his title, his site, ORCID and
+  GitHub profile. The home page adds a `WebSite` record (`https://cbctscope.com/#website`). No ratings, reviews or medical types. The questions and
+  answers page carries one JSON-LD `FAQPage` instead, its questions and answers as the page
+  shows them. Each block is a data block the browser never executes, so `scripts/build-web.mjs` gives it no `script-src` hash.
+- **`llms.txt`**, written by `scripts/llms-txt.mjs` after the export, in the format of
+  [llmstxt.org](https://llmstxt.org): an H1 with the name, a blockquote with the README's claim,
+  one paragraph (where it runs, the share card's privacy line, the research-use sentence), then
+  sections of links with a note after each: the site's pages with the title and description
+  each exported page carries, the manual's index and every page with its manifest title and
+  description, the source, the concept DOI and the author's project page. Every address is the
+  production one. It is a text file, not a page: the sitemap does not list it and the counter
+  is never written into it.
 - **`sitemap.xml` and `robots.txt`**, written by `scripts/sitemap.mjs` after the export from
-  the pages it holds (home, about, legal, every manual page; not the 404 page, the agent
+  the pages it holds (home, about, legal, the questions and answers, every manual page; not the 404 page, the agent
   frame or the noindex update page); robots.txt allows everything and names the sitemap. **Canonical links**: one per
   page, always the production address, also in a build made under a base path (Next's
   `alternates.canonical` for the app's pages, `scripts/manual-html.mjs` for the manual's).
 - **The manual's pages** take their HTML title and meta description from `pageTitle` and
   `description` in `docs/manual/manifest.json` (the question the page answers; the headings and
   chapter numbers stay in the markdown), and a footer with the author line, linking the About
-  page, and links to the viewer and the legal page.
+  page, and links to the viewer and the legal page. Each head also carries the share card's Open
+  Graph and Twitter tags (the page's title, description and address, `og:type` article, the
+  site's `og-card.png` as an absolute address with its size) and one JSON-LD data block: the
+  page as a `TechArticle` (headline, description, address, language, the author by the `@id` of
+  his own site's Person record, part of the manual, about the viewer's `@id`), the index as the
+  manual's `CollectionPage`, and a `BreadcrumbList` (CBCTScope, User manual, the page). No
+  dates. The block is never executed, so `build-web` gives it no hash; nothing visible changes.
 
 These addresses are links and identifiers, never requests: `tests/noAbsoluteUrls.test.ts` lists
 each one. `tests/siteExport.test.ts` parses the export (the served text and links of the home
-page, the parts of /about and /legal, the sitemap against the pages, one canonical per page, no
+page, the parts of /about, /legal and /online-cbct-viewer, the sitemap against the pages, one canonical per page, no
 hash for the data block); `tests/e2e/site.spec.ts` drives the Help menu's three entries and the
 page without JavaScript, with no off-origin request.

@@ -1,18 +1,25 @@
 // The web build's export as a crawler and a reader without scripts meet it (docs/web-build.md,
 // section 14): the served home page carries its text and links before any script runs, the
-// About and legal pages exist with their parts, sitemap.xml lists every page and nothing else,
+// About, legal and questions and answers pages exist with their parts, sitemap.xml lists every page and nothing else,
 // and every page names one canonical production address. The files are parsed, no browser.
 // Runs when out/ exists (after `npm run build:web`), like tests/webBudget.test.ts.
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { HOME_LEAD, HOME_LINKS, HOME_NOSCRIPT, HOME_PRIVACY_WEB, HOME_RESEARCH, LEGAL_PURPOSE, PHONE_ACTIONS, PHONE_COMPUTER, PHONE_LINKS, PHONE_STILL } from '../components/sitePages';
+import { HOME_LEAD, HOME_LINKS, HOME_NOSCRIPT, HOME_PRIVACY_WEB, HOME_RESEARCH, LEGAL_PURPOSE, PHONE_ACTIONS, PHONE_COMPUTER, PHONE_LINKS, PHONE_STILL, QA_LEAD, QA_TITLE } from '../components/sitePages';
+import { SITE_QUESTIONS } from '../components/siteQuestions';
+import { INSTALLER_NAMES, installerUrl } from '../components/downloads';
+import { VIEW_MODES } from '../lib/shared/verbs.mjs';
+import manualManifest from '../docs/manual/manifest.json';
 import { NOINDEX_PAGES, NOT_PAGES, sitemapPages, sitePages, sitePath } from '../scripts/sitemap.mjs';
 import { vercelConfig } from '../scripts/vercel-output.mjs';
 import { LIVE_FILES, exportFiles, forbiddenMarkers, offOriginAssets, pageAssets, typeFileFor, versionProblem } from '../scripts/site-check.mjs';
 import { SITE_URL } from '../components/siteAddress.mjs';
 import { COUNTER_SCRIPT, COUNTER_TAG, counterProblem, isCounted, pagesWithCounter } from '../scripts/site-counter.mjs';
 import pkg from '../package.json';
+import { LLMS_SITE_PAGES } from '../scripts/llms-txt.mjs';
+import { AUTHOR_PROJECT_URL, CONCEPT_DOI, DOI_RESOLVER, REPO_URL } from '../components/siteAddress.mjs';
+import { SITE_CLAIM } from '../components/siteWords.mjs';
 
 const out = path.join(process.cwd(), 'out');
 const built = existsSync(path.join(out, 'index.html'));
@@ -73,7 +80,7 @@ describe.skipIf(!built)('the exported site', () => {
     expectAuthorLink(html, 'Reza Motaghi');
     const links = hrefs(html);
     for (const l of HOME_LINKS) expect(links, `the link to ${l.label}`).toContain(l.href);
-    // the manual, the eight guides, About, legal, the source and the author's page
+    // the manual, the eight guides, the questions and answers, About, legal, the source and the author's page
     expect(HOME_LINKS.filter((l) => l.href.startsWith('manual/'))).toHaveLength(9);
     for (const l of HOME_LINKS) if (!l.external) expect(existsSync(path.join(out, l.href.endsWith('.html') ? l.href : `${l.href}.html`)), l.href).toBe(true);
     expect(text).not.toMatch(/—/);
@@ -106,7 +113,7 @@ describe.skipIf(!built)('the exported site', () => {
       expect(ico.subarray(offset, offset + 8).toString('latin1')).toBe('\x89PNG\r\n\x1a\n');
     }
     // the pages keep linking the SVG and the touch icon; the .ico answers by its address alone
-    for (const file of ['index.html', 'about.html', 'legal.html']) {
+    for (const file of ['index.html', 'about.html', 'legal.html', 'online-cbct-viewer.html']) {
       expect(read(file), file).toMatch(/<link rel="icon" href="\/icon\.svg[^"]*" type="image\/svg\+xml"/);
       expect(read(file), file).not.toContain('favicon.ico');
     }
@@ -115,12 +122,38 @@ describe.skipIf(!built)('the exported site', () => {
   it('the home page and the About page carry the structured data, and the policy gives the data block no hash', () => {
     for (const file of ['index.html', 'about.html']) {
       const html = read(file);
-      const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
-      expect(blocks, file).toHaveLength(1);
-      const data = JSON.parse(blocks[0][1]) as { '@type': string; identifier: { value: string }; author: { name: string } };
-      expect(data['@type']).toBe('WebApplication');
-      expect(data.author.name).toBe('Reza Motaghi');
+      const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]) as Record<string, unknown>);
+      // the home page: the viewer, then the site; the About page: the viewer
+      expect(blocks.map((b) => b['@type']), file).toEqual(file === 'index.html' ? ['WebApplication', 'WebSite'] : ['WebApplication']);
+      const data = blocks[0] as { identifier: { value: string }; featureList: string[]; [field: string]: unknown };
       expect(data.identifier.value).toMatch(/^10\.5281\/zenodo\.\d+$/);
+      expect(data['@id']).toBe('https://cbctscope.com/#software');
+      expect(data.isAccessibleForFree).toBe(true);
+      expect(data.offers).toEqual({ '@type': 'Offer', price: '0', priceCurrency: 'USD' });
+      expect(data.license).toBe('https://github.com/rezamotaghi/cbctscope/blob/main/LICENSE');
+      expect(data.softwareVersion).toBe(pkg.version);
+      expect(data.downloadUrl).toEqual(Object.values(INSTALLER_NAMES).map(installerUrl));
+      expect(data.softwareHelp).toEqual({ '@type': 'CollectionPage', '@id': 'https://cbctscope.com/manual/', name: manualManifest.title, url: 'https://cbctscope.com/manual/' });
+      // the screenshot is a still the site serves
+      expect(data.screenshot).toBe(`https://cbctscope.com/${PHONE_STILL.src}`);
+      expect(existsSync(path.join(out, PHONE_STILL.src))).toBe(true);
+      // the features are the eight reading modes, named as the manual's chapters 8.1 to 8.8 name them, one per view mode
+      expect(data.featureList).toEqual(manualManifest.chapters.filter((c) => c.file.startsWith('docs/reading-modes/')).map((c) => c.title.split(' · ')[1]));
+      expect(data.featureList.map((f) => f.toLowerCase())).toEqual(VIEW_MODES);
+      expect(data.sameAs).toEqual(['https://rezamotaghi.com/cbctscope', 'https://github.com/rezamotaghi/cbctscope', `https://doi.org/${data.identifier.value}`]);
+      expect(data.author).toEqual({
+        '@type': 'Person',
+        '@id': 'https://rezamotaghi.com/#person',
+        name: 'Reza Motaghi',
+        honorificPrefix: 'Dr.',
+        alternateName: 'Dr. Reza Motaghi',
+        jobTitle: 'Board-certified oral and maxillofacial radiologist',
+        url: 'https://rezamotaghi.com',
+        sameAs: ['https://orcid.org/0009-0005-3194-1879', 'https://github.com/rezamotaghi'],
+      });
+      if (file === 'index.html') expect(blocks[1]).toEqual({ '@context': 'https://schema.org', '@type': 'WebSite', '@id': 'https://cbctscope.com/#website', name: 'CBCTScope', url: 'https://cbctscope.com' });
+      // no ratings, reviews or medical types in any block
+      for (const b of blocks) expect(JSON.stringify(b), file).not.toMatch(/aggregateRating|"review|Medical/);
       // one script-src hash per executed inline script, none for the data block
       const csp = decode(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/.exec(html)?.[1] ?? '');
       const executed = [...html.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>/g)].filter((m) => m[2] && !/application\/ld\+json/.test(m[1]));
@@ -147,7 +180,7 @@ describe.skipIf(!built)('the exported site', () => {
     expect(hrefs(html).filter((h) => h.includes('radigrade'))).toEqual(['https://radigrade.com']);
     expect(text).not.toContain('his own site');
     const links = hrefs(html);
-    for (const h of ['https://rezamotaghi.com', 'legal', 'manual/index.html', 'https://github.com/rezamotaghi/cbctscope', 'https://github.com/rezamotaghi/cbctscope/blob/main/LICENSE']) {
+    for (const h of ['https://rezamotaghi.com', 'legal', 'manual/index.html', 'online-cbct-viewer', 'https://github.com/rezamotaghi/cbctscope', 'https://github.com/rezamotaghi/cbctscope/blob/main/LICENSE']) {
       expect(links, h).toContain(h);
     }
     expect(text).not.toMatch(/[—]/);
@@ -189,6 +222,44 @@ describe.skipIf(!built)('the exported site', () => {
     // no street address: no street word followed by a number, no postcode before Vienna or Wien
     expect(text).not.toMatch(/\b\w*(?:straße|strasse|gasse|platz|weg|street|road|avenue)\s*\d/i);
     expect(text).not.toMatch(/\b\d{4}\s+(?:Vienna|Wien)\b/);
+    expect(text).not.toMatch(/[—]/);
+  });
+
+  it('/online-cbct-viewer holds its h1, the lead, every question with its answer and manual link, the matching FAQPage and its canonical', () => {
+    const html = read('online-cbct-viewer.html');
+    const body = html.replace(/<script[\s\S]*?<\/script>/gi, '');
+    const text = servedText(html);
+    expect([...body.matchAll(/<h1>([\s\S]*?)<\/h1>/g)].map((m) => flatText(m[1]))).toEqual([QA_TITLE]);
+    expect(decode(/<title>([^<]*)<\/title>/.exec(html)?.[1] ?? '')).toBe(QA_TITLE);
+    expect(text).toContain(QA_LEAD);
+    expect([...body.matchAll(/<h2>([\s\S]*?)<\/h2>/g)].map((m) => flatText(m[1]))).toEqual(SITE_QUESTIONS.map((q) => q.question));
+    expect(SITE_QUESTIONS.length).toBeGreaterThanOrEqual(8);
+    expect(SITE_QUESTIONS.length).toBeLessThanOrEqual(12);
+    const links = hrefs(html);
+    for (const q of SITE_QUESTIONS) {
+      expect(text, q.question).toContain(q.answer);
+      expect(q.links.length, q.question).toBeGreaterThan(0);
+      for (const l of q.links) {
+        expect(anchorsNamed(html, l.label).map((a) => a.href), q.question).toContain(l.href);
+        // the link lands on a manual page of the export, at a heading it holds
+        const [file, hash] = l.href.split('#');
+        expect(file.startsWith('manual/') && existsSync(path.join(out, file)), l.href).toBe(true);
+        if (hash) expect(read(file), l.href).toContain(`id="${hash}"`);
+        expect(links).toContain(l.href);
+      }
+    }
+    // one mention of the agent, in the privacy answer, with its rule
+    expect(SITE_QUESTIONS.filter((q) => /\bagent\b/i.test(q.answer)).map((q) => q.question)).toEqual(['Is my scan uploaded?']);
+    expect(SITE_QUESTIONS.find((q) => q.question === 'Is my scan uploaded?')?.answer).toContain('moves the camera and never produces findings (the human reads)');
+    // the structured data is the same array: one FAQPage, each question with its answer
+    const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
+    expect(blocks).toHaveLength(1);
+    const data = JSON.parse(blocks[0][1]) as { '@type': string; mainEntity: { '@type': string; name: string; acceptedAnswer: { text: string } }[] };
+    expect(data['@type']).toBe('FAQPage');
+    expect(data.mainEntity).toHaveLength(SITE_QUESTIONS.length);
+    expect(data.mainEntity.map((e) => [e['@type'], e.name, e.acceptedAnswer.text])).toEqual(SITE_QUESTIONS.map((q) => ['Question', q.question, q.answer]));
+    expect([...html.matchAll(/<link rel="canonical" href="([^"]+)"/g)].map((m) => m[1])).toEqual(['https://cbctscope.com/online-cbct-viewer']);
+    expect(vercelConfig(sitePages(out)).overrides['online-cbct-viewer.html']).toEqual({ path: 'online-cbct-viewer', contentType: 'text/html; charset=utf-8' });
     expect(text).not.toMatch(/[—]/);
   });
 
@@ -245,10 +316,11 @@ describe.skipIf(!built)('the exported site', () => {
     expect(listed).toContain('https://cbctscope.com');
     expect(listed).toContain('https://cbctscope.com/about');
     expect(listed).toContain('https://cbctscope.com/legal');
+    expect(listed).toContain('https://cbctscope.com/online-cbct-viewer');
     expect(listed).toContain('https://cbctscope.com/manual/');
     expect(listed).toContain('https://cbctscope.com/manual/mpr.html');
     const manualPages = (JSON.parse(readFileSync(path.join(process.cwd(), 'docs/manual/manifest.json'), 'utf8')) as { chapters: unknown[] }).chapters.length;
-    expect(listed).toHaveLength(manualPages + 4);
+    expect(listed).toHaveLength(manualPages + 5);
     for (const not of NOT_PAGES) expect(listed.some((u) => u.endsWith(`/${not}`) || u.endsWith(`/${not.replace(/\.html$/, '')}`))).toBe(false);
     expect(sitePath('about.html')).toBe('/about');
     expect(sitePath('manual/index.html')).toBe('/manual/');
@@ -280,6 +352,47 @@ describe.skipIf(!built)('the exported site', () => {
       if (SITE_EXPORT && counted.includes(f)) {
         expect(html.slice(0, html.indexOf(COUNTER_TAG)), f).toMatch(/<meta http-equiv="Content-Security-Policy" content="[^"]*"\/>$/);
       }
+    }
+  });
+
+  it('llms.txt: the name, the claim, then links to the sitemap\'s pages and the named project addresses only; not a page', () => {
+    const text = read('llms.txt');
+    const lines = text.split('\n');
+    expect(lines[0]).toBe('# CBCTScope');
+    expect(lines[2]).toBe(`> ${SITE_CLAIM}`);
+    // the paragraph's first sentence says where the viewer runs, with no AI word
+    expect(lines[4].split('. ')[0]).not.toMatch(/\b(AI|agents?|models?|LLMs?|MCP)\b/);
+    expect(lines.filter((l) => l.startsWith('## '))).toEqual(['## The site', '## User manual', '## Source and citation']);
+    const links = [...text.matchAll(/^- \[([^\]]+)\]\(([^)]+)\): (.+)$/gm)].map((m) => ({ text: m[1], url: m[2], note: m[3] }));
+    const sitemap = new Set(sitemapPages(out).map((p) => p.url));
+    const external = [REPO_URL, `${DOI_RESOLVER}${CONCEPT_DOI}`, AUTHOR_PROJECT_URL];
+    for (const l of links) expect(sitemap.has(l.url) || external.includes(l.url), l.url).toBe(true);
+    // every page of the sitemap is listed, the external addresses once each
+    expect(new Set(links.map((l) => l.url).filter((u) => sitemap.has(u)))).toEqual(sitemap);
+    expect(links.filter((l) => external.includes(l.url)).map((l) => l.url)).toEqual(external);
+    // the site's pages carry their own title and description
+    for (const [file, name] of LLMS_SITE_PAGES) {
+      const html = read(file);
+      const title = decode(/<title>([^<]*)<\/title>/.exec(html)?.[1] ?? '');
+      const description = decode(/<meta name="description" content="([^"]*)"/.exec(html)?.[1] ?? '');
+      expect(links.find((l) => l.text === name)?.note, file).toBe(`${title}. ${description}`);
+    }
+    expect(text).not.toMatch(/\u2014/);
+    expect(sitemapPages(out).map((p) => p.file)).not.toContain('llms.txt');
+    expect(isCounted('llms.txt')).toBe(false);
+    expect(text).not.toContain(COUNTER_TAG);
+  });
+
+  it('every manual page carries one JSON-LD data block, and its policy gives the block no hash', () => {
+    for (const { file } of sitePages(out).filter((p) => p.file.startsWith('manual/'))) {
+      const html = read(file);
+      const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
+      expect(blocks, file).toHaveLength(1);
+      const graph = (JSON.parse(blocks[0][1]) as { '@graph': { '@type': string }[] })['@graph'];
+      expect(graph.map((g) => g['@type']), file).toEqual([file === 'manual/index.html' ? 'CollectionPage' : 'TechArticle', 'BreadcrumbList']);
+      const csp = decode(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/.exec(html)?.[1] ?? '');
+      expect(csp, file).toContain('script-src');
+      expect(csp.match(/'sha256-[^']+'/g) ?? [], file).toEqual([]);
     }
   });
 

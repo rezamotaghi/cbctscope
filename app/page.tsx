@@ -4,7 +4,7 @@
 // for the Help menu's Cite dialogue.
 import type { Metadata } from 'next';
 import HomeViewer from '@/components/HomeViewer';
-import { jsonLdText, softwareJsonLd } from '@/components/jsonLd';
+import { jsonLdText, softwareJsonLd, websiteJsonLd } from '@/components/jsonLd';
 import { canonicalUrl } from '@/components/site';
 import { readCitation } from '@/lib/server/citation';
 
@@ -15,6 +15,7 @@ export default function Page() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdText(softwareJsonLd(citation)) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdText(websiteJsonLd()) }} />
       <HomeViewer citation={citation} />
       <noscript>
         {/* without JavaScript: the intro's line that the viewer needs it and the manual does not
